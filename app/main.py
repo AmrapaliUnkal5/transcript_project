@@ -56,3 +56,15 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
 # Utility function to verify password
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
+
+
+# Account Information API
+@app.get("/account", response_model=UserOut)
+def get_account_info(username: str, db: Session = Depends(get_db)):
+    """
+    Fetch and display account information based on the username.
+    """
+    db_user = get_user_by_username(db, username=username)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return db_user

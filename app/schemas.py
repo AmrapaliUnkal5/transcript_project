@@ -11,8 +11,11 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
-class UserOut(UserBase):
-    id: int
+class UserOut(BaseModel):
+    username: str
+    email: str
+    role: str
+    company_name: str
 
     class Config:
         orm_mode = True
