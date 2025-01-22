@@ -4,8 +4,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from .models import Base, User
-from .schemas import UserCreate, UserOut, LoginRequest
-from .crud import get_user_by_username, create_user
+from .schemas import UserCreate, UserOut, LoginRequest,RegisterResponse
+from .crud import get_user_by_username, create_user,get_user_by_email
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 app = FastAPI()
 
 # Database setup
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:root@localhost:5433/chatbot_wrapper"
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres:root@localhost:5433/chatbot"
 
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
@@ -37,18 +37,27 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Register API
-@app.post("/register", response_model=UserOut)
+@app.post("/register", response_model=RegisterResponse)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = get_user_by_username(db, username=user.username)
+    db_user = get_user_by_email(db, user.email)
     if db_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
-    return create_user(db=db, user=user)
+        raise HTTPException(status_code=400, detail="Emailid already registered")
+    new_user = create_user(db, user)
+    return RegisterResponse(
+        message="User registered successfully",
+        user=UserOut(
+            email=new_user.email,
+            role=new_user.role,
+            company_name=new_user.company_name,
+            name=new_user.name
+        )
+    )
 
 
 # Login API - modified to use only username and password
 @app.post("/login")
 def login(login_request: LoginRequest, db: Session = Depends(get_db)):
-    db_user = get_user_by_username(db, username=login_request.username)
+    db_user = get_user_by_email(db, email=login_request.email)
     if not db_user or not verify_password(login_request.password, db_user.password):
         raise HTTPException(status_code=400, detail="Invalid credentials")
     return {"msg": "Login successful"}
@@ -59,12 +68,20 @@ def verify_password(plain_password, hashed_password):
 
 
 # Account Information API
-@app.get("/account", response_model=UserOut)
-def get_account_info(username: str, db: Session = Depends(get_db)):
+@app.get("/account", response_model=RegisterResponse)
+def get_account_info(email: str, db: Session = Depends(get_db)):
     """
     Fetch and display account information based on the username.
     """
-    db_user = get_user_by_username(db, username=username)
+    db_user = get_user_by_email(db, email=email)
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
-    return db_user
+    return RegisterResponse(
+        message="Successfull retrival",
+        user=UserOut(
+            email=db_user.email,
+            role=db_user.role,
+            company_name=db_user.company_name,
+            name=db_user.name
+        )
+    )

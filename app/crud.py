@@ -11,9 +11,21 @@ def get_user_by_username(db: Session, username: str):
     return db.query(User).filter(User.username == username).first()
 
 def create_user(db: Session, user: UserCreate):
-    hashed_password = pwd_context.hash(user.password)
-    db_user = User(username=user.username, email=user.email, password=hashed_password, company_name=user.company_name, role=user.role)
+    hashed_password = pwd_context.hash(user.password) if user.password else None  # Hash password if provided
+    db_user = User(
+        name=user.name,
+        email=user.email,
+        password=hashed_password,
+        role="user",  # Default role
+        is_verified=False,  # Default to unverified
+        avatar_url=None,  # Default to None
+        phone_no=user.phone_no,
+        company_name = user.company_name
+    )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     return db_user
+
+def get_user_by_email(db: Session, email: str):
+    return db.query(User).filter(User.email == email).first()

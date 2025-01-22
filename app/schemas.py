@@ -1,26 +1,39 @@
 # app/schemas.py
-from pydantic import BaseModel
+from pydantic import BaseModel,EmailStr
+from typing import Optional
 
 #creating new users
 class UserBase(BaseModel):
-    username: str
-    email: str
+    
+    email: EmailStr
     company_name: str
     role: str
 
 class UserCreate(UserBase):
-    password: str
+    
+    name: str
+    password: Optional[str] = None
+    token: Optional[str] = None  # Token is optional for non-social logins
+    phone_no: Optional[str] = None
 
 class UserOut(BaseModel):
-    username: str
+    name: str
     email: str
     role: str
-    company_name: str
+    company_name: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # This replaces 'orm_mode'
+
+class RegisterResponse(BaseModel):
+    message: str
+    user: UserOut  # Include the UserOut schema as a nested object
+
+    class Config:
+        from_attributes = True  # This replaces 'orm_mode' for working with SQLAlchemy models
+
 
 # Model for login request
 class LoginRequest(BaseModel):
-    username: str
+    email: EmailStr
     password: str
