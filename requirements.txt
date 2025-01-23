@@ -5,3 +5,7 @@ sqlalchemy
 passlib[bcrypt] 
 python-dotenv
 pydantic[email]
+google-auth
+requests
+python-decouple
+jinja2

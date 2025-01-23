@@ -1,6 +1,7 @@
 # app/models.py
 from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP, func
 from sqlalchemy.ext.declarative import declarative_base
+from pydantic import BaseModel
 
 Base = declarative_base()
 
@@ -18,3 +19,7 @@ class User(Base):
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
     phone_no = Column(String, nullable=True)  # Optional phone number
     company_name = Column(String, nullable=True)  # Optional company name
+
+# Model for the token
+class TokenPayload(BaseModel):
+    credential: str

@@ -1,23 +1,28 @@
 # app/main.py
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from .models import Base, User
 from .schemas import UserCreate, UserOut, LoginRequest,RegisterResponse
-from .crud import get_user_by_username, create_user,get_user_by_email
+from .crud import create_user,get_user_by_email
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
+from app.social_login import router as social_login_router
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from app.config import SQLALCHEMY_DATABASE_URL
+import logging
 
 app = FastAPI()
 
-# Database setup
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:root@localhost:5433/chatbot"
-
-
+app.include_router(social_login_router)
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+templates = Jinja2Templates(directory="app/templates")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -62,6 +67,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid credentials")
     return {"msg": "Login successful"}
 
+
 # Utility function to verify password
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -85,3 +91,13 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
             name=db_user.name
         )
     )
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    logging.debug("Rendering login page.")
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+@app.get("/welcome", response_class=HTMLResponse)
+async def welcome(request: Request):
+    return templates.TemplateResponse("welcome.html", {"request": request})
