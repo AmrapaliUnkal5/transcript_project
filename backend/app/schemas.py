@@ -7,7 +7,7 @@ class UserBase(BaseModel):
     
     email: EmailStr
     company_name: str
-    role: str
+    role: Optional[str] = "client"
 
 class UserCreate(UserBase):
     

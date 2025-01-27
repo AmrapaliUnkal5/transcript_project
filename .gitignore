@@ -35,13 +35,19 @@ htmlcov/
 .tox/
 .nox/
 coverage.xml
+*.pytest_cache/
+.cache/
 
 # IDEs and Editors
 .idea/
 .vscode/
+.vscode-test/
 *.swp
 *.swo
 *~
+*.code-workspace
+*.sublime-workspace
+*.sublime-project
 
 # Frontend Ignores
 frontend/node_modules/
@@ -49,6 +55,7 @@ frontend/dist/
 frontend/build/
 node_modules/
 jspm_packages/
+public/build/
 
 # Logs and Temporary Files
 *.log
@@ -57,11 +64,24 @@ logs/
 *.bak
 .tmp/
 .temp/
+*.pid
+*.seed
+*.pid.lock
 
 # OS Generated Files
 .DS_Store
 Thumbs.db
 ._*
+.AppleDouble
+.LSOverride
+Icon?
+__MACOSX/
+
+# Windows-specific
+Desktop.ini
+ehthumbs.db
+Thumbs.db
+$RECYCLE.BIN/
 
 # JavaScript/Node Specific
 *.tsbuildinfo
@@ -69,20 +89,50 @@ Thumbs.db
 .eslintcache
 *.tgz
 .yarn-integrity
+.pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Environment and Configuration
+.env
+.env.*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.envrc
 !.env.example
 
 # Database and Caches
 *.sqlite3
 *.db
 .ipynb_checkpoints
+*.log.db
+*.db-journal
 
 # Miscellaneous Build Artifacts
 *.manifest
 *.spec
 *.sage.py
+*.coverage
+*.pkl
+*.dat
+*.lock
+
+# FastAPI Specific
+instance/
+*.starlette/
+.starlette_session/
+uvicorn.log
+
+# React Specific
+build/
+dist/
+public/assets/
+*.env.development
+*.env.production
+*.env.test
+
+# Temporary Files
+tmp/
+temp/

@@ -14,9 +14,25 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from app.config import SQLALCHEMY_DATABASE_URL
+from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime, timedelta
+from jose import JWTError, jwt
 import logging
 
 app = FastAPI()
+
+# Secret key for JWT (use a strong secret key in production)
+SECRET_KEY = "your_secret_key"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allow all HTTP headers
+)
 
 app.include_router(social_login_router)
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
@@ -65,12 +81,34 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     db_user = get_user_by_email(db, email=login_request.email)
     if not db_user or not verify_password(login_request.password, db_user.password):
         raise HTTPException(status_code=400, detail="Invalid credentials")
-    return {"msg": "Login successful"}
+    
+    # Create a token for the user
+    token_data = {"sub": db_user.email}
+    access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    
+    # Return token and user info
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "email": db_user.email,
+            "name": db_user.name,
+            "role": db_user.role,
+            "company_name": db_user.company_name,
+        }
+    }
+
 
 
 # Utility function to verify password
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
+
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 # Account Information API
