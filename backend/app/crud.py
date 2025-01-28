@@ -16,7 +16,7 @@ def create_user(db: Session, user: UserCreate):
         name=user.name,
         email=user.email,
         password=hashed_password,
-        role="user",  # Default role
+        role=user.role,  # Default role
         is_verified=False,  # Default to unverified
         avatar_url=None,  # Default to None
         phone_no=user.phone_no,
@@ -29,3 +29,16 @@ def create_user(db: Session, user: UserCreate):
 
 def get_user_by_email(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()
+
+def update_user_password(db: Session, user_id: int, new_password: str):
+    # Hash the new password before storing it in the database
+    hashed_password = pwd_context.hash(new_password)
+
+    # Find the user by their ID
+    db_user = db.query(User).filter(User.user_id == user_id).first()
+    
+    if db_user:
+        db_user.password = hashed_password  # Update the password with the hashed password
+        db.commit()  # Commit the changes to the database
+        db.refresh(db_user)  # Refresh to get the latest changes
+    return db_user
