@@ -1,9 +1,9 @@
 # app/models.py
 from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP, func
-from sqlalchemy.ext.declarative import declarative_base
+from app.database import Base
 from pydantic import BaseModel
 
-Base = declarative_base()
+#Base = declarative_base()
 
 class User(Base):
     __tablename__ = "users"
@@ -23,3 +23,18 @@ class User(Base):
 # Model for the token
 class TokenPayload(BaseModel):
     credential: str
+
+class Bot(Base):
+    __tablename__ = "bots"
+
+    bot_id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=True)
+    bot_name = Column(String, nullable=False)
+    bot_icon = Column(String, nullable=True)
+    font_style = Column(String, nullable=True)
+    font_size = Column(Integer, nullable=True)
+    position = Column(String, nullable=True)
+    max_words_per_message = Column(Integer, nullable=True, default=200)
+    is_active = Column(Boolean, nullable=True, default=True)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=True)
+    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp(), nullable=True)

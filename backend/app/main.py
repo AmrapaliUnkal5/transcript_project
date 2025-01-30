@@ -18,8 +18,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 import logging
+from app.botsettings import router as botsettings_router
+
+
 
 app = FastAPI()
+app.include_router(botsettings_router)
 
 # Secret key for JWT (use a strong secret key in production)
 SECRET_KEY = "your_secret_key"

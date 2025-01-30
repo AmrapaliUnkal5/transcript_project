@@ -6,21 +6,10 @@ from app.models import TokenPayload
 from app.config import GOOGLE_CLIENT_ID , SQLALCHEMY_DATABASE_URL
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
+from app.database import get_db
 
 
 router = APIRouter()
-
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-# Google OAuth details
-
-# Dependency to get the DB session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # Route to handle Google Sign-In token
 @router.post("/auth/google")
