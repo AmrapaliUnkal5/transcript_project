@@ -162,6 +162,7 @@ export const SignUp = () => {
                 <TextField
                   id='standard-basic'
                   label='Password'
+                  type='password'
                   variant='standard'
                   size='small'
                   fullWidth
@@ -172,6 +173,7 @@ export const SignUp = () => {
                 <TextField
                   id='standard-basic'
                   label='Confirm Password'
+                  type='password'
                   variant='standard'
                   size='small'
                   fullWidth
