@@ -61,3 +61,10 @@ class BotCreate(BotBase):
 class BotUpdate(BotBase):
      user_id: Optional[int] = None
 
+#added for Forgotpassword
+class ForgotpasswordRequest(BaseModel):
+    email: EmailStr
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+    password: str

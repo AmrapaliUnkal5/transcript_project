@@ -4,8 +4,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from .models import Base, User
-from .schemas import UserCreate, UserOut, LoginRequest,RegisterResponse
-from .crud import create_user,get_user_by_email
+from .schemas import *
+from .crud import create_user,get_user_by_email, update_user_password
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -17,6 +17,8 @@ from app.config import SQLALCHEMY_DATABASE_URL
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
+from app.utils.email_helper import send_email
+from fastapi.responses import JSONResponse
 import logging
 from app.botsettings import router as botsettings_router
 
@@ -143,3 +145,58 @@ async def read_root(request: Request):
 @app.get("/welcome", response_class=HTMLResponse)
 async def welcome(request: Request):
     return templates.TemplateResponse("welcome.html", {"request": request})
+
+# Route for password reset
+@app.post("/forgot-password/")
+async def forgot_password(request: ForgotpasswordRequest,db: Session = Depends(get_db)):
+    # Generate password reset link (replace with your own logic)
+    # Check if the user exists in the database
+    db_user = get_user_by_email(db, email=request.email)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    reset_link = f"http://localhost:4173/reset-password?email={request.email}"
+
+    # Email content
+    subject = "Password Reset Request"
+    body = f"""
+    Hi,
+
+    We received a request to reset your password. You can reset it by clicking the link below:
+
+    {reset_link}
+
+    If you didn't request a password reset, please ignore this email.
+
+    Thanks,
+    Your Team
+    """
+
+  
+    try:
+        # Attempt to send the email
+        send_email(to_email=request.email, subject=subject, body=body)
+    except Exception as e:
+        # Catch any error that occurs during sending the email
+        raise HTTPException(status_code=500, detail="An error occurred while sending the email. Please try again later.")
+    
+
+    return JSONResponse(content={"message": "Password reset link sent successfully"}, status_code=200)
+
+
+@app.post("/reset-password/")
+async def reset_password(request: PasswordResetRequest, db: Session = Depends(get_db)):
+    # Check if the user exists in the database
+    db_user = get_user_by_email(db, email=request.email)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update the user's password
+    
+    try:
+        # Attempt to update the user's password
+        update_user_password(db, user_id=db_user.user_id, new_password=request.password)
+    except Exception as e:
+        # Catch any unexpected errors
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+    
+    return JSONResponse(content={"message": "Password successfully updated"}, status_code=200)
