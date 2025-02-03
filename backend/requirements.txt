@@ -1,0 +1,12 @@
+fastapi 
+uvicorn 
+psycopg2-binary 
+sqlalchemy 
+passlib[bcrypt] 
+python-dotenv
+pydantic[email]
+google-auth
+requests
+python-decouple
+jinja2
+python-jose
