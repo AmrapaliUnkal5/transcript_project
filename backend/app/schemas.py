@@ -37,3 +37,11 @@ class RegisterResponse(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+#added for Forgotpassword
+class ForgotpasswordRequest(BaseModel):
+    email: EmailStr
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+    password: str
