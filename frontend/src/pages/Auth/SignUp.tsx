@@ -5,6 +5,8 @@ import { authApi, type SignUpData } from '../../services/api';
 import { Box, Button, TextField, Typography } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import GoogleIcon from '@mui/icons-material/Google';
+import AppleIcon from '@mui/icons-material/Apple';
+import FacebookIcon from '@mui/icons-material/Facebook';
 import { grey } from '@mui/material/colors';
 
 export const SignUp = () => {
@@ -83,19 +85,65 @@ export const SignUp = () => {
             Sign Up
           </Typography>
 
-          <Box
-            display={'flex'}
-            justifyContent={'center'}
-            gap={3}
-            p={'20px'}
-            borderRadius={'12px'}
-            boxShadow={'0px 2px 30px 2px rgba(0, 0, 0, 0.08);'}
-            mb={'12px'}
-          >
-            <GoogleIcon />
-            <Typography variant='body1' color={grey[800]}>
-              Continue with Google
-            </Typography>
+
+          <Box>
+            {/* <Typography variant='body1' color={grey[800]} mb={1}>Continue with:</Typography> */}
+
+            <Grid container spacing={2}>
+              <Grid size={4}>
+                <Box
+                  display={'flex'}
+                  justifyContent={'center'}
+                  gap={2}
+                  p={'20px'}
+                  borderRadius={'12px'}
+                  boxShadow={'0px 2px 30px 2px rgba(0, 0, 0, 0.08);'}
+                  mb={'12px'}
+                  sx={{cursor:'pointer'}}
+                >
+                  <GoogleIcon />
+                  <Typography variant='body1' color={grey[800]}>
+                    Google
+                  </Typography>
+                </Box>
+              </Grid>
+
+              <Grid size={4}>
+                <Box
+                    display={'flex'}
+                    justifyContent={'center'}
+                    gap={2}
+                    p={'20px'}
+                    borderRadius={'12px'}
+                    boxShadow={'0px 2px 30px 2px rgba(0, 0, 0, 0.08);'}
+                    mb={'12px'}
+                    sx={{cursor:'pointer'}}
+                  >
+                    <AppleIcon />
+                    <Typography variant='body1' color={grey[800]}>
+                      Apple
+                    </Typography>
+                  </Box>
+              </Grid>
+              <Grid size={4}>
+                <Box
+                    display={'flex'}
+                    justifyContent={'center'}
+                    gap={2}
+                    p={'20px'}
+                    borderRadius={'12px'}
+                    boxShadow={'0px 2px 30px 2px rgba(0, 0, 0, 0.08);'}
+                    mb={'12px'}
+                    sx={{cursor:'pointer'}}
+                  >
+                    <FacebookIcon />
+                    <Typography variant='body1' color={grey[800]}>
+                      Facebook
+                    </Typography>
+                  </Box>
+              </Grid>
+            </Grid>
+            
           </Box>
 
           <Typography
