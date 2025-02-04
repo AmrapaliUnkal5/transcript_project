@@ -1,4 +1,3 @@
-# app/main.py
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -13,7 +12,7 @@ from app.social_login import router as social_login_router
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from app.config import SQLALCHEMY_DATABASE_URL
+from app.config import SQLALCHEMY_DATABASE_URL,settings
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
@@ -21,15 +20,15 @@ from app.utils.email_helper import send_email
 from fastapi.responses import JSONResponse
 import logging
 from app.botsettings import router as botsettings_router
-
-
+from app.admin import init
+from app.utils.verify_password import verify_password
+from app.utils.create_access_token import create_access_token
+from app.database import get_db,engine,SessionLocal
 
 app = FastAPI()
 app.include_router(botsettings_router)
+app.include_router(social_login_router)
 
-# Secret key for JWT (use a strong secret key in production)
-SECRET_KEY = "your_secret_key"
-ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 app.add_middleware(
@@ -40,28 +39,25 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all HTTP headers
 )
 
-app.include_router(social_login_router)
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 templates = Jinja2Templates(directory="app/templates")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# # Initialize Admin Panel
+init(app)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
 
-# Dependency to get the DB session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+#middleware configuration
+@app.middleware("http")
+async def add_db_session_to_request(request: Request, call_next):
+    # Open a new DB session and add it to the request state
+    request.state.db = SessionLocal()
+    response = await call_next(request)
+    return response
 
 # For OAuth2 Password Bearer (for login)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Register API
 @app.post("/register", response_model=RegisterResponse)
@@ -79,7 +75,6 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
             name=new_user.name
         )
     )
-
 
 # Login API - modified to use only username and password
 @app.post("/login")
@@ -103,18 +98,6 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
             "company_name": db_user.company_name,
         }
     }
-
-
-
-# Utility function to verify password
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def create_access_token(data: dict, expires_delta: timedelta = None):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 # Account Information API
