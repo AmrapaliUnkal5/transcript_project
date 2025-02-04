@@ -10,3 +10,4 @@ requests
 python-decouple
 jinja2
 python-jose
+sqladmin
