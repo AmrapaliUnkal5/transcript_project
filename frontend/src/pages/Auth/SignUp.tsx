@@ -81,7 +81,7 @@ export const SignUp = () => {
     >
       <Box className='max-w-lg w-full space-y-8'>
         <Box bgcolor={'#FFF'} borderRadius={4} py={2} px={3}>
-          <Typography variant='h6' mb={2} textAlign={'center'}>
+          <Typography variant='h6' mb={3} textAlign={'center'}>
             Sign Up
           </Typography>
 
@@ -95,7 +95,7 @@ export const SignUp = () => {
                   display={'flex'}
                   justifyContent={'center'}
                   gap={2}
-                  p={'20px'}
+                  p={2}
                   borderRadius={'12px'}
                   boxShadow={'0px 2px 30px 2px rgba(0, 0, 0, 0.08);'}
                   mb={'12px'}
@@ -113,7 +113,7 @@ export const SignUp = () => {
                     display={'flex'}
                     justifyContent={'center'}
                     gap={2}
-                    p={'20px'}
+                    p={2}
                     borderRadius={'12px'}
                     boxShadow={'0px 2px 30px 2px rgba(0, 0, 0, 0.08);'}
                     mb={'12px'}
@@ -130,7 +130,7 @@ export const SignUp = () => {
                     display={'flex'}
                     justifyContent={'center'}
                     gap={2}
-                    p={'20px'}
+                    p={2}
                     borderRadius={'12px'}
                     boxShadow={'0px 2px 30px 2px rgba(0, 0, 0, 0.08);'}
                     mb={'12px'}
