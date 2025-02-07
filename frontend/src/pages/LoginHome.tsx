@@ -8,7 +8,7 @@ export default function LoginHome() {
   return (
     <Box bgcolor='#f2f1ef' minHeight={'100vh'} pt={2}>
       <Box maxWidth={1180} mx={'auto'} borderRadius={4} py={2} px={3}>
-        <Grid container spacing={3} >
+        <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 7 }}>
             <Box px={5} py={2} bgcolor={'#FFF'} borderRadius={4}>
               <Typography variant='h6' mb={3}>
@@ -17,7 +17,7 @@ export default function LoginHome() {
               <Box textAlign={'center'}>
                 <StyledImage
                   src='/images/temp/chatbot-temp1.jpg'
-                  sx={{ margin: 'auto', borderRadius: '16px' }}
+                  sx={{ margin: 'auto', borderRadius: '16px', maxWidth: 525 }}
                 />
               </Box>
             </Box>
@@ -162,14 +162,14 @@ export default function LoginHome() {
                       </button>
                     </div>
                     <Box my={3}>
-                        <div className='text-center'>
+                      <div className='text-center'>
                         <Link
-                            to='/signup'
-                            className='font-medium text-blue-600 hover:text-blue-500'
+                          to='/signup'
+                          className='font-medium text-blue-600 hover:text-blue-500'
                         >
-                            Don't have an account? Sign up
+                          Don't have an account? Sign up
                         </Link>
-                        </div>
+                      </div>
                     </Box>
                   </Grid>
                 </Grid>
@@ -177,6 +177,59 @@ export default function LoginHome() {
             </Box>
           </Grid>
         </Grid>
+        <Box mt={2}>
+          <Box px={5} py={2} bgcolor={'#FFF'} borderRadius={4}>
+            <Grid container spacing={3}>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <Box>
+                  <Typography variant='body1'>Have Questions ? </Typography>
+                  <Typography variant='body2'>Visit our FAQ Section</Typography>
+                  <Typography variant='body2'>
+                    <Link
+                      to='/'
+                      className='font-medium text-blue-600 hover:text-blue-500'
+                    >
+                      {' '}
+                      click here
+                    </Link>
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid
+                size={{ xs: 12, md: 4 }}
+                display={'flex'}
+                justifyContent={'center'}
+              >
+                <Box>
+                  <Typography variant='body1'>Contact us </Typography>
+                  <Typography variant='body2'>Support@Checkme.com</Typography>
+                  <Typography variant='body2'>0123-456789</Typography>
+                </Box>
+              </Grid>
+              <Grid
+                size={{ xs: 12, md: 4 }}
+                display={'flex'}
+                justifyContent={'flex-end'}
+              >
+                <Box minWidth={220}>
+                  <Typography variant='body1'>
+                    Still have questions ?{' '}
+                  </Typography>
+                  <Typography variant='body2'>Request a demo</Typography>
+                  <Typography variant='body2'>
+                    <Link
+                      to='/'
+                      className='font-medium text-blue-600 hover:text-blue-500'
+                    >
+                      {' '}
+                      click here
+                    </Link>
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </Box>
+        </Box>
       </Box>
     </Box>
   );
