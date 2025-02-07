@@ -26,10 +26,7 @@ export interface BotSettings {
   icon: string;
   fontSize: string;
   fontStyle: string;
-  position: {
-    x: number;
-    y: number;
-  };
+  position: string;
   maxMessageLength: number;
   botColor: string;
   userColor: string;
