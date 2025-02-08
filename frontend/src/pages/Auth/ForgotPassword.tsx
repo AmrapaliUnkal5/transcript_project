@@ -1,15 +1,51 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Mail, ArrowLeft } from 'lucide-react';
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { Mail, ArrowLeft } from "lucide-react";
+import { authApi } from "../../services/api"; // Import API call
+import { AxiosError } from "axios";
 
 export const ForgotPassword = () => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    // Add password reset logic
+    setError(null);
+    setMessage(null);
+
+    if (!isValidEmail(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await authApi.forgotPassword({ email });
+      setMessage(response.message); // Success message from API
+      setSubmitted(true);
+    } catch (err) {
+      // Type narrowing to check if err is an instance of AxiosError
+      if (err instanceof AxiosError) {
+        setError(
+          err.response?.data?.detail ||
+            "Something went wrong. Please try again."
+        );
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -25,7 +61,7 @@ export const ForgotPassword = () => {
           </p>
         </div>
 
-        {submitted ? (
+        {submitted && message ? (
           <div className="rounded-md bg-green-50 dark:bg-green-900/20 p-4">
             <div className="flex">
               <div className="flex-shrink-0">
@@ -36,10 +72,7 @@ export const ForgotPassword = () => {
                   Check your email
                 </h3>
                 <div className="mt-2 text-sm text-green-700 dark:text-green-300">
-                  <p>
-                    We've sent a password reset link to {email}. Please check your
-                    inbox.
-                  </p>
+                  <p>{message}</p>
                 </div>
               </div>
             </div>
@@ -67,14 +100,20 @@ export const ForgotPassword = () => {
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
+              {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
             </div>
 
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                disabled={loading}
+                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                  loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
               >
-                Send reset link
+                {loading ? "Sending..." : "Send reset link"}
               </button>
             </div>
           </form>

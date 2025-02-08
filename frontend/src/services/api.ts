@@ -46,6 +46,10 @@ export interface LoginData {
 	password: string;
 }
 
+export interface ForgotPasswordData {
+  email: string;
+}
+
 export const authApi = {
   signup: async (data: SignUpData) => {
     const response = await api.post('/register', data);
@@ -61,6 +65,11 @@ export const authApi = {
   },
   socialLogin: async (provider: string, token: string) => {
     const response = await api.post(`/auth/${provider}/callback`, { token });
+    return response.data;
+  },
+
+  forgotPassword: async (data: ForgotPasswordData) => {
+    const response = await api.post("/forgot-password", data);
     return response.data;
   },
 };
