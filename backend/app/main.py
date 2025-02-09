@@ -24,6 +24,8 @@ from app.admin import init
 from app.utils.verify_password import verify_password
 from app.utils.create_access_token import create_access_token
 from app.database import get_db,engine,SessionLocal
+from app.dependency import require_role,get_current_user
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 app = FastAPI()
 app.include_router(botsettings_router)
@@ -84,7 +86,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid credentials")
     
     # Create a token for the user
-    token_data = {"sub": db_user.email}
+    token_data = {"sub": db_user.email, "role": db_user.role}
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     
     # Return token and user info
@@ -183,3 +185,43 @@ async def reset_password(request: PasswordResetRequest, db: Session = Depends(ge
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
     
     return JSONResponse(content={"message": "Password successfully updated"}, status_code=200)
+
+
+# Token endpoint for OAuth2PasswordBearer
+
+@app.post("/token")
+def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+):
+    print(f"Received login request for: {form_data.username}")
+
+    user = db.query(User).filter(User.email == form_data.username).first()
+    if not user:
+        print("User not found in database")
+        raise HTTPException(status_code=401, detail="User not found")
+
+    if not verify_password(form_data.password, user.password):
+        print("Password verification failed")
+        raise HTTPException(status_code=401, detail="Incorrect password")
+
+    print("User authenticated successfully!")
+    access_token = create_access_token(data={"sub": user.email})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+#API's to check RBAC Functionality
+@app.get("/admin-dashboard")
+def admin_dashboard(current_user= Depends(require_role(["admin"]))):
+    return {"message": "Welcome, Admin!"}
+
+@app.get("/admin-user-access")
+def admin_or_user_route(current_user=Depends(require_role(["admin", "user"]))):
+    return {"message": f"Welcome {current_user.name}, you have access!"}
+
+
+@app.get("/protected-route")
+def protected_route(user: dict = Depends(get_current_user)):
+    return {"message": "You have access", "user": user}
+
+@app.get('/users/me')
+def get_user(current_user = Depends(get_current_user)):
+    return current_user
