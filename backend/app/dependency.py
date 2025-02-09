@@ -51,8 +51,6 @@ from app.admin import AdminAuth  # Import the AdminAuth class
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
-    print("Received Token:", token)  # Debugging
-    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -69,7 +67,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             raise credentials_exception
     except JWTError as e:
         print("JWT Error:", e)  # Debugging
-        raise credentials_exception
+        #raise credentials_exception
     return {"email": email, "role": role}
 
 
@@ -77,7 +75,7 @@ def require_role(allowed_roles: list[str]):
     """
     Checks if the current user has the required role using RBAC.
     """
-
+    print("You are here")   
     def role_checker(user_data: dict = Depends(get_current_user)):
         if user_data["role"] not in allowed_roles:
             raise HTTPException(

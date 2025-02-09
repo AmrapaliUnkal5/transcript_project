@@ -86,7 +86,8 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid credentials")
     
     # Create a token for the user
-    token_data = {"sub": db_user.email, "role": db_user.role}
+    #token_string=db_user.email+","+db_user.role
+    token_data = {"sub": db_user.email,"role":db_user.role}
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     
     # Return token and user info
@@ -205,7 +206,7 @@ def login_for_access_token(
         raise HTTPException(status_code=401, detail="Incorrect password")
 
     print("User authenticated successfully!")
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_access_token(data={"sub": user.email,"role": user.role})
     return {"access_token": access_token, "token_type": "bearer"}
 
 #API's to check RBAC Functionality
