@@ -46,6 +46,10 @@ export interface LoginData {
 	password: string;
 }
 
+export interface ForgotPasswordData {
+  email: string;
+}
+
 export interface BotSettingsData {
   user_id: number;
   bot_name: string;
@@ -74,6 +78,11 @@ export const authApi = {
   },
   socialLogin: async (provider: string, token: string) => {
     const response = await api.post(`/auth/${provider}/callback`, { token });
+    return response.data;
+  },
+
+  forgotPassword: async (data: ForgotPasswordData) => {
+    const response = await api.post("/forgot-password", data);
     return response.data;
   },
   saveBotSettings: async (data: BotSettingsData) => {
