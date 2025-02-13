@@ -50,6 +50,19 @@ export interface ForgotPasswordData {
   email: string;
 }
 
+export interface BotSettingsData {
+  user_id: number;
+  bot_name: string;
+  bot_icon: string;
+  font_style: string;
+  font_size: number;
+  position: string;
+  max_words_per_message: number;
+  bot_color: string;
+  user_color: string;
+  is_active: boolean;
+}
+
 export const authApi = {
   signup: async (data: SignUpData) => {
     const response = await api.post('/register', data);
@@ -72,4 +85,22 @@ export const authApi = {
     const response = await api.post("/forgot-password", data);
     return response.data;
   },
+  saveBotSettings: async (data: BotSettingsData) => {
+    const response = await api.post('/botsettings', data);  // API endpoint to save bot settings
+    return response.data;
+  },
+  getBotSettings: async (bot_id: number) => {
+    const response = await api.get(`/botsettings/${bot_id}`);
+    return response.data;
+  },
+  getBotSettingsByUserId: async (user_id: number): Promise<BotSettingsData[]> => {
+    const response = await api.get(`/botsettings/user/${user_id}`);
+    return response.data;  // This is not used currently Expecting an array of bot settings
+  },
+   // New function to update bot settings
+   updateBotSettings: async (botId: number, data: BotSettingsData) => {
+    const response = await api.put(`/botsettings/${botId}`, data);  // API endpoint to update bot settings
+    return response.data;
+  },
+  
 };

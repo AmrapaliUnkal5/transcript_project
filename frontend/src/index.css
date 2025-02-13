@@ -1,3 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter&family=Roboto&family=Open+Sans&family=Lato&display=swap');
+
+/* Optional: Define utility classes for fonts */
+.font-inter {
+  font-family: 'Inter', sans-serif;
+}
+
+.font-roboto {
+  font-family: 'Roboto', sans-serif;
+}
+
+.font-open-sans {
+  font-family: 'Open Sans', sans-serif;
+}
+
+.font-lato {
+  font-family: 'Lato', sans-serif;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
