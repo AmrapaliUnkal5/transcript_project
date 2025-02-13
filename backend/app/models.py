@@ -38,6 +38,8 @@ class Bot(Base):
     is_active = Column(Boolean, nullable=True, default=True)
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=True)
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp(), nullable=True)
+    bot_color = Column(String, nullable=True)
+    user_color = Column(String, nullable=True)
 
 class File(Base):
     __tablename__ = "files"
@@ -122,3 +124,4 @@ class UserAuthProvider(Base):
     refresh_token = Column(Text, nullable=True)
     token_expiry = Column(TIMESTAMP, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+
