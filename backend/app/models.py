@@ -1,5 +1,5 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP, func,ForeignKey,CheckConstraint,Numeric
+from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP, func, CheckConstraint, ForeignKey,Numeric
 from app.database import Base
 from pydantic import BaseModel
 
