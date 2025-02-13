@@ -214,15 +214,6 @@ def login_for_access_token(
 def admin_dashboard(current_user= Depends(require_role(["admin"]))):
     return {"message": "Welcome, Admin!"}
 
-@app.get("/admin-user-access")
-def admin_or_user_route(current_user=Depends(require_role(["admin", "user"]))):
-    return {"message": f"Welcome {current_user.name}, you have access!"}
-
-
-@app.get("/protected-route")
-def protected_route(user: dict = Depends(get_current_user)):
-    return {"message": "You have access", "user": user}
-
-@app.get('/users/me')
-def get_user(current_user = Depends(get_current_user)):
-    return current_user
+@app.get("/admin-user-dashboard")
+def admin_user_dashboard(current_user= Depends(require_role(["admin","user"]))):
+    return {"message": f"Welcome {current_user}, you have access!"}
