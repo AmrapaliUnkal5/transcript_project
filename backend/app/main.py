@@ -96,9 +96,9 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
             "name": db_user.name,
             "role": db_user.role,
             "company_name": db_user.company_name,
+            "user_id":db_user.user_id,
         }
     }
-
 
 # Account Information API
 @app.get("/account", response_model=RegisterResponse)

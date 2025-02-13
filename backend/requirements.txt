@@ -11,3 +11,6 @@ python-decouple
 jinja2
 python-jose
 sqladmin
+pydantic_settings
+jwt
+itsdangerous

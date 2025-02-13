@@ -6,7 +6,7 @@ from app import schemas
 
 router = APIRouter(prefix="/botsettings", tags=["Bot Settings"])
 
-@router.get("/{bot_id}", response_model=schemas.BotResponse)
+@router.get("/bot/{bot_id}", response_model=schemas.BotResponse)
 def get_bot_settings(bot_id: int, db: Session = Depends(get_db)):
     """Fetch bot settings by bot_id"""
     bot = crud.get_bot_by_id(db, bot_id)
@@ -26,3 +26,9 @@ def update_bot_settings(bot_id: int, bot_data: schemas.BotUpdate, db: Session = 
     if not updated_bot:
         raise HTTPException(status_code=404, detail="Bot not found")
     return updated_bot
+
+@router.get("/user/{user_id}")
+def get_bot_setting_by_user_id(user_id: int, db: Session = Depends(get_db)):
+    """Fetch user details by user_id"""
+    return crud.get_bot_by_user_id(db, user_id) or []    
+ 
