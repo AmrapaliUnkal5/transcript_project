@@ -8,6 +8,8 @@ interface User {
   company_name: string;
   name: string;
   user_id: number;
+  avatar_url?: string;
+  phone_no?: string;
 }
 
 interface AuthContextType {
@@ -22,7 +24,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null); // Change default to `null`
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,6 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (token && userData) {
       try {
         const parsedUserData = JSON.parse(userData);
+        console.log(parsedUserData);
         setIsAuthenticated(true);
         setUser(parsedUserData);
       } catch (error) {
@@ -51,6 +54,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     }
   }, [navigate, location.pathname]);
+
+  if (isAuthenticated === null) {
+    return <div>Loading...</div>; // Prevents redirect while checking localStorage
+  }
 
   const login = (token: string, userData: User) => {
     localStorage.setItem("token", token);

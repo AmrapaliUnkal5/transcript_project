@@ -63,6 +63,11 @@ export interface BotSettingsData {
   is_active: boolean;
 }
 
+export interface uploadAvatar{
+  user_id: number;
+  avatar_url: string;
+}
+
 export const authApi = {
   signup: async (data: SignUpData) => {
     const response = await api.post('/register', data);
@@ -100,6 +105,19 @@ export const authApi = {
    // New function to update bot settings
    updateBotSettings: async (botId: number, data: BotSettingsData) => {
     const response = await api.put(`/botsettings/${botId}`, data);  // API endpoint to update bot settings
+    return response.data;
+  },
+  uploadAvatar: async (formData: FormData) => {
+    const response = await api.post("/upload-avatar", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data", // Make sure to set the Content-Type header
+      },
+    });
+    return response.data;
+  },
+
+  updateAvatar: async (data: uploadAvatar) => {
+    const response = await api.put("/update-avatar", data);
     return response.data;
   },
   

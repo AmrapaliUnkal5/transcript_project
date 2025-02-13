@@ -7,6 +7,10 @@ from app.config import GOOGLE_CLIENT_ID , SQLALCHEMY_DATABASE_URL
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from app.database import get_db
+from app.utils.create_access_token import create_access_token
+from .models import Base, User, UserAuthProvider
+from datetime import datetime, timedelta, timezone
+import time
 
 
 router = APIRouter()
@@ -14,7 +18,9 @@ router = APIRouter()
 # Route to handle Google Sign-In token
 @router.post("/auth/google")
 async def google_auth(payload: TokenPayload, db: Session = Depends(get_db)):
+
     try:
+        print("hi")
         # Log the incoming payload
         print(f"Received payload: {payload}")
         
@@ -24,10 +30,69 @@ async def google_auth(payload: TokenPayload, db: Session = Depends(get_db)):
             requests.Request(),
             GOOGLE_CLIENT_ID
         )
-        print(f"Decoded token info: {token_info}")
+        print(token_info)
 
-        # Return a success message
-        return {"message": "Login Successful"}
+        # Extract user details from token
+        google_user_id = token_info["sub"]
+        email = token_info["email"]
+        name = token_info.get("name", "")
+        avatar_url = token_info.get("picture", "")
+
+        # Check if the user already exists in auth providers
+        auth_provider = db.query(UserAuthProvider).filter_by(
+            provider_user_id=google_user_id,
+            provider_name="google"
+        ).first()
+
+        
+
+        if auth_provider:
+            # Update token details
+            auth_provider.access_token = payload.credential
+            # Check if it's the first time logging in
+            
+            auth_provider.token_expiry = datetime.utcnow() + timedelta(seconds=token_info.get("exp", 3600))
+            db.commit()
+            user = db.query(User).filter_by(user_id=auth_provider.user_id).first()
+        else:
+            # Check if user exists in users table
+            user = db.query(User).filter_by(email=email).first()
+
+            if not user:
+                # Create new user entry
+                user = User(email=email, name=name, avatar_url=avatar_url)
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+
+            # Create new auth provider entry
+            new_auth_provider = UserAuthProvider(
+                user_id=user.user_id,
+                provider_name="google",
+                provider_user_id=google_user_id,
+                access_token=payload.credential,
+                refresh_token=payload.credential,
+                token_expiry = datetime.fromtimestamp(token_info.get("exp", time.time() + 3600), tz=timezone.utc),
+                created_at=datetime.utcnow().replace(tzinfo=timezone.utc) 
+            )
+            db.add(new_auth_provider)
+            db.commit()
+
+        # Generate access token
+        token_data = {"sub": user.email}
+        access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=45))
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "email": user.email,
+                "name": user.name,
+                "user_id": user.user_id,
+                "avatar_url": user.avatar_url,
+            }
+        }
+
 
     except ValueError as e:
         # Log the error for debugging purposes
