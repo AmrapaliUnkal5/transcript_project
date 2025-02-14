@@ -26,7 +26,7 @@ from app.utils.create_access_token import create_access_token
 from app.database import get_db,engine,SessionLocal
 from app.dependency import require_role,get_current_user
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from app.total_conversation import router as bot_conversations_router
+from app.dashboard_consumables import router as bot_conversations_router
 
 app = FastAPI()
 app.include_router(botsettings_router)
