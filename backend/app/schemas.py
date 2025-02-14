@@ -50,6 +50,8 @@ class BotBase(BaseModel):
     is_active: Optional[bool] = True
     bot_color: Optional[str] = None
     user_color: Optional[str] = None
+    appearance: Optional[str] = None
+    temperature: Optional[float] = None
 
 class BotResponse(BotBase):
     bot_id: int

@@ -61,6 +61,8 @@ export interface BotSettingsData {
   bot_color: string;
   user_color: string;
   is_active: boolean;
+  appearance:string;
+  temperature:number;
 }
 
 export const authApi = {
@@ -102,5 +104,17 @@ export const authApi = {
     const response = await api.put(`/botsettings/${botId}`, data);  // API endpoint to update bot settings
     return response.data;
   },
+
+  uploadBotIcon: async (fileData: FormData) => {
+    const response = await api.post("/botsettings/upload_bot", fileData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  },
+
+  getBotConversations: async () => {
+    const response = await api.get('/dashboard_consumables');
+    return response.data;
+  }
   
 };
