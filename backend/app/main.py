@@ -26,6 +26,7 @@ from app.utils.create_access_token import create_access_token
 from app.database import get_db,engine,SessionLocal
 from app.dependency import require_role,get_current_user
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from app.middleware import RoleBasedAccessMiddleware
 
 app = FastAPI()
 app.include_router(botsettings_router)
@@ -40,7 +41,7 @@ app.add_middleware(
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
     allow_headers=["*"],  # Allow all HTTP headers
 )
-
+app.add_middleware(RoleBasedAccessMiddleware)
 templates = Jinja2Templates(directory="app/templates")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -140,16 +141,21 @@ async def forgot_password(request: ForgotpasswordRequest,db: Session = Depends(g
     db_user = get_user_by_email(db, email=request.email)
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
-    reset_link = f"http://localhost:4173/reset-password?email={request.email}"
+    # Generate a secure JWT token
+    token_data = {"email": request.email, "exp": datetime.utcnow() + timedelta(minutes=settings.FORGOT_PASSWORD_TOKEN_EXPIRY_MINUTES)}
+    token = jwt.encode(token_data, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
-    # Email content
+    reset_link = f"{settings.BASE_URL}/reset-password?token={token}"
+
     subject = "Password Reset Request"
     body = f"""
     Hi,
 
-    We received a request to reset your password. You can reset it by clicking the link below:
+    We received a request to reset your password. Click the link below to reset it:
 
     {reset_link}
+
+    This link will expire in {settings.FORGOT_PASSWORD_TOKEN_EXPIRY_MINUTES} minutes.
 
     If you didn't request a password reset, please ignore this email.
 
@@ -157,22 +163,30 @@ async def forgot_password(request: ForgotpasswordRequest,db: Session = Depends(g
     Your Team
     """
 
-  
     try:
-        # Attempt to send the email
         send_email(to_email=request.email, subject=subject, body=body)
-    except Exception as e:
-        # Catch any error that occurs during sending the email
-        raise HTTPException(status_code=500, detail="An error occurred while sending the email. Please try again later.")
-    
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to send email")
 
-    return JSONResponse(content={"message": "Password reset link sent successfully"}, status_code=200)
+    return {"message": "Password reset link sent successfully"}
 
 
 @app.post("/reset-password/")
 async def reset_password(request: PasswordResetRequest, db: Session = Depends(get_db)):
+    
+    try:
+        payload = jwt.decode(request.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        
+        email = payload.get("email")
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=400, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=400, detail="Invalid token")
+    
     # Check if the user exists in the database
-    db_user = get_user_by_email(db, email=request.email)
+    db_user = get_user_by_email(db, email=email)
+    
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
     
