@@ -1,10 +1,10 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi import FastAPI, Depends, HTTPException, status, Request,File, UploadFile, HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from .models import Base, User
 from .schemas import *
-from .crud import create_user,get_user_by_email, update_user_password
+from .crud import create_user,get_user_by_email, update_user_password,update_avatar
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -26,6 +26,10 @@ from app.utils.create_access_token import create_access_token
 from app.database import get_db,engine,SessionLocal
 from app.dependency import require_role,get_current_user
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+import os
+import uuid
+from fastapi.staticfiles import StaticFiles
+
 
 app = FastAPI()
 
@@ -102,6 +106,8 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
             "role": db_user.role,
             "company_name": db_user.company_name,
             "user_id":db_user.user_id,
+            "avatar_url":db_user.avatar_url,
+            "phone_no":db_user.phone_no
         }
     }
 
@@ -219,3 +225,45 @@ def admin_dashboard(current_user= Depends(require_role(["admin"]))):
 @app.get("/admin-user-dashboard")
 def admin_user_dashboard(current_user= Depends(require_role(["admin","user"]))):
     return {"message": f"Welcome {current_user}, you have access!"}
+
+
+
+# Ensure the upload directory exists
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+@app.post("/upload-avatar/")
+async def upload_avatar(file: UploadFile = File(...)):
+    try:
+        # Generate a unique filename
+        file_extension = file.filename.split(".")[-1]
+        print("file_extension", file_extension)
+        filename = f"{uuid.uuid4()}.{file_extension}"
+        print("filename", filename)
+        
+        # Define the file path to save the file
+        file_path = os.path.join(UPLOAD_DIR, filename)
+
+        # Save the file
+        with open(file_path, "wb") as buffer:
+            buffer.write(await file.read())
+
+        # Return the URL of the saved file
+        file_url = f"http://localhost:8000/uploads/{filename}"
+        return JSONResponse(content={"url": file_url}, status_code=200)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.put("/update-avatar/")
+async def update_avatar_endpoint(request: UpdateAvatarRequest, db: Session = Depends(get_db)):
+    """
+    Update the avatar URL for a user.
+    """
+    print("request.user_id",request.user_id)
+    print("request.avatar_url",request.avatar_url)
+    updated_user = update_avatar(db, user_id=request.user_id, avatar_url=request.avatar_url)
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "Avatar updated successfully", "user": updated_user}

@@ -1,19 +1,91 @@
-import React, { useState } from 'react';
-import { User, Mail, Globe, Bell, Shield, Key } from 'lucide-react';
+import React, { useState } from "react";
+import { User, Globe, Bell, Shield, Key } from "lucide-react";
+
+import { authApi } from "../services/api";
 
 export const Settings = () => {
+  // Retrieve user data from localStorage
+
+  const userData = localStorage.getItem("user");
+  const user = userData ? JSON.parse(userData) : null;
+
   const [settings, setSettings] = useState({
+    name: user?.name || "",
+    email: user?.email || "",
+    company_name: user?.company_name || "",
+    phone_no: user?.phone_no || "",
     notifications: {
       email: true,
       push: false,
       desktop: true,
     },
-    language: 'en',
-    theme: 'system',
+    language: "en",
+    theme: "system",
     twoFactor: false,
+    avatar_url:
+      user?.avatar_url ||
+      "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png",
   });
 
-  const handleNotificationChange = (type: keyof typeof settings.notifications) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setError(null);
+    setMessage(null);
+    setLoading(true);
+
+    try {
+      // Upload avatar
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const uploadResponse = await authApi.uploadAvatar(formData);
+      const newAvatarUrl = uploadResponse.url;
+      console.log("newAvatarUrl", newAvatarUrl);
+      console.log("user?.id", user?.user_id);
+
+      // Update avatar in backend
+      await authApi.updateAvatar({
+        user_id: user?.user_id, // Use user.id from context
+        avatar_url: newAvatarUrl,
+      });
+
+      // Update localStorage and AuthContext
+      const updatedUser = { ...user, avatar_url: newAvatarUrl };
+      //setUser(updatedUser); // Update AuthContext state
+      localStorage.setItem("user", JSON.stringify(updatedUser)); // Update localStorage
+      setSettings((prev) => ({
+        ...prev,
+        avatar_url: newAvatarUrl,
+      }));
+      console.log(localStorage.getItem("user"));
+      window.dispatchEvent(new Event("userUpdated"));
+
+      setMessage("Avatar updated successfully!");
+    } catch (error) {
+      console.error("Error updating avatar:", error);
+      setError("Failed to update avatar. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSettings((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleNotificationChange = (
+    type: keyof typeof settings.notifications
+  ) => {
     setSettings((prev) => ({
       ...prev,
       notifications: {
@@ -40,13 +112,27 @@ export const Settings = () => {
         <div className="space-y-4">
           <div className="flex items-center space-x-4">
             <img
-              src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=faces"
+              src={settings.avatar_url}
               alt="Profile"
               className="w-16 h-16 rounded-full"
             />
-            <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+            <button
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              onClick={() => document.getElementById("fileInput")?.click()}
+            >
               Change Photo
             </button>
+            <input
+              id="fileInput"
+              style={{ display: "none" }} // Hide the input field
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              disabled={loading}
+            />
+            {loading && <p>Uploading...</p>}
+            {error && <p style={{ color: "red" }}>{error}</p>}
+            {message && <p style={{ color: "green" }}>{message}</p>}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -55,7 +141,9 @@ export const Settings = () => {
               </label>
               <input
                 type="text"
-                defaultValue="John Doe"
+                value={settings.name}
+                onChange={handleInputChange}
+                disabled
                 className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -65,7 +153,33 @@ export const Settings = () => {
               </label>
               <input
                 type="email"
-                defaultValue="john@example.com"
+                name="email"
+                value={settings.email}
+                disabled
+                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            {/* Phone Number */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Phone Number
+              </label>
+              <input
+                type="text"
+                value={settings.phone_no || ""}
+                disabled
+                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            {/* Company Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Company Name
+              </label>
+              <input
+                type="text"
+                value={settings.company_name || ""}
+                disabled
                 className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -102,12 +216,12 @@ export const Settings = () => {
                   )
                 }
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  value ? 'bg-blue-500' : 'bg-gray-200 dark:bg-gray-700'
+                  value ? "bg-blue-500" : "bg-gray-200 dark:bg-gray-700"
                 }`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    value ? 'translate-x-6' : 'translate-x-1'
+                    value ? "translate-x-6" : "translate-x-1"
                   }`}
                 />
               </button>
@@ -153,7 +267,8 @@ export const Settings = () => {
               <option>UTC+1 (Central European Time)</option>
             </select>
           </div>
-        </div>    </div>
+        </div>{" "}
+      </div>
 
       {/* Security Settings */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
@@ -182,13 +297,13 @@ export const Settings = () => {
               }
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                 settings.twoFactor
-                  ? 'bg-blue-500'
-                  : 'bg-gray-200 dark:bg-gray-700'
+                  ? "bg-blue-500"
+                  : "bg-gray-200 dark:bg-gray-700"
               }`}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  settings.twoFactor ? 'translate-x-6' : 'translate-x-1'
+                  settings.twoFactor ? "translate-x-6" : "translate-x-1"
                 }`}
               />
             </button>

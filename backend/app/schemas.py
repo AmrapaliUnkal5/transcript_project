@@ -72,3 +72,7 @@ class ForgotpasswordRequest(BaseModel):
 class PasswordResetRequest(BaseModel):
     email: EmailStr
     password: str
+
+class UpdateAvatarRequest(BaseModel):
+    user_id: int
+    avatar_url: str
