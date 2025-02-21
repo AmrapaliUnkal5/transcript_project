@@ -1,6 +1,6 @@
 # app/schemas.py
 from pydantic import BaseModel,EmailStr
-from typing import Optional
+from typing import List, Dict, Optional
 
 #creating new users
 class UserBase(BaseModel):
@@ -48,6 +48,10 @@ class BotBase(BaseModel):
     position: Optional[str] = None
     max_words_per_message: Optional[int] = 200
     is_active: Optional[bool] = True
+    bot_color: Optional[str] = None
+    user_color: Optional[str] = None
+    appearance: Optional[str] = None
+    temperature: Optional[float] = None
 
 class BotResponse(BotBase):
     bot_id: int
@@ -66,5 +70,10 @@ class ForgotpasswordRequest(BaseModel):
     email: EmailStr
 
 class PasswordResetRequest(BaseModel):
-    email: EmailStr
+    
+    token: str
     password: str
+
+class UpdateAvatarRequest(BaseModel):
+    user_id: int
+    avatar_url: str

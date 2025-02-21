@@ -1,130 +1,332 @@
-import React, { useState } from 'react';
-import { Upload, Type, Move, MessageSquare, Palette } from 'lucide-react';
-import type { BotSettings } from '../types';
+import React, { useState, useEffect } from "react";
+import { Type, Move, MessageSquare, Palette, Sliders } from "lucide-react";
+import type { BotSettings } from "../types";
+import { authApi } from "../services/api";
+import { useAuth } from "../context/AuthContext";
+import "../index.css";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+const saveBotSettings = async (settings: BotSettings, userId: number) => {
+  console.log("userId", userId);
+  const data = {
+    user_id: userId,
+    bot_name: settings.name,
+    bot_icon: settings.icon,
+    font_style: settings.fontStyle,
+    font_size: parseInt(settings.fontSize), // Assuming fontSize is a string like "14px"
+    position: settings.position,
+    bot_color: settings.botColor,
+    user_color: settings.userColor,
+    max_words_per_message: settings.maxMessageLength,
+    is_active: true, // Assuming the bot should be active by default
+    appearance: settings.appearance,
+    temperature: settings.temperature,
+  };
+
+  try {
+    //const response = await authApi.post("/botsettings", data);
+    const response = await authApi.saveBotSettings(data);
+    console.log("Full response:", response);
+    console.log("Settings saved successfully:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to save settings:", error);
+    throw error;
+  }
+};
+
+const updateBotSettings = async (
+  botId: number,
+  UserId: number,
+  settings: BotSettings
+) => {
+  const data = {
+    user_id: UserId,
+    bot_name: settings.name,
+    bot_icon: settings.icon,
+    font_style: settings.fontStyle,
+    font_size: parseInt(settings.fontSize),
+    position: settings.position,
+    bot_color: settings.botColor,
+    user_color: settings.userColor,
+    max_words_per_message: settings.maxMessageLength,
+    is_active: true,
+    appearance: settings.appearance,
+    temperature: settings.temperature,
+  };
+
+  try {
+    console.log("settings.temperature", settings.temperature);
+    console.log("settings.appearance", settings.appearance);
+    const response = await authApi.updateBotSettings(botId, data);
+    console.log("settings.botColor", settings.botColor);
+    console.log("settings.user_color", settings.userColor);
+    console.log("Settings updated successfully:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to update settings:", error);
+    throw error;
+  }
+};
 
 export const ChatbotCustomization = () => {
+  const { user } = useAuth(); // Get user data from context
+  const userId = user?.user_id;
+  if (!userId) {
+    //alert("User ID is missing. Please log in again.");
+  }
+
+  //console.log("User ID in ChatbotCustomization:", userId);
   const [settings, setSettings] = useState<BotSettings>({
-    name: 'Support Bot',
-    icon: 'https://images.unsplash.com/photo-1531379410502-63bfe8cdaf6f?w=200&h=200&fit=crop&crop=faces',
-    fontSize: '14px',
-    fontStyle: 'Inter',
-    position: { x: 20, y: 20 },
+    name: "Support Bot",
+    icon: "https://images.unsplash.com/photo-1531379410502-63bfe8cdaf6f?w=200&h=200&fit=crop&crop=faces",
+    fontSize: "16px",
+    fontStyle: "Inter",
+    position: "top-left", // changed as per new req
     maxMessageLength: 500,
-    botColor: '#E3F2FD',
-    userColor: '#F3E5F5',
+    botColor: "#E3F2FD",
+    userColor: "#F3E5F5",
+    appearance: "Popup",
+    temperature: 0,
   });
 
-  const handleChange = (field: keyof BotSettings, value: any) => {
+  const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
+  const [botId, setBotId] = useState<number | null>(null);
+
+  // Fetch bot settings on component mount
+  useEffect(() => {
+    const fetchBotSettings = async () => {
+      try {
+        if (!userId) {
+          console.error("User ID is missing.");
+          return;
+        }
+
+        console.log("Fetching bot settings for user_id:", userId);
+        const response = await authApi.getBotSettingsByUserId(userId);
+        console.log("Full response:", response);
+
+        if (response.length > 0) {
+          const firstBotData = Object.values(response[0])[0]; // Get first bot from response
+          console.log("First Bot Data:", firstBotData);
+          // The bot_id is the key of the first object, so extract it dynamically
+          const botId = Number(Object.keys(response[0])[0]);
+          console.log("First Bot id :", botId);
+          setBotId(botId);
+          //setBotId(firstBotData.bot_id); // Assuming bot_id is returned
+          setIsBotExisting(true);
+
+          setSettings({
+            name: firstBotData.bot_name,
+            icon: firstBotData.bot_icon,
+            fontSize: `${firstBotData.font_size}px`,
+            fontStyle: firstBotData.font_style,
+            position: firstBotData.position,
+            maxMessageLength: firstBotData.max_words_per_message,
+            botColor: firstBotData.bot_color,
+            userColor: firstBotData.user_color,
+            appearance: firstBotData.appearance,
+            temperature: firstBotData.temperature,
+          });
+        } else {
+          console.log("No bots found. Using default settings.");
+        }
+      } catch (error) {
+        console.error("Failed to fetch bot settings:", error);
+      }
+    };
+
+    fetchBotSettings();
+  }, [userId]);
+
+  const handleSaveSettings = async () => {
+    console.log("handle Save");
+    console.log("user Id handle Save", userId);
+    try {
+      if (!userId) {
+        //alert("User ID is missing. Please log in again.");
+        return;
+      }
+      console.log("isBotexisting", isBotExisting);
+      console.log("botId", botId);
+
+      if (isBotExisting && botId) {
+        await updateBotSettings(botId, userId, settings); // Update the bot settings if bot exists
+      } else {
+        await saveBotSettings(settings, userId); // Save new bot settings if bot doesn't exist
+      }
+
+      //alert("Settings saved successfully!");
+      toast.success("Settings saved successfully!"); // Success message
+    } catch (error) {
+      console.error(error);
+      //alert("Failed to save settings.");
+      toast.error("Failed to save settings."); // Error message
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) {
+      const file = e.target.files[0];
+      handleIconUpload(file);
+    }
+  };
+  const handleIconUpload = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await authApi.uploadBotIcon(formData); // API call to upload image
+
+      console.log("Upload response:", response);
+
+      const uploadedUrl = response.url; // Assuming the response contains the uploaded URL
+      console.log("uploadedUrl", uploadedUrl);
+      handleChange("icon", uploadedUrl); // Save URL in state
+    } catch (error) {
+      console.error("Failed to upload bot icon:", error);
+      toast.error("Failed to upload bot icon.");
+    }
+  };
+
+  const handleChange = <K extends keyof BotSettings>(
+    field: K,
+    value: BotSettings[K]
+  ) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
   };
 
   const sections = [
     {
-      title: 'Bot Identity',
+      title: "Bot Identity",
       icon: MessageSquare,
       fields: [
         {
-          label: 'Bot Name',
-          type: 'text',
+          label: "Bot Name",
+          type: "text",
           value: settings.name,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange('name', e.target.value),
+            handleChange("name", e.target.value),
         },
         {
-          label: 'Bot Icon',
-          type: 'file',
-          accept: 'image/*',
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-            if (e.target.files?.[0]) {
-              // Handle file upload in production
-              console.log('File selected:', e.target.files[0]);
-            }
-          },
+          label: "Bot Icon",
+          type: "file",
+          accept: "image/*",
+          onChange: handleFileChange,
         },
       ],
     },
     {
-      title: 'Typography',
+      title: "Typography",
       icon: Type,
       fields: [
         {
-          label: 'Font Size',
-          type: 'select',
+          label: "Font Size",
+          type: "select",
           value: settings.fontSize,
-          options: ['12px', '14px', '16px', '18px'],
+          options: ["12px", "14px", "16px", "18px"],
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-            handleChange('fontSize', e.target.value),
+            handleChange("fontSize", e.target.value),
         },
         {
-          label: 'Font Style',
-          type: 'select',
+          label: "Font Style",
+          type: "select",
           value: settings.fontStyle,
-          options: ['Inter', 'Roboto', 'Open Sans', 'Lato'],
+          options: ["Inter", "Roboto", "Open Sans", "Lato"],
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-            handleChange('fontStyle', e.target.value),
+            handleChange("fontStyle", e.target.value),
         },
       ],
     },
     {
-      title: 'Position',
+      title: "Position",
       icon: Move,
       fields: [
         {
-          label: 'X Position',
-          type: 'range',
-          min: 0,
-          max: 100,
-          value: settings.position.x,
+          label: "Chatbot  Position",
+          type: "select",
+          value: settings.position,
+          options: ["top-left", "top-right", "bottom-left", "bottom-right"],
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange('position', {
-              ...settings.position,
-              x: parseInt(e.target.value),
-            }),
-        },
-        {
-          label: 'Y Position',
-          type: 'range',
-          min: 0,
-          max: 100,
-          value: settings.position.y,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange('position', {
-              ...settings.position,
-              y: parseInt(e.target.value),
-            }),
+            handleChange("position", e.target.value),
         },
       ],
     },
     {
-      title: 'Message Settings',
+      title: "Message Settings",
       icon: Palette,
       fields: [
         {
-          label: 'Max Message Length',
-          type: 'number',
+          label: "Max Message Length",
+          type: "number",
           min: 100,
           max: 1000,
           value: settings.maxMessageLength,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange('maxMessageLength', parseInt(e.target.value)),
+            handleChange("maxMessageLength", parseInt(e.target.value)),
         },
         {
-          label: 'Bot Message Color',
-          type: 'color',
+          label: "Bot Message Color",
+          type: "color",
           value: settings.botColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange('botColor', e.target.value),
+            handleChange("botColor", e.target.value),
         },
         {
-          label: 'User Message Color',
-          type: 'color',
+          label: "User Message Color",
+          type: "color",
           value: settings.userColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange('userColor', e.target.value),
+            handleChange("userColor", e.target.value),
+        },
+      ],
+    },
+    {
+      title: "Appearance & Behavior",
+      icon: Sliders,
+      fields: [
+        {
+          label: "Appearance",
+          type: "select",
+          value: settings.appearance,
+          options: ["Popup", "Full Screen"],
+
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("appearance", e.target.value),
+        },
+        {
+          label: "Temperature",
+          type: "slider",
+          min: 0,
+          max: 1,
+          step: "0.01",
+
+          value: settings.temperature, // Controlled state
+
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+            const newTemperature = parseFloat(e.target.value);
+            setSettings((prev) => ({ ...prev, temperature: newTemperature })); // Update settings
+          },
         },
       ],
     },
   ];
+
+  const getPositionStyles = (position: string) => {
+    switch (position) {
+      case "top-left":
+        return { top: "10%", left: "10%", transform: "translate(0, 0)" };
+      case "top-right":
+        return { top: "10%", right: "10%", transform: "translate(0, 0)" };
+      case "bottom-left":
+        return { bottom: "10%", left: "10%", transform: "translate(0, 0)" };
+      case "bottom-right":
+        return { bottom: "10%", right: "10%", transform: "translate(0, 0)" };
+      default:
+        return { bottom: "10%", right: "10%", transform: "translate(0, 0)" }; // Default to bottom-right
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -132,10 +334,14 @@ export const ChatbotCustomization = () => {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           Chatbot Customization
         </h1>
-        <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+        <button
+          onClick={handleSaveSettings}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
           Save Changes
         </button>
       </div>
+      <ToastContainer position="top-right" autoClose={3000} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Settings Panel */}
@@ -157,7 +363,7 @@ export const ChatbotCustomization = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       {field.label}
                     </label>
-                    {field.type === 'select' ? (
+                    {field.type === "select" ? (
                       <select
                         value={field.value}
                         onChange={field.onChange}
@@ -169,6 +375,34 @@ export const ChatbotCustomization = () => {
                           </option>
                         ))}
                       </select>
+                    ) : field.type === "slider" ? (
+                      <div className="relative w-full">
+                        <input
+                          type="range"
+                          min={field.min}
+                          max={field.max}
+                          step={field.step}
+                          value={field.value}
+                          onChange={field.onChange}
+                          className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        {/* Display the current value above the slider's knob */}
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "-20px", // Adjust this value to position the span above the knob
+                            left: `calc(${
+                              ((field.value - field.min) /
+                                (field.max - field.min)) *
+                              100
+                            }% - 10px)`, // Calculate the knob's position
+                            transform: "translateX(-50%)", // Center the span above the knob
+                          }}
+                          className="text-sm font-semibold text-gray-900 dark:text-white"
+                        >
+                          {field.value}
+                        </span>
+                      </div>
                     ) : (
                       <input
                         type={field.type}
@@ -195,10 +429,8 @@ export const ChatbotCustomization = () => {
           <div className="aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg p-4 relative">
             <div
               style={{
-                position: 'absolute',
-                left: `${settings.position.x}%`,
-                top: `${settings.position.y}%`,
-                transform: 'translate(-50%, -50%)',
+                position: "absolute",
+                ...getPositionStyles(settings.position), // Apply computed position styles
               }}
               className="flex items-center space-x-2 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg"
             >
@@ -222,7 +454,9 @@ export const ChatbotCustomization = () => {
                 style={{ backgroundColor: settings.botColor }}
                 className="p-3 rounded-lg max-w-[80%] ml-4"
               >
-                <p className="text-gray-800">Hello! How can I help you today?</p>
+                <p className="text-gray-800">
+                  Hello! How can I help you today?
+                </p>
               </div>
               <div
                 style={{ backgroundColor: settings.userColor }}

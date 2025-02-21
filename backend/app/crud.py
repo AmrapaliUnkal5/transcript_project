@@ -1,8 +1,10 @@
 # app/crud.py
 from sqlalchemy.orm import Session
+from fastapi import HTTPException
 from .models import User, Bot
-from .schemas import UserCreate,BotCreate, BotUpdate
+from .schemas import UserCreate,BotCreate, BotUpdate, BotResponse
 from passlib.context import CryptContext
+
 
 
 # Initialize password hashing context
@@ -63,7 +65,11 @@ def update_bot(db: Session, bot_id: int, bot_data: BotUpdate):
         'font_size': 0,
         'position': 'string',
         'max_words_per_message': 200,
-        'is_active': True
+        'is_active': True,
+        'bot_color': 'string',
+        'user_color': 'string',
+        'appearance':'string',
+        'temperature':'number'
     }
 
     # Update bot object with only provided fields that are different from defaults
@@ -91,3 +97,49 @@ def update_user_password(db: Session, user_id: int, new_password: str):
         db.commit()  # Commit the changes to the database
         db.refresh(db_user)  # Refresh to get the latest changes
     return db_user
+
+def get_bot_by_user_id(db: Session, user_id: int):
+    """Fetch all bot settings for a user_id"""
+    bots = db.query(Bot).filter(Bot.user_id == user_id).all()
+    
+    if not bots:
+        return []
+
+    return [{bot.bot_id: {
+        "user_id": bot.user_id,
+        "bot_name": bot.bot_name,
+        "bot_icon": bot.bot_icon,
+        "font_style": bot.font_style,
+        "font_size": bot.font_size,
+        "position": bot.position,
+        "max_words_per_message": bot.max_words_per_message,
+        "is_active": bot.is_active,
+        "bot_color":bot.bot_color,
+        "user_color":bot.user_color,
+        "appearance":bot.appearance,
+        "temperature":bot.temperature,
+    }} for bot in bots]
+
+
+def update_avatar(db: Session, user_id: int, avatar_url: str):
+    """
+    Update the avatar URL for a user in the database.
+    
+    Args:
+        db (Session): The database session.
+        user_id (int): The ID of the user whose avatar is being updated.
+        avatar_url (str): The new avatar URL.
+    
+    Returns:
+        User: The updated user object.
+    """
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        return None  # User not found
+
+    user.avatar_url = avatar_url
+    db.commit()
+    db.refresh(user)
+    return user
+   
+        

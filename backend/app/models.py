@@ -1,5 +1,5 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP, func
+from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric
 from app.database import Base
 from pydantic import BaseModel
 
@@ -12,7 +12,7 @@ class User(Base):
     name = Column(String, nullable=True)  # Name from frontend
     email = Column(String, unique=True, nullable=False)  # Email from frontend
     password = Column(String, nullable=True)  # Password from frontend (hashed for security)
-    role = Column(String, default="user")  # Default role is 'user'
+    role = Column(String, default="client")  # Default role is 'client'
     is_verified = Column(Boolean, default=False)  # Default verification status
     avatar_url = Column(Text, nullable=True)  # Can be updated later
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
@@ -38,3 +38,92 @@ class Bot(Base):
     is_active = Column(Boolean, nullable=True, default=True)
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=True)
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp(), nullable=True)
+    bot_color = Column(String, nullable=True)
+    user_color = Column(String, nullable=True)
+    appearance = Column(Text, nullable=True)  # New column added
+    temperature = Column(Float, nullable=True)  # New column added
+
+class File(Base):
+    __tablename__ = "files"
+
+    file_id = Column(Integer, primary_key=True, autoincrement=True)
+    bot_id = Column(Integer, ForeignKey("bots.bot_id", onupdate="CASCADE", ondelete="CASCADE"), nullable=True)
+    file_name = Column(String(255), nullable=False)
+    file_type = Column(String(50), nullable=True)
+    file_path = Column(String(500), nullable=True)
+    upload_date = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=True)
+
+class Interaction(Base):
+    __tablename__ = "interactions"
+
+    interaction_id = Column(Integer, primary_key=True, autoincrement=True)
+    bot_id = Column(Integer, ForeignKey("bots.bot_id"), nullable=True)
+    user_message = Column(Text, nullable=False)
+    bot_response = Column(Text, nullable=False)
+    user_attachment = Column(String(255), nullable=True)
+    timestamp = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=True)
+
+class Language(Base):
+    __tablename__ = "languages"
+
+    language_id = Column(
+        Integer, 
+        primary_key=True, 
+        server_default="nextval('languages_language_id_seq'::regclass)"
+    )
+    language_code = Column(String(10), nullable=False)
+    language_name = Column(String(50), nullable=False)
+
+class PerformanceLog(Base):
+    __tablename__ = "performance_logs"
+
+    log_id = Column(
+        Integer, 
+        primary_key=True, 
+        server_default="nextval('performance_logs_log_id_seq'::regclass)"
+    )
+    bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"))
+    user_id = Column(Integer, nullable=True)
+    interaction_count = Column(Integer, default=0, nullable=True)
+    last_interaction = Column(TIMESTAMP, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp(), nullable=False)
+
+class Rating(Base):
+    __tablename__ = "ratings"
+
+    rating_id = Column(Integer, primary_key=True, autoincrement=True)
+    interaction_id = Column(Integer, ForeignKey("interactions.interaction_id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, nullable=True)
+    rating = Column(Integer, nullable=False)
+    feedback = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("rating >= 1 AND rating <= 5", name="ratings_rating_check"),
+    )
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    subscription_id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=True)
+    bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"), nullable=False)
+    amount = Column(Numeric(10, 2), nullable=True)
+    currency = Column(String(10), nullable=False)
+    payment_date = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+    expiry_date = Column(TIMESTAMP, nullable=True)
+    status = Column(String(20), nullable=False, default="active")
+
+class UserAuthProvider(Base):
+    __tablename__ = "user_auth_providers"
+
+    auth_id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=True)
+    provider_name = Column(String(50), nullable=False)
+    provider_user_id = Column(String(255), nullable=False)
+    access_token = Column(Text, nullable=True)
+    refresh_token = Column(Text, nullable=True)
+    token_expiry = Column(TIMESTAMP, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+

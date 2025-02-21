@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 // Define a specific user type
 interface User {
@@ -7,6 +7,9 @@ interface User {
   role: string;
   company_name: string;
   name: string;
+  user_id: number;
+  avatar_url?: string;
+  phone_no?: string;
 }
 
 interface AuthContextType {
@@ -18,23 +21,27 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null); // Change default to `null`
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  console.log("isAuthenticated", isAuthenticated);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
+    const token = localStorage.getItem("token");
+    const userData = localStorage.getItem("user");
 
     if (token && userData) {
       try {
         const parsedUserData = JSON.parse(userData);
+        console.log(parsedUserData);
         setIsAuthenticated(true);
         setUser(parsedUserData);
       } catch (error) {
-        console.error('Error parsing user data:', error);
+        console.error("Error parsing user data:", error);
         setIsAuthenticated(false);
         setUser(null);
       }
@@ -43,25 +50,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
 
       // Only redirect if the user is not already on the signup or login page
-      if (!['/signup', '/login', '/home'].includes(location.pathname)) {
-        navigate('/login');
+      if (
+        !["/signup", "/login", "/forgot-password", "/reset-password" ,"/home"].includes(
+          location.pathname
+        )
+      ) {
+        navigate("/login");
       }
     }
   }, [navigate, location.pathname]);
 
+  if (isAuthenticated === null) {
+    return <div>Loading...</div>; // Prevents redirect while checking localStorage
+  }
+
   const login = (token: string, userData: User) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(userData));
     setIsAuthenticated(true);
     setUser(userData);
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setIsAuthenticated(false);
     setUser(null);
-    navigate('/login'); // Ensure redirection happens after state updates
+    navigate("/login"); // Ensure redirection happens after state updates
   };
 
   return (
@@ -74,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

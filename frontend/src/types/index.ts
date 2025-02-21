@@ -9,7 +9,7 @@ export interface ChatMetrics {
   totalConversations: number;
   averageRating: number;
   responseTime: number;
-  userSatisfaction: number;
+ 
 }
 
 export interface FileUpload {
@@ -26,11 +26,10 @@ export interface BotSettings {
   icon: string;
   fontSize: string;
   fontStyle: string;
-  position: {
-    x: number;
-    y: number;
-  };
+  position: string;
   maxMessageLength: number;
   botColor: string;
   userColor: string;
+  appearance:string;
+  temperature:number;
 }
