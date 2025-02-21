@@ -28,6 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  console.log("isAuthenticated", isAuthenticated);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -49,7 +50,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(null);
 
       // Only redirect if the user is not already on the signup or login page
-      if (!["/signup", "/login"].includes(location.pathname)) {
+      if (
+        !["/signup", "/login", "/forgot-password", "/reset-password"].includes(
+          location.pathname
+        )
+      ) {
         navigate("/login");
       }
     }

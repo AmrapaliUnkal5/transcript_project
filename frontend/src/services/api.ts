@@ -50,6 +50,12 @@ export interface ForgotPasswordData {
   email: string;
 }
 
+export interface PasswordResetData {
+  
+  token: string;
+  password: string;
+}
+
 export interface BotSettingsData {
   user_id: number;
   bot_name: string;
@@ -108,6 +114,13 @@ export const authApi = {
    updateBotSettings: async (botId: number, data: BotSettingsData) => {
     const response = await api.put(`/botsettings/${botId}`, data);  // API endpoint to update bot settings
     return response.data;
+  },
+  resetPassword: async (data: PasswordResetData) => {
+    
+      const response = await api.post("/reset-password", data); // API endpoint to reset password
+      return response.data; // Return the response from the backend
+    
+    
   },
 
   uploadBotIcon: async (fileData: FormData) => {
