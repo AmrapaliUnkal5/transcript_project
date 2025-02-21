@@ -17,7 +17,7 @@ const navItems = [
   { path: '/upload', icon: Upload, label: 'File Upload' },
   { path: '/performance', icon: BarChart2, label: 'Performance' },
   { path: '/subscription', icon: CreditCard, label: 'Subscription' },
-  { path: '/settings', icon: Settings, label: 'Settings' },
+  { path: '/myaccount', icon: Settings, label: 'My Account' },
 ];
 
 export const Sidebar = () => {

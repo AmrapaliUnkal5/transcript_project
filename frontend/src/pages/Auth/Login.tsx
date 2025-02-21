@@ -1,3 +1,9 @@
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Mail, Lock, AlertCircle, Facebook, Apple } from "lucide-react";
@@ -19,12 +25,6 @@ export const Login = () => {
     location.state?.message || null
   );
 
-  declare global {
-    interface Window {
-      google: any;
-    }
-  }
-
   useEffect(() => {
     if (location.state?.message) {
       setSuccessMessage(location.state.message);
@@ -33,23 +33,20 @@ export const Login = () => {
   }, [location]);
 
   // Google authentication response handler
-  const handleCredentialResponse = async (response) => {
+  const handleCredentialResponse = async (response: { credential: string; }) => {
     console.log("Credential response:", response);
     if (response.credential) {
       try {
-        // Send the Google ID token to the backend for verification
-        const res = await axios.post("http://localhost:8000/auth/google", {
-          credential: response.credential, // This is the ID token
-        });
-        console.log(res.data);
-        //alert(res.data.message); // Display the success message from backend
-        login(res.data.access_token, res.data.user); // Login the user
-        //navigate("/"); // Redirect to home page after successful login
+        const res = await authApi.googleLogin(response.credential);
+        
+        console.log(res);
+        login(res.access_token, res.user); // Log in the user
+  
         const from = location.state?.from?.pathname || "/";
-        navigate(from, { replace: true });
+        navigate(from, { replace: true }); // Redirect after successful login
       } catch (error) {
         console.error("Error during Google authentication:", error);
-        //alert("Google authentication failed");
+        setError("Google authentication failed");
       }
     } else {
       console.error("Google login failed");

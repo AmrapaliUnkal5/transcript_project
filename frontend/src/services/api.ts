@@ -148,5 +148,10 @@ export const authApi = {
     const response = await api.put("/update-avatar", data);
     return response.data;
   },
+
+  googleLogin: async (credential: string) => {
+    const response = await api.post("/auth/google", { credential });
+    return response.data;
+  },
   
 };
