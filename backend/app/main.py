@@ -26,6 +26,7 @@ from app.utils.create_access_token import create_access_token
 from app.database import get_db,engine,SessionLocal
 from app.dependency import require_role,get_current_user
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from app.dashboard_consumables import router as bot_conversations_router
 import os
 import uuid
 from fastapi.staticfiles import StaticFiles
@@ -36,6 +37,7 @@ app = FastAPI()
 app.mount("/uploads_bot", StaticFiles(directory="uploads_bot"), name="uploads_bot")
 app.include_router(botsettings_router)
 app.include_router(social_login_router)
+app.include_router(bot_conversations_router)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
