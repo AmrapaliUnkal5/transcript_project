@@ -50,6 +50,8 @@ class BotBase(BaseModel):
     is_active: Optional[bool] = True
     bot_color: Optional[str] = None
     user_color: Optional[str] = None
+    appearance: Optional[str] = None
+    temperature: Optional[float] = None
 
 class BotResponse(BotBase):
     bot_id: int
@@ -70,3 +72,7 @@ class ForgotpasswordRequest(BaseModel):
 class PasswordResetRequest(BaseModel):
     email: EmailStr
     password: str
+
+class UpdateAvatarRequest(BaseModel):
+    user_id: int
+    avatar_url: str

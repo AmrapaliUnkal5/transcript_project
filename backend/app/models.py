@@ -1,5 +1,5 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP, func, CheckConstraint, ForeignKey,Numeric
+from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric
 from app.database import Base
 from pydantic import BaseModel
 
@@ -12,7 +12,7 @@ class User(Base):
     name = Column(String, nullable=True)  # Name from frontend
     email = Column(String, unique=True, nullable=False)  # Email from frontend
     password = Column(String, nullable=True)  # Password from frontend (hashed for security)
-    role = Column(String, default="user")  # Default role is 'user'
+    role = Column(String, default="client")  # Default role is 'client'
     is_verified = Column(Boolean, default=False)  # Default verification status
     avatar_url = Column(Text, nullable=True)  # Can be updated later
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
@@ -40,6 +40,8 @@ class Bot(Base):
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp(), nullable=True)
     bot_color = Column(String, nullable=True)
     user_color = Column(String, nullable=True)
+    appearance = Column(Text, nullable=True)  # New column added
+    temperature = Column(Float, nullable=True)  # New column added
 
 class File(Base):
     __tablename__ = "files"

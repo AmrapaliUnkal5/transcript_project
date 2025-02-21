@@ -67,7 +67,9 @@ def update_bot(db: Session, bot_id: int, bot_data: BotUpdate):
         'max_words_per_message': 200,
         'is_active': True,
         'bot_color': 'string',
-        'user_color': 'string'
+        'user_color': 'string',
+        'appearance':'string',
+        'temperature':'number'
     }
 
     # Update bot object with only provided fields that are different from defaults
@@ -113,7 +115,31 @@ def get_bot_by_user_id(db: Session, user_id: int):
         "max_words_per_message": bot.max_words_per_message,
         "is_active": bot.is_active,
         "bot_color":bot.bot_color,
-        "user_color":bot.user_color
+        "user_color":bot.user_color,
+        "appearance":bot.appearance,
+        "temperature":bot.temperature,
     }} for bot in bots]
+
+
+def update_avatar(db: Session, user_id: int, avatar_url: str):
+    """
+    Update the avatar URL for a user in the database.
+    
+    Args:
+        db (Session): The database session.
+        user_id (int): The ID of the user whose avatar is being updated.
+        avatar_url (str): The new avatar URL.
+    
+    Returns:
+        User: The updated user object.
+    """
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        return None  # User not found
+
+    user.avatar_url = avatar_url
+    db.commit()
+    db.refresh(user)
+    return user
    
         
