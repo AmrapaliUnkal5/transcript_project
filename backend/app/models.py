@@ -1,5 +1,5 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP, func,ForeignKey,CheckConstraint,Numeric
+from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric
 from app.database import Base
 from pydantic import BaseModel
 
@@ -40,6 +40,8 @@ class Bot(Base):
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp(), nullable=True)
     bot_color = Column(String, nullable=True)
     user_color = Column(String, nullable=True)
+    appearance = Column(Text, nullable=True)  # New column added
+    temperature = Column(Float, nullable=True)  # New column added
 
 class File(Base):
     __tablename__ = "files"

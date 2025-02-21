@@ -32,6 +32,8 @@ from fastapi.staticfiles import StaticFiles
 
 
 app = FastAPI()
+
+app.mount("/uploads_bot", StaticFiles(directory="uploads_bot"), name="uploads_bot")
 app.include_router(botsettings_router)
 app.include_router(social_login_router)
 
