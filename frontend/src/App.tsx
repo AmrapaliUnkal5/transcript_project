@@ -38,7 +38,7 @@ function App() {
             <Route path="upload" element={<FileUpload />} />
             <Route path="performance" element={<Performance />} />
             <Route path="subscription" element={<Subscription />} />
-            <Route path="settings" element={<Settings />} />
+            <Route path="myaccount" element={<Settings />} />
           </Route>
         </Routes>
       </AuthProvider>
