@@ -51,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Only redirect if the user is not already on the signup or login page
       if (
-        !["/signup", "/login", "/forgot-password", "/reset-password"].includes(
+        !["/signup", "/login", "/forgot-password", "/reset-password" ,"/home"].includes(
           location.pathname
         )
       ) {
