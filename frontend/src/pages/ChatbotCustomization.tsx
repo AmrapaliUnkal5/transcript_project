@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Type, Move, MessageSquare, Palette } from "lucide-react";
+import { Type, Move, MessageSquare, Palette, Sliders } from "lucide-react";
 import type { BotSettings } from "../types";
 import { authApi } from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -20,6 +20,8 @@ const saveBotSettings = async (settings: BotSettings, userId: number) => {
     user_color: settings.userColor,
     max_words_per_message: settings.maxMessageLength,
     is_active: true, // Assuming the bot should be active by default
+    appearance: settings.appearance,
+    temperature: settings.temperature,
   };
 
   try {
@@ -50,9 +52,13 @@ const updateBotSettings = async (
     user_color: settings.userColor,
     max_words_per_message: settings.maxMessageLength,
     is_active: true,
+    appearance: settings.appearance,
+    temperature: settings.temperature,
   };
 
   try {
+    console.log("settings.temperature", settings.temperature);
+    console.log("settings.appearance", settings.appearance);
     const response = await authApi.updateBotSettings(botId, data);
     console.log("settings.botColor", settings.botColor);
     console.log("settings.user_color", settings.userColor);
@@ -81,6 +87,8 @@ export const ChatbotCustomization = () => {
     maxMessageLength: 500,
     botColor: "#E3F2FD",
     userColor: "#F3E5F5",
+    appearance: "Popup",
+    temperature: 0,
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
@@ -118,6 +126,8 @@ export const ChatbotCustomization = () => {
             maxMessageLength: firstBotData.max_words_per_message,
             botColor: firstBotData.bot_color,
             userColor: firstBotData.user_color,
+            appearance: firstBotData.appearance,
+            temperature: firstBotData.temperature,
           });
         } else {
           console.log("No bots found. Using default settings.");
@@ -156,6 +166,30 @@ export const ChatbotCustomization = () => {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) {
+      const file = e.target.files[0];
+      handleIconUpload(file);
+    }
+  };
+  const handleIconUpload = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await authApi.uploadBotIcon(formData); // API call to upload image
+
+      console.log("Upload response:", response);
+
+      const uploadedUrl = response.url; // Assuming the response contains the uploaded URL
+      console.log("uploadedUrl", uploadedUrl);
+      handleChange("icon", uploadedUrl); // Save URL in state
+    } catch (error) {
+      console.error("Failed to upload bot icon:", error);
+      toast.error("Failed to upload bot icon.");
+    }
+  };
+
   const handleChange = <K extends keyof BotSettings>(
     field: K,
     value: BotSettings[K]
@@ -179,14 +213,7 @@ export const ChatbotCustomization = () => {
           label: "Bot Icon",
           type: "file",
           accept: "image/*",
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-            if (e.target.files?.[0]) {
-              const file = e.target.files[0];
-              const url = URL.createObjectURL(file);
-              handleChange("icon", url); // Update the icon URL in the state
-              console.log("File selected:", e.target.files[0]);
-            }
-          },
+          onChange: handleFileChange,
         },
       ],
     },
@@ -255,6 +282,35 @@ export const ChatbotCustomization = () => {
         },
       ],
     },
+    {
+      title: "Appearance & Behavior",
+      icon: Sliders,
+      fields: [
+        {
+          label: "Appearance",
+          type: "select",
+          value: settings.appearance,
+          options: ["Popup", "Full Screen"],
+
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("appearance", e.target.value),
+        },
+        {
+          label: "Temperature",
+          type: "slider",
+          min: 0,
+          max: 1,
+          step: "0.01",
+
+          value: settings.temperature, // Controlled state
+
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+            const newTemperature = parseFloat(e.target.value);
+            setSettings((prev) => ({ ...prev, temperature: newTemperature })); // Update settings
+          },
+        },
+      ],
+    },
   ];
 
   const getPositionStyles = (position: string) => {
@@ -319,6 +375,34 @@ export const ChatbotCustomization = () => {
                           </option>
                         ))}
                       </select>
+                    ) : field.type === "slider" ? (
+                      <div className="relative w-full">
+                        <input
+                          type="range"
+                          min={field.min}
+                          max={field.max}
+                          step={field.step}
+                          value={field.value}
+                          onChange={field.onChange}
+                          className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        {/* Display the current value above the slider's knob */}
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "-20px", // Adjust this value to position the span above the knob
+                            left: `calc(${
+                              ((field.value - field.min) /
+                                (field.max - field.min)) *
+                              100
+                            }% - 10px)`, // Calculate the knob's position
+                            transform: "translateX(-50%)", // Center the span above the knob
+                          }}
+                          className="text-sm font-semibold text-gray-900 dark:text-white"
+                        >
+                          {field.value}
+                        </span>
+                      </div>
                     ) : (
                       <input
                         type={field.type}

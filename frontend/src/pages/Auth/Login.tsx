@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Mail, Lock, AlertCircle, Facebook, Apple } from 'lucide-react';
-import { authApi } from '../../services/api';
-import { AxiosError } from 'axios';
-import { useAuth } from '../../context/AuthContext';
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Mail, Lock, AlertCircle, Facebook, Apple } from "lucide-react";
+import { authApi } from "../../services/api";
+import { AxiosError } from "axios";
+import { useAuth } from "../../context/AuthContext";
 import axios from "axios";
 
 export const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
   const [rememberMe, setRememberMe] = React.useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,13 +19,12 @@ export const Login = () => {
     location.state?.message || null
   );
 
-
   declare global {
     interface Window {
       google: any;
     }
   }
-  
+
   useEffect(() => {
     if (location.state?.message) {
       setSuccessMessage(location.state.message);
@@ -39,24 +38,26 @@ export const Login = () => {
     if (response.credential) {
       try {
         // Send the Google ID token to the backend for verification
-        const res = await axios.post('/auth/google', {
+        const res = await axios.post("http://localhost:8000/auth/google", {
           credential: response.credential, // This is the ID token
         });
         console.log(res.data);
-        alert(res.data.message);  // Display the success message from backend
+        //alert(res.data.message); // Display the success message from backend
         login(res.data.access_token, res.data.user); // Login the user
-        navigate('/');  // Redirect to home page after successful login
+        //navigate("/"); // Redirect to home page after successful login
+        const from = location.state?.from?.pathname || "/";
+        navigate(from, { replace: true });
       } catch (error) {
         console.error("Error during Google authentication:", error);
-        alert("Google authentication failed");
+        //alert("Google authentication failed");
       }
     } else {
-      console.error('Google login failed');
+      console.error("Google login failed");
     }
   };
 
   useEffect(() => {
-    const script = document.createElement('script');
+    const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
@@ -65,19 +66,22 @@ export const Login = () => {
       console.log("Google API script loaded successfully");
       if (window.google) {
         window.google.accounts.id.initialize({
-          client_id: "752565494028-0ic7r9a791prp55aqkqe5lbjcaqfk9e1.apps.googleusercontent.com", // Replace with your Google client ID
-          callback: handleCredentialResponse,  
+          client_id:
+            "752565494028-0ic7r9a791prp55aqkqe5lbjcaqfk9e1.apps.googleusercontent.com", // Replace with your Google client ID
+          callback: handleCredentialResponse,
+          access_type: "offline",
+          prompt: "consent",
         });
 
         window.google.accounts.id.renderButton(
-          document.getElementById("g_signin"),  
-          { theme: "outline", size: "large" }  
+          document.getElementById("g_signin"),
+          { theme: "outline", size: "large" }
         );
       }
     };
 
     script.onerror = () => {
-      console.error('Failed to load the Google API script');
+      console.error("Failed to load the Google API script");
     };
 
     document.body.appendChild(script);
@@ -91,16 +95,16 @@ export const Login = () => {
     try {
       const response = await authApi.login({ email, password });
       login(response.access_token, response.user);
-      
-      const from = location.state?.from?.pathname || '/';
+
+      const from = location.state?.from?.pathname || "/";
       navigate(from, { replace: true });
     } catch (err) {
       if (err instanceof AxiosError) {
-        setError(err.response?.data?.detail || 'An unexpected error occurred');
+        setError(err.response?.data?.detail || "An unexpected error occurred");
       } else if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('Failed to login');
+        setError("Failed to login");
       }
     } finally {
       setLoading(false);
@@ -159,7 +163,10 @@ export const Login = () => {
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-                  <Mail className="h-5 w-5 text-gray-400" style={{ zIndex: '9' }}/>
+                  <Mail
+                    className="h-5 w-5 text-gray-400"
+                    style={{ zIndex: "9" }}
+                  />
                 </div>
                 <input
                   id="email"
@@ -179,7 +186,10 @@ export const Login = () => {
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-                  <Lock className="h-5 w-5 text-gray-400" style={{ zIndex: '9' }}/>
+                  <Lock
+                    className="h-5 w-5 text-gray-400"
+                    style={{ zIndex: "9" }}
+                  />
                 </div>
                 <input
                   id="password"
@@ -228,11 +238,11 @@ export const Login = () => {
               disabled={loading}
               className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
                 loading
-                  ? 'bg-blue-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                  ? "bg-blue-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               }`}
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? "Signing in..." : "Sign in"}
             </button>
           </div>
 
@@ -254,7 +264,7 @@ export const Login = () => {
             {/* Facebook Button */}
             <button
               type="button"
-              onClick={() => handleSocialLogin('facebook')}
+              onClick={() => handleSocialLogin("facebook")}
               className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               <Facebook className="w-5 h-5 mr-2" />
@@ -264,7 +274,7 @@ export const Login = () => {
             {/* Apple Button */}
             <button
               type="button"
-              onClick={() => handleSocialLogin('apple')}
+              onClick={() => handleSocialLogin("apple")}
               className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               <Apple className="w-5 h-5 mr-2" />

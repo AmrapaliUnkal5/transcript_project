@@ -67,6 +67,13 @@ export interface BotSettingsData {
   bot_color: string;
   user_color: string;
   is_active: boolean;
+  appearance:string;
+  temperature:number;
+}
+
+export interface uploadAvatar{
+  user_id: number;
+  avatar_url: string;
 }
 
 export const authApi = {
@@ -116,6 +123,30 @@ export const authApi = {
     
   },
 
+  uploadBotIcon: async (fileData: FormData) => {
+    const response = await api.post("/botsettings/upload_bot", fileData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  },
 
+  uploadAvatar: async (formData: FormData) => {
+    const response = await api.post("/upload-avatar", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data", // Make sure to set the Content-Type header
+      },
+    });
+    return response.data;
+  },
+  
+  getBotConversations: async () => {
+    const response = await api.get('/dashboard_consumables');
+    return response.data;
+  },
+
+  updateAvatar: async (data: uploadAvatar) => {
+    const response = await api.put("/update-avatar", data);
+    return response.data;
+  },
   
 };

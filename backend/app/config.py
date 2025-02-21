@@ -20,5 +20,6 @@ class Settings(BaseSettings):
     SQLALCHEMY_DATABASE_URL: str = config("DATABASE_URL")
     FORGOT_PASSWORD_TOKEN_EXPIRY_MINUTES: int = 15
     BASE_URL: str =config("BASE_URL")
+    SERVER_URL: str = config("SERVER_URL")  # Add the SERVER_URL here
    
 settings = Settings()
