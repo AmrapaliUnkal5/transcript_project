@@ -14,13 +14,15 @@ export const SignUp = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
     company_name: '',
-    website: '',
-    country: '',
-    name: '',
+    //website: '',
+    //country: '',
+    //name: '',
     email: '',
     password: '',
-    phone:'',
+    phone_no:'',
     confirmPassword: '',
   });
 
@@ -57,9 +59,10 @@ export const SignUp = () => {
     try {
       const signupData: SignUpData = {
         company_name: formData.company_name,
-        website: formData.website,
-        country: formData.country,
-        name: formData.name,
+        //website: formData.website,
+        //country: formData.country,
+        phone_no: formData.phone_no,
+        name: `${formData.firstName} ${formData.lastName}`.trim(),
         email: formData.email,
         password: formData.password,
       };
@@ -156,83 +159,102 @@ export const SignUp = () => {
             or
           </Typography>
 
-          <Box>
+
+          <form onSubmit={handleSubmit}>
+          
             <Grid container spacing={3}>
               <Grid size={6}>
                 <TextField
-                  id='standard-basic'
+                  name='firstName'
                   label='First Name'
                   variant='standard'
                   size='small'
                   fullWidth
                   required
+                  value={formData.firstName}
+                  onChange={handleChange}
                 />
               </Grid>
               <Grid size={6}>
                 <TextField
-                  id='standard-basic'
+                  name='lastName'
                   label='Last Name'
                   variant='standard'
                   size='small'
                   fullWidth
                   required
+                  value={formData.lastName}
+                  onChange={handleChange}
                 />
               </Grid>
               <Grid size={6}>
                 <TextField
-                  id='standard-basic'
+                  name='company_name'
                   label='Company Name'
                   variant='standard'
                   size='small'
                   fullWidth
                   required
+                  value={formData.company_name}
+                  onChange={handleChange}
                 />
               </Grid>
               <Grid size={6}>
                 <TextField
-                  id='standard-basic'
+                  name='phone_no'
                   label='Contact No.'
                   variant='standard'
                   size='small'
                   fullWidth
+                  value={formData.phone_no}
+                  onChange={handleChange}
                 />
               </Grid>
               <Grid size={12}>
                 <TextField
-                  id='standard-basic'
+                  name='email'
                   label='Email'
                   variant='standard'
                   size='small'
                   fullWidth
                   required
+                  value={formData.email}
+                  onChange={handleChange}
                 />
               </Grid>
               <Grid size={12}>
                 <TextField
-                  id='standard-basic'
+                  name='password'
                   label='Password'
                   type='password'
                   variant='standard'
                   size='small'
                   fullWidth
                   required
+                  value={formData.password}
+                  onChange={handleChange}
                 />
               </Grid>
               <Grid size={12}>
                 <TextField
-                  id='standard-basic'
+                  name='confirmPassword'
                   label='Confirm Password'
                   type='password'
                   variant='standard'
                   size='small'
                   fullWidth
                   required
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
                 />
               </Grid>
 
               <Grid size={12}>
-                <Button variant='contained' fullWidth>
-                  Sign Up
+                <Button variant='contained' 
+                  fullWidth type='submit' 
+                  disabled={loading}
+                >
+                  {loading ? 'Signing Up...' : 'Sign Up'}
                 </Button>
               </Grid>
 
@@ -265,8 +287,10 @@ export const SignUp = () => {
                 </Box>
               </Grid>
             </Grid>
-          </Box>
+            </form>
+          
         </Box>
+        
 
         {error && (
           <div className='rounded-md bg-red-50 dark:bg-red-900/20 p-4'>
@@ -493,3 +517,6 @@ export const SignUp = () => {
     </Box>
   );
 };
+
+
+

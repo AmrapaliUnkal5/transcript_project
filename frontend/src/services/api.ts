@@ -34,9 +34,10 @@ api.interceptors.response.use(
 
 export interface SignUpData {
   company_name: string;
-  website: string;
-  country: string;
+  //website: string;
+  //country: string;
   name: string;
+  phone_no:string;
   email: string;
   password: string;
 }
