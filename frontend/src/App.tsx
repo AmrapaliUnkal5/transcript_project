@@ -4,6 +4,8 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout/Layout';
 import { Dashboard } from './pages/Dashboard';
+import { Welcome } from './pages/Welcome';
+import { CreateBot } from './pages/CreateBot';
 import { ChatbotCustomization } from './pages/ChatbotCustomization';
 import { FileUpload } from './pages/FileUpload';
 import { Performance } from './pages/Performance';
@@ -33,7 +35,9 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Dashboard />} />
+            <Route index element={<Welcome />} />
+            <Route path="create-bot" element={<CreateBot />} />
+            <Route path="dashboard" element={<Dashboard />} />
             <Route path="chatbot" element={<ChatbotCustomization />} />
             <Route path="upload" element={<FileUpload />} />
             <Route path="performance" element={<Performance />} />

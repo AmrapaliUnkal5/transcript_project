@@ -12,7 +12,7 @@ import {
 import { authApi } from '../../services/api';
 
 const navItems = [
-  { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/chatbot', icon: MessageSquare, label: 'Chatbot Customization' },
   { path: '/upload', icon: Upload, label: 'File Upload' },
   { path: '/performance', icon: BarChart2, label: 'Performance' },
@@ -34,8 +34,11 @@ export const Sidebar = () => {
 
   return (
     <aside className="bg-white dark:bg-gray-800 w-64 min-h-screen p-4 border-r border-gray-200 dark:border-gray-700">
-      <div className="flex items-center justify-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">BytePX ChatBot</h1>
+      <div 
+        className="flex items-center justify-center mb-8 cursor-pointer hover:opacity-80 transition-opacity"
+        onClick={() => navigate('/')}
+      >
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">BytePX Chatbot</h1>
       </div>
       <nav className="space-y-2">
         {navItems.map((item) => (
