@@ -3,8 +3,11 @@ import { Link } from "react-router-dom"; // Import Link from react-router-dom
 import { BarChart2, MessageSquare, Star, Clock } from "lucide-react";
 import type { ChatMetrics } from "../types";
 import { authApi } from "../services/api";
+import { BotSelector } from '../components/BotSelector';
+import { useBot } from '../context/BotContext';
 
 export const Dashboard = () => {
+  const { selectedBot } = useBot();
   const [metrics, setMetrics] = useState<ChatMetrics>({
     totalConversations: 0,
     averageRating: 0, // Placeholder
@@ -60,11 +63,33 @@ export const Dashboard = () => {
     },
   ];
 
+  if (!selectedBot) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+          <BotSelector />
+        </div>
+        <div className="flex items-center justify-center h-[calc(100vh-12rem)] bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              Select a Bot
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              Choose a bot from the dropdown above to view its dashboard
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-        Dashboard
-      </h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+        <BotSelector />
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {cards.map((card) => (
