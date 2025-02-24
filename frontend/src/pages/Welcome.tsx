@@ -1,40 +1,77 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Bot, ArrowRight, TrendingUp, Settings, MessageSquare, Users, ArrowUpRight } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Bot,
+  ArrowRight,
+  TrendingUp,
+  Settings,
+  MessageSquare,
+  Users,
+  ArrowUpRight,
+} from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { authApi } from "../services/api";
 
 export const Welcome = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const userId = user?.user_id;
   // This would come from your API in a real app
-  const [hasBots] = useState(true);
+  //const [hasBots] = useState(true);
+  const [hasBots, setHasBots] = useState<boolean | null>(null); // Track bot existence
 
+  useEffect(() => {
+    const checkUserBot = async () => {
+      try {
+        if (userId === undefined) return; // Ensure userId is defined before making API call
+
+        const response = await authApi.getBotSettingsByUserId(userId);
+        const botExists = response.length > 0; // Check if bot_id is present
+        setHasBots(botExists);
+      } catch (error) {
+        console.error("Error checking user bot:", error);
+        setHasBots(false); // Assume no bot in case of error
+      }
+    };
+    checkUserBot();
+  }, [userId]);
+
+  if (hasBots === null) {
+    return <div>Loading...</div>; // Show loading state while API call is in progress
+  }
   const recentData = [
-    { day: 'Mon', conversations: 145 },
-    { day: 'Tue', conversations: 132 },
-    { day: 'Wed', conversations: 164 },
-    { day: 'Thu', conversations: 189 },
-    { day: 'Fri', conversations: 176 },
-    { day: 'Sat', conversations: 141 },
-    { day: 'Sun', conversations: 184 }
+    { day: "Mon", conversations: 145 },
+    { day: "Tue", conversations: 132 },
+    { day: "Wed", conversations: 164 },
+    { day: "Thu", conversations: 189 },
+    { day: "Fri", conversations: 176 },
+    { day: "Sat", conversations: 141 },
+    { day: "Sun", conversations: 184 },
   ];
 
   const bots = [
     {
       id: 1,
-      name: 'Support Bot',
-      status: 'active',
+      name: "Support Bot",
+      status: "active",
       conversations: 1289,
       satisfaction: 94,
     },
     {
       id: 2,
-      name: 'Sales Assistant',
-      status: 'active',
+      name: "Sales Assistant",
+      status: "active",
       conversations: 856,
       satisfaction: 89,
-    }
+    },
   ];
 
   const NewUserWelcome = () => (
@@ -45,16 +82,19 @@ export const Welcome = () => {
         </div>
       </div>
       <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-        Welcome to ChatBot Builder, {user?.name}!
+        Welcome, {user?.name}!
       </h1>
+      <h2 className="text-3xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
+        Build your AI Bot in Minutes!
+      </h2>
       <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
-        Let's create your first intelligent chatbot that will help your customers 24/7.
+        Enter your website URL, upload your docs, and let AI do the rest.
       </p>
       <button
-        onClick={() => navigate('/create-bot')}
+        onClick={() => navigate("/create-bot")}
         className="inline-flex items-center px-6 py-3 text-lg font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors"
       >
-        Build Your First Bot
+        Build your Bot
         <ArrowRight className="ml-2 w-5 h-5" />
       </button>
     </div>
@@ -68,11 +108,12 @@ export const Welcome = () => {
             Welcome back, {user?.name}!
           </h1>
           <p className="text-gray-600 dark:text-gray-300 mt-2">
-            Your bots are performing well. Here's an overview of the last 7 days.
+            Your bots are performing well. Here's an overview of the last 7
+            days.
           </p>
         </div>
         <button
-          onClick={() => navigate('/create-bot')}
+          onClick={() => navigate("/create-bot")}
           className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors"
         >
           Create New Bot
@@ -81,20 +122,25 @@ export const Welcome = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {bots.map(bot => (
-          <div key={bot.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        {bots.map((bot) => (
+          <div
+            key={bot.id}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center">
                 <Bot className="w-8 h-8 text-blue-500 mr-3" />
                 <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">{bot.name}</h3>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    {bot.name}
+                  </h3>
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">
                     {bot.status}
                   </span>
                 </div>
               </div>
               <button
-                onClick={() => navigate('/chatbot')}
+                onClick={() => navigate("/chatbot")}
                 className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
               >
                 <Settings className="w-5 h-5" />
@@ -102,13 +148,17 @@ export const Welcome = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-                <div className="text-sm text-gray-500 dark:text-gray-400">Conversations</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  Conversations
+                </div>
                 <div className="text-xl font-semibold text-gray-900 dark:text-white">
                   {bot.conversations.toLocaleString()}
                 </div>
               </div>
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-                <div className="text-sm text-gray-500 dark:text-gray-400">Satisfaction</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  Satisfaction
+                </div>
                 <div className="text-xl font-semibold text-gray-900 dark:text-white">
                   {bot.satisfaction}%
                 </div>
@@ -149,9 +199,13 @@ export const Welcome = () => {
           </h2>
           <div className="space-y-3">
             {[
-              { icon: MessageSquare, label: 'Customize Responses', path: '/chatbot' },
-              { icon: Users, label: 'View Analytics', path: '/performance' },
-              { icon: Settings, label: 'Bot Settings', path: '/settings' },
+              {
+                icon: MessageSquare,
+                label: "Customize Responses",
+                path: "/chatbot",
+              },
+              { icon: Users, label: "View Analytics", path: "/performance" },
+              { icon: Settings, label: "Bot Settings", path: "/settings" },
             ].map((action, index) => (
               <button
                 key={index}
@@ -160,7 +214,9 @@ export const Welcome = () => {
               >
                 <div className="flex items-center">
                   <action.icon className="w-5 h-5 text-blue-500 mr-3" />
-                  <span className="text-gray-700 dark:text-gray-300">{action.label}</span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    {action.label}
+                  </span>
                 </div>
                 <ArrowUpRight className="w-4 h-4 text-gray-400" />
               </button>
