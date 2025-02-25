@@ -96,7 +96,7 @@ export const authApi = {
   },
 
   forgotPassword: async (data: ForgotPasswordData) => {
-    const response = await api.post("/forgot-password", data);
+    const response = await api.post("/forgot-password/", data);
     return response.data;
   },
   saveBotSettings: async (data: BotSettingsData) => {
@@ -132,7 +132,7 @@ export const authApi = {
   },
 
   uploadAvatar: async (formData: FormData) => {
-    const response = await api.post("/upload-avatar", formData, {
+    const response = await api.post("/upload-avatar/", formData, {
       headers: {
         "Content-Type": "multipart/form-data", // Make sure to set the Content-Type header
       },
@@ -146,7 +146,7 @@ export const authApi = {
   },
 
   updateAvatar: async (data: uploadAvatar) => {
-    const response = await api.put("/update-avatar", data);
+    const response = await api.put("/update-avatar/", data);
     return response.data;
   },
 
