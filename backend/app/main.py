@@ -266,7 +266,7 @@ async def upload_avatar(file: UploadFile = File(...)):
             buffer.write(await file.read())
 
         # Return the URL of the saved file
-        file_url = f"http://localhost:8000/uploads/{filename}"
+        file_url = f"{settings.SERVER_URL}/{UPLOAD_DIR}/{filename}"
         return JSONResponse(content={"url": file_url}, status_code=200)
 
     except Exception as e:
