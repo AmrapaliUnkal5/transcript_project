@@ -118,7 +118,7 @@ export const authApi = {
   },
   resetPassword: async (data: PasswordResetData) => {
     
-      const response = await api.post("/reset-password", data); // API endpoint to reset password
+      const response = await api.post("/reset-password/", data); // API endpoint to reset password
       return response.data; // Return the response from the backend
     
     
