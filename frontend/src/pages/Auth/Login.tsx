@@ -146,9 +146,9 @@ export const Login = () => {
 
               <Box px={2}>
                 {error && (
-                  <Box mb={2} textAlign="center" color="error.main">
+                  <Box mb={2} display="flex" alignItems="center" justifyContent="center" color="error.main">
                     <AlertCircle size={16} style={{ marginRight: 8 }} />
-                    {error}
+                    <Typography variant="body2">{error}</Typography>
                   </Box>
                 )}
                 {successMessage && (
