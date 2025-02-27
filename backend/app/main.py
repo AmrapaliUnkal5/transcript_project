@@ -32,7 +32,6 @@ import os
 import uuid
 from fastapi.staticfiles import StaticFiles
 
-
 app = FastAPI()
 
 app.mount("/uploads_bot", StaticFiles(directory="uploads_bot"), name="uploads_bot")
@@ -241,8 +240,6 @@ def admin_dashboard(current_user= Depends(require_role(["admin"]))):
 @app.get("/admin-user-dashboard")
 def admin_user_dashboard(current_user= Depends(require_role(["admin","user"]))):
     return {"message": f"Welcome {current_user}, you have access!"}
-
-
 
 # Ensure the upload directory exists
 UPLOAD_DIR = "uploads"
