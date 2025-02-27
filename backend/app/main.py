@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Request,File, UploadFile, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status, Request,File, UploadFile, HTTPException, Query
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -31,6 +31,8 @@ from app.dashboard_consumables import router as bot_conversations_router
 import os
 import uuid
 from fastapi.staticfiles import StaticFiles
+from app.scraper import scrape_selected_nodes, get_website_nodes
+from typing import List
 
 app = FastAPI()
 
@@ -280,3 +282,19 @@ async def update_avatar_endpoint(request: UpdateAvatarRequest, db: Session = Dep
     if not updated_user:
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "Avatar updated successfully", "user": updated_user}
+
+
+@app.post("/scrape")
+def scrape_endpoint(selected_nodes: List[str]):
+    """
+    Scrapes only the selected nodes provided by the user using the hybrid approach.
+    """
+    data = scrape_selected_nodes(selected_nodes)
+    return {"message": "Scraping completed", "data": data}
+
+@app.get("/get_nodes")
+def get_nodes(website_url: str = Query(..., title="Website URL")):
+    """
+    API to get a list of all available pages (nodes) from a website.
+    """
+    return get_website_nodes(website_url)

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Globe, Upload, MessageSquare, Check, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
+import { authApi } from "../services/api";
 
 interface Step {
   title: string;
@@ -34,6 +35,44 @@ export const CreateBot = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [botName, setBotName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [nodes, setNodes] = useState<string[]>([]); // Store website nodes
+  const [selectedNodes, setSelectedNodes] = useState<string[]>([]); // Store selected nodes
+
+  const fetchNodes = async (websiteUrl: string) => {
+    if (!websiteUrl) {
+      alert("Please enter a website URL.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const data = await authApi.getWebsiteNodes(websiteUrl);
+      if (data.nodes) {
+        setNodes(data.nodes);
+        setSelectedNodes([]); // Reset selected nodes when fetching new nodes
+      } else {
+        setNodes([]);
+        alert("No nodes found for this website.");
+      }
+    } catch (error) {
+      console.error("Error fetching website nodes:", error);
+      alert("Failed to fetch website nodes. Please try again.");
+    }finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCheckboxChange = (url: string) => {
+    if (selectedNodes.includes(url)) {
+      // If the node is already selected, allow unchecking
+      setSelectedNodes((prev) => prev.filter((node) => node !== url));
+    } else {
+      if (selectedNodes.length >= 10) {
+        alert("🚀 You are on the Free Tier! Upgrade your subscription to select more pages.");
+        return; // Stop further selections
+      }
+      setSelectedNodes((prev) => [...prev, url]);
+    }
+  };
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: (acceptedFiles) => {
@@ -47,13 +86,36 @@ export const CreateBot = () => {
     },
   });
 
-  const handleNext = () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
+  const handleNext = async () => {
+    if (currentStep === 0) {
+      if (selectedNodes.length === 0) {
+        alert("⚠️ Please select at least one page to scrape.");
+        return;
+      }
+  
+      setIsLoading(true); // Show loading state
+  
+      try {
+        const data = await authApi.scrapeNodes(selectedNodes);
+        console.log("Scraping result:", data);
+  
+        if (data.message === "Scraping completed") {
+          setCurrentStep(currentStep + 1); // Move to next step after success
+        } else {
+          alert("❌ Failed to scrape data. Please try again.");
+        }
+      } catch (error) {
+        console.error("Error scraping website:", error);
+        alert("❌ An error occurred while scraping. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
     } else {
-      handleFinish();
+      setCurrentStep(currentStep + 1);
     }
   };
+  
+  
 
   const handleBack = () => {
     if (currentStep > 0) {
@@ -96,8 +158,10 @@ export const CreateBot = () => {
       case 1:
         return (
           <div className="space-y-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Website URL</label>
-            <div className="flex space-x-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Website URL
+            </label>
+            <div className="mt-1 flex">
               <input
                 type="url"
                 value={websiteUrl}
@@ -106,12 +170,38 @@ export const CreateBot = () => {
                 className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
               />
               <button
-                onClick={handleSubmitWebsite}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                onClick={() => fetchNodes(websiteUrl)}
+                className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
               >
                 Submit
               </button>
             </div>
+            <p className="text-sm text-gray-500">
+              You can select up to <strong>10 pages</strong> for free.  
+              Want to add more? <a href="/pricing" className="text-blue-500 underline">Upgrade your subscription</a>.
+            </p>
+      
+            {nodes.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Select Pages to Scrape:
+                </h4>
+                <div className="space-y-2">
+                  {nodes.map((node, index) => (
+                    <label key={index} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        value={node}
+                        checked={selectedNodes.includes(node)}
+                        onChange={() => handleCheckboxChange(node)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{node}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         );
 
@@ -160,7 +250,9 @@ export const CreateBot = () => {
           <button
             onClick={handleNext}
             disabled={isLoading}
-            className="flex items-center px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            className={`flex items-center px-6 py-2 ${
+              isLoading ? "bg-blue-300" : "bg-blue-500 hover:bg-blue-600"
+            } text-white rounded-lg`}
           >
             {isLoading ? 'Processing...' : currentStep === steps.length - 1 ? 'Finish' : <><ArrowRight className="w-5 h-5 ml-2" /> Next</>}
           </button>
