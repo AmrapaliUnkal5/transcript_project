@@ -1,30 +1,58 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { User, Mail, Lock, Building2, Braces, MapPinned } from 'lucide-react';
-import { authApi, type SignUpData } from '../../services/api';
-import { Box, Button, TextField, Typography } from '@mui/material';
-import Grid from '@mui/material/Grid2';
-import GoogleIcon from '@mui/icons-material/Google';
-import AppleIcon from '@mui/icons-material/Apple';
-import FacebookIcon from '@mui/icons-material/Facebook';
-import { grey } from '@mui/material/colors';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+//import { User, Mail, Lock, Building2, Braces, MapPinned } from "lucide-react";
+import { authApi, type SignUpData } from "../../services/api";
+import { Box, Button, TextField, Typography } from "@mui/material";
+import Grid from "@mui/material/Grid2";
+import GoogleIcon from "@mui/icons-material/Google";
+//import AppleIcon from "@mui/icons-material/Apple";
+//import FacebookIcon from "@mui/icons-material/Facebook";
+import { grey } from "@mui/material/colors";
+import { AxiosError } from "axios";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { ToastContainer } from "react-toastify";
+import { InputAdornment, IconButton } from "@mui/material";
+import { Visibility, VisibilityOff } from "@mui/icons-material"; // Icons for show/hide password
 
 export const SignUp = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    company_name: '',
+    firstName: "",
+    lastName: "",
+    company_name: "",
     //website: '',
     //country: '',
     //name: '',
-    email: '',
-    password: '',
-    phone_no:'',
-    confirmPassword: '',
+    email: "",
+    password: "",
+    phone_no: "",
+    confirmPassword: "",
   });
+  // Track validation errors for each field
+  const [formErrors, setFormErrors] = useState({
+    firstName: "",
+    lastName: "",
+    company_name: "",
+    email: "",
+    password: "",
+    phone_no: "",
+    confirmPassword: "",
+  });
+
+  // Toggle password visibility
+  const handleClickShowPassword = () => {
+    setShowPassword((prev) => !prev);
+  };
+
+  // Toggle confirm password visibility
+  const handleClickShowConfirmPassword = () => {
+    setShowConfirmPassword((prev) => !prev);
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -34,19 +62,94 @@ export const SignUp = () => {
     }));
     // Clear error when user starts typing
     if (error) setError(null);
+    // Validate the field as the user types
+    validateField(name, value);
+  };
+
+  const validateField = (fieldName: string, value: string) => {
+    let errorMessage = "";
+
+    switch (fieldName) {
+      case "email": {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value)) {
+          errorMessage = "Please enter a valid email address.";
+        }
+        break;
+      }
+
+      case "password": {
+        if (value.length < 8) {
+          errorMessage = "Password must be at least 8 characters long.";
+        }
+        break;
+      }
+
+      case "confirmPassword": {
+        if (value !== formData.password) {
+          errorMessage = "Passwords do not match.";
+        }
+        break;
+      }
+
+      case "firstName":
+      case "lastName":
+      case "company_name": {
+        if (!value.trim()) {
+          errorMessage = "This field is required.";
+        }
+        break;
+      }
+      case "phone_no": {
+        const phoneRegex = /^\d+$/; // Regex to allow only digits
+        if (value.trim() && !phoneRegex.test(value)) {
+          errorMessage = "Please enter only numbers.";
+        }
+        break;
+      }
+
+      default:
+        break;
+    }
+
+    setFormErrors((prev) => ({
+      ...prev,
+      [fieldName]: errorMessage,
+    }));
   };
 
   const validateForm = () => {
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return false;
-    }
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long');
-      return false;
-    }
-    return true;
+    let isValid = true;
+    //const newErrors = { ...formErrors };
+
+    // Validate all fields
+    Object.keys(formData).forEach((fieldName) => {
+      validateField(fieldName, formData[fieldName as keyof typeof formData]);
+      if (formErrors[fieldName as keyof typeof formErrors]) {
+        isValid = false;
+      }
+    });
+
+    return isValid;
   };
+
+  //const validateForm = () => {
+  //const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Simple email format validation
+
+  //if (!emailRegex.test(formData.email)) {
+  //  setError("Please enter a valid email address.");
+  //  return false;
+  //}
+  //if (formData.password !== formData.confirmPassword) {
+  //  setError("Passwords do not match");
+  //  return false;
+  //}
+  //if (formData.password.length < 8) {
+  //  setError("Password must be at least 8 characters long");
+  //  return false;
+  //}
+  //return true;
+  //};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,11 +171,18 @@ export const SignUp = () => {
       };
 
       await authApi.signup(signupData);
-      navigate('/login', {
-        state: { message: 'Account created successfully! Please login.' },
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create account');
+      // Show success message
+      toast.success("Account created successfully! Redirecting to login...");
+      // Wait for 3 seconds before navigating
+      setTimeout(() => {
+        navigate("/login");
+      }, 3000);
+    } catch (err: unknown) {
+      if (err instanceof AxiosError && err.response?.data?.detail) {
+        setError(err.response.data.detail); // Display API error message
+      } else {
+        setError("Failed to create account. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -80,206 +190,264 @@ export const SignUp = () => {
 
   return (
     <Box
-      bgcolor='#f2f1ef'
-      className='min-h-screen dark:bg-gray-900 flex items-center justify-center py-6 px-4 sm:px-6 lg:px-8'
+      bgcolor="#f2f1ef"
+      className="min-h-screen dark:bg-gray-900 flex items-center justify-center py-6 px-4 sm:px-6 lg:px-8"
     >
-      <Box className='max-w-lg w-full space-y-8'>
-        <Box bgcolor={'#FFF'} borderRadius={4} py={2} px={3}>
-          <Typography variant='h6' mb={3} textAlign={'center'}>
+      <ToastContainer position="top-right" autoClose={3000} />
+      <Box className="max-w-lg w-full space-y-8">
+        <Box bgcolor={"#FFF"} borderRadius={4} py={2} px={3}>
+          <Typography variant="h6" mb={3} textAlign={"center"}>
             Sign Up
           </Typography>
-
 
           <Box>
             {/* <Typography variant='body1' color={grey[800]} mb={1}>Continue with:</Typography> */}
 
-            <Grid container spacing={2}>
+            <Grid container spacing={2} justifyContent="center">
               <Grid size={4}>
                 <Box
-                  display={'flex'}
-                  justifyContent={'center'}
+                  display={"flex"}
+                  justifyContent={"center"}
                   gap={2}
                   p={2}
-                  borderRadius={'12px'}
-                  boxShadow={'0px 2px 30px 2px rgba(0, 0, 0, 0.08);'}
-                  mb={'12px'}
-                  sx={{cursor:'pointer'}}
+                  borderRadius={"12px"}
+                  boxShadow={"0px 2px 30px 2px rgba(0, 0, 0, 0.08);"}
+                  mb={"12px"}
+                  sx={{ cursor: "pointer" }}
                 >
                   <GoogleIcon />
-                  <Typography variant='body1' color={grey[800]}>
+                  <Typography variant="body1" color={grey[800]}>
                     Google
                   </Typography>
                 </Box>
               </Grid>
+              {/*
 
               <Grid size={4}>
                 <Box
-                    display={'flex'}
-                    justifyContent={'center'}
-                    gap={2}
-                    p={2}
-                    borderRadius={'12px'}
-                    boxShadow={'0px 2px 30px 2px rgba(0, 0, 0, 0.08);'}
-                    mb={'12px'}
-                    sx={{cursor:'pointer'}}
-                  >
-                    <AppleIcon />
-                    <Typography variant='body1' color={grey[800]}>
-                      Apple
-                    </Typography>
-                  </Box>
+                  display={"flex"}
+                  justifyContent={"center"}
+                  gap={2}
+                  p={2}
+                  borderRadius={"12px"}
+                  boxShadow={"0px 2px 30px 2px rgba(0, 0, 0, 0.08);"}
+                  mb={"12px"}
+                  sx={{ cursor: "pointer" }}
+                >
+                  <AppleIcon />
+                  <Typography variant="body1" color={grey[800]}>
+                    Apple
+                  </Typography>
+                </Box>
               </Grid>
               <Grid size={4}>
                 <Box
-                    display={'flex'}
-                    justifyContent={'center'}
-                    gap={2}
-                    p={2}
-                    borderRadius={'12px'}
-                    boxShadow={'0px 2px 30px 2px rgba(0, 0, 0, 0.08);'}
-                    mb={'12px'}
-                    sx={{cursor:'pointer'}}
-                  >
-                    <FacebookIcon />
-                    <Typography variant='body1' color={grey[800]}>
-                      Facebook
-                    </Typography>
-                  </Box>
+                  display={"flex"}
+                  justifyContent={"center"}
+                  gap={2}
+                  p={2}
+                  borderRadius={"12px"}
+                  boxShadow={"0px 2px 30px 2px rgba(0, 0, 0, 0.08);"}
+                  mb={"12px"}
+                  sx={{ cursor: "pointer" }}
+                >
+                  <FacebookIcon />
+                  <Typography variant="body1" color={grey[800]}>
+                    Facebook
+                  </Typography>
+                </Box>
               </Grid>
+              */}
             </Grid>
-            
           </Box>
 
           <Typography
-            variant='body1'
-            textAlign={'center'}
+            variant="body1"
+            textAlign={"center"}
             mt={2}
-            color='grey.600'
+            color="grey.600"
           >
             or
           </Typography>
 
-
           <form onSubmit={handleSubmit}>
-          
             <Grid container spacing={3}>
               <Grid size={6}>
                 <TextField
-                  name='firstName'
-                  label='First Name'
-                  variant='standard'
-                  size='small'
+                  name="firstName"
+                  label="First Name"
+                  variant="standard"
+                  size="small"
                   fullWidth
                   required
                   value={formData.firstName}
                   onChange={handleChange}
+                  error={!!formErrors.firstName}
+                  helperText={formErrors.firstName}
                 />
               </Grid>
               <Grid size={6}>
                 <TextField
-                  name='lastName'
-                  label='Last Name'
-                  variant='standard'
-                  size='small'
+                  name="lastName"
+                  label="Last Name"
+                  variant="standard"
+                  size="small"
                   fullWidth
                   required
                   value={formData.lastName}
                   onChange={handleChange}
+                  error={!!formErrors.lastName}
+                  helperText={formErrors.lastName}
                 />
               </Grid>
               <Grid size={6}>
                 <TextField
-                  name='company_name'
-                  label='Company Name'
-                  variant='standard'
-                  size='small'
+                  name="company_name"
+                  label="Company Name"
+                  variant="standard"
+                  size="small"
                   fullWidth
                   required
                   value={formData.company_name}
                   onChange={handleChange}
+                  error={!!formErrors.company_name}
+                  helperText={formErrors.company_name}
                 />
               </Grid>
               <Grid size={6}>
                 <TextField
-                  name='phone_no'
-                  label='Contact No.'
-                  variant='standard'
-                  size='small'
+                  name="phone_no"
+                  label="Contact No."
+                  variant="standard"
+                  size="small"
                   fullWidth
                   value={formData.phone_no}
                   onChange={handleChange}
+                  error={!!formErrors.phone_no}
+                  helperText={formErrors.phone_no}
                 />
               </Grid>
               <Grid size={12}>
                 <TextField
-                  name='email'
-                  label='Email'
-                  variant='standard'
-                  size='small'
+                  name="email"
+                  label="Email"
+                  variant="standard"
+                  size="small"
                   fullWidth
                   required
                   value={formData.email}
                   onChange={handleChange}
+                  error={!!formErrors.email}
+                  helperText={formErrors.email}
                 />
               </Grid>
               <Grid size={12}>
                 <TextField
-                  name='password'
-                  label='Password'
-                  type='password'
-                  variant='standard'
-                  size='small'
+                  name="password"
+                  label="Password"
+                  type={showPassword ? "text" : "password"} // Toggle between text and password
+                  variant="standard"
+                  size="small"
                   fullWidth
                   required
                   value={formData.password}
                   onChange={handleChange}
+                  error={!!formErrors.password}
+                  helperText={formErrors.password}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={handleClickShowPassword}
+                          edge="end"
+                        >
+                          {showPassword ? <Visibility /> : <VisibilityOff />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
               </Grid>
               <Grid size={12}>
                 <TextField
-                  name='confirmPassword'
-                  label='Confirm Password'
-                  type='password'
-                  variant='standard'
-                  size='small'
+                  name="confirmPassword"
+                  label="Confirm Password"
+                  type={showConfirmPassword ? "text" : "password"} // Toggle between text and password
+                  variant="standard"
+                  size="small"
                   fullWidth
                   required
                   value={formData.confirmPassword}
                   onChange={handleChange}
+                  error={!!formErrors.confirmPassword}
+                  helperText={formErrors.confirmPassword}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle confirm password visibility"
+                          onClick={handleClickShowConfirmPassword}
+                          edge="end"
+                        >
+                          {showConfirmPassword ? (
+                            <Visibility />
+                          ) : (
+                            <VisibilityOff />
+                          )}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
               </Grid>
+              {error && (
+                <div className="w-full max-w-full rounded-md bg-red-50 dark:bg-red-900/20 p-4">
+                  <div className="flex">
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                        {error}
+                      </h3>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <Grid size={12}>
-                <Button variant='contained' 
-                  fullWidth type='submit' 
+                <Button
+                  variant="contained"
+                  fullWidth
+                  type="submit"
                   disabled={loading}
                 >
-                  {loading ? 'Signing Up...' : 'Sign Up'}
+                  {loading ? "Signing Up..." : "Sign Up"}
                 </Button>
               </Grid>
 
-              <Grid size={12} textAlign={'center'}>
+              <Grid size={12} textAlign={"center"}>
                 <Box>
-                  <Typography variant='body1' color={grey[800]} mb={1}>
-                    Already have an account?{' '}
+                  <Typography variant="body1" color={grey[800]} mb={1}>
+                    Already have an account?{" "}
                     <Link
-                      to='/login'
-                      className='font-medium text-blue-600 hover:text-blue-500'
+                      to="/login"
+                      className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       Sign in
-                    </Link>{' '}
+                    </Link>{" "}
                   </Typography>
 
-                  <Typography variant='body2' color={grey[800]}>
-                    By Creating your account you are agree to CheckMe&apos;s{' '}
+                  <Typography variant="body2" color={grey[800]}>
+                    By Creating your account you are agree to CheckMe&apos;s{" "}
                     <Link
-                      to='#'
-                      className='font-medium text-blue-600 hover:text-blue-500'
+                      to="#"
+                      className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       Privacy Policy
-                    </Link>{' '} and  <Link
-                      to='#'
-                      className='font-medium text-blue-600 hover:text-blue-500'
+                    </Link>{" "}
+                    and{" "}
+                    <Link
+                      to="#"
+                      className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       Terms of Service
                     </Link>
@@ -287,25 +455,23 @@ export const SignUp = () => {
                 </Box>
               </Grid>
             </Grid>
-            </form>
-          
+          </form>
         </Box>
-        
 
-        {error && (
-          <div className='rounded-md bg-red-50 dark:bg-red-900/20 p-4'>
-            <div className='flex'>
-              <div className='ml-3'>
-                <h3 className='text-sm font-medium text-red-800 dark:text-red-200'>
+        {/* {error && (
+          <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
                   {error}
                 </h3>
               </div>
             </div>
           </div>
-        )}
+        )} */}
 
-        <form className='mt-8 space-y-6' onSubmit={handleSubmit}>
-          <div className='rounded-md shadow-sm -space-y-px'>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="rounded-md shadow-sm -space-y-px">
             {/* <div>
               <label htmlFor='company_name' className='sr-only'>
                 Company
@@ -517,6 +683,3 @@ export const SignUp = () => {
     </Box>
   );
 };
-
-
-
