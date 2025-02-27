@@ -6,13 +6,14 @@ declare global {
 
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Mail, Lock, AlertCircle, Facebook, Apple } from "lucide-react";
+import { AlertCircle, Facebook, Apple } from "lucide-react";
 import { authApi } from "../../services/api";
 import { AxiosError } from "axios";
 import { useAuth } from "../../context/AuthContext";
-import axios from "axios";
-import { Box, styled, TextField, Typography } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+//import axios from "axios";
+import { Box, styled, TextField, Typography } from "@mui/material";
+import Grid from "@mui/material/Grid2";
+import { RefreshCcw } from "lucide-react"; // Import Lucide icon
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -23,10 +24,25 @@ export const Login = () => {
   const [rememberMe, setRememberMe] = React.useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaInput, setCaptchaInput] = useState("");
+  const [captchaImage, setCaptchaImage] = useState("");
+  const [captchaError, setCaptchaError] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(
     location.state?.message || null
   );
 
+  useEffect(() => {
+    fetchCaptcha();
+  }, []);
+
+  const fetchCaptcha = async () => {
+    try {
+      const captchaUrl = await authApi.fetchCaptcha();
+      setCaptchaImage(captchaUrl);
+    } catch (error) {
+      console.error("Failed to load CAPTCHA", error);
+    }
+  };
   useEffect(() => {
     if (location.state?.message) {
       setSuccessMessage(location.state.message);
@@ -34,7 +50,7 @@ export const Login = () => {
     }
   }, [location]);
 
-  const handleCredentialResponse = async (response: { credential: string; }) => {
+  const handleCredentialResponse = async (response: { credential: string }) => {
     console.log("Credential response:", response);
     if (response.credential) {
       try {
@@ -87,6 +103,30 @@ export const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    if (!captchaInput.trim()) {
+      setCaptchaError("Please enter the CAPTCHA text");
+      setLoading(false);
+      return;
+    }
+    setCaptchaError("");
+    setLoading(true);
+    // Simulate API call
+    setTimeout(() => {
+      setLoading(false); // Reset loading state after completion
+    }, 2000);
+    try {
+      const captchaRes = await authApi.validatecaptcha(captchaInput);
+      console.log("CAPTCHA Response:", captchaRes); // Debugging output
+      if (!captchaRes.valid) {
+        setCaptchaError("Incorrect CAPTCHA. Try again.");
+        setLoading(false);
+        return;
+      }
+    } catch (error) {
+      console.error("Error validating CAPTCHA:", error);
+      setCaptchaError("CAPTCHA validation failed.");
+      setLoading(false);
+    }
 
     try {
       const response = await authApi.login({ email, password });
@@ -116,37 +156,43 @@ export const Login = () => {
   };
 
   return (
-    <Box bgcolor='#f2f1ef' minHeight={'100vh'} pt={2}>
-      <Box maxWidth={1180} mx={'auto'} borderRadius={4} py={2} px={3}>
+    <Box bgcolor="#f2f1ef" minHeight={"100vh"} pt={2}>
+      <Box maxWidth={1180} mx={"auto"} borderRadius={4} py={2} px={3}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 7 }}>
-            <Box px={5} py={2} bgcolor={'#FFF'} borderRadius={4}>
-              <Typography variant='h6' mb={3}>
+            <Box px={5} py={2} bgcolor={"#FFF"} borderRadius={4}>
+              <Typography variant="h6" mb={3}>
                 Check me
               </Typography>
-              <Box textAlign={'center'}>
+              <Box textAlign={"center"}>
                 <StyledImage
-                  src='/images/temp/chatbot-temp1.jpg'
-                  sx={{ margin: 'auto', borderRadius: '16px', maxWidth: 525 }}
+                  src="/images/temp/chatbot-temp1.jpg"
+                  sx={{ margin: "auto", borderRadius: "16px", maxWidth: 525 }}
                 />
               </Box>
             </Box>
           </Grid>
           <Grid size={{ xs: 12, md: 5 }}>
             <Box
-              minHeight={'100%'}
+              minHeight={"100%"}
               px={5}
               py={2}
-              bgcolor={'#FFF'}
+              bgcolor={"#FFF"}
               borderRadius={4}
             >
-              <Typography variant='h6' mb={3} textAlign={'center'}>
+              <Typography variant="h6" mb={3} textAlign={"center"}>
                 Login with Email
               </Typography>
 
               <Box px={2}>
                 {error && (
-                  <Box mb={2} display="flex" alignItems="center" justifyContent="center" color="error.main">
+                  <Box
+                    mb={2}
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    color="error.main"
+                  >
                     <AlertCircle size={16} style={{ marginRight: 8 }} />
                     <Typography variant="body2">{error}</Typography>
                   </Box>
@@ -159,10 +205,10 @@ export const Login = () => {
                 <Grid container spacing={3}>
                   <Grid size={12}>
                     <TextField
-                      id='email'
-                      label='Enter your email id'
-                      variant='standard'
-                      size='small'
+                      id="email"
+                      label="Enter your email id"
+                      variant="standard"
+                      size="small"
                       fullWidth
                       required
                       value={email}
@@ -171,47 +217,77 @@ export const Login = () => {
                   </Grid>
                   <Grid size={12}>
                     <TextField
-                      id='password'
-                      label='Password'
-                      type='password'
-                      variant='standard'
-                      size='small'
+                      id="password"
+                      label="Password"
+                      type="password"
+                      variant="standard"
+                      size="small"
                       fullWidth
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
+
+                    <div className="mt-4 flex items-center space-x-2">
+                      <img
+                        src={captchaImage}
+                        alt="CAPTCHA"
+                        className="w-32 h-12 border rounded-md"
+                      />
+                      <button
+                        type="button"
+                        onClick={fetchCaptcha}
+                        className="p-1 rounded-md hover:bg-gray-200"
+                      >
+                        <RefreshCcw size={20} className="text-blue-600" />
+                      </button>
+                      <input
+                        type="text"
+                        placeholder="Enter CAPTCHA"
+                        value={captchaInput}
+                        onChange={(e) => {
+                          setCaptchaInput(e.target.value);
+                          if (e.target.value.trim()) setCaptchaError("");
+                        }}
+                        className="p-2 border rounded-md w-36"
+                      />
+                    </div>
+                    {captchaError && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {captchaError}
+                      </p>
+                    )}
                   </Grid>
-                  <Grid size={12}>
+                  {/* <Grid size={12}>
                     <StyledImage
-                      src='/images/temp/captcha.png'
-                      sx={{ margin: 'auto' }}
+                      src="/images/temp/captcha.png"
+                      sx={{ margin: "auto" }}
                     />
-                  </Grid>
+                  </Grid> */}
 
                   <Grid size={12}>
-                    <div className='flex items-center justify-between'>
-                      <div className='flex items-center'>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
                         <input
-                          id='remember-me'
-                          name='remember-me'
-                          type='checkbox'
-                          className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+                          id="remember-me"
+                          name="remember-me"
+                          type="checkbox"
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           checked={rememberMe}
                           onChange={(e) => setRememberMe(e.target.checked)}
                         />
                         <label
-                          htmlFor='remember-me'
-                          className='ml-2 block text-sm text-gray-900 dark:text-gray-300'
+                          htmlFor="remember-me"
+                          className="ml-2 block text-sm text-gray-900 dark:text-gray-300"
                         >
                           Remember me
                         </label>
                       </div>
 
-                      <div className='text-sm'>
+                      <div className="text-sm">
                         <Link
-                          to='/forgot-password'
-                          className='font-medium text-blue-600 hover:text-blue-500'
+                          to="/forgot-password"
+                          className="font-medium text-blue-600 hover:text-blue-500"
                         >
                           Forgot your password?
                         </Link>
@@ -221,12 +297,12 @@ export const Login = () => {
                   <Grid size={12}>
                     <div>
                       <button
-                        type='submit'
+                        type="submit"
                         disabled={loading}
                         className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
                           loading
-                            ? 'bg-blue-400 cursor-not-allowed'
-                            : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                            ? "bg-blue-400 cursor-not-allowed"
+                            : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                         }`}
                         onClick={handleSubmit}
                       >
@@ -234,42 +310,41 @@ export const Login = () => {
                       </button>
                     </div>
                     <Box my={3}>
-                      <div className='relative'>
-                        <div className='absolute inset-0 flex items-center'>
-                          <div className='w-full border-t border-gray-300 dark:border-gray-700'></div>
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
                         </div>
-                        <div className='relative flex justify-center text-sm'>
-                          <span className='px-2 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400'>
+                        <div className="relative flex justify-center text-sm">
+                          <span className="px-2 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400">
                             Or continue with
                           </span>
                         </div>
                       </div>
                     </Box>
-                    <div className='grid grid-cols-3 gap-3'>
+                    <div className="grid grid-cols-3 gap-3">
                       <div id="g_signin" className="w-full"></div>
-                      
-                      
+
                       <button
-                        type='button'
-                        onClick={() => handleSocialLogin('facebook')}
-                        className='w-full inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        type="button"
+                        onClick={() => handleSocialLogin("facebook")}
+                        className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
-                        <Facebook className='w-5 h-5' />
+                        <Facebook className="w-5 h-5" />
                       </button>
 
                       <button
-                        type='button'
-                        onClick={() => handleSocialLogin('apple')}
-                        className='w-full inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        type="button"
+                        onClick={() => handleSocialLogin("apple")}
+                        className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
-                        <Apple className='w-5 h-5' />
+                        <Apple className="w-5 h-5" />
                       </button>
                     </div>
                     <Box my={3}>
-                      <div className='text-center'>
+                      <div className="text-center">
                         <Link
-                          to='/signup'
-                          className='font-medium text-blue-600 hover:text-blue-500'
+                          to="/signup"
+                          className="font-medium text-blue-600 hover:text-blue-500"
                         >
                           Don't have an account? Sign up
                         </Link>
@@ -282,18 +357,18 @@ export const Login = () => {
           </Grid>
         </Grid>
         <Box mt={2}>
-          <Box px={5} py={2} bgcolor={'#FFF'} borderRadius={4}>
+          <Box px={5} py={2} bgcolor={"#FFF"} borderRadius={4}>
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, md: 4 }}>
                 <Box>
-                  <Typography variant='body1'>Have Questions ? </Typography>
-                  <Typography variant='body2'>Visit our FAQ Section</Typography>
-                  <Typography variant='body2'>
+                  <Typography variant="body1">Have Questions ? </Typography>
+                  <Typography variant="body2">Visit our FAQ Section</Typography>
+                  <Typography variant="body2">
                     <Link
-                      to='/'
-                      className='font-medium text-blue-600 hover:text-blue-500'
+                      to="/"
+                      className="font-medium text-blue-600 hover:text-blue-500"
                     >
-                      {' '}
+                      {" "}
                       click here
                     </Link>
                   </Typography>
@@ -301,31 +376,31 @@ export const Login = () => {
               </Grid>
               <Grid
                 size={{ xs: 12, md: 4 }}
-                display={'flex'}
-                justifyContent={'center'}
+                display={"flex"}
+                justifyContent={"center"}
               >
                 <Box>
-                  <Typography variant='body1'>Contact us </Typography>
-                  <Typography variant='body2'>Support@Checkme.com</Typography>
-                  <Typography variant='body2'>0123-456789</Typography>
+                  <Typography variant="body1">Contact us </Typography>
+                  <Typography variant="body2">Support@Checkme.com</Typography>
+                  <Typography variant="body2">0123-456789</Typography>
                 </Box>
               </Grid>
               <Grid
                 size={{ xs: 12, md: 4 }}
-                display={'flex'}
-                justifyContent={'flex-end'}
+                display={"flex"}
+                justifyContent={"flex-end"}
               >
                 <Box minWidth={220}>
-                  <Typography variant='body1'>
-                    Still have questions ?{' '}
+                  <Typography variant="body1">
+                    Still have questions ?{" "}
                   </Typography>
-                  <Typography variant='body2'>Request a demo</Typography>
-                  <Typography variant='body2'>
+                  <Typography variant="body2">Request a demo</Typography>
+                  <Typography variant="body2">
                     <Link
-                      to='/'
-                      className='font-medium text-blue-600 hover:text-blue-500'
+                      to="/"
+                      className="font-medium text-blue-600 hover:text-blue-500"
                     >
-                      {' '}
+                      {" "}
                       click here
                     </Link>
                   </Typography>
@@ -339,9 +414,9 @@ export const Login = () => {
   );
 };
 
-const StyledImage = styled('img')(() => ({
-  maxWidth: '100%',
-  maxHeight: '100%',
+const StyledImage = styled("img")(() => ({
+  maxWidth: "100%",
+  maxHeight: "100%",
 }));
 
 export default Login;

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Request,File, UploadFile, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, UploadFile, HTTPException, Query
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -33,6 +33,9 @@ import uuid
 from fastapi.staticfiles import StaticFiles
 from app.scraper import scrape_selected_nodes, get_website_nodes
 from typing import List
+from captcha.image import ImageCaptcha
+import random
+import string
 
 app = FastAPI()
 
@@ -298,3 +301,26 @@ def get_nodes(website_url: str = Query(..., title="Website URL")):
     API to get a list of all available pages (nodes) from a website.
     """
     return get_website_nodes(website_url)
+
+# Store captcha values (for demo purposes; use a database in production)
+captcha_store = {}
+
+def generate_captcha_text():
+    return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
+
+@app.get("/captcha")
+async def get_captcha():
+    captcha_text = generate_captcha_text()
+    image = ImageCaptcha()
+    image_data = image.generate(captcha_text)
+
+    # Store CAPTCHA (in a real app, store it in Redis or DB)
+    captcha_store["captcha"] = captcha_text
+
+    return Response(content=image_data.read(), media_type="image/png")
+
+@app.post("/validate-captcha")
+async def validate_captcha(data: CaptchaRequest):
+    print("capta",captcha_store.get("captcha", ""))
+    is_valid = data.user_input == captcha_store.get("captcha", "")
+    return {"valid": is_valid, "message": "Captcha validated", "user_input": data.user_input}

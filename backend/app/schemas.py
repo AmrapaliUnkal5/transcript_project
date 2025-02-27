@@ -77,3 +77,6 @@ class PasswordResetRequest(BaseModel):
 class UpdateAvatarRequest(BaseModel):
     user_id: int
     avatar_url: str
+
+class CaptchaRequest(BaseModel):
+    user_input: str
