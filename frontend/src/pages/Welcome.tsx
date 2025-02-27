@@ -91,7 +91,8 @@ export const Welcome = () => {
         Enter your website URL, upload your docs, and let AI do the rest.
       </p>
       <button
-        onClick={() => navigate("/create-bot")}
+        // onClick={() => navigate("/create-bot")}
+        onClick={() => navigate("/Options")}
         className="inline-flex items-center px-6 py-3 text-lg font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors"
       >
         Build your Bot
@@ -113,7 +114,8 @@ export const Welcome = () => {
           </p>
         </div>
         <button
-          onClick={() => navigate("/create-bot")}
+          // onClick={() => navigate("/create-bot")}
+          onClick={() => navigate("/Options")}
           className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors"
         >
           Create New Bot
