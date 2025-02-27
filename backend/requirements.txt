@@ -14,3 +14,25 @@ sqladmin
 pydantic_settings
 jwt
 itsdangerous
+
+# from IEMS
+openai
+langchain
+langchain-openai
+langchain-community
+pyPDF2
+tiktoken
+pypdf
+pandas
+tabulate
+chromadb
+python-multipart
+beautifulsoup4
+unstructured
+python-docx
+python-pptx
+mwxml
+camelot-py
+ghostscript
+opencv-python
+pymysql
