@@ -17,6 +17,7 @@ itsdangerous
 requests
 beautifulsoup4
 playwright
+captcha
 
 # from IEMS
 # openai
