@@ -71,7 +71,7 @@ export const Login = () => {
 
         window.google.accounts.id.renderButton(
           document.getElementById("g_signin"),
-          { theme: "outline", size: "large",text: "none"}
+          { theme: "outline", size: "large", text: "none" }
         );
       }
     };
@@ -145,6 +145,17 @@ export const Login = () => {
               </Typography>
 
               <Box px={2}>
+                {error && (
+                  <Box mb={2} textAlign="center" color="error.main">
+                    <AlertCircle size={16} style={{ marginRight: 8 }} />
+                    {error}
+                  </Box>
+                )}
+                {successMessage && (
+                  <Box mb={2} textAlign="center" color="success.main">
+                    {successMessage}
+                  </Box>
+                )}
                 <Grid container spacing={3}>
                   <Grid size={12}>
                     <TextField
