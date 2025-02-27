@@ -87,7 +87,7 @@ export const CreateBot = () => {
   });
 
   const handleNext = async () => {
-    if (currentStep === 0) {
+    if (currentStep === 1) {
       if (selectedNodes.length === 0) {
         alert("⚠️ Please select at least one page to scrape.");
         return;
@@ -110,8 +110,10 @@ export const CreateBot = () => {
       } finally {
         setIsLoading(false);
       }
-    } else {
+    } else if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
+    } else {
+      handleFinish();
     }
   };
   
@@ -176,10 +178,13 @@ export const CreateBot = () => {
                 Submit
               </button>
             </div>
-            <p className="text-sm text-gray-500">
+            {nodes.length < 1 && (<p className="text-sm text-gray-500">
+              This will help your chatbot understand your business context better.
+            </p>)}
+            {nodes.length > 0 && (<p className="text-sm text-gray-500">
               You can select up to <strong>10 pages</strong> for free.  
-              Want to add more? <a href="/pricing" className="text-blue-500 underline">Upgrade your subscription</a>.
-            </p>
+              Want to add more? <a href="/subscription" className="text-blue-500 underline">Upgrade your subscription</a>.
+            </p>)}
       
             {nodes.length > 0 && (
               <div className="mt-4">
