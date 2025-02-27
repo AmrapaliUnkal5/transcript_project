@@ -19,9 +19,6 @@ import LoginHome from './pages/LoginHome';
 import { ResetPassword } from "./pages/Auth/ResetPassword";
 import PlanSelection from "./pages/Options";
 
-
-
-
 function App() {
   return (
     <BrowserRouter>
