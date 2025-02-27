@@ -13,7 +13,7 @@ def is_js_heavy(url):
         if "<script" in response.text.lower() or "react" in response.text.lower() or "angular" in response.text.lower():
             return True
     except:
-        return True  # Assume JavaScript is needed if request fails
+        return True
     return False
 
 # Static website scraping (BeautifulSoup)
@@ -24,7 +24,7 @@ def scrape_static_page(url):
             return None
 
         soup = BeautifulSoup(response.text, "html.parser")
-        text = " ".join([p.get_text() for p in soup.find_all("p")])  # Extract paragraphs
+        text = " ".join([p.get_text() for p in soup.find_all("p")])
         return {"url": url, "text": text}
 
     except Exception as e:
@@ -38,7 +38,7 @@ def scrape_dynamic_page(url):
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto(url, timeout=10000)
-            page.wait_for_load_state("networkidle")  # Ensure JS is fully loaded
+            page.wait_for_load_state("networkidle")
             text = page.inner_text("body")
             browser.close()
             return {"url": url, "text": text}
@@ -78,7 +78,7 @@ def get_website_nodes(base_url):
 
         for link in soup.find_all("a", href=True):
             full_url = urljoin(base_url, link["href"])
-            if full_url.startswith(base_url):  # Only include internal links
+            if full_url.startswith(base_url):
                 links.add(full_url)
 
         return {"nodes": list(links)}
