@@ -12,13 +12,23 @@ export interface ChatMetrics {
  
 }
 
-export interface FileUpload {
+export interface FileUploadInterface {
   id: string;
   name: string;
   type: string;
   size: number;
   uploadDate: Date;
   url: string;
+}
+
+export interface CreateBotInterface {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  uploadDate: Date;
+  url: string;
+  file: File;
 }
 
 export interface BotSettings {

@@ -1,7 +1,7 @@
 # app/crud.py
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from .models import User, Bot
+from .models import User, Bot,File
 from .schemas import UserCreate,BotCreate, BotUpdate, BotResponse
 from passlib.context import CryptContext
 
@@ -142,4 +142,10 @@ def update_avatar(db: Session, user_id: int, avatar_url: str):
     db.refresh(user)
     return user
    
-        
+def create_file(db: Session, file_data: dict):
+    """Insert file metadata into the database."""
+    db_file = File(**file_data)
+    db.add(db_file)
+    db.commit()
+    db.refresh(db_file)
+    return db_file     

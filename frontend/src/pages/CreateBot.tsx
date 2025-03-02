@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Globe, Upload, MessageSquare, Check, ArrowRight, ArrowLeft } from 'lucide-react';
+import { File, Trash2, Eye } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { authApi } from "../services/api";
+import { CreateBotInterface } from '../types';
 
 interface Step {
   title: string;
@@ -32,11 +36,62 @@ export const CreateBot = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [websiteUrl, setWebsiteUrl] = useState('');
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<CreateBotInterface[]>([]);
   const [botName, setBotName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [nodes, setNodes] = useState<string[]>([]); // Store website nodes
-  const [selectedNodes, setSelectedNodes] = useState<string[]>([]); // Store selected nodes
+  const [nodes, setNodes] = useState<string[]>([]);
+  const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+  const totalSize = files.reduce((acc, file) => acc + file.size, 0);
+  const newFilesSize = acceptedFiles.reduce((acc, file) => acc + file.size, 0);
+  
+    if (totalSize + newFilesSize > MAX_FILE_SIZE) {
+      toast.error("File exceeds size limit. Go for subscription.");
+      return;
+    }
+  
+    const newFiles = acceptedFiles.map((file) => ({
+      id: Math.random().toString(36).substr(2, 9),
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      uploadDate: new Date(),
+      url: URL.createObjectURL(file),
+      file: file, // Ensure this is included
+    }));
+  
+    setFiles((prev) => [...prev, ...newFiles]);
+    toast.success("File uploaded successfully");
+  }, [files, MAX_FILE_SIZE]);
+
+  const { getRootProps, getInputProps } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': [
+        '.docx',
+      ],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': [
+        '.xlsx',
+      ],
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
+    },
+  });
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleDelete = (id: string) => {
+    setFiles((prev) => prev.filter((file) => file.id !== id));
+  };
 
   const fetchNodes = async (websiteUrl: string) => {
     if (!websiteUrl) {
@@ -48,7 +103,7 @@ export const CreateBot = () => {
       const data = await authApi.getWebsiteNodes(websiteUrl);
       if (data.nodes) {
         setNodes(data.nodes);
-        setSelectedNodes([]); // Reset selected nodes when fetching new nodes
+        setSelectedNodes([]);
       } else {
         setNodes([]);
         alert("No nodes found for this website.");
@@ -56,35 +111,22 @@ export const CreateBot = () => {
     } catch (error) {
       console.error("Error fetching website nodes:", error);
       alert("Failed to fetch website nodes. Please try again.");
-    }finally {
+    } finally {
       setIsLoading(false);
     }
   };
 
   const handleCheckboxChange = (url: string) => {
     if (selectedNodes.includes(url)) {
-      // If the node is already selected, allow unchecking
       setSelectedNodes((prev) => prev.filter((node) => node !== url));
     } else {
       if (selectedNodes.length >= 10) {
         alert("🚀 You are on the Free Tier! Upgrade your subscription to select more pages.");
-        return; // Stop further selections
+        return;
       }
       setSelectedNodes((prev) => [...prev, url]);
     }
   };
-
-  const { getRootProps, getInputProps } = useDropzone({
-    onDrop: (acceptedFiles) => {
-      setFiles((prev) => [...prev, ...acceptedFiles]);
-    },
-    accept: {
-      'application/pdf': ['.pdf'],
-      'text/plain': ['.txt'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-    },
-  });
 
   const handleNext = async () => {
     if (currentStep === 1) {
@@ -92,15 +134,15 @@ export const CreateBot = () => {
         alert("⚠️ Please select at least one page to scrape.");
         return;
       }
-  
-      setIsLoading(true); // Show loading state
-  
+
+      setIsLoading(true);
+
       try {
         const data = await authApi.scrapeNodes(selectedNodes);
         console.log("Scraping result:", data);
-  
+
         if (data.message === "Scraping completed") {
-          setCurrentStep(currentStep + 1); // Move to next step after success
+          setCurrentStep(currentStep + 1);
         } else {
           alert("❌ Failed to scrape data. Please try again.");
         }
@@ -116,8 +158,6 @@ export const CreateBot = () => {
       handleFinish();
     }
   };
-  
-  
 
   const handleBack = () => {
     if (currentStep > 0) {
@@ -126,12 +166,37 @@ export const CreateBot = () => {
   };
 
   const handleFinish = async () => {
+    const totalSize = files.reduce((acc, file) => acc + file.size, 0);
+    if (totalSize > MAX_FILE_SIZE) {
+      toast.error("File size exceeds limit. Go for subscription.");
+      return;
+    }
+  
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      navigate('/chatbot');
+      // Extract the File objects from the files array
+      const filesToUpload: File[] = files
+        .map((file) => file.file) // Extract the `file` property
+        .filter((file): file is File => file !== undefined); // Filter out undefined values
+  
+      // Ensure at least one file is present
+      if (filesToUpload.length === 0) {
+        toast.error("No valid files to upload.");
+        return;
+      }
+  
+      // Send the files to the backend
+      const response = await authApi.uploadFiles(filesToUpload);
+      console.log("Backend response:", response); // testing backend response
+
+      if (response.success) {
+        navigate('/chatbot');
+      } else {
+        toast.error("Failed to upload files.");
+      }
     } catch (error) {
       console.error('Error creating bot:', error);
+      toast.error("An error occurred while uploading files.");
     } finally {
       setIsLoading(false);
     }
@@ -212,11 +277,60 @@ export const CreateBot = () => {
 
       case 2:
         return (
+          <div>
           <div {...getRootProps()} className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors">
             <input {...getInputProps()} />
             <Upload className="mx-auto h-12 w-12 text-gray-400" />
             <p className="mt-2 text-sm text-gray-600">Drag and drop files here, or click to select files</p>
           </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Uploaded Files</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-gray-700">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Size</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Upload Date</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {files.map((file) => (
+                  <tr key={file.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <File className="w-5 h-5 text-gray-400 mr-2" />
+                        <span className="text-sm text-gray-900 dark:text-white">{file.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">{file.type.split('/')[1].toUpperCase()}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">{file.uploadDate.toLocaleDateString()}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <button onClick={() => window.open(file.url)} className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400 mr-4">
+                        <Eye className="w-5 h-5" />
+                      </button>
+                      <button onClick={() => handleDelete(file.id)} className="text-red-600 hover:text-red-900 dark:hover:text-red-400">
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        </div>
         );
 
       default:
@@ -226,6 +340,7 @@ export const CreateBot = () => {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gray-50 dark:bg-gray-900 py-8">
+      <ToastContainer />
       <div className="max-w-3xl mx-auto px-4">
         <div className="flex items-center justify-between mb-8">
           {steps.map((step, index) => (
@@ -266,3 +381,10 @@ export const CreateBot = () => {
     </div>
   );
 };
+
+
+
+
+
+
+

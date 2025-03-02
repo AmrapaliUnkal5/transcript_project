@@ -32,6 +32,7 @@ import os
 import uuid
 from fastapi.staticfiles import StaticFiles
 from app.scraper import scrape_selected_nodes, get_website_nodes
+from app.file_size_validations import router as file_size_validations_router
 from typing import List
 from captcha.image import ImageCaptcha
 import random
@@ -43,6 +44,7 @@ app.mount("/uploads_bot", StaticFiles(directory="uploads_bot"), name="uploads_bo
 app.include_router(botsettings_router)
 app.include_router(social_login_router)
 app.include_router(bot_conversations_router)
+app.include_router(file_size_validations_router)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -99,8 +101,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid credentials")
     
     # Create a token for the user
-    #token_string=db_user.email+","+db_user.role
-    token_data = {"sub": db_user.email,"role":db_user.role}
+    token_data = {"sub": db_user.email,"role":db_user.role, "user_id": db_user.user_id}
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     
     # Return token and user info
@@ -234,7 +235,7 @@ def login_for_access_token(
         raise HTTPException(status_code=401, detail="Incorrect password")
 
     print("User authenticated successfully!")
-    access_token = create_access_token(data={"sub": user.email,"role": user.role})
+    access_token = create_access_token(data={"sub": user.email,"role": user.role, "user_id":user.user_id})
     return {"access_token": access_token, "token_type": "bearer"}
 
 #API's to check RBAC Functionality

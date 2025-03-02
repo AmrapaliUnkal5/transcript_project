@@ -17,13 +17,13 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         print("Decoded Token Payload:", payload)  # Debugging
         email: str = payload.get("sub")
         role: str = payload.get("role")
+        user_id: int = payload.get("user_id")
         
         if email is None or role is None:
             raise credentials_exception
     except JWTError as e:
         print("JWT Error:", e)  # Debugging  
-    return {"email": email, "role": role}
-
+    return {"email": email, "role": role,"user_id":user_id}
 
 def require_role(allowed_roles: list[str]):
     """

@@ -1,6 +1,7 @@
 # app/schemas.py
 from pydantic import BaseModel,EmailStr
 from typing import List, Dict, Optional
+from datetime import datetime
 
 #creating new users
 class UserBase(BaseModel):
@@ -20,6 +21,7 @@ class UserOut(BaseModel):
     name: str
     email: str
     role: str
+    user_id:int
     company_name: Optional[str] = None
 
     class Config:
@@ -80,3 +82,22 @@ class UpdateAvatarRequest(BaseModel):
 
 class CaptchaRequest(BaseModel):
     user_input: str
+
+#model for Files
+class FileBase(BaseModel):
+    bot_id: int
+    file_name: str
+    file_type: str
+    file_path: str
+    file_size: str
+    upload_date: datetime
+    unique_file_name: str
+
+class FileCreate(FileBase):
+    pass
+
+class FileResponse(FileBase):
+    file_id: int
+
+    class Config:
+        from_attributes = True  # This replaces 'orm_mode'
