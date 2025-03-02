@@ -166,5 +166,14 @@ export const authApi = {
     });
     return response.data; 
   },
+
+  validatecaptcha: async (data: string) => {
+    const response = await api.post('/validate-captcha',{ user_input: data });
+    return response.data;
+  },
+  fetchCaptcha: async () => {
+    const response = await api.get('/captcha', { responseType: 'blob' }); // Set response type to blob
+    return URL.createObjectURL(response.data); // Convert blob data to URL
+  },
   
 };
