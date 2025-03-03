@@ -28,3 +28,4 @@ tiktoken
 pdfplumber
 yt-dlp
 youtube-transcript-api
+langchain_community
