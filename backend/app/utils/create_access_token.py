@@ -14,7 +14,7 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     - Encoded JWT token string.
     """
     to_encode = data.copy()
-    print("encode_date=",to_encode)
+    print("encode_data=",to_encode)
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
     to_encode.update({"exp": expire})
     
@@ -22,5 +22,4 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     ALGORITHM = settings.ALGORITHM  # Use the algorithm from config
     encoded_jwt=jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
-
 

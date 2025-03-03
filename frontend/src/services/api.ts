@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
@@ -171,9 +172,20 @@ export const authApi = {
     const response = await api.post('/validate-captcha',{ user_input: data });
     return response.data;
   },
+  
   fetchCaptcha: async () => {
     const response = await api.get('/captcha', { responseType: 'blob' }); // Set response type to blob
     return URL.createObjectURL(response.data); // Convert blob data to URL
+  },
+
+  uploadFiles: async (files: File[]) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file)); // Use 'files' as the key  
+    const response = await api.post(`/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  
+    return response.data;
   },
 
   startChat: async (botId: number, userId: number) => {

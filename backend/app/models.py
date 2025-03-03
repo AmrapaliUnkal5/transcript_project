@@ -49,9 +49,11 @@ class File(Base):
     file_id = Column(Integer, primary_key=True, autoincrement=True)
     bot_id = Column(Integer, ForeignKey("bots.bot_id", onupdate="CASCADE", ondelete="CASCADE"), nullable=True)
     file_name = Column(String(255), nullable=False)
-    file_type = Column(String(50), nullable=True)
+    file_type = Column(Text, nullable=True)
     file_path = Column(String(500), nullable=True)
     upload_date = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=True)
+    file_size = Column(Text, nullable=True)
+    unique_file_name = Column(Text, nullable=True) 
 
 class Interaction(Base):
     __tablename__ = "interactions"
@@ -143,4 +145,3 @@ class UserAuthProvider(Base):
     refresh_token = Column(Text, nullable=True)
     token_expiry = Column(TIMESTAMP, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
-
