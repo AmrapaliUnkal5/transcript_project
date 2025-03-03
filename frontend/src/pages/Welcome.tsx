@@ -19,11 +19,13 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { authApi } from "../services/api";
+import { useBot } from "../context/BotContext";
 
 export const Welcome = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const userId = user?.user_id;
+  const { setSelectedBot } = useBot();
   // This would come from your API in a real app
   //const [hasBots] = useState(true);
   const [hasBots, setHasBots] = useState<boolean | null>(null); // Track bot existence
@@ -142,7 +144,10 @@ export const Welcome = () => {
                 </div>
               </div>
               <button
-                onClick={() => navigate("/chatbot")}
+                onClick={() => {
+                  setSelectedBot(bot); // ✅ Store selected bot
+                  navigate("/chatbot"); // ✅ Navigate after setting context
+                }}
                 className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
               >
                 <Settings className="w-5 h-5" />

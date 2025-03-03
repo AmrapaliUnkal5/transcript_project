@@ -37,6 +37,9 @@ from typing import List
 from captcha.image import ImageCaptcha
 import random
 import string
+from app.chatbot import router as chatbot_router
+from app.chat_interactions import router as chat_router
+
 
 app = FastAPI()
 
@@ -45,6 +48,8 @@ app.include_router(botsettings_router)
 app.include_router(social_login_router)
 app.include_router(bot_conversations_router)
 app.include_router(file_size_validations_router)
+app.include_router(chatbot_router)
+app.include_router(chat_router)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -55,7 +60,7 @@ app.add_middleware(
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
     allow_headers=["*"],  # Allow all HTTP headers
 )
-app.add_middleware(RoleBasedAccessMiddleware)
+# app.add_middleware(RoleBasedAccessMiddleware)
 templates = Jinja2Templates(directory="app/templates")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 

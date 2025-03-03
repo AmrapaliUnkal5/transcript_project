@@ -77,18 +77,18 @@ class FileAdmin(ModelView, model=File):
     column_filters = [File.bot_id]
 
 
-class InteractionAdmin(ModelView, model=Interaction):
-    column_list = [
-        Interaction.interaction_id,
-        Interaction.bot_id,
-        Interaction.user_message,
-        Interaction.bot_response,
-        Interaction.user_attachment,
-        Interaction.timestamp
-    ]
+# class InteractionAdmin(ModelView, model=Interaction):
+#     column_list = [
+#         Interaction.interaction_id,
+#         Interaction.bot_id,
+#         Interaction.user_message,
+#         Interaction.bot_response,
+#         Interaction.user_attachment,
+#         Interaction.timestamp
+#     ]
     
-    column_searchable_list = [Interaction.user_message, Interaction.bot_response]
-    column_filters = ["timestamp"]
+#     column_searchable_list = [Interaction.user_message, Interaction.bot_response]
+#     column_filters = ["timestamp"]
 
 class LanguageAdmin(ModelView, model=Language):
     column_list = [
@@ -159,7 +159,7 @@ def init(app: FastAPI):
     admin.add_view(UserAdmin)
     admin.add_view(BotAdmin)
     admin.add_view(FileAdmin)
-    admin.add_view(InteractionAdmin)
+    # admin.add_view(InteractionAdmin)
     admin.add_view(LanguageAdmin)
     admin.add_view(PerformanceLogAdmin)
     admin.add_view(RatingAdmin) 

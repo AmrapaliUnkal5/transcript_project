@@ -188,4 +188,18 @@ export const authApi = {
     return response.data;
   },
 
+  startChat: async (botId: number, userId: number) => {
+    const response = await api.post("/chat/start_chat", { bot_id: botId, user_id: userId });
+    return response.data;
+  },
+
+  sendMessage: async (interactionId: number, sender: string, message: string) => {
+    const response = await api.post("/chat/send_message", { interaction_id: interactionId, sender, message_text: message });
+    return response.data;
+  },
+
+  getChatMessages: async (interactionId: number) => {
+    const response = await api.get(`/chat/get_chat_messages?interaction_id=${interactionId}`);
+    return response.data;
+  }
 };
