@@ -29,6 +29,9 @@ export const Welcome = () => {
   // This would come from your API in a real app
   //const [hasBots] = useState(true);
   const [hasBots, setHasBots] = useState<boolean | null>(null); // Track bot existence
+  const [bots, setBots] = useState<
+    { id: number; name: string; status: string }[] // to display the bots in the tiles
+  >([]);
 
   useEffect(() => {
     const checkUserBot = async () => {
@@ -38,6 +41,24 @@ export const Welcome = () => {
         const response = await authApi.getBotSettingsByUserId(userId);
         const botExists = response.length > 0; // Check if bot_id is present
         setHasBots(botExists);
+        // Extract bot data dynamically
+        // Ensure response is treated as an array
+        const extractedBots = response.map((botObj) => {
+          const botId = Object.keys(botObj)[0]; // Extract the bot ID (key)
+          const botData = botObj[botId]; // Extract the corresponding bot details
+
+          return {
+            id: Number(botId), // Convert string ID to number
+            name: botData.bot_name,
+            status: botData.is_active ? "active" : "inactive",
+            //conversations: 0, // Placeholder for conversations
+            //satisfaction: 0, // Placeholder for satisfaction
+          };
+        });
+
+        console.log("extractedBots", extractedBots);
+
+        setBots(extractedBots);
       } catch (error) {
         console.error("Error checking user bot:", error);
         setHasBots(false); // Assume no bot in case of error
@@ -59,22 +80,22 @@ export const Welcome = () => {
     { day: "Sun", conversations: 184 },
   ];
 
-  const bots = [
-    {
-      id: 1,
-      name: "Support Bot",
-      status: "active",
-      conversations: 1289,
-      satisfaction: 94,
-    },
-    {
-      id: 2,
-      name: "Sales Assistant",
-      status: "active",
-      conversations: 856,
-      satisfaction: 89,
-    },
-  ];
+  // const bots = [
+  //   {
+  //     id: 1,
+  //     name: "Support Bot",
+  //     status: "active",
+  //     conversations: 1289,
+  //     satisfaction: 94,
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "Sales Assistant",
+  //     status: "active",
+  //     conversations: 856,
+  //     satisfaction: 89,
+  //   },
+  // ];
 
   const NewUserWelcome = () => (
     <div className="text-center max-w-2xl mx-auto">
@@ -129,7 +150,12 @@ export const Welcome = () => {
         {bots.map((bot) => (
           <div
             key={bot.id}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
+            onClick={() => {
+              setSelectedBot(bot); // ✅ Store selected bot
+              navigate("/chatbot"); // ✅ Navigate after setting context
+            }}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 cursor-pointer 
+             transition transform hover:shadow-2xl hover:scale-105 hover:ring-2 hover:ring-blue-400"
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center">
@@ -159,7 +185,7 @@ export const Welcome = () => {
                   Conversations
                 </div>
                 <div className="text-xl font-semibold text-gray-900 dark:text-white">
-                  {bot.conversations.toLocaleString()}
+                  0
                 </div>
               </div>
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
@@ -167,7 +193,7 @@ export const Welcome = () => {
                   Satisfaction
                 </div>
                 <div className="text-xl font-semibold text-gray-900 dark:text-white">
-                  {bot.satisfaction}%
+                  0
                 </div>
               </div>
             </div>

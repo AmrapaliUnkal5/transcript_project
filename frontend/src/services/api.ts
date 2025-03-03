@@ -201,5 +201,9 @@ export const authApi = {
   getChatMessages: async (interactionId: number) => {
     const response = await api.get(`/chat/get_chat_messages?interaction_id=${interactionId}`);
     return response.data;
-  }
+  },
+  getBotSettingsBotId: async (botId: number) => {
+    const response = await api.get(`/botsettings/bot/${botId}`);  // API endpoint to fetch bot settings
+    return response.data;
+},
 };
