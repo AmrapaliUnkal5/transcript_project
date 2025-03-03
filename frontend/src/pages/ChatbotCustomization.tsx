@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import "../index.css";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { useBot } from "../context/BotContext";
 
 const saveBotSettings = async (settings: BotSettings, userId: number) => {
   console.log("userId", userId);
@@ -73,9 +74,79 @@ const updateBotSettings = async (
 export const ChatbotCustomization = () => {
   const { user } = useAuth(); // Get user data from context
   const userId = user?.user_id;
+  const { selectedBot } = useBot();
   if (!userId) {
     //alert("User ID is missing. Please log in again.");
   }
+
+  const [interactionId, setInteractionId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<{ sender: string; text: string }[]>([]);
+  const [inputMessage, setInputMessage] = useState("");
+  
+  if (!selectedBot) {
+    return <div className="text-center text-gray-500">No bot selected.</div>;
+  }
+  
+  useEffect(() => {
+    console.log("slelelct bit", selectedBot);
+    
+    if (selectedBot) {
+      startChatSession();
+    }
+  }, [selectedBot]);
+
+   /** ✅ Start Chat Session */
+   const startChatSession = async () => {
+    if (!selectedBot || !userId) return;
+    try {
+      const data = await authApi.startChat(selectedBot.id, userId);
+      setInteractionId(data.interaction_id);
+      fetchChatMessages(data.interaction_id);
+    } catch (error) {
+      console.error("Failed to start chat session:", error);
+    }
+  };
+
+  const fetchChatMessages = async (interactionId: number) => {
+    try {
+      const data = await authApi.getChatMessages(interactionId);
+  
+      if (Array.isArray(data)) {
+        // ✅ Convert "message" to "text" to match the expected format
+        const formattedMessages = data.map(msg => ({
+          sender: msg.sender,
+          text: msg.message // ✅ Correctly map "message" to "text"
+        }));
+        setMessages(formattedMessages);
+      } else {
+        setMessages([]); // ✅ If API returns an error or no messages
+      }
+    } catch (error) {
+      console.error("Failed to fetch chat messages:", error);
+      setMessages([]);
+    }
+  };
+
+  /** ✅ Send Message */
+  const sendMessage = async () => {
+    if (!interactionId || !inputMessage.trim()) return;
+  
+    // ✅ Immediately add user message to UI
+    const newMessages = [...messages, { sender: "user", text: inputMessage }];
+    setMessages(newMessages);
+    setInputMessage("");
+  
+    try {
+      const data = await authApi.sendMessage(interactionId, "user", inputMessage);
+  
+      // ✅ Add bot response to UI
+      const botMessage = { sender: "bot", text: data.message };
+      setMessages([...newMessages, botMessage]);
+  
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    }
+  };
 
   //console.log("User ID in ChatbotCustomization:", userId);
   const [settings, setSettings] = useState<BotSettings>({
@@ -332,7 +403,7 @@ export const ChatbotCustomization = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Chatbot Customization
+          Customizing: {selectedBot.name}
         </h1>
         <button
           onClick={handleSaveSettings}
@@ -426,45 +497,44 @@ export const ChatbotCustomization = () => {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Preview
           </h2>
-          <div className="aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg p-4 relative">
-            <div
-              style={{
-                position: "absolute",
-                ...getPositionStyles(settings.position), // Apply computed position styles
-              }}
-              className="flex items-center space-x-2 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg"
+
+          {/* Chat Window */}
+          <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 h-80 overflow-y-auto flex flex-col">
+            {/* Chat Messages */}
+              {messages.length > 0 ? (
+                messages.map((msg, index) => (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-lg max-w-[80%] ${
+                      msg.sender === "user"
+                        ? "ml-auto bg-blue-500 text-white"
+                        : "mr-auto bg-gray-300 text-gray-900"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center mt-auto">Start chatting with the bot!</p>
+              )}
+          </div>
+
+          {/* Chat Input */}
+          <div className="mt-4 flex items-center">
+            <input
+              type="text"
+              className="flex-grow p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
+              placeholder="Type a message..."
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+            />
+            <button
+              className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              onClick={sendMessage}
+              disabled={!inputMessage.trim()}
             >
-              <img
-                src={settings.icon}
-                alt="Bot Icon"
-                className="w-8 h-8 rounded-full"
-              />
-              <span
-                style={{
-                  fontSize: settings.fontSize,
-                  fontFamily: settings.fontStyle,
-                }}
-                className="font-medium text-gray-900 dark:text-white"
-              >
-                {settings.name}
-              </span>
-            </div>
-            <div className="absolute bottom-4 right-4 left-4 space-y-2">
-              <div
-                style={{ backgroundColor: settings.botColor }}
-                className="p-3 rounded-lg max-w-[80%] ml-4"
-              >
-                <p className="text-gray-800">
-                  Hello! How can I help you today?
-                </p>
-              </div>
-              <div
-                style={{ backgroundColor: settings.userColor }}
-                className="p-3 rounded-lg max-w-[80%] ml-auto mr-4"
-              >
-                <p className="text-gray-800">I have a question about...</p>
-              </div>
-            </div>
+              Send
+            </button>
           </div>
         </div>
       </div>
