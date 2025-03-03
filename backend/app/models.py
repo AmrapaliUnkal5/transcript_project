@@ -57,11 +57,28 @@ class Interaction(Base):
     __tablename__ = "interactions"
 
     interaction_id = Column(Integer, primary_key=True, autoincrement=True)
-    bot_id = Column(Integer, ForeignKey("bots.bot_id"), nullable=True)
-    user_message = Column(Text, nullable=False)
-    bot_response = Column(Text, nullable=False)
-    user_attachment = Column(String(255), nullable=True)
-    timestamp = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=True)
+    bot_id = Column(Integer, ForeignKey("bots.bot_id"), nullable=False, index=True)  # ✅ Linked to bot
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False, index=True)  # ✅ Linked to user
+    start_time = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False, index=True)
+    archived = Column(Boolean, default=False, index=True)  # ✅ For archival optimization
+
+    # # Relationships
+    # user = relationship("User", back_populates="interactions")
+    # bot = relationship("Bot", back_populates="interactions")
+    # messages = relationship("ChatMessage", back_populates="interaction", cascade="all, delete-orphan")
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    message_id = Column(Integer, primary_key=True, autoincrement=True)
+    interaction_id = Column(Integer, ForeignKey("interactions.interaction_id"), nullable=False, index=True)  # ✅ Linked to interaction
+    sender = Column(String, nullable=False)  # "user" or "bot"
+    message_text = Column(Text, nullable=False)
+    timestamp = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False, index=True)
+
+    # Relationships
+    # interaction = relationship("Interaction", back_populates="messages")
+
 
 class Language(Base):
     __tablename__ = "languages"

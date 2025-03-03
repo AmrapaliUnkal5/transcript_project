@@ -19,24 +19,12 @@ beautifulsoup4
 playwright
 captcha
 
-# from IEMS
-# openai
-# langchain
-# langchain-openai
-# langchain-community
-# pyPDF2
-# tiktoken
-# pypdf
-# pandas
-# tabulate
-# chromadb
-# python-multipart
-# beautifulsoup4
-# unstructured
-# python-docx
-# python-pptx
-# mwxml
-# camelot-py
-# ghostscript
-# opencv-python
-# pymysql
+# For LLM Part
+chromadb
+langchain
+langchain_openai
+openai
+tiktoken
+pdfplumber
+yt-dlp
+youtube-transcript-api
