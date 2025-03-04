@@ -20,6 +20,8 @@ import {
 } from "recharts";
 import { authApi } from "../services/api";
 import { useBot } from "../context/BotContext";
+import { useLoader } from "../context/LoaderContext"; // Use global loader hook
+import Loader from "../components/Loader";
 
 export const Welcome = () => {
   const { user } = useAuth();
@@ -29,11 +31,13 @@ export const Welcome = () => {
   // This would come from your API in a real app
   //const [hasBots] = useState(true);
   const [hasBots, setHasBots] = useState<boolean | null>(null); // Track bot existence
+  const { setLoading } = useLoader(); // Get loader state from context
 
   useEffect(() => {
     const checkUserBot = async () => {
       try {
         if (userId === undefined) return; // Ensure userId is defined before making API call
+        setLoading(true); // Show loader before API call
 
         const response = await authApi.getBotSettingsByUserId(userId);
         const botExists = response.length > 0; // Check if bot_id is present
@@ -41,13 +45,15 @@ export const Welcome = () => {
       } catch (error) {
         console.error("Error checking user bot:", error);
         setHasBots(false); // Assume no bot in case of error
+      } finally {
+        setLoading(false); // Hide loader after API call
       }
     };
     checkUserBot();
   }, [userId]);
 
   if (hasBots === null) {
-    return <div>Loading...</div>; // Show loading state while API call is in progress
+    return <Loader />; // Show loading state while API call is in progress
   }
   const recentData = [
     { day: "Mon", conversations: 145 },
