@@ -80,23 +80,25 @@ export const ChatbotCustomization = () => {
   }
 
   const [interactionId, setInteractionId] = useState<number | null>(null);
-  const [messages, setMessages] = useState<{ sender: string; text: string }[]>([]);
+  const [messages, setMessages] = useState<{ sender: string; text: string }[]>(
+    []
+  );
   const [inputMessage, setInputMessage] = useState("");
-  
+
   if (!selectedBot) {
     return <div className="text-center text-gray-500">No bot selected.</div>;
   }
-  
+
   useEffect(() => {
     console.log("slelelct bit", selectedBot);
-    
+
     if (selectedBot) {
       startChatSession();
     }
   }, [selectedBot]);
 
-   /** ✅ Start Chat Session */
-   const startChatSession = async () => {
+  /** ✅ Start Chat Session */
+  const startChatSession = async () => {
     if (!selectedBot || !userId) return;
     try {
       const data = await authApi.startChat(selectedBot.id, userId);
@@ -110,12 +112,12 @@ export const ChatbotCustomization = () => {
   const fetchChatMessages = async (interactionId: number) => {
     try {
       const data = await authApi.getChatMessages(interactionId);
-  
+
       if (Array.isArray(data)) {
         // ✅ Convert "message" to "text" to match the expected format
-        const formattedMessages = data.map(msg => ({
+        const formattedMessages = data.map((msg) => ({
           sender: msg.sender,
-          text: msg.message // ✅ Correctly map "message" to "text"
+          text: msg.message, // ✅ Correctly map "message" to "text"
         }));
         setMessages(formattedMessages);
       } else {
@@ -130,19 +132,22 @@ export const ChatbotCustomization = () => {
   /** ✅ Send Message */
   const sendMessage = async () => {
     if (!interactionId || !inputMessage.trim()) return;
-  
+
     // ✅ Immediately add user message to UI
     const newMessages = [...messages, { sender: "user", text: inputMessage }];
     setMessages(newMessages);
     setInputMessage("");
-  
+
     try {
-      const data = await authApi.sendMessage(interactionId, "user", inputMessage);
-  
+      const data = await authApi.sendMessage(
+        interactionId,
+        "user",
+        inputMessage
+      );
+
       // ✅ Add bot response to UI
       const botMessage = { sender: "bot", text: data.message };
       setMessages([...newMessages, botMessage]);
-  
     } catch (error) {
       console.error("Failed to send message:", error);
     }
@@ -169,36 +174,44 @@ export const ChatbotCustomization = () => {
   useEffect(() => {
     const fetchBotSettings = async () => {
       try {
-        if (!userId) {
-          console.error("User ID is missing.");
+        // if (!userId) {
+        //   console.error("User ID is missing.");
+        //   return;
+        // }
+        if (!selectedBot.id) {
+          console.error("Bot ID is missing.");
           return;
         }
+        const botId = selectedBot.id;
 
-        console.log("Fetching bot settings for user_id:", userId);
-        const response = await authApi.getBotSettingsByUserId(userId);
-        console.log("Full response:", response);
+        // console.log("Fetching bot settings for user_id:", userId);
+        //const response = await authApi.getBotSettingsByUserId(userId);
+        // console.log("Full response:", response);
+        console.log("Fetching bot settings for bot_id:", botId);
+        const response = await authApi.getBotSettingsBotId(botId); // New API call
+        console.log("Response1:", response);
 
-        if (response.length > 0) {
-          const firstBotData = Object.values(response[0])[0]; // Get first bot from response
-          console.log("First Bot Data:", firstBotData);
+        if (response) {
+          //const firstBotData = Object.values(response[0])[0]; // Get first bot from response
+          //console.log("First Bot Data:", firstBotData);
           // The bot_id is the key of the first object, so extract it dynamically
-          const botId = Number(Object.keys(response[0])[0]);
-          console.log("First Bot id :", botId);
-          setBotId(botId);
+          // const botId = Number(Object.keys(response[0])[0]);
+          //console.log("First Bot id :", botId);
+          setBotId(selectedBot.id);
           //setBotId(firstBotData.bot_id); // Assuming bot_id is returned
           setIsBotExisting(true);
 
           setSettings({
-            name: firstBotData.bot_name,
-            icon: firstBotData.bot_icon,
-            fontSize: `${firstBotData.font_size}px`,
-            fontStyle: firstBotData.font_style,
-            position: firstBotData.position,
-            maxMessageLength: firstBotData.max_words_per_message,
-            botColor: firstBotData.bot_color,
-            userColor: firstBotData.user_color,
-            appearance: firstBotData.appearance,
-            temperature: firstBotData.temperature,
+            name: response.bot_name,
+            icon: response.bot_icon,
+            fontSize: `${response.font_size}px`,
+            fontStyle: response.font_style,
+            position: response.position,
+            maxMessageLength: response.max_words_per_message,
+            botColor: response.bot_color,
+            userColor: response.user_color,
+            appearance: response.appearance,
+            temperature: response.temperature,
           });
         } else {
           console.log("No bots found. Using default settings.");
@@ -209,7 +222,7 @@ export const ChatbotCustomization = () => {
     };
 
     fetchBotSettings();
-  }, [userId]);
+  }, [botId]);
 
   const handleSaveSettings = async () => {
     console.log("handle Save");
@@ -501,22 +514,24 @@ export const ChatbotCustomization = () => {
           {/* Chat Window */}
           <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 h-80 overflow-y-auto flex flex-col">
             {/* Chat Messages */}
-              {messages.length > 0 ? (
-                messages.map((msg, index) => (
-                  <div
-                    key={index}
-                    className={`p-3 rounded-lg max-w-[80%] ${
-                      msg.sender === "user"
-                        ? "ml-auto bg-blue-500 text-white"
-                        : "mr-auto bg-gray-300 text-gray-900"
-                    }`}
-                  >
-                    {msg.text}
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center mt-auto">Start chatting with the bot!</p>
-              )}
+            {messages.length > 0 ? (
+              messages.map((msg, index) => (
+                <div
+                  key={index}
+                  className={`p-3 rounded-lg max-w-[80%] ${
+                    msg.sender === "user"
+                      ? "ml-auto bg-blue-500 text-white"
+                      : "mr-auto bg-gray-300 text-gray-900"
+                  }`}
+                >
+                  {msg.text}
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500 text-center mt-auto">
+                Start chatting with the bot!
+              </p>
+            )}
           </div>
 
           {/* Chat Input */}
