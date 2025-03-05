@@ -201,36 +201,44 @@ export const ChatbotCustomization = () => {
     const fetchBotSettings = async () => {
       setLoading(true);
       try {
-        if (!userId) {
-          console.error("User ID is missing.");
+        // if (!userId) {
+        //   console.error("User ID is missing.");
+        //   return;
+        // }
+        if (!selectedBot.id) {
+          console.error("Bot ID is missing.");
           return;
         }
+        const botId = selectedBot.id;
 
-        console.log("Fetching bot settings for user_id:", userId);
-        const response = await authApi.getBotSettingsByUserId(userId);
-        console.log("Full response:", response);
+        // console.log("Fetching bot settings for user_id:", userId);
+        //const response = await authApi.getBotSettingsByUserId(userId);
+        // console.log("Full response:", response);
+        console.log("Fetching bot settings for bot_id:", botId);
+        const response = await authApi.getBotSettingsBotId(botId); // New API call
+        console.log("Response1:", response);
 
-        if (response.length > 0) {
-          const firstBotData = Object.values(response[0])[0]; // Get first bot from response
-          console.log("First Bot Data:", firstBotData);
+        if (response) {
+          //const firstBotData = Object.values(response[0])[0]; // Get first bot from response
+          //console.log("First Bot Data:", firstBotData);
           // The bot_id is the key of the first object, so extract it dynamically
-          const botId = Number(Object.keys(response[0])[0]);
-          console.log("First Bot id :", botId);
-          setBotId(botId);
+          // const botId = Number(Object.keys(response[0])[0]);
+          //console.log("First Bot id :", botId);
+          setBotId(selectedBot.id);
           //setBotId(firstBotData.bot_id); // Assuming bot_id is returned
           setIsBotExisting(true);
 
           setSettings({
-            name: firstBotData.bot_name,
-            icon: firstBotData.bot_icon,
-            fontSize: `${firstBotData.font_size}px`,
-            fontStyle: firstBotData.font_style,
-            position: firstBotData.position,
-            maxMessageLength: firstBotData.max_words_per_message,
-            botColor: firstBotData.bot_color,
-            userColor: firstBotData.user_color,
-            appearance: firstBotData.appearance,
-            temperature: firstBotData.temperature,
+            name: response.bot_name,
+            icon: response.bot_icon,
+            fontSize: `${response.font_size}px`,
+            fontStyle: response.font_style,
+            position: response.position,
+            maxMessageLength: response.max_words_per_message,
+            botColor: response.bot_color,
+            userColor: response.user_color,
+            appearance: response.appearance,
+            temperature: response.temperature,
           });
         } else {
           console.log("No bots found. Using default settings.");
@@ -243,7 +251,7 @@ export const ChatbotCustomization = () => {
     };
 
     fetchBotSettings();
-  }, [userId]);
+  }, [botId]);
 
   const handleSaveSettings = async () => {
     console.log("handle Save");
