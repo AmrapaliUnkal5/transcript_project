@@ -3,13 +3,16 @@ import { Link } from "react-router-dom";
 import { Mail, ArrowLeft } from "lucide-react";
 import { authApi } from "../../services/api"; // Import API call
 import { AxiosError } from "axios";
+import { useLoader } from "../../context/LoaderContext";
+import Loader from "../../components/Loader";
 
 export const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  //const [loading, setLoading] = useState(false);
+  const { loading, setLoading } = useLoader(); // Use global loading state
 
   const isValidEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -50,6 +53,7 @@ export const ForgotPassword = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      {loading && <Loader />}
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">

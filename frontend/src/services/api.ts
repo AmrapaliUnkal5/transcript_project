@@ -11,6 +11,23 @@ const api = axios.create({
   },
 });
 
+let activeRequests = 0;
+let setLoadingState: ((loading: boolean) => void) | null = null;
+
+// Function to set loading state from external components
+export const setLoadingHandler = (handler: (loading: boolean) => void) => {
+  setLoadingState = handler;
+};
+
+// Function to update loading state
+const updateLoadingState = () => {
+  if (setLoadingState) {
+    setLoadingState(activeRequests > 0);
+  }
+};
+
+
+
 // Add request interceptor to add auth token
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -22,8 +39,14 @@ api.interceptors.request.use((config) => {
 
 // Add response interceptor to handle auth errors
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    activeRequests--;
+    updateLoadingState();
+    return response;
+  },
   (error) => {
+    activeRequests--;
+    updateLoadingState();
     if (error.response?.status === 401) {
       // Clear auth data and redirect to login
       localStorage.removeItem('token');
@@ -231,4 +254,8 @@ export const authApi = {
     const response = await api.put("/update-bot-name/" + botData.bot_id, { bot_name: botData.bot_name });
     return response.data;
   },
+  getBotSettingsBotId: async (botId: number) => {
+    const response = await api.get(`/botsettings/bot/${botId}`);  // API endpoint to fetch bot settings
+    return response.data;
+},
 };

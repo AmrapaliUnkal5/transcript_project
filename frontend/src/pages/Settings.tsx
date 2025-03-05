@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import { User, Globe, Bell, Shield, Key } from "lucide-react";
+import { useLoader } from "../context/LoaderContext"; // Use global loader hook
+import Loader from "../components/Loader";
 
 import { authApi } from "../services/api";
 
 export const Settings = () => {
   // Retrieve user data from localStorage
+  const { loading, setLoading } = useLoader(); // Use global loader
 
   const userData = localStorage.getItem("user");
   const user = userData ? JSON.parse(userData) : null;
@@ -27,7 +30,7 @@ export const Settings = () => {
       "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png",
   });
 
-  const [loading, setLoading] = useState(false);
+  //const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -109,6 +112,8 @@ export const Settings = () => {
             Profile Settings
           </h2>
         </div>
+        {/* Display Loader while loading */}
+        {loading && <Loader />}
         <div className="space-y-4">
           <div className="flex items-center space-x-4">
             <img
