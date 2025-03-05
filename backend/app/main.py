@@ -94,6 +94,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     return RegisterResponse(
         message="User registered successfully",
         user=UserOut(
+            user_id = new_user.user_id,
             email=new_user.email,
             role=new_user.role,
             company_name=new_user.company_name,

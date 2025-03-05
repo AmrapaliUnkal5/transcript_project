@@ -561,6 +561,14 @@ export const ChatbotCustomization = () => {
                       ? "ml-auto bg-blue-500 text-white"
                       : "mr-auto bg-gray-300 text-gray-900"
                   }`}
+                  style={{
+                    backgroundColor:
+                      msg.sender === "user"
+                        ? settings.userColor
+                        : settings.botColor,
+                    fontSize: settings.fontSize,
+                    fontFamily: settings.fontStyle,
+                  }}
                 >
                   {msg.text}
                 </div>
