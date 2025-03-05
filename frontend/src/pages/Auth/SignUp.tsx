@@ -1,10 +1,10 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 //import { User, Mail, Lock, Building2, Braces, MapPinned } from "lucide-react";
 import { authApi, type SignUpData } from "../../services/api";
 import { Box, Button, TextField, Typography } from "@mui/material";
 import Grid from "@mui/material/Grid2";
-import GoogleIcon from "@mui/icons-material/Google";
+//import GoogleIcon from "@mui/icons-material/Google";
 //import AppleIcon from "@mui/icons-material/Apple";
 //import FacebookIcon from "@mui/icons-material/Facebook";
 import { grey } from "@mui/material/colors";
@@ -14,6 +14,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer } from "react-toastify";
 import { InputAdornment, IconButton } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material"; // Icons for show/hide password
+import { useAuth } from "../../context/AuthContext";
 
 export const SignUp = () => {
   const navigate = useNavigate();
@@ -21,6 +22,10 @@ export const SignUp = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isConfirmPasswordTouched, setIsConfirmPasswordTouched] =
+    useState(false);
+  const { login } = useAuth();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -34,15 +39,17 @@ export const SignUp = () => {
     confirmPassword: "",
   });
   // Track validation errors for each field
-  const [formErrors, setFormErrors] = useState({
-    firstName: "",
-    lastName: "",
-    company_name: "",
-    email: "",
-    password: "",
-    phone_no: "",
-    confirmPassword: "",
-  });
+  // const [formErrors, setFormErrors] = useState({
+  //   firstName: "",
+  //   lastName: "",
+  //   company_name: "",
+  //   email: "",
+  //   password: "",
+  //   phone_no: "",
+  //   confirmPassword: "",
+  // });
+
+  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
   // Toggle password visibility
   const handleClickShowPassword = () => {
@@ -56,17 +63,39 @@ export const SignUp = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => {
+      const updatedForm = {
+        ...prev,
+        [name]: value,
+      };
+
+      // Track if user has started typing in confirmPassword
+      if (name === "confirmPassword") {
+        setIsConfirmPasswordTouched(true);
+      }
+
+      // Validate the field as the user types
+      validateField(name, value, updatedForm);
+
+      return updatedForm;
+    });
+
     // Clear error when user starts typing
     if (error) setError(null);
-    // Validate the field as the user types
-    validateField(name, value);
   };
 
-  const validateField = (fieldName: string, value: string) => {
+  useEffect(() => {
+    // Only validate confirmPassword if the user has started typing in it
+    if (isConfirmPasswordTouched) {
+      validateField("confirmPassword", formData.confirmPassword);
+    }
+  }, [formData.password, isConfirmPasswordTouched]);
+
+  const validateField = (
+    fieldName: string,
+    value: string,
+    updatedForm?: typeof formData
+  ) => {
     let errorMessage = "";
 
     switch (fieldName) {
@@ -82,11 +111,15 @@ export const SignUp = () => {
         if (value.length < 8) {
           errorMessage = "Password must be at least 8 characters long.";
         }
+        validateField("confirmPassword", updatedForm?.confirmPassword || "");
         break;
       }
 
       case "confirmPassword": {
-        if (value !== formData.password) {
+        if (
+          isConfirmPasswordTouched &&
+          value !== (updatedForm?.password || formData.password)
+        ) {
           errorMessage = "Passwords do not match.";
         }
         break;
@@ -117,6 +150,61 @@ export const SignUp = () => {
       [fieldName]: errorMessage,
     }));
   };
+
+  const handleCredentialResponse = async (response: { credential: string }) => {
+    //console.log("Credential response:", response);
+    if (response.credential) {
+      try {
+        const res = await authApi.googleLogin(response.credential);
+        //console.log(res);
+        login(res.access_token, res.user);
+        const from = location.state?.from?.pathname || "/";
+        navigate(from, { replace: true });
+      } catch (error) {
+        console.error("Error during Google authentication:", error);
+        setError("Google authentication failed");
+      }
+    } else {
+      console.error("Google login failed");
+    }
+  };
+
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      console.log("Google API script loaded successfully");
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id:
+            "752565494028-0ic7r9a791prp55aqkqe5lbjcaqfk9e1.apps.googleusercontent.com",
+          callback: handleCredentialResponse,
+          access_type: "offline",
+          prompt: "consent",
+        });
+
+        window.google.accounts.id.renderButton(
+          document.getElementById("g_signin"),
+          {
+            theme: "outline", // Styles the button (possible values: outline, filled_black, filled_blue)
+            size: "large", // Button size (possible values: small, medium, large)
+            shape: "pill", // Rounded button (possible values: rectangular, pill, circle)
+            text: "none", // Controls the text (possible values: signin_with, continue_with, signup_with, none)
+            logo_alignment: "center", // Aligns the Google logo (possible values: left, center)
+          }
+        );
+      }
+    };
+
+    script.onerror = () => {
+      console.error("Failed to load the Google API script");
+    };
+
+    document.body.appendChild(script);
+  }, []);
 
   const validateForm = () => {
     let isValid = true;
@@ -204,21 +292,9 @@ export const SignUp = () => {
             {/* <Typography variant='body1' color={grey[800]} mb={1}>Continue with:</Typography> */}
 
             <Grid container spacing={2} justifyContent="center">
-              <Grid size={4}>
-                <Box
-                  display={"flex"}
-                  justifyContent={"center"}
-                  gap={2}
-                  p={2}
-                  borderRadius={"12px"}
-                  boxShadow={"0px 2px 30px 2px rgba(0, 0, 0, 0.08);"}
-                  mb={"12px"}
-                  sx={{ cursor: "pointer" }}
-                >
-                  <GoogleIcon />
-                  <Typography variant="body1" color={grey[800]}>
-                    Google
-                  </Typography>
+              <Grid size={5}>
+                <Box sx={{ cursor: "pointer", width: "100%" }}>
+                  <div id="g_signin" style={{ width: "100%" }}></div>
                 </Box>
               </Grid>
               {/*
