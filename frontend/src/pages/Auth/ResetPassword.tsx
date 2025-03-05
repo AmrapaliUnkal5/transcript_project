@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 import { authApi } from "../../services/api"; // Assuming API call function exists
 import { AxiosError } from "axios";
+import { useLoader } from "../../context/LoaderContext";
+import Loader from "../../components/Loader";
 
 export const ResetPassword: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -11,7 +13,8 @@ export const ResetPassword: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  //const [loading, setLoading] = useState<boolean>(false);
+  const { loading, setLoading } = useLoader(); // Use global loader state
 
   const token = searchParams.get("token"); // Get token from URL query params
   //const email = searchParams.get("email"); // Get email from URL query params
@@ -68,6 +71,7 @@ export const ResetPassword: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <Loader /> {/* Global loader component */}
       <div className="max-w-md w-full bg-white p-6 rounded shadow-md">
         <h2 className="text-2xl font-bold text-center">Reset Password</h2>
 

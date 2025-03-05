@@ -7,8 +7,15 @@ import "../index.css";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useBot } from "../context/BotContext";
+import { useLoader } from "../context/LoaderContext"; // Use global loader hook
+import Loader from "../components/Loader";
 
-const saveBotSettings = async (settings: BotSettings, userId: number) => {
+const saveBotSettings = async (
+  settings: BotSettings,
+  userId: number,
+  setLoading: (loading: boolean) => void
+) => {
+  setLoading(true);
   console.log("userId", userId);
   const data = {
     user_id: userId,
@@ -26,6 +33,7 @@ const saveBotSettings = async (settings: BotSettings, userId: number) => {
   };
 
   try {
+    setLoading(true); // Show loader
     //const response = await authApi.post("/botsettings", data);
     const response = await authApi.saveBotSettings(data);
     console.log("Full response:", response);
@@ -34,14 +42,18 @@ const saveBotSettings = async (settings: BotSettings, userId: number) => {
   } catch (error) {
     console.error("Failed to save settings:", error);
     throw error;
+  } finally {
+    setLoading(false); // ✅ Hide loader after API call
   }
 };
 
 const updateBotSettings = async (
   botId: number,
   UserId: number,
-  settings: BotSettings
+  settings: BotSettings,
+  setLoading: (loading: boolean) => void
 ) => {
+  setLoading(true);
   const data = {
     user_id: UserId,
     bot_name: settings.name,
@@ -68,10 +80,13 @@ const updateBotSettings = async (
   } catch (error) {
     console.error("Failed to update settings:", error);
     throw error;
+  } finally {
+    setLoading(false); //
   }
 };
 
 export const ChatbotCustomization = () => {
+  const { loading, setLoading } = useLoader();
   const { user } = useAuth(); // Get user data from context
   const userId = user?.user_id;
   const { selectedBot } = useBot();
@@ -84,6 +99,7 @@ export const ChatbotCustomization = () => {
     []
   );
   const [inputMessage, setInputMessage] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false); // Separate loader for chat preview
 
   if (!selectedBot) {
     return <div className="text-center text-gray-500">No bot selected.</div>;
@@ -100,17 +116,21 @@ export const ChatbotCustomization = () => {
   /** ✅ Start Chat Session */
   const startChatSession = async () => {
     if (!selectedBot || !userId) return;
+    setPreviewLoading(true); // ✅ Show "..." in preview only
     try {
       const data = await authApi.startChat(selectedBot.id, userId);
       setInteractionId(data.interaction_id);
       fetchChatMessages(data.interaction_id);
     } catch (error) {
       console.error("Failed to start chat session:", error);
+    } finally {
+      setPreviewLoading(false); // ✅ Hide "..." after fetching messages
     }
   };
 
   const fetchChatMessages = async (interactionId: number) => {
     try {
+      setPreviewLoading(true);
       const data = await authApi.getChatMessages(interactionId);
 
       if (Array.isArray(data)) {
@@ -126,17 +146,21 @@ export const ChatbotCustomization = () => {
     } catch (error) {
       console.error("Failed to fetch chat messages:", error);
       setMessages([]);
+    } finally {
+      setPreviewLoading(false); // ✅ Hide "..." after fetching messages
     }
   };
 
   /** ✅ Send Message */
   const sendMessage = async () => {
+    console.log("sendmessage");
     if (!interactionId || !inputMessage.trim()) return;
 
     // ✅ Immediately add user message to UI
     const newMessages = [...messages, { sender: "user", text: inputMessage }];
     setMessages(newMessages);
     setInputMessage("");
+    setPreviewLoading(true); // Use global loading state
 
     try {
       const data = await authApi.sendMessage(
@@ -150,6 +174,8 @@ export const ChatbotCustomization = () => {
       setMessages([...newMessages, botMessage]);
     } catch (error) {
       console.error("Failed to send message:", error);
+    } finally {
+      setPreviewLoading(false); // ✅ Hide loader after bot responds
     }
   };
 
@@ -173,6 +199,7 @@ export const ChatbotCustomization = () => {
   // Fetch bot settings on component mount
   useEffect(() => {
     const fetchBotSettings = async () => {
+      setLoading(true);
       try {
         // if (!userId) {
         //   console.error("User ID is missing.");
@@ -218,6 +245,8 @@ export const ChatbotCustomization = () => {
         }
       } catch (error) {
         console.error("Failed to fetch bot settings:", error);
+      } finally {
+        setLoading(false); // Hide loader after API call
       }
     };
 
@@ -236,9 +265,9 @@ export const ChatbotCustomization = () => {
       console.log("botId", botId);
 
       if (isBotExisting && botId) {
-        await updateBotSettings(botId, userId, settings); // Update the bot settings if bot exists
+        await updateBotSettings(botId, userId, settings, setLoading); // Update the bot settings if bot exists
       } else {
-        await saveBotSettings(settings, userId); // Save new bot settings if bot doesn't exist
+        await saveBotSettings(settings, userId, setLoading); // Save new bot settings if bot doesn't exist
       }
 
       //alert("Settings saved successfully!");
@@ -259,6 +288,7 @@ export const ChatbotCustomization = () => {
   const handleIconUpload = async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
+    setLoading(true);
 
     try {
       const response = await authApi.uploadBotIcon(formData); // API call to upload image
@@ -271,6 +301,8 @@ export const ChatbotCustomization = () => {
     } catch (error) {
       console.error("Failed to upload bot icon:", error);
       toast.error("Failed to upload bot icon.");
+    } finally {
+      setLoading(false); // Hide loader after the API call
     }
   };
 
@@ -414,15 +446,21 @@ export const ChatbotCustomization = () => {
 
   return (
     <div className="space-y-6">
+      {loading && <Loader />}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           Customizing: {selectedBot.name}
         </h1>
         <button
           onClick={handleSaveSettings}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          disabled={loading}
+          className={`px-4 py-2 rounded-lg transition-colors ${
+            loading
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-500 hover:bg-blue-600 text-white"
+          }`}
         >
-          Save Changes
+          {loading ? "Saving..." : "Save Changes"}
         </button>
       </div>
       <ToastContainer position="top-right" autoClose={3000} />
@@ -531,6 +569,12 @@ export const ChatbotCustomization = () => {
               <p className="text-gray-500 text-center mt-auto">
                 Start chatting with the bot!
               </p>
+            )}
+
+            {previewLoading && (
+              <div className="mr-auto bg-gray-300 text-gray-900 p-3 rounded-lg max-w-[80%]">
+                <span className="animate-pulse">...</span>
+              </div>
             )}
           </div>
 

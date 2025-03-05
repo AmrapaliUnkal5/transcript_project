@@ -14,6 +14,7 @@ import { useAuth } from "../../context/AuthContext";
 import { Box, styled, TextField, Typography } from "@mui/material";
 import Grid from "@mui/material/Grid2";
 import { RefreshCcw } from "lucide-react"; // Import Lucide icon
+import { useLoader } from "../../context/LoaderContext";
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -22,7 +23,8 @@ export const Login = () => {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [rememberMe, setRememberMe] = React.useState(false);
-  const [loading, setLoading] = useState(false);
+  //const [loading, setLoading] = useState(false);
+  const { loading, setLoading } = useLoader(); // Use global loading state
   const [error, setError] = useState<string | null>(null);
   const [captchaInput, setCaptchaInput] = useState("");
   const [captchaImage, setCaptchaImage] = useState("");
