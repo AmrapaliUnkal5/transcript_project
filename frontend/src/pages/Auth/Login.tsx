@@ -6,7 +6,7 @@ declare global {
 
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { AlertCircle, Facebook, Apple,Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Facebook, Apple,} from "lucide-react";
 import { authApi } from "../../services/api";
 import { AxiosError } from "axios";
 import { useAuth } from "../../context/AuthContext";
@@ -15,6 +15,7 @@ import { Box, styled, TextField, Typography,IconButton, InputAdornment } from "@
 import Grid from "@mui/material/Grid2";
 import { RefreshCcw } from "lucide-react"; // Import Lucide icon
 import { useLoader } from "../../context/LoaderContext";
+import { Visibility, VisibilityOff } from "@mui/icons-material"; 
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -52,6 +53,10 @@ export const Login = () => {
       window.history.replaceState({}, document.title);
     }
   }, [location]);
+
+  const handleClickShowPassword = () => {
+    setShowPassword((prev) => !prev);
+  };
 
   const handleCredentialResponse = async (response: { credential: string }) => {
     console.log("Credential response:", response);
@@ -229,41 +234,21 @@ export const Login = () => {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment
-                            position="end"
-                            sx={{ backgroundColor: "transparent" }} 
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="toggle password visibility"
+                            onClick={handleClickShowPassword}
+                            edge="end"
                           >
-                            <IconButton
-                              onClick={() => setShowPassword(!showPassword)} 
-                              edge="end"
-                              size="small"
-                              sx={{
-                                backgroundColor: "transparent", 
-                                "&:hover": {
-                                  backgroundColor: "transparent", 
-                                },
-                              }}
-                            >
-                              {showPassword ? (
-                                <Eye size={20} style={{ color: "#1976d2" }} /> 
-                              ) : (
-                                <EyeOff size={20} style={{ color: "#1976d2" }} /> 
-                              )}
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                      }}
-                      sx={{
-                        "& .MuiInputBase-root": {
-                          backgroundColor: "#f0f4f7", 
-                        },
-                      }}
-                    />
-                  </Grid>
-
-                    <div className="mt-4 flex items-center space-x-2">
+                            {showPassword ? <Visibility /> : <VisibilityOff />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                   <div className="mt-4 flex items-center space-x-2">
                       <img
                         src={captchaImage}
                         alt="CAPTCHA"
@@ -292,6 +277,7 @@ export const Login = () => {
                         {captchaError}
                       </p>
                     )}
+                    </Grid>
                   
                   {/* <Grid size={12}>
                     <StyledImage
