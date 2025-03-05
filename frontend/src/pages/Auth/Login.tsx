@@ -6,12 +6,12 @@ declare global {
 
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { AlertCircle, Facebook, Apple } from "lucide-react";
+import { AlertCircle, Facebook, Apple,Eye, EyeOff } from "lucide-react";
 import { authApi } from "../../services/api";
 import { AxiosError } from "axios";
 import { useAuth } from "../../context/AuthContext";
 //import axios from "axios";
-import { Box, styled, TextField, Typography } from "@mui/material";
+import { Box, styled, TextField, Typography,IconButton, InputAdornment } from "@mui/material";
 import Grid from "@mui/material/Grid2";
 import { RefreshCcw } from "lucide-react"; // Import Lucide icon
 import { useLoader } from "../../context/LoaderContext";
@@ -32,6 +32,7 @@ export const Login = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(
     location.state?.message || null
   );
+  const [showPassword, setShowPassword] = React.useState(false); // State to manage password visibility
 
   useEffect(() => {
     fetchCaptcha();
@@ -221,14 +222,46 @@ export const Login = () => {
                     <TextField
                       id="password"
                       label="Password"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       variant="standard"
                       size="small"
                       fullWidth
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment
+                            position="end"
+                            sx={{ backgroundColor: "transparent" }} 
+                          >
+                            <IconButton
+                              onClick={() => setShowPassword(!showPassword)} 
+                              edge="end"
+                              size="small"
+                              sx={{
+                                backgroundColor: "transparent", 
+                                "&:hover": {
+                                  backgroundColor: "transparent", 
+                                },
+                              }}
+                            >
+                              {showPassword ? (
+                                <Eye size={20} style={{ color: "#1976d2" }} /> 
+                              ) : (
+                                <EyeOff size={20} style={{ color: "#1976d2" }} /> 
+                              )}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                      sx={{
+                        "& .MuiInputBase-root": {
+                          backgroundColor: "#f0f4f7", 
+                        },
+                      }}
                     />
+                  </Grid>
 
                     <div className="mt-4 flex items-center space-x-2">
                       <img
@@ -259,7 +292,7 @@ export const Login = () => {
                         {captchaError}
                       </p>
                     )}
-                  </Grid>
+                  
                   {/* <Grid size={12}>
                     <StyledImage
                       src="/images/temp/captcha.png"
