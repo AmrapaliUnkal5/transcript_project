@@ -43,3 +43,12 @@ export interface BotSettings {
   appearance:string;
   temperature:number;
 }
+
+export interface ApiFile {
+  file_id: string | number;
+  file_name: string;
+  file_type: string;
+  file_size: string; 
+  upload_date: string; 
+  file_path: string;
+}

@@ -42,6 +42,7 @@ class Bot(Base):
     user_color = Column(String, nullable=True)
     appearance = Column(Text, nullable=True)  # New column added
     temperature = Column(Float, nullable=True)  # New column added
+    status= Column(String, nullable=True)
 
 class File(Base):
     __tablename__ = "files"

@@ -33,6 +33,7 @@ import uuid
 from fastapi.staticfiles import StaticFiles
 from app.scraper import scrape_selected_nodes, get_website_nodes
 from app.file_size_validations import router as file_size_validations_router
+from app.bot_creation import router as bot_creation
 from typing import List
 from captcha.image import ImageCaptcha
 import random
@@ -50,6 +51,7 @@ app.include_router(bot_conversations_router)
 app.include_router(file_size_validations_router)
 app.include_router(chatbot_router)
 app.include_router(chat_router)
+app.include_router(bot_creation)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -60,7 +62,8 @@ app.add_middleware(
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
     allow_headers=["*"],  # Allow all HTTP headers
 )
-# app.add_middleware(RoleBasedAccessMiddleware)
+
+app.add_middleware(RoleBasedAccessMiddleware)
 templates = Jinja2Templates(directory="app/templates")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
