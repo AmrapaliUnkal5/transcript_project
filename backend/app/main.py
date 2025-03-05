@@ -62,8 +62,8 @@ app.add_middleware(
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
     allow_headers=["*"],  # Allow all HTTP headers
 )
-# app.add_middleware(RoleBasedAccessMiddleware)
-#app.add_middleware(RoleBasedAccessMiddleware)
+
+app.add_middleware(RoleBasedAccessMiddleware)
 templates = Jinja2Templates(directory="app/templates")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
