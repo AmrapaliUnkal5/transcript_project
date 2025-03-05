@@ -40,7 +40,7 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
-#Model for Bot
+# #Model for Bot
 class BotBase(BaseModel):
     user_id: Optional[int] = None
     bot_name: str
@@ -54,18 +54,28 @@ class BotBase(BaseModel):
     user_color: Optional[str] = None
     appearance: Optional[str] = None
     temperature: Optional[float] = None
-
-class BotResponse(BotBase):
-    bot_id: int
-
-class Config:
-        orm_mode = True
+    status: Optional[str]=None
 
 class BotCreate(BotBase):
     pass  
 
 class BotUpdate(BotBase):
      user_id: Optional[int] = None
+
+
+class BotCreation(BaseModel):
+    bot_name: str
+    status: str
+    is_active: bool
+
+class BotRename(BaseModel):
+     bot_name: Optional[str] = None
+
+class BotResponse(BotBase):
+    bot_id: int
+
+    class Config:
+        from_attributes = True  
 
 #added for Forgotpassword
 class ForgotpasswordRequest(BaseModel):

@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink,useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   MessageSquare,
@@ -12,36 +12,24 @@ import {
 import { authApi } from '../../services/api';
 
 const navItems = [
- // { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/chatbot', icon: MessageSquare, label: 'Chatbot Customization' },
   { path: '/upload', icon: Upload, label: 'File Upload' },
   { path: '/performance', icon: BarChart2, label: 'Analytics' },
-  //{ path: '/subscription', icon: CreditCard, label: 'Subscription' },
-  //{ path: '/myaccount', icon: Settings, label: 'My Account' },
 ];
 
 export const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  // Define paths where the sidebar should be hidden
-  const hiddenRoutes = [
-    "/",
-    "/welcome",
-    "/settings",
-    "/create-bot",
-    "/subscription",
-  ];
+  const hiddenRoutes = ["/", "/welcome", "/settings", "/create-bot", "/subscription"];
 
   if (hiddenRoutes.includes(location.pathname)) {
-    return null; // Hide sidebar on these pages
+    return null;
   }
+
   const handleLogout = async () => {
-      // await authApi.logout();
-      // Clear any local storage items
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      // Redirect to login page
-      navigate('/login');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
   };
 
   return (
@@ -69,13 +57,6 @@ export const Sidebar = () => {
             <span>{item.label}</span>
           </NavLink>
         ))}
-        {/* <button
-          className="flex items-center space-x-3 px-4 py-2 rounded-lg w-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-          onClick={handleLogout}
-        >
-          <LogOut className="w-5 h-5" />
-          <span>Logout</span>
-        </button> */}
       </nav>
     </aside>
   );

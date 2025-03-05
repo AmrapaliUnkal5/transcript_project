@@ -1,12 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Globe, Upload, MessageSquare, Check, ArrowRight, ArrowLeft } from 'lucide-react';
-import { File, Trash2, Eye } from 'lucide-react';
+import { Globe, Upload, MessageSquare, ArrowRight, ArrowLeft } from 'lucide-react';
+import { File as FileIcon, Trash2, Eye } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { authApi } from "../services/api";
 import { CreateBotInterface } from '../types';
+import { useAuth } from "../context/AuthContext";
 
 interface Step {
   title: string;
@@ -33,6 +34,7 @@ const steps: Step[] = [
 ];
 
 export const CreateBot = () => {
+  const { getBotId } = useAuth();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [websiteUrl, setWebsiteUrl] = useState('');
@@ -41,16 +43,18 @@ export const CreateBot = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [nodes, setNodes] = useState<string[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
+  const [botId, setBotId] = useState<number | null>(null); // Store the created bot ID
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
-  const totalSize = files.reduce((acc, file) => acc + file.size, 0);
-  const newFilesSize = acceptedFiles.reduce((acc, file) => acc + file.size, 0);
-  
+    const totalSize = files.reduce((acc, file) => acc + file.size, 0);
+    const newFilesSize = acceptedFiles.reduce((acc, file) => acc + file.size, 0);
+
     if (totalSize + newFilesSize > MAX_FILE_SIZE) {
       toast.error("File exceeds size limit. Go for subscription.");
       return;
     }
-  
+
     const newFiles = acceptedFiles.map((file) => ({
       id: Math.random().toString(36).substr(2, 9),
       name: file.name,
@@ -58,9 +62,9 @@ export const CreateBot = () => {
       size: file.size,
       uploadDate: new Date(),
       url: URL.createObjectURL(file),
-      file: file, // Ensure this is included
+      file: file, 
     }));
-  
+
     setFiles((prev) => [...prev, ...newFiles]);
     toast.success("File uploaded successfully");
   }, [files, MAX_FILE_SIZE]);
@@ -69,15 +73,13 @@ export const CreateBot = () => {
     onDrop,
     accept: {
       'application/pdf': ['.pdf'],
+      'text/plain': ['.txt'],
       'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': [
-        '.docx',
-      ],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': [
-        '.xlsx',
-      ],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
+      'text/csv': ['.csv'],
     },
   });
 
@@ -95,7 +97,7 @@ export const CreateBot = () => {
 
   const fetchNodes = async (websiteUrl: string) => {
     if (!websiteUrl) {
-      alert("Please enter a website URL.");
+      toast.error("Please enter a website URL.");
       return;
     }
     setIsLoading(true);
@@ -106,49 +108,75 @@ export const CreateBot = () => {
         setSelectedNodes([]);
       } else {
         setNodes([]);
-        alert("No nodes found for this website.");
+        toast.error("No nodes found for this website.");
       }
     } catch (error) {
       console.error("Error fetching website nodes:", error);
-      alert("Failed to fetch website nodes. Please try again.");
+      toast.error("Failed to fetch website nodes. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCheckboxChange = (url: string) => {
-    if (selectedNodes.includes(url)) {
-      setSelectedNodes((prev) => prev.filter((node) => node !== url));
-    } else {
-      if (selectedNodes.length >= 10) {
-        alert("🚀 You are on the Free Tier! Upgrade your subscription to select more pages.");
-        return;
+  const createBotEntry = async (botName: string) => {
+    try {
+      const response = await authApi.createBot({
+        bot_name: botName,
+        status: "In Progress",
+        is_active: false,
+      });
+
+      if (!response.bot_id) {
+        throw new Error("Bot ID not found in response");
       }
-      setSelectedNodes((prev) => [...prev, url]);
+
+      return response.bot_id;
+    } catch (error) {
+      toast.error('Failed to create bot entry. Please try again.');
+      throw error;
     }
   };
 
   const handleNext = async () => {
-    if (currentStep === 1) {
+    if (currentStep === 0) {
+      // If the bot ID already exists, update the bot name
+      if (botId) {
+        try {
+          await updateBotName(botId, botName);
+        } catch (error) {
+          return;
+        }
+      } else {
+        // If the bot ID doesn't exist, create a new bot: entry
+        try {
+          const newBotId = await createBotEntry(botName);
+          setBotId(newBotId); 
+          getBotId(newBotId);
+        } catch (error) {
+          return;
+        }
+      }
+      setCurrentStep(currentStep + 1);
+    } else if (currentStep === 1) {
       if (selectedNodes.length === 0) {
-        alert("⚠️ Please select at least one page to scrape.");
+        toast.error("Please select at least one page to scrape.");
         return;
       }
-
+  
       setIsLoading(true);
-
+  
       try {
         const data = await authApi.scrapeNodes(selectedNodes);
         console.log("Scraping result:", data);
-
+  
         if (data.message === "Scraping completed") {
           setCurrentStep(currentStep + 1);
         } else {
-          alert("❌ Failed to scrape data. Please try again.");
+          toast.error("Failed to scrape data. Please try again.");
         }
       } catch (error) {
         console.error("Error scraping website:", error);
-        alert("❌ An error occurred while scraping. Please try again.");
+        toast.error("An error occurred while scraping. Please try again.");
       } finally {
         setIsLoading(false);
       }
@@ -171,23 +199,20 @@ export const CreateBot = () => {
       toast.error("File size exceeds limit. Go for subscription.");
       return;
     }
-  
+
     setIsLoading(true);
     try {
-      // Extract the File objects from the files array
       const filesToUpload: File[] = files
-        .map((file) => file.file) // Extract the `file` property
-        .filter((file): file is File => file !== undefined); // Filter out undefined values
-  
-      // Ensure at least one file is present
+        .map((file) => file.file)
+        .filter((file): file is File => file !== undefined);
+
       if (filesToUpload.length === 0) {
         toast.error("No valid files to upload.");
         return;
       }
-  
-      // Send the files to the backend
-      const response = await authApi.uploadFiles(filesToUpload);
-      console.log("Backend response:", response); // testing backend response
+
+      const response = await authApi.uploadFiles(filesToUpload, botId as number);
+      console.log("Backend response:", response);
 
       if (response.success) {
         navigate('/chatbot');
@@ -202,8 +227,30 @@ export const CreateBot = () => {
     }
   };
 
-  const handleSubmitWebsite = () => {
-    console.log('Website submitted:', websiteUrl);
+  const updateBotName = async (botId: number, newName: string) => {
+    try {
+      const response = await authApi.updateBotName({ bot_id: botId, bot_name: newName });
+      if (response.success) {
+        toast.success("Bot name updated successfully");
+      } else {
+        toast.error("Failed to update bot name");
+      }
+    } catch (error) {
+      console.error("Error updating bot name:", error);
+      toast.error("An error occurred while updating the bot name.");
+    }
+  };
+
+  const handleCheckboxChange = (url: string) => {
+    if (selectedNodes.includes(url)) {
+      setSelectedNodes((prev) => prev.filter((node) => node !== url));
+    } else {
+      if (selectedNodes.length >= 10) {
+        toast.error("You are on the Free Tier! Upgrade your subscription to select more pages.");
+        return;
+      }
+      setSelectedNodes((prev) => [...prev, url]);
+    }
   };
 
   const renderStepContent = () => {
@@ -250,7 +297,7 @@ export const CreateBot = () => {
               You can select up to <strong>10 pages</strong> for free.  
               Want to add more? <a href="/subscription" className="text-blue-500 underline">Upgrade your subscription</a>.
             </p>)}
-      
+
             {nodes.length > 0 && (
               <div className="mt-4">
                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -278,59 +325,59 @@ export const CreateBot = () => {
       case 2:
         return (
           <div>
-          <div {...getRootProps()} className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors">
-            <input {...getInputProps()} />
-            <Upload className="mx-auto h-12 w-12 text-gray-400" />
-            <p className="mt-2 text-sm text-gray-600">Drag and drop files here, or click to select files</p>
+            <div {...getRootProps()} className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors">
+              <input {...getInputProps()} />
+              <Upload className="mx-auto h-12 w-12 text-gray-400" />
+              <p className="mt-2 text-sm text-gray-600">Drag and drop files here, or click to select files</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Uploaded Files</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-700">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Size</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Upload Date</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {files.map((file) => (
+                      <tr key={file.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <FileIcon className="w-5 h-5 text-gray-400 mr-2" />
+                            <span className="text-sm text-gray-900 dark:text-white">{file.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">{file.type.split('/')[1].toUpperCase()}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">{file.uploadDate.toLocaleDateString()}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <button onClick={() => window.open(file.url)} className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400 mr-4">
+                            <Eye className="w-5 h-5" />
+                          </button>
+                          <button onClick={() => handleDelete(file.id)} className="text-red-600 hover:text-red-900 dark:hover:text-red-400">
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Uploaded Files</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 dark:bg-gray-700">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Size</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Upload Date</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {files.map((file) => (
-                  <tr key={file.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <File className="w-5 h-5 text-gray-400 mr-2" />
-                        <span className="text-sm text-gray-900 dark:text-white">{file.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-500 dark:text-gray-400">{file.type.split('/')[1].toUpperCase()}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-500 dark:text-gray-400">{file.uploadDate.toLocaleDateString()}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <button onClick={() => window.open(file.url)} className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400 mr-4">
-                        <Eye className="w-5 h-5" />
-                      </button>
-                      <button onClick={() => handleDelete(file.id)} className="text-red-600 hover:text-red-900 dark:hover:text-red-400">
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        </div>
         );
 
       default:
@@ -352,7 +399,7 @@ export const CreateBot = () => {
             </div>
           ))}
         </div>
-        
+
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-8">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{steps[currentStep].title}</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">{steps[currentStep].description}</p>
@@ -381,10 +428,3 @@ export const CreateBot = () => {
     </div>
   );
 };
-
-
-
-
-
-
-

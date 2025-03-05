@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { ApiFile } from '../types'; // Adjust the path if necessary
 
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -172,19 +173,24 @@ export const authApi = {
     const response = await api.post('/validate-captcha',{ user_input: data });
     return response.data;
   },
-  
+
   fetchCaptcha: async () => {
     const response = await api.get('/captcha', { responseType: 'blob' }); // Set response type to blob
     return URL.createObjectURL(response.data); // Convert blob data to URL
   },
 
-  uploadFiles: async (files: File[]) => {
+  uploadFiles: async (files: File[], botId: number) => {
     const formData = new FormData();
-    files.forEach((file) => formData.append('files', file)); // Use 'files' as the key  
-    const response = await api.post(`/upload`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    files.forEach((file) => {
+      formData.append("files", file);
     });
-  
+    formData.append("bot_id", botId.toString()); // Add bot_id to the form data
+
+    const response = await api.post('/upload', formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
     return response.data;
   },
 
@@ -201,5 +207,28 @@ export const authApi = {
   getChatMessages: async (interactionId: number) => {
     const response = await api.get(`/chat/get_chat_messages?interaction_id=${interactionId}`);
     return response.data;
-  }
+  },
+ 
+  getFiles: async (botId:number): Promise<ApiFile[]> => {
+    const response = await api.get<ApiFile[]>('/files',{
+      params: { bot_id: botId }, 
+    }); 
+    return response.data; 
+  },
+
+  createBot: async (botData: { bot_name: string; status: string; is_active: boolean }) => {
+    const response = await api.post("/create-bot", botData);
+    return response.data;
+  },
+
+ 
+  updateBotStatus: async (botId: number, statusData: { status?: string; is_active?: boolean }) => {
+    const response = await api.patch(`/bots/${botId}`, statusData);
+    return response.data;
+  },
+  
+  updateBotName: async (botData: { bot_id: number; bot_name: string }) => {
+    const response = await api.put("/update-bot-name/" + botData.bot_id, { bot_name: botData.bot_name });
+    return response.data;
+  },
 };

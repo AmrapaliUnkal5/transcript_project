@@ -15,6 +15,8 @@ interface User {
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
+  botId: number | null;
+  getBotId: (id: number | null) => void;
   login: (token: string, userData: User) => void;
   logout: () => void;
 }
@@ -26,6 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null); // Change default to `null`
   const [user, setUser] = useState<User | null>(null);
+  const [botId, getBotId] = useState<number | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   console.log("isAuthenticated", isAuthenticated);
@@ -80,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, botId, getBotId, login, logout  }}>
       {children}
     </AuthContext.Provider>
   );

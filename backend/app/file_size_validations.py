@@ -1,7 +1,7 @@
 import os
 import time
 import uuid
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
 from typing import List
 from pathlib import Path
 from datetime import datetime
@@ -34,6 +34,7 @@ def convert_size(size_bytes):
 @router.post("/upload")
 async def validate_and_upload_files(
     files: List[UploadFile] = File(),
+    bot_id: int = Form(...),
     db: Session = Depends(get_db),
     current_user: UserOut = Depends(get_current_user)
 ):
@@ -45,12 +46,10 @@ async def validate_and_upload_files(
     if total_size > MAX_FILE_SIZE_BYTES:
         raise HTTPException(status_code=400, detail=f"Total file size exceeds {MAX_FILE_SIZE_MB}MB limit")
 
-    # Get the bot_id for the current user
-    bot = db.query(Bot).filter(Bot.user_id == current_user["user_id"]).first()
-    if not bot:
-        raise HTTPException(status_code=404, detail="No bot found for the current user")
-    bot_id = bot.bot_id
-
+    if not bot_id:
+        raise HTTPException(status_code=400, detail="Bot ID is required")
+    
+    
     uploaded_files = []
     for file in files:
         # Extract the original filename
@@ -70,10 +69,10 @@ async def validate_and_upload_files(
         # Prepare file metadata for the database
         file_metadata = {
             "bot_id": bot_id,
-            "file_name": original_filename,  # Save the original filename
+            "file_name": original_filename,  
             "file_type": file.content_type,
             "file_path": str(file_path),
-            "file_size": file_size_readable,  # Save file size in human-readable format
+            "file_size": file_size_readable,  
             "unique_file_name":unique_filename
         }
 
@@ -94,3 +93,26 @@ async def validate_and_upload_files(
         })
 
     return {"success": True, "message": "Files uploaded successfully", "files": uploaded_files}
+
+@router.get("/files")
+async def get_files(
+    bot_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserOut = Depends(get_current_user)
+):
+    """Fetch files uploaded for the given bot ID."""
+    
+    # Ensure the bot belongs to the current user
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id, Bot.user_id == current_user["user_id"]).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="No bot found for the given bot ID or unauthorized access")
+    
+    # Fetch files related to the given bot ID
+    files = db.query(FileModel).filter(FileModel.bot_id == bot_id).all()
+
+    return files
+
+
+
+
+

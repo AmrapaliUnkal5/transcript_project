@@ -1,29 +1,62 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, File, Trash2, Eye } from 'lucide-react';
-import type { FileUpload } from '../types';
+import type { FileUploadInterface } from '../types';
+import { authApi } from "../services/api";
+import { ApiFile } from '../types'; // Import the ApiFile type
+import { useAuth } from "../context/AuthContext";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export const FileUpload = () => {
-  const [files, setFiles] = useState<FileUpload[]>([
-    {
-      id: '1',
-      name: 'document.pdf',
-      type: 'application/pdf',
-      size: 1024576,
-      uploadDate: new Date('2024-03-10'),
-      url: '#',
-    },
-    {
-      id: '2',
-      name: 'presentation.pptx',
-      type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      size: 2048576,
-      uploadDate: new Date('2024-03-09'),
-      url: '#',
-    },
-  ]);
+  const { botId } = useAuth();
+  const [files, setFiles] = useState<FileUploadInterface[]>([]);
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
+
+  // Fetch files when the component mounts
+  useEffect(() => {
+    const fetchFiles = async () => {
+      if (!botId) {
+        console.error("Bot ID is missing.");
+        return;
+      }
+      try {
+        const fetchedFiles: ApiFile[] = await authApi.getFiles(botId); 
+        const formattedFiles = fetchedFiles.map((file) => ({
+          id: file.file_id.toString(),
+          name: file.file_name,
+          type: file.file_type,
+          size: parseInt(file.file_size), 
+          uploadDate: new Date(file.upload_date), 
+          url: file.file_path, 
+        }));
+        setFiles(formattedFiles);
+      } catch (error) {
+        console.error('Failed to fetch files:', error);
+      }
+    };
+
+    fetchFiles();
+  }, [botId]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
+    const totalSize = files.reduce((acc, file) => acc + file.size, 0);
+    const newFilesSize = acceptedFiles.reduce((acc, file) => acc + file.size, 0);
+
+    // Check if any individual file exceeds the maximum file size
+    const oversizedFile = acceptedFiles.find(file => file.size > MAX_FILE_SIZE);
+    if (oversizedFile) {
+      toast.error(`File exceeds the maximum file size of ${formatFileSize(MAX_FILE_SIZE)}.`);
+      return;
+    }
+
+    // Check if the total size exceeds the maximum total size
+    if (totalSize + newFilesSize > MAX_TOTAL_SIZE) {
+      toast.error(`Total file size exceeds the maximum limit of ${formatFileSize(MAX_TOTAL_SIZE)}.`);
+      return;
+    }
+
     const newFiles = acceptedFiles.map((file) => ({
       id: Math.random().toString(36).substr(2, 9),
       name: file.name,
@@ -33,21 +66,20 @@ export const FileUpload = () => {
       url: URL.createObjectURL(file),
     }));
     setFiles((prev) => [...prev, ...newFiles]);
-  }, []);
+    toast.success("Files uploaded successfully");
+  }, [files, MAX_FILE_SIZE, MAX_TOTAL_SIZE]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'application/pdf': ['.pdf'],
+      'text/plain': ['.txt'],
       'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': [
-        '.docx',
-      ],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': [
-        '.xlsx',
-      ],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
+      'text/csv': ['.csv'],
     },
   });
 
@@ -65,6 +97,7 @@ export const FileUpload = () => {
 
   return (
     <div className="space-y-6">
+      <ToastContainer />
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
         File Upload
       </h1>
@@ -132,7 +165,7 @@ export const FileUpload = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {file.type.split('/')[1].toUpperCase()}
+                      {file.type ? (file.type.includes('/') ? file.type.split('/')[1].toUpperCase() : file.type.toUpperCase()) : 'UNKNOWN'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
