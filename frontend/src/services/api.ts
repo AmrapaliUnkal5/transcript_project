@@ -102,6 +102,10 @@ export interface uploadAvatar{
   avatar_url: string;
 }
 
+export interface deleteBot{
+  status:string;
+}
+
 export const authApi = {
   signup: async (data: SignUpData) => {
     const response = await api.post('/register', data);
@@ -257,5 +261,14 @@ export const authApi = {
   getBotSettingsBotId: async (botId: number) => {
     const response = await api.get(`/botsettings/bot/${botId}`);  // API endpoint to fetch bot settings
     return response.data;
-},
+  },
+  getConversationTrends: async (userId: number) => {
+    const response = await api.get(`/conversation-trends?user_id=${userId}`);
+    return response.data;
+  },
+
+  deletebot: async (botId: number, data:deleteBot) => {
+    const response = await api.put(`/botsettings/del/${botId}`, data);  // API endpoint to update bot settings
+    return response.data;
+  },
 };

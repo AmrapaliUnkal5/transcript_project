@@ -100,7 +100,7 @@ def update_user_password(db: Session, user_id: int, new_password: str):
 
 def get_bot_by_user_id(db: Session, user_id: int):
     """Fetch all bot settings for a user_id"""
-    bots = db.query(Bot).filter(Bot.user_id == user_id).all()
+    bots = db.query(Bot).filter(Bot.user_id == user_id, Bot.status != "Deleted").all()
     
     if not bots:
         return []
@@ -118,6 +118,7 @@ def get_bot_by_user_id(db: Session, user_id: int):
         "user_color":bot.user_color,
         "appearance":bot.appearance,
         "temperature":bot.temperature,
+        "status":bot.status,
     }} for bot in bots]
 
 
@@ -149,3 +150,19 @@ def create_file(db: Session, file_data: dict):
     db.commit()
     db.refresh(db_file)
     return db_file     
+
+
+def delete_bot(db: Session, bot_id: int):
+    """Soft delete a bot by updating its status to 'Deleted'"""
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    
+    if not bot:
+        return None  # Return None if bot not found
+
+    # Set status to "Deleted"
+    bot.status = "Deleted"
+    bot.is_active = False
+
+    db.commit()
+    db.refresh(bot)
+    return bot  # Return updated bot
