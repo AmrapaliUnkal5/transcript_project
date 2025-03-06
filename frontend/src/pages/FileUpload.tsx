@@ -4,12 +4,12 @@ import { Upload, File, Trash2, Eye } from 'lucide-react';
 import type { FileUploadInterface } from '../types';
 import { authApi } from "../services/api";
 import { ApiFile } from '../types'; // Import the ApiFile type
-import { useAuth } from "../context/AuthContext";
+import { useBot } from "../context/BotContext"; // Replace useAuth with useBot
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 export const FileUpload = () => {
-  const { botId } = useAuth();
+  const { selectedBot } = useBot(); // Use BotContext instead of AuthContext
   const [files, setFiles] = useState<FileUploadInterface[]>([]);
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
   const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
@@ -17,12 +17,12 @@ export const FileUpload = () => {
   // Fetch files when the component mounts
   useEffect(() => {
     const fetchFiles = async () => {
-      if (!botId) {
+      if (!selectedBot?.id) {
         console.error("Bot ID is missing.");
         return;
       }
       try {
-        const fetchedFiles: ApiFile[] = await authApi.getFiles(botId); 
+        const fetchedFiles: ApiFile[] = await authApi.getFiles(selectedBot.id); // Use selectedBot.id
         const formattedFiles = fetchedFiles.map((file) => ({
           id: file.file_id.toString(),
           name: file.file_name,
@@ -38,7 +38,7 @@ export const FileUpload = () => {
     };
 
     fetchFiles();
-  }, [botId]);
+  }, [selectedBot?.id]); // Use selectedBot.id as a dependency
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const totalSize = files.reduce((acc, file) => acc + file.size, 0);

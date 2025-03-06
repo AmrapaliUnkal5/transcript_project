@@ -7,7 +7,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { authApi } from "../services/api";
 import { CreateBotInterface } from '../types';
-import { useAuth } from "../context/AuthContext";
+import { useBot } from "../context/BotContext"; // Use BotContext
 
 interface Step {
   title: string;
@@ -34,7 +34,7 @@ const steps: Step[] = [
 ];
 
 export const CreateBot = () => {
-  const { getBotId } = useAuth();
+  const { selectedBot, setSelectedBot } = useBot(); // Use BotContext
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [websiteUrl, setWebsiteUrl] = useState('');
@@ -43,7 +43,7 @@ export const CreateBot = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [nodes, setNodes] = useState<string[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
-  const [botId, setBotId] = useState<number | null>(null); // Store the created bot ID
+  const [botId, setBotId] = useState<number | null>(null); // Local botId state, resets to null on re-mount
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -139,19 +139,21 @@ export const CreateBot = () => {
 
   const handleNext = async () => {
     if (currentStep === 0) {
+      console.log("Current bot",botId);
       // If the bot ID already exists, update the bot name
       if (botId) {
         try {
           await updateBotName(botId, botName);
+          setSelectedBot({ id: botId, name: botName, status: "In Progress", conversations: 0, satisfaction: 0 }); // Update context
         } catch (error) {
           return;
         }
       } else {
-        // If the bot ID doesn't exist, create a new bot: entry
+        // If the bot ID doesn't exist, create a new bot entry
         try {
           const newBotId = await createBotEntry(botName);
-          setBotId(newBotId); 
-          getBotId(newBotId);
+          setBotId(newBotId); // Update local state
+          setSelectedBot({ id: newBotId, name: botName, status: "In Progress", conversations: 0, satisfaction: 0 }); // Update context
         } catch (error) {
           return;
         }
@@ -162,13 +164,13 @@ export const CreateBot = () => {
         toast.error("Please select at least one page to scrape.");
         return;
       }
-  
+
       setIsLoading(true);
-  
+
       try {
         const data = await authApi.scrapeNodes(selectedNodes);
         console.log("Scraping result:", data);
-  
+
         if (data.message === "Scraping completed") {
           setCurrentStep(currentStep + 1);
         } else {
@@ -211,7 +213,7 @@ export const CreateBot = () => {
         return;
       }
 
-      const response = await authApi.uploadFiles(filesToUpload, botId as number);
+      const response = await authApi.uploadFiles(filesToUpload, botId as number); // Use local botId
       console.log("Backend response:", response);
 
       if (response.success) {
