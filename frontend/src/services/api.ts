@@ -211,7 +211,7 @@ export const authApi = {
     files.forEach((file) => {
       formData.append("files", file);
     });
-    formData.append("bot_id", botId.toString()); // Add bot_id to the form data
+    formData.append("bot_id", botId.toString()); 
 
     const response = await api.post('/upload', formData, {
       headers: {
@@ -269,6 +269,10 @@ export const authApi = {
 
   deletebot: async (botId: number, data:deleteBot) => {
     const response = await api.put(`/botsettings/del/${botId}`, data);  // API endpoint to update bot settings
+},
+
+  deleteFile: async (fileId: string) => {
+    const response = await api.delete(`/files/${fileId}`);
     return response.data;
   },
 };

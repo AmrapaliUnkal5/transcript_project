@@ -50,6 +50,7 @@ export const CreateBot = () => {
     const totalSize = files.reduce((acc, file) => acc + file.size, 0);
     const newFilesSize = acceptedFiles.reduce((acc, file) => acc + file.size, 0);
 
+    
     if (totalSize + newFilesSize > MAX_FILE_SIZE) {
       toast.error("File exceeds size limit. Go for subscription.");
       return;
@@ -66,7 +67,7 @@ export const CreateBot = () => {
     }));
 
     setFiles((prev) => [...prev, ...newFiles]);
-    toast.success("File uploaded successfully");
+    toast.success("File added successfully");
   }, [files, MAX_FILE_SIZE]);
 
   const { getRootProps, getInputProps } = useDropzone({
@@ -140,6 +141,12 @@ export const CreateBot = () => {
   const handleNext = async () => {
     if (currentStep === 0) {
       console.log("Current bot",botId);
+
+      if (!botName.trim()) {
+        toast.error("Please enter a bot name.");
+        return; // Stop execution if bot name is empty
+      }
+  
       // If the bot ID already exists, update the bot name
       if (botId) {
         try {
@@ -188,13 +195,15 @@ export const CreateBot = () => {
       handleFinish();
     }
   };
-
   const handleBack = () => {
-    if (currentStep > 0) {
+    if (currentStep === 0) {
+      // Navigate to Options.tsx when on the first step
+      navigate('/options');
+    } else if (currentStep > 0) {
+      // Move to the previous step
       setCurrentStep(currentStep - 1);
     }
   };
-
   const handleFinish = async () => {
     const totalSize = files.reduce((acc, file) => acc + file.size, 0);
     if (totalSize > MAX_FILE_SIZE) {
@@ -411,8 +420,8 @@ export const CreateBot = () => {
         <div className="flex justify-between">
           <button
             onClick={handleBack}
-            disabled={currentStep === 0}
-            className={`flex items-center px-4 py-2 rounded-lg ${currentStep === 0 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            //disabled={currentStep === 0}
+            className={`flex items-center px-4 py-2 rounded-lg ${currentStep === 0 ? 'bg-blue-500 text-white cursor-not-allowed' : 'bg-white text-white-600 hover:bg-blue-600'}`}
           >
             <ArrowLeft className="w-5 h-5 mr-2" /> Back
           </button>

@@ -19,6 +19,7 @@ export interface FileUploadInterface {
   size: number;
   uploadDate: Date;
   url: string;
+  file?:File;
 }
 
 export interface CreateBotInterface {
