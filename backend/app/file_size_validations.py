@@ -112,7 +112,31 @@ async def get_files(
 
     return files
 
+@router.delete("/files/{file_id}")
+async def delete_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserOut = Depends(get_current_user)
+):
+    """Delete a file by its ID."""
+    file = db.query(FileModel).filter(FileModel.file_id == file_id).first()
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
 
+    # Ensure the file belongs to the current user's bot
+    bot = db.query(Bot).filter(Bot.bot_id == file.bot_id, Bot.user_id == current_user["user_id"]).first()
+    if not bot:
+        raise HTTPException(status_code=403, detail="Unauthorized access")
+
+    # Delete the file from the filesystem
+    if os.path.exists(file.file_path):
+        os.remove(file.file_path)
+
+    # Delete the file record from the database
+    db.delete(file)
+    db.commit()
+
+    return {"success": True, "message": "File deleted successfully"}
 
 
 
