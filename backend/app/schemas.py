@@ -111,3 +111,11 @@ class FileResponse(FileBase):
 
     class Config:
         from_attributes = True  # This replaces 'orm_mode'
+
+class ConversationTrendData(BaseModel):
+    day: str
+    conversations: int
+
+class ConversationTrendResponse(BaseModel):
+    bot_id: int
+    data: List[ConversationTrendData]

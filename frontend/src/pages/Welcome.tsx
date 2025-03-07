@@ -9,6 +9,7 @@ import {
   Users,
   ArrowUpRight,
 } from "lucide-react";
+import { Legend } from "recharts";
 import { useAuth } from "../context/AuthContext";
 import {
   LineChart,
@@ -35,6 +36,7 @@ export const Welcome = () => {
   const [bots, setBots] = useState<
     { id: number; name: string; status: string }[] // to display the bots in the tiles
   >([]);
+  const [conversationTrends, setConversationTrends] = useState<any[]>([]); // State to store conversation trends
 
   useEffect(() => {
     const checkUserBot = async () => {
@@ -54,7 +56,7 @@ export const Welcome = () => {
           return {
             id: Number(botId), // Convert string ID to number
             name: botData.bot_name,
-            status: botData.is_active ? "active" : "inactive",
+            status: botData.status,
             //conversations: 0, // Placeholder for conversations
             //satisfaction: 0, // Placeholder for satisfaction
           };
@@ -63,6 +65,9 @@ export const Welcome = () => {
         console.log("extractedBots", extractedBots);
 
         setBots(extractedBots);
+        const trendsResponse = await authApi.getConversationTrends(userId);
+        //console.log(trendsResponse);
+        setConversationTrends(trendsResponse);
       } catch (error) {
         console.error("Error checking user bot:", error);
         setHasBots(false); // Assume no bot in case of error
@@ -71,20 +76,87 @@ export const Welcome = () => {
       }
     };
     checkUserBot();
-  }, [userId]);
+  }, [userId, setLoading]);
+
+  const transformDataForGraph = (trends: any[]) => {
+    const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const today = new Date().getDay(); // Get the current day of the week (0 = Sunday, 1 = Monday, etc.)
+
+    const graphData: any[] = [];
+
+    // Loop through all days of the week
+    daysOfWeek.forEach((day, index) => {
+      const dayData: any = { day };
+
+      trends.forEach((trend) => {
+        const botId = trend.bot_id;
+
+        // For days up to today, plot the data (or 0 if no data exists)
+        if (index <= today) {
+          const botDayData = trend.data.find((d: any) => d.day === day);
+          dayData[`bot_${botId}`] = botDayData ? botDayData.conversations : 0;
+        } else {
+          // For future days, set the value to null (no plotting)
+          dayData[`bot_${botId}`] = null;
+        }
+      });
+
+      graphData.push(dayData);
+    });
+
+    return graphData;
+  };
+
+  // Generate a unique color for each bot
+  const generateColors = (count: number) => {
+    const colors = [
+      "#3B82F6", // Blue
+      "#EF4444", // Red
+      "#10B981", // Green
+      "#F59E0B", // Yellow
+      "#8B5CF6", // Purple
+      "#EC4899", // Pink
+      "#6EE7B7", // Teal
+    ];
+    return colors.slice(0, count);
+  };
+
+  // Function to get bot name by bot ID
+  const getBotNameById = (botId: number) => {
+    const bot = bots.find((bot) => bot.id === botId);
+    return bot ? bot.name : `Bot ${botId}`; // Fallback to "Bot X" if name is not found
+  };
+
+  // Render the graph
+  const renderGraph = () => {
+    const transformedData = transformDataForGraph(conversationTrends);
+    const colors = generateColors(conversationTrends.length);
+
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={transformedData}>
+          <XAxis dataKey="day" stroke="#888888" />
+          <YAxis stroke="#888888" />
+          <Tooltip />
+          <Legend />
+          {conversationTrends.map((trend, index) => (
+            <Line
+              key={trend.bot_id}
+              type="monotone"
+              dataKey={`bot_${trend.bot_id}`}
+              stroke={colors[index]}
+              strokeWidth={2}
+              name={getBotNameById(trend.bot_id)}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  };
 
   if (hasBots === null) {
     return <Loader />; // Show loading state while API call is in progress
   }
-  const recentData = [
-    { day: "Mon", conversations: 145 },
-    { day: "Tue", conversations: 132 },
-    { day: "Wed", conversations: 164 },
-    { day: "Thu", conversations: 189 },
-    { day: "Fri", conversations: 176 },
-    { day: "Sat", conversations: 141 },
-    { day: "Sun", conversations: 184 },
-  ];
 
   // const bots = [
   //   {
@@ -215,21 +287,7 @@ export const Welcome = () => {
             </h2>
             <TrendingUp className="w-5 h-5 text-blue-500" />
           </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={recentData}>
-                <XAxis dataKey="day" stroke="#888888" />
-                <YAxis stroke="#888888" />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="conversations"
-                  stroke="#3B82F6"
-                  strokeWidth={2}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <div className="h-64">{renderGraph()}</div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">

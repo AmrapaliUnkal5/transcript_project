@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Type, Move, MessageSquare, Palette, Sliders } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import type { BotSettings } from "../types";
 import { authApi } from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -88,7 +89,11 @@ const updateBotSettings = async (
 export const ChatbotCustomization = () => {
   const { loading, setLoading } = useLoader();
   const { user } = useAuth(); // Get user data from context
+  //const [botToDelete, setBotToDelete] = useState<string | null>(null);
   const userId = user?.user_id;
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [botToDelete, setBotToDelete] = useState<string | null>(null);
+  const navigate = useNavigate();
   const { selectedBot } = useBot();
   if (!userId) {
     //alert("User ID is missing. Please log in again.");
@@ -104,6 +109,24 @@ export const ChatbotCustomization = () => {
   if (!selectedBot) {
     return <div className="text-center text-gray-500">No bot selected.</div>;
   }
+
+  const handleDeleteBot = async () => {
+    if (!botToDelete) return;
+
+    try {
+      console.log("botToDelete", botToDelete);
+      await authApi.deletebot(Number(botToDelete), { status: "Deleted" });
+      toast.success("Bot deleted successfully!");
+      setIsConfirmOpen(false);
+      localStorage.removeItem("selectedBotId"); // Remove botId from localStorage
+      setTimeout(() => {
+        navigate("/");
+      }, 3000);
+    } catch (error) {
+      console.error("Failed to delete bot:", error);
+      toast.error("Failed to delete bot.");
+    }
+  };
 
   useEffect(() => {
     console.log("slelelct bit", selectedBot);
@@ -451,17 +474,56 @@ export const ChatbotCustomization = () => {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           Customizing: {selectedBot.name}
         </h1>
-        <button
-          onClick={handleSaveSettings}
-          disabled={loading}
-          className={`px-4 py-2 rounded-lg transition-colors ${
-            loading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-500 hover:bg-blue-600 text-white"
-          }`}
-        >
-          {loading ? "Saving..." : "Save Changes"}
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => {
+              setBotToDelete(botId);
+              setIsConfirmOpen(true);
+            }}
+            disabled={loading}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-red-500 hover:bg-red-600 text-white"
+            }`}
+          >
+            Delete
+          </button>
+          {/* Confirmation Modal */}
+          {isConfirmOpen && (
+            <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50">
+              <div className="bg-white p-6 rounded-lg shadow-lg">
+                <h2 className="text-lg font-semibold mb-4">Confirm Deletion</h2>
+                <p>Do you wish to delete this bot?</p>
+                <div className="mt-4 flex justify-end">
+                  <button
+                    className="bg-gray-300 text-black px-4 py-2 rounded mr-2"
+                    onClick={() => setIsConfirmOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="bg-red-600 text-white px-4 py-2 rounded"
+                    onClick={handleDeleteBot}
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          <button
+            onClick={handleSaveSettings}
+            disabled={loading}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-500 hover:bg-blue-600 text-white"
+            }`}
+          >
+            {loading ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
       </div>
       <ToastContainer position="top-right" autoClose={3000} />
 
@@ -594,6 +656,11 @@ export const ChatbotCustomization = () => {
               placeholder="Type a message..."
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && inputMessage.trim()) {
+                  sendMessage();
+                }
+              }}
             />
             <button
               className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"

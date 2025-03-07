@@ -6,6 +6,9 @@ from sqlalchemy import func
 from app.models import User, Bot, Interaction, Rating
 from app.database import get_db
 from app.dependency import get_current_user
+from datetime import datetime, timedelta, timezone
+from typing import List
+from app.schemas import ConversationTrendResponse
 
 router = APIRouter()
 
@@ -98,3 +101,40 @@ def get_single_bot_conversation(
         .scalar()
     )
     return {"bot_id": bot_id, "Total Conversation": conversation_count}
+
+@router.get("/conversation-trends", response_model=List[ConversationTrendResponse])
+def get_conversation_trends(user_id: int, db: Session = Depends(get_db)):
+    """
+    Fetches the count of conversations per bot for the last 7 days.
+    """
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=7)
+
+    # Fetch conversation count per bot, per day
+    query = (
+        db.query(Interaction.bot_id, 
+                 func.date_trunc('day', Interaction.start_time).label("day"),
+                 func.count(Interaction.interaction_id).label("conversations"))
+        .filter(Interaction.start_time >= start_date, Interaction.start_time <= end_date)
+        .join(Bot, Interaction.bot_id == Bot.bot_id)
+        .filter(Bot.user_id == user_id)  # Only fetch user's bots
+        .filter(Bot.status != "Deleted")  # Exclude bots with status "deleted"
+        .group_by(Interaction.bot_id, "day")
+        .order_by("day")
+        .all()
+    )
+
+    # Convert query result to the required response format
+    trends = {}
+    for bot_id, day, count in query:
+        formatted_day = day.strftime("%a")  # Convert to "Mon", "Tue", etc.
+        if bot_id not in trends:
+            trends[bot_id] = []
+        trends[bot_id].append({"day": formatted_day, "conversations": count})
+
+    # Format response
+    response = [
+        {"bot_id": bot_id, "data": trend_data} for bot_id, trend_data in trends.items()
+    ]
+    
+    return response

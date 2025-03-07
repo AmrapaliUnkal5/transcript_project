@@ -53,4 +53,14 @@ async def upload_bot_icon(file: UploadFile = File(...)):
     file_url = f"{settings.SERVER_URL}/{UPLOAD_DIR}/{file.filename}"  # Adjust according to your server setup
     
     return JSONResponse(content={"url": file_url}) 
+
+@router.put("/del/{bot_id}", response_model=schemas.BotResponse)
+def update_bot_status(bot_id: int, db: Session = Depends(get_db)):
+    """Update only the status of the bot to 'Deleted'"""
+    updated_bot = crud.delete_bot(db, bot_id)
+
+    if not updated_bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+
+    return updated_bot  # Return updated bot object
  
