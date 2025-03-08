@@ -269,10 +269,21 @@ export const authApi = {
 
   deletebot: async (botId: number, data:deleteBot) => {
     const response = await api.put(`/botsettings/del/${botId}`, data);  // API endpoint to update bot settings
+    return response.data;
 },
 
   deleteFile: async (fileId: string) => {
     const response = await api.delete(`/files/${fileId}`);
     return response.data;
   },
+
+  getEmailVerify: async (token: string) => {
+    const response = await api.get(`/verify-email?token=${token}`); // Send the token as a query parameter
+    return response.data; // Return the response from the backend
+  },
+  resendVerificationEmail: async (token:string) => {
+    const response = await api.post("/resend-verification-email", { token });
+    return response.data;
+  },
+
 };

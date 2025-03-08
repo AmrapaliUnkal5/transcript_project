@@ -9,19 +9,28 @@ import Grid from "@mui/material/Grid2";
 //import FacebookIcon from "@mui/icons-material/Facebook";
 import { grey } from "@mui/material/colors";
 import { AxiosError } from "axios";
-import { toast } from "react-toastify";
+//import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer } from "react-toastify";
 import { InputAdornment, IconButton } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material"; // Icons for show/hide password
 import { useAuth } from "../../context/AuthContext";
+import { useLoader } from "../../context/LoaderContext";
+import Loader from "../../components/Loader";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from "@mui/material";
 
 export const SignUp = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const { loading, setLoading } = useLoader(); // Use global loading state
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openModal, setOpenModal] = useState(false); // Modal state
   const [isConfirmPasswordTouched, setIsConfirmPasswordTouched] =
     useState(false);
   const { login } = useAuth();
@@ -59,6 +68,14 @@ export const SignUp = () => {
   // Toggle confirm password visibility
   const handleClickShowConfirmPassword = () => {
     setShowConfirmPassword((prev) => !prev);
+  };
+
+  const handleOpenModal = () => {
+    setOpenModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setOpenModal(false);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -260,11 +277,11 @@ export const SignUp = () => {
 
       await authApi.signup(signupData);
       // Show success message
-      toast.success("Account created successfully! Redirecting to login...");
+      //toast.success(
+      //  "A verification email has been sent to your registered email address. Please check your inbox and follow the instructions to activate your account."
+      //);
       // Wait for 3 seconds before navigating
-      setTimeout(() => {
-        navigate("/login");
-      }, 3000);
+      handleOpenModal(); // Open modal instead of navigating
     } catch (err: unknown) {
       if (err instanceof AxiosError && err.response?.data?.detail) {
         setError(err.response.data.detail); // Display API error message
@@ -281,6 +298,22 @@ export const SignUp = () => {
       bgcolor="#f2f1ef"
       className="min-h-screen dark:bg-gray-900 flex items-center justify-center py-6 px-4 sm:px-6 lg:px-8"
     >
+      <Dialog open={openModal} onClose={handleCloseModal}>
+        <DialogTitle>Signup Successful</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1">
+            A verification email has been sent to your registered email address.
+            Please check your inbox and follow the instructions to activate your
+            account.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => navigate("/login")} color="primary">
+            Go to Login
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {loading && <Loader />}
       <ToastContainer position="top-right" autoClose={3000} />
       <Box className="max-w-lg w-full space-y-8">
         <Box bgcolor={"#FFF"} borderRadius={4} py={2} px={3}>
