@@ -6,7 +6,7 @@ from app.vector_db import retrieve_similar_docs, add_document
 import openai
 import os
 import pdfplumber
-
+from app.utils.upload_knowledge_utils import extract_text_from_file,validate_and_store_text_in_ChromaDB
 from app.youtube import store_videos_in_chroma
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
@@ -59,39 +59,17 @@ def chatbot_response(bot_id: int, user_id: int, user_message: str, db: Session =
 
     return {"bot_reply": bot_reply}
 
-
-def extract_text_from_pdf(pdf_file):
-    """Extracts text from a PDF file using pdfplumber."""
-    try:
-        with pdfplumber.open(pdf_file) as pdf:
-            text = "\n".join([page.extract_text() or "" for page in pdf.pages])
-        return text.strip() if text.strip() else None  # Remove empty text
-    except Exception as e:
-        print(f"⚠️ Error extracting PDF text: {e}")
-        return None
-
-
 @router.post("/upload_knowledge")
-async def upload_knowledge(bot_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Reads a file (TXT or PDF) and stores its content in ChromaDB for a specific bot."""
+async def upload_knowledge(
+    bot_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    # Step 1: Extract text from the file
+    text = await extract_text_from_file(file)
 
-    file_extension = file.filename.split(".")[-1].lower()
-
-    # ✅ Extract text from TXT or PDF
-    if file_extension == "txt":
-        content = await file.read()
-        text = content.decode("utf-8")
-    elif file_extension == "pdf":
-        text = extract_text_from_pdf(file.file)
-    else:
-        raise HTTPException(status_code=400, detail="Only TXT and PDF files are supported.")
-
-    # ✅ Ensure valid text is extracted before storing
-    if not text:
-        raise HTTPException(status_code=400, detail="No extractable text found in the file.")
-
-    # ✅ Store extracted text in ChromaDB
-    add_document(bot_id, text, {"id": file.filename})
+    # Step 2: Validate and store the text in ChromaDB
+    validate_and_store_text_in_ChromaDB(text, bot_id, file)
 
     return {"message": f"Knowledge uploaded successfully for Bot {bot_id}!"}
 

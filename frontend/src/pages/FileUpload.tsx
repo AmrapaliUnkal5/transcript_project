@@ -180,9 +180,9 @@ export const FileUpload = () => {
       'text/plain': ['.txt'],
       'application/msword': ['.doc'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
+      //'application/vnd.ms-excel': ['.xls'],
+      //'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      //'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
       'text/csv': ['.csv'],
     },
   });
@@ -260,12 +260,12 @@ export const FileUpload = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <button
+                    {/* <button
                       onClick={() => window.open(file.url)}
                       className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400 mr-4"
                     >
                       <Eye className="w-5 h-5" />
-                    </button>
+                    </button> */}
                     <button
                       onClick={() => handleDelete(file.id)}
                       className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
