@@ -40,6 +40,7 @@ import random
 import string
 from app.chatbot import router as chatbot_router
 from app.chat_interactions import router as chat_router
+from app.email_verification import router as emailverification_router
 
 
 app = FastAPI()
@@ -52,8 +53,10 @@ app.include_router(file_size_validations_router)
 app.include_router(chatbot_router)
 app.include_router(chat_router)
 app.include_router(bot_creation)
+app.include_router(emailverification_router)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ 
 
 app.add_middleware(
     CORSMiddleware,
@@ -91,6 +94,33 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Emailid already registered")
     new_user = create_user(db, user)
+
+    # ✅ Generate JWT token for the registered user
+    token_data = {
+        "sub": new_user.email,
+        "role": new_user.role,
+        "user_id": new_user.user_id
+    }
+    print("regisering")
+    access_token = create_access_token(data=token_data, expires_delta=timedelta(hours=settings.REGISTER_TOKEN_EXPIRE_HOURS))
+    emailverificationurl = f"{settings.BASE_URL}/verify-email?token={access_token}"
+     # ✅ Send verification email
+    subject = "Verify Your Email - Complete Registration"
+    body = f"""
+    Hi {new_user.name},
+
+    Thank you for registering! Please verify your email by clicking the link below:
+
+    {emailverificationurl}
+
+    This link will expire in 24 hours.
+
+    Best regards,
+    Your Team
+    """
+    send_email(new_user.email, subject, body)
+    print("Sent email success")
+
     return RegisterResponse(
         message="User registered successfully",
         user=UserOut(
@@ -108,6 +138,10 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     db_user = get_user_by_email(db, email=login_request.email)
     if not db_user or not verify_password(login_request.password, db_user.password):
         raise HTTPException(status_code=400, detail="Invalid credentials")
+
+    # Check if the user is verified
+    if not db_user.is_verified:
+        raise HTTPException(status_code=400, detail="Email not verified. Please activate your email-id.")
     
     # Create a token for the user
     token_data = {"sub": db_user.email,"role":db_user.role, "user_id": db_user.user_id}

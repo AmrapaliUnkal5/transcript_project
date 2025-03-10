@@ -54,9 +54,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Only redirect if the user is not already on the signup or login page
       if (
-        !["/signup", "/login", "/forgot-password", "/reset-password" ,"/home"].includes(
-          location.pathname
-        )
+        ![
+          "/signup",
+          "/login",
+          "/forgot-password",
+          "/reset-password",
+          "/home",
+          "/verify-email",
+        ].includes(location.pathname)
       ) {
         navigate("/login");
       }
@@ -83,7 +88,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, botId, getBotId, login, logout  }}>
+    <AuthContext.Provider
+      value={{ isAuthenticated, user, botId, getBotId, login, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

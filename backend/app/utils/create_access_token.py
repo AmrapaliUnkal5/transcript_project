@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import jwt
 from app.config import settings  
+from fastapi import HTTPException
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     """
@@ -22,4 +23,33 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     ALGORITHM = settings.ALGORITHM  # Use the algorithm from config
     encoded_jwt=jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+def decode_access_token(token: str):
+    """
+    Decode a JWT access token.
+    
+    Args:
+    - token: The JWT token to decode.
+
+    Returns:
+    - Decoded token payload (dict).
+    """
+    try:
+        SECRET_KEY = settings.SECRET_KEY  # Ensure you have this in your config
+        ALGORITHM = settings.ALGORITHM  # Ensure you have this in your config
+
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        # Check if token is expired
+        exp_timestamp = payload.get("exp")
+        print("exp_timestamp",exp_timestamp)
+        print("datetime.now(timezone.utc).timestamp()",datetime.now(timezone.utc).timestamp())
+        if datetime.now(timezone.utc).timestamp() > exp_timestamp:
+            raise HTTPException(status_code=401, detail="Token has expired")
+
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=400, detail="Invalid token")
 
