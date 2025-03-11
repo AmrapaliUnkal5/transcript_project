@@ -17,7 +17,7 @@ import { SignUp } from "./pages/Auth/SignUp";
 import { ForgotPassword } from "./pages/Auth/ForgotPassword";
 import LoginHome from "./pages/LoginHome";
 import { ResetPassword } from "./pages/Auth/ResetPassword";
-import PlanSelection from "./pages/Options";
+import {PlanSelection} from "./pages/Options";
 import { LoaderProvider } from "./context/LoaderContext"; // Import LoaderProvider
 import Loader from "./components/Loader"; // Import Loader component
 import VerifyEmail from "./pages/Auth/VerifyEmail";
@@ -34,7 +34,6 @@ function App() {
               <Route path="/signup" element={<SignUp />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/home" element={<LoginHome />} />
-              <Route path="/options" element={<PlanSelection />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/verify-email" element={<VerifyEmail />} />
               <Route
@@ -53,6 +52,7 @@ function App() {
                 <Route path="performance" element={<Performance />} />
                 <Route path="subscription" element={<Subscription />} />
                 <Route path="myaccount" element={<Settings />} />
+                <Route path="options" element={<PlanSelection />} />
               </Route>
             </Routes>
           </BotProvider>
