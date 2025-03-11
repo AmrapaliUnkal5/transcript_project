@@ -529,9 +529,12 @@ export const CreateBot = () => {
         <div className="flex justify-between">
           <button
             onClick={handleBack}
-            className={`flex items-center px-6 py-2 ${
-              isLoading ? "bg-blue-300" : "bg-blue-500 hover:bg-blue-600"
-            } text-white rounded-lg`}
+            //disabled={currentStep === 0}
+            className={`flex items-center px-4 py-2 rounded-lg ${
+              currentStep === 0
+                ? "bg-blue-500 text-white cursor-not-allowed"
+                : "bg-white text-white-600 hover:bg-blue-600"
+            }`}
           >
             <ArrowLeft className="w-5 h-5 mr-2" /> Back
           </button>
