@@ -285,5 +285,17 @@ export const authApi = {
     const response = await api.post("/resend-verification-email", { token });
     return response.data;
   },
+  fetchVideosFromPlaylist: async (youtubeUrl: string) => {
+    const response = await api.post("/chatbot/fetch-videos", { url: youtubeUrl }); // Change 'playlist_url' to 'url'
+    return response.data; // Returns list of video details
+  },
+
+  storeSelectedYouTubeTranscripts: async (videoUrls: string[], botId: number) => {
+    const response = await api.post("/chatbot/process-videos", { 
+        bot_id: botId, 
+        video_urls: videoUrls 
+    });
+    return response.data; // Returns success message after storing transcripts
+},
 
 };
