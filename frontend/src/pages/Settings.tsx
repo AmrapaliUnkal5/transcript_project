@@ -1,37 +1,71 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Globe, Bell, Shield, Key } from "lucide-react";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
-import { authApi } from "../services/api";
+import { authApi, UserUpdate } from "../services/api";
+
+import { ToastContainer, toast } from "react-toastify";
 
 export const Settings = () => {
   // Retrieve user data from localStorage
   const { loading, setLoading } = useLoader(); // Use global loader
-
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const userData = localStorage.getItem("user");
   const user = userData ? JSON.parse(userData) : null;
 
   const [settings, setSettings] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    company_name: user?.company_name || "",
-    phone_no: user?.phone_no || "",
-    notifications: {
-      email: true,
-      push: false,
-      desktop: true,
-    },
-    language: "en",
-    theme: "system",
-    twoFactor: false,
+    name: "",
+    email: "",
+    company_name: "",
+    communication_email: "",
+    phone_no: "",
+    // notifications: {
+    //   email: true,
+    //   push: false,
+    //   desktop: true,
+    // },
+    // language: "en",
+    // theme: "system",
+    // twoFactor: false,
     avatar_url:
       user?.avatar_url ||
       "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png",
   });
 
-  //const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  useEffect(() => {
+    const fetchUserDetails = async () => {
+      try {
+        const response = await authApi.getUserDetails(); // Fetch user details
+        if (response) {
+          //console.log("response", response);
+          setSettings((prev) => ({
+            ...prev, // Keep previous values
+            name: response.name || "",
+            email: response.email || "",
+            company_name: response.company_name || "",
+            communication_email: response.communication_email || "",
+            phone_no: response.phone_no || "",
+            avatar_url:
+              user?.avatar_url ||
+              "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png",
+          }));
+        }
+      } catch (error) {
+        console.error("Error fetching user details:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserDetails();
+  }, []);
+
+  if (!settings || !settings.name) {
+    return <p>Loading...</p>;
+  }
 
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -142,10 +176,62 @@ export const Settings = () => {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSettings((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    const { name, value } = e.target;
+
+    if (name === "phone_no") {
+      if (/^\d*$/.test(value)) {
+        setSettings((prev) => ({ ...prev, [name]: value }));
+        setErrors((prev) => ({ ...prev, [name]: "" })); // Clear error
+      } else {
+        setErrors((prev) => ({ ...prev, [name]: "Only numbers are allowed" }));
+      }
+    } else if (name === "communication_email") {
+      setSettings((prev) => ({ ...prev, [name]: value }));
+      setErrors((prev) => ({ ...prev, [name]: "" })); // Clear error on typing
+    } else {
+      setSettings((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const validateForm = () => {
+    let newErrors: { [key: string]: string } = {};
+    const emailRegex = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/;
+
+    if (
+      !settings.communication_email ||
+      !emailRegex.test(settings.communication_email)
+    ) {
+      newErrors.communication_email = "Invalid email address";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0; // Returns true if no errors
+  };
+
+  // Handle save button click
+  const handleSave = async () => {
+    if (validateForm()) {
+      setSaving(true);
+      setLoading(true);
+      try {
+        const userUpdateData: UserUpdate = {
+          name: settings.name,
+          company_name: settings.company_name,
+          communication_email: settings.communication_email,
+          phone_no: settings.phone_no,
+        };
+        //console.log("userUpdateData", userUpdateData);
+        await authApi.updateUserDetails(userUpdateData); // Update user details
+        toast.success("Changes saved successfully!"); // Success toast
+        //alert("Changes saved successfully");
+      } catch (error) {
+        console.error("Error saving changes:", error);
+        toast.error("Failed to save changes. Please try again."); // Error toast
+      } finally {
+        setSaving(false);
+        setLoading(false);
+      }
+    }
   };
 
   const handleNotificationChange = (
@@ -208,15 +294,15 @@ export const Settings = () => {
               </label>
               <input
                 type="text"
+                name="name"
                 value={settings.name}
                 onChange={handleInputChange}
-                disabled
                 className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Email
+                Email/User Login
               </label>
               <input
                 type="email"
@@ -233,8 +319,11 @@ export const Settings = () => {
               </label>
               <input
                 type="text"
+                name="phone_no"
+                pattern="[0-9]*"
+                inputMode="numeric"
+                onChange={handleInputChange}
                 value={settings.phone_no || ""}
-                disabled
                 className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -245,16 +334,36 @@ export const Settings = () => {
               </label>
               <input
                 type="text"
+                name="company_name"
                 value={settings.company_name || ""}
-                disabled
+                onChange={handleInputChange}
                 className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
+            {/* Alternate Address Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Alternate Email Address
+              </label>
+              <input
+                type="text"
+                name="communication_email"
+                value={settings.communication_email}
+                onChange={handleInputChange}
+                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+              />
+              {errors.communication_email && (
+                <p className="text-red-500 text-sm mt-1">
+                  {errors.communication_email}
+                </p>
+              )}
+            </div>
           </div>
         </div>
+        <ToastContainer position="top-right" autoClose={3000} />
       </div>
 
-      {/* Notification Settings */}
+      {/* Notification Settings 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <div className="flex items-center space-x-2 mb-4">
           <Bell className="w-5 h-5 text-blue-500" />
@@ -295,9 +404,9 @@ export const Settings = () => {
             </div>
           ))}
         </div>
-      </div>
+      </div>*/}
 
-      {/* Language and Region */}
+      {/* Language and Region 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <div className="flex items-center space-x-2 mb-4">
           <Globe className="w-5 h-5 text-blue-500" />
@@ -335,7 +444,7 @@ export const Settings = () => {
             </select>
           </div>
         </div>{" "}
-      </div>
+      </div>*/}
 
       {/* Security Settings */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
@@ -345,6 +454,7 @@ export const Settings = () => {
             Security
           </h2>
         </div>
+        {/* 
         <div className="space-y-4">
           <div className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
             <div>
@@ -382,11 +492,22 @@ export const Settings = () => {
             </button>
           </div>
         </div>
+      </div>*/}
+
+        <div>
+          <button className="flex items-center text-blue-500 hover:text-blue-600">
+            <Key className="w-4 h-4 mr-2" />
+            <span>Change Password</span>
+          </button>
+        </div>
       </div>
 
       {/* Save Changes */}
       <div className="flex justify-end">
-        <button className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+        <button
+          onClick={handleSave}
+          className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
           Save Changes
         </button>
       </div>

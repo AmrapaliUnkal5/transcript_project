@@ -106,6 +106,13 @@ export interface deleteBot{
   status:string;
 }
 
+export interface UserUpdate {
+  name?: string;
+  company_name?: string;
+  communication_email?: string;
+  phone_no?: string;
+}
+
 export const authApi = {
   signup: async (data: SignUpData) => {
     const response = await api.post('/register', data);
@@ -296,6 +303,14 @@ export const authApi = {
         video_urls: videoUrls 
     });
     return response.data; // Returns success message after storing transcripts
-},
+  },
+  getUserDetails: async () => {
+    const response = await api.get("/user/me"); // Fetch logged-in user details
+    return response.data;
+  },
+  updateUserDetails: async (data: Partial<UserUpdate>) => {
+    const response = await api.put('/user/me', data); // Update user details
+    return response.data;
+  },  
 
 };
