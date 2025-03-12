@@ -5,6 +5,9 @@ import { authApi } from "../../services/api"; // Assuming API call function exis
 import { AxiosError } from "axios";
 import { useLoader } from "../../context/LoaderContext";
 import Loader from "../../components/Loader";
+import { Visibility, VisibilityOff } from "@mui/icons-material"; 
+import { TextField, IconButton, InputAdornment } from "@mui/material";
+
 
 export const ResetPassword: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -15,11 +18,21 @@ export const ResetPassword: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   //const [loading, setLoading] = useState<boolean>(false);
   const { loading, setLoading } = useLoader(); // Use global loader state
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const token = searchParams.get("token"); // Get token from URL query params
   //const email = searchParams.get("email"); // Get email from URL query params
   console.log("token", token);
   //console.log("email", email);
+
+  const handleClickShowPassword = () => {
+    setShowPassword((prev) => !prev);
+  };
+
+  const handleClickShowConfirmPassword = () => {
+    setShowConfirmPassword((prev) => !prev);
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -79,32 +92,53 @@ export const ResetPassword: React.FC = () => {
           <p className="text-green-500 text-center">{message}</p>
         ) : (
           <form onSubmit={handleSubmit} className="mt-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                New Password
-              </label>
-              <input
-                type="password"
-                className="w-full px-3 py-2 border rounded-md"
+            <div className="mb-4">
+            <TextField
+                label="New Password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                fullWidth
                 required
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={handleClickShowPassword}
+                        edge="end"
+                      >
+                        {showPassword ? <Visibility /> : <VisibilityOff />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
             </div>
 
-            <div className="mt-3">
-              <label className="block text-sm font-medium text-gray-700">
-                Confirm Password
-              </label>
-              <input
-                type="password"
-                className="w-full px-3 py-2 border rounded-md"
+            <div className="mb-4">
+              <TextField
+                label="Confirm Password"
+                type={showConfirmPassword ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                fullWidth
                 required
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={handleClickShowConfirmPassword}
+                        edge="end"
+                      >
+                        {showConfirmPassword ? <Visibility /> : <VisibilityOff />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
             </div>
-
             {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
 
             <button
@@ -120,3 +154,4 @@ export const ResetPassword: React.FC = () => {
     </div>
   );
 };
+            

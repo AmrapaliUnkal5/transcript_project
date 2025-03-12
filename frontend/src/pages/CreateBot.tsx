@@ -227,7 +227,7 @@ export const CreateBot = () => {
   const handleBack = () => {
     if (currentStep === 0) {
       // Navigate to Options.tsx when on the first step
-      navigate("/options");
+      navigate('/Options');
     } else if (currentStep > 0) {
       // Move to the previous step
       setCurrentStep(currentStep - 1);
@@ -529,12 +529,9 @@ export const CreateBot = () => {
         <div className="flex justify-between">
           <button
             onClick={handleBack}
-            //disabled={currentStep === 0}
-            className={`flex items-center px-4 py-2 rounded-lg ${
-              currentStep === 0
-                ? "bg-blue-500 text-white cursor-not-allowed"
-                : "bg-white text-white-600 hover:bg-blue-600"
-            }`}
+            className={`flex items-center px-6 py-2 ${
+              isLoading ? "bg-blue-300" : "bg-blue-500 hover:bg-blue-600"
+            } text-white rounded-lg`}
           >
             <ArrowLeft className="w-5 h-5 mr-2" /> Back
           </button>
