@@ -8,6 +8,8 @@ import os
 import pdfplumber
 from app.utils.upload_knowledge_utils import extract_text_from_file,validate_and_store_text_in_ChromaDB
 from app.youtube import store_videos_in_chroma
+from app.schemas import YouTubeRequest,VideoProcessingRequest
+from app.youtube import store_videos_in_chroma,get_video_urls
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
 
@@ -127,4 +129,22 @@ def process_youtube(bot_id: int, channel_url: str, db: Session = Depends(get_db)
     
     result = store_videos_in_chroma(bot_id, channel_url)
     return result
+
+
+@router.post("/fetch-videos")
+async def fetch_videos(request: YouTubeRequest):
+    print(request.url)
+    if not request.url.startswith("https://www.youtube.com/"):
+        raise HTTPException(status_code=400, detail="Invalid YouTube channel URL.")
+    urls = get_video_urls(request.url)
+    return {"video_urls": urls}
+
+@router.post("/process-videos")
+async def process_selected_videos(request: VideoProcessingRequest):
+    """API to process selected YouTube video transcripts and store them in ChromaDB."""
+    try:
+        result = store_videos_in_chroma(request.bot_id, request.video_urls)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
