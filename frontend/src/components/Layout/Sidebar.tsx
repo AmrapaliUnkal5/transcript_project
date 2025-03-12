@@ -20,7 +20,7 @@ const navItems = [
 export const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const hiddenRoutes = ["/", "/welcome", "/settings", "/create-bot", "/subscription"];
+  const hiddenRoutes = ["/", "/welcome", "/settings", "/create-bot", "/subscription","/Options"];
 
   if (hiddenRoutes.includes(location.pathname)) {
     return null;

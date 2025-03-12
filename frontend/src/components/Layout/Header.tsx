@@ -44,19 +44,20 @@ export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
           onClick={() => navigate("/")}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
         >
-          <Home className="w-5 h-5" />
+          {/* <Home className="w-5 h-5" /> */}
+          <Home color={isDark ? "white" : "black"} className="w-5 h-5" />
         </button>
         <button
           onClick={toggleTheme}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
         >
-          {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          {isDark ? <Sun color={isDark ? "white" : "black"} className="w-5 h-5" /> : <Moon color={isDark ? "white" : "black"} className="w-5 h-5" />}
         </button>
         <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-          <Globe className="w-5 h-5" />
+          <Globe color={isDark ? "white" : "black"} className="w-5 h-5" />
         </button>
         <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-          <Bell className="w-5 h-5" />
+          <Bell color={isDark ? "white" : "black"} className="w-5 h-5" />
         </button>
 
         {/* Dropdown for Avatar */}
@@ -68,9 +69,9 @@ export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
             <img
               src={user.avatar}
               alt={user.name}
-              className="w-8 h-8 rounded-full cursor-pointer"
+              className="w-8 h-8 rounded-full border border-gray-300 dark:border-white cursor-pointer"
             />
-            <span className="text-sm font-medium">{user.name}</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</span>
           </button>
 
           {/* Dropdown Content */}
@@ -83,8 +84,8 @@ export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                <CreditCard className="w-4 h-4" />
-                <span>Subscription</span>
+                <CreditCard color={isDark ? "white" : "black"} className="w-4 h-4" />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">Subscription</span>
               </button>
               <button
                 onClick={() => {
@@ -93,8 +94,8 @@ export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                <Settings className="w-4 h-4" />
-                <span>My Account</span>
+                <Settings color={isDark ? "white" : "black"} className="w-4 h-4" />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">My Account</span>
               </button>
               <button
                 onClick={() => {
@@ -103,8 +104,8 @@ export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
+                <LogOut color={isDark ? "white" : "black"} className="w-4 h-4" />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">Logout</span>
               </button>
             </div>
           )}
