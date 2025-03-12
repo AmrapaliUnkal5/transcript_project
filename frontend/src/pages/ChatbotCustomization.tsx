@@ -367,7 +367,7 @@ export const ChatbotCustomization = () => {
     setLoading(true);
 
     try {
-      // Check if the file size is greater than 1MB
+      // Check if the file size is greater than 1MB.
       if (file.size > 1024 * 1024) {
         console.log("Original file size:", file.size);
         const compressedFile = await compressImage(file);
