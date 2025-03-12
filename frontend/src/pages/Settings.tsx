@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { User, Globe, Bell, Shield, Key } from "lucide-react";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
-
 import { authApi } from "../services/api";
 
 export const Settings = () => {
@@ -37,7 +36,7 @@ export const Settings = () => {
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const file = event.target.files?.[0];
+    let file = event.target.files?.[0];
     if (!file) return;
 
     setError(null);
@@ -45,6 +44,14 @@ export const Settings = () => {
     setLoading(true);
 
     try {
+      // Check if the file size is greater than 1MB
+      if (file.size > 1024 * 1024) {
+        console.log("Original file size:", file.size);
+        const compressedFile = await compressImage(file);
+        console.log("Compressed file size:", compressedFile.size);
+        file = compressedFile;
+      }
+
       // Upload avatar
       const formData = new FormData();
       formData.append("file", file);
@@ -79,6 +86,61 @@ export const Settings = () => {
       setLoading(false);
     }
   };
+
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+
+          const maxWidth = 800;
+          const maxHeight = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height *= maxWidth / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width *= maxHeight / height;
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], file.name, {
+                  type: "image/jpeg",
+                  lastModified: Date.now(),
+                });
+                resolve(compressedFile);
+              } else {
+                reject(new Error("Failed to compress image"));
+              }
+            },
+            "image/jpeg",
+            0.7
+          );
+        };
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSettings((prev) => ({
       ...prev,
