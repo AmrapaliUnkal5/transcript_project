@@ -53,6 +53,8 @@ export const CreateBot = () => {
   const [nodes, setNodes] = useState<string[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [botId, setBotId] = useState<number | null>(null); // Local botId state, resets to null on re-mount
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
   const onDrop = useCallback(
@@ -132,6 +134,38 @@ export const CreateBot = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const getPaginatedNodes = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return nodes.slice(startIndex, endIndex);
+  };
+
+  const totalPages = Math.ceil(nodes.length / itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const renderPaginationButtons = () => {
+    const buttons = [];
+    for (let i = 1; i <= totalPages; i++) {
+      buttons.push(
+        <button
+          key={i}
+          onClick={() => handlePageChange(i)}
+          className={`px-4 py-2 mx-1 rounded-md ${
+            currentPage === i
+              ? "bg-blue-500 text-white"
+              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          }`}
+        >
+          {i}
+        </button>
+      );
+    }
+    return buttons;
   };
 
   const createBotEntry = async (botName: string) => {
@@ -224,6 +258,7 @@ export const CreateBot = () => {
       handleFinish();
     }
   };
+
   const handleBack = () => {
     if (currentStep === 0) {
       // Navigate to Options.tsx when on the first step
@@ -233,6 +268,7 @@ export const CreateBot = () => {
       setCurrentStep(currentStep - 1);
     }
   };
+
   const handleFinish = async () => {
     const totalSize = files.reduce((acc, file) => acc + file.size, 0);
     if (totalSize > MAX_FILE_SIZE) {
@@ -365,20 +401,23 @@ export const CreateBot = () => {
                   Select Pages to Scrape:
                 </h4>
                 <div className="space-y-2">
-                  {nodes.map((node, index) => (
+                  {getPaginatedNodes().map((node, index) => (
                     <label key={index} className="flex items-center space-x-2">
                       <input
                         type="checkbox"
                         value={node}
                         checked={selectedNodes.includes(node)}
                         onChange={() => handleCheckboxChange(node)}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                        className="h-5 w-5 text-blue-600 border-gray-400 rounded shrink-0"
                       />
                       <span className="text-sm text-gray-600 dark:text-gray-400">
                         {node}
                       </span>
                     </label>
                   ))}
+                </div>
+                <div className="flex justify-center mt-4">
+                  {renderPaginationButtons()}
                 </div>
               </div>
             )}
@@ -530,11 +569,9 @@ export const CreateBot = () => {
           <button
             onClick={handleBack}
             //disabled={currentStep === 0}
-            className={`flex items-center px-4 py-2 rounded-lg ${
-              currentStep === 0
-                ? "bg-blue-500 text-white cursor-not-allowed"
-                : "bg-white text-white-600 hover:bg-blue-600"
-            }`}
+            className={`flex items-center px-6 py-2 ${
+              isLoading ? "bg-blue-300" : "bg-blue-500 hover:bg-blue-600"
+            } text-white rounded-lg`}
           >
             <ArrowLeft className="w-5 h-5 mr-2" /> Back
           </button>
