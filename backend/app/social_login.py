@@ -79,7 +79,7 @@ async def google_auth(payload: TokenPayload, db: Session = Depends(get_db)):
             db.commit()
 
         # Generate access token
-        token_data = {"sub": user.email, "role":"client"}
+        token_data = {"sub": user.email, "role":"client", "user_id": user.user_id}
         access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=45))
 
         return {
