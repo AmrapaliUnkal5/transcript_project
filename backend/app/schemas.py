@@ -23,9 +23,17 @@ class UserOut(BaseModel):
     role: str
     user_id:int
     company_name: Optional[str] = None
+    phone_no: Optional[str] = None  # Add this field
+    communication_email: Optional[str] = None  # Add this field
 
     class Config:
         from_attributes = True  # This replaces 'orm_mode'
+
+class UserUpdate(BaseModel):
+     name: Optional[str] = None  # Editable Full Name
+     phone_no: Optional[str] = None  # Editable Phone Number
+     company_name: Optional[str] = None  # Editable Company Name
+     communication_email: Optional[str] = None  # Editable Alternate Address
 
 class RegisterResponse(BaseModel):
     message: str
