@@ -14,6 +14,8 @@ const YouTubeUploader: React.FC = () => {
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const { loading, setLoading } = useLoader();
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   /// Load video URLs from localStorage when component mounts
   useEffect(() => {
@@ -165,6 +167,39 @@ const YouTubeUploader: React.FC = () => {
     }
   };
 
+  // Pagination logic
+  const getPaginatedVideos = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return videoUrls.slice(startIndex, endIndex);
+  };
+
+  const totalPages = Math.ceil(videoUrls.length / itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const renderPaginationButtons = () => {
+    const buttons = [];
+    for (let i = 1; i <= totalPages; i++) {
+      buttons.push(
+        <button
+          key={i}
+          onClick={() => handlePageChange(i)}
+          className={`px-4 py-2 mx-1 rounded-md ${
+            currentPage === i
+              ? "bg-blue-500 text-white"
+              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          }`}
+        >
+          {i}
+        </button>
+      );
+    }
+    return buttons;
+  };
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Import Videos from YouTube</h2>
@@ -189,15 +224,15 @@ const YouTubeUploader: React.FC = () => {
       {videoUrls.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-md font-semibold">Select Videos to Process</h3>
-          <div className="max-h-60 overflow-y-auto border p-2 rounded-md">
-            {videoUrls.map((videoUrl, index) => (
+          <div className="max-h-90 overflow-y-auto border p-2 rounded-md">
+            {getPaginatedVideos().map((videoUrl, index) => (
               <div key={index} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={selectedVideos.includes(videoUrl)}
-                  onChange={() => handleSelectVideo(videoUrl)}
-                />
-                <a
+              <input
+                type="checkbox"
+                checked={selectedVideos.includes(videoUrl)}
+                onChange={() => handleSelectVideo(videoUrl)}
+              />
+             <a
                   href={videoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -207,6 +242,10 @@ const YouTubeUploader: React.FC = () => {
                 </a>
               </div>
             ))}
+          </div>
+          {/* Pagination buttons */}
+          <div className="flex justify-center mt-4">
+            {renderPaginationButtons()}
           </div>
           <button
             onClick={handleProcessVideos}
