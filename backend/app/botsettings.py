@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException,UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException,UploadFile, File,Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import crud
@@ -7,6 +7,9 @@ import os
 from fastapi.responses import JSONResponse
 import shutil
 from app.config import settings
+from app.schemas import  BotUpdateStatus
+from app.models import Bot
+from datetime import datetime
 
 router = APIRouter(prefix="/botsettings", tags=["Bot Settings"])
 
@@ -63,4 +66,29 @@ def update_bot_status(bot_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Bot not found")
 
     return updated_bot  # Return updated bot object
- 
+
+# Endpoint to update bot status and is_active
+@router.put("/bots/{bot_id}")
+def update_bot(bot_id: int, update_data: BotUpdateStatus, db: Session = Depends(get_db)):
+    
+    try:
+        # Find the bot by bot_id
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        if not bot:
+            raise HTTPException(status_code=404, detail="Bot not found")
+
+        # Update the bot's status and is_active
+        bot.is_active = update_data.is_active
+        bot.status = update_data.status
+        bot.updated_at = datetime.utcnow()  # Update the updated_at timestamp
+
+        # Commit changes to the database
+        db.commit()
+        db.refresh(bot)
+
+        return {"message": "Bot updated successfully", "bot": bot}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()

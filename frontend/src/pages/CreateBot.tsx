@@ -15,6 +15,8 @@ import { authApi } from "../services/api";
 import { CreateBotInterface } from "../types";
 import { useBot } from "../context/BotContext"; // Use BotContext
 import YouTubeUploader from "./YouTubeUploader.tsx";
+import { useLoader } from "../context/LoaderContext"; // Use global loader hook
+import Loader from "../components/Loader";
 
 interface Step {
   title: string;
@@ -50,6 +52,7 @@ export const CreateBot = () => {
   const [files, setFiles] = useState<CreateBotInterface[]>([]);
   const [botName, setBotName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { loading, setLoading } = useLoader();
   const [nodes, setNodes] = useState<string[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [botId, setBotId] = useState<number | null>(null); // Local botId state, resets to null on re-mount
@@ -169,12 +172,14 @@ export const CreateBot = () => {
   };
 
   const createBotEntry = async (botName: string) => {
+    console.log("botName", botName);
     try {
       const response = await authApi.createBot({
         bot_name: botName,
         status: "In Progress",
         is_active: false,
       });
+      console.log("response", response);
 
       if (!response.bot_id) {
         throw new Error("Bot ID not found in response");
@@ -262,7 +267,7 @@ export const CreateBot = () => {
   const handleBack = () => {
     if (currentStep === 0) {
       // Navigate to Options.tsx when on the first step
-      navigate('/Options');
+      navigate("/Options");
     } else if (currentStep > 0) {
       // Move to the previous step
       setCurrentStep(currentStep - 1);
@@ -277,34 +282,111 @@ export const CreateBot = () => {
     }
 
     setIsLoading(true);
+    setLoading(true);
     try {
+      let isUploadSuccess = false;
+      let isYouTubeSuccess = false;
       const filesToUpload: File[] = files
         .map((file) => file.file)
         .filter((file): file is File => file !== undefined);
 
-      if (filesToUpload.length === 0) {
-        toast.error("No valid files to upload.");
-        return;
+      // if (filesToUpload.length === 0) {
+      //   toast.error("No valid files to upload.");
+      //   return;
+      // }
+      if (filesToUpload.length > 0) {
+        const response = await authApi.uploadFiles(
+          filesToUpload,
+          botId as number
+        ); // Use local botId
+        console.log("Backend response:", response);
+
+        if (response.success) {
+          isUploadSuccess = true;
+          toast.success(`File uploaded successfully!`);
+          // localStorage.removeItem("youtube_video_urls");
+          // localStorage.removeItem("selected_videos");
+          // navigate("/chatbot");
+        } else {
+          toast.error("Failed to upload files.");
+        }
       }
 
-      const response = await authApi.uploadFiles(
-        filesToUpload,
-        botId as number
-      ); // Use local botId
-      console.log("Backend response:", response);
+      //  Load selected videos from localStorage
+      const savedSelectedVideos = localStorage.getItem("selected_videos");
+      const parsedSelectedVideos = savedSelectedVideos
+        ? JSON.parse(savedSelectedVideos)
+        : [];
+      console.log("parsedSelectedVideos", parsedSelectedVideos);
 
-      if (response.success) {
+      // Process YouTube Videos if selected
+      if (selectedBot?.id && parsedSelectedVideos.length > 0) {
+        try {
+          const responseyoutube = await authApi.storeSelectedYouTubeTranscripts(
+            parsedSelectedVideos,
+            selectedBot.id
+          );
+          if (responseyoutube && Object.keys(responseyoutube).length > 0) {
+            const successCount = responseyoutube.stored_videos?.length || 0;
+
+            const failedCount = responseyoutube.failed_videos?.length || 0;
+
+            if (successCount > 0 && failedCount === 0) {
+              isYouTubeSuccess = true;
+              toast.success(`${successCount} video(s) uploaded successfully!`);
+            } else if (successCount > 0 && failedCount > 0) {
+              isYouTubeSuccess = true;
+              toast.success(
+                `${successCount} video(s) uploaded successfully, ${failedCount} failed.`
+              );
+            } else if (successCount == 0 && failedCount == 0) {
+              toast.error("Videos already exists");
+            }
+          }
+        } catch (error) {
+          console.error("Error processing YouTube videos:", error);
+          toast.error("Failed to process YouTube videos.");
+        }
+      }
+      console.log("isUploadSuccess", isUploadSuccess);
+      console.log("isYouTubeSuccess", isYouTubeSuccess);
+
+      // ✅ Call API to activate bot if at least one process was successful
+      if (selectedBot?.id && (isUploadSuccess || isYouTubeSuccess)) {
+        try {
+          console.log("updateBotStatusActive");
+          await authApi.updateBotStatusActive(selectedBot.id, {
+            // Pass ID separately
+            status: "Active",
+            is_active: true,
+          });
+
+          setSelectedBot({
+            id: selectedBot.id,
+            name: botName,
+            status: "Active",
+            conversations: 0,
+            satisfaction: 0,
+          });
+
+          toast.success("Bot status updated to Active!");
+        } catch (error) {
+          console.error("Error updating bot status:", error);
+          toast.error("Failed to activate bot.");
+        }
+      }
+      // ✅ Wait for the toast message to be seen before navigating
+      setTimeout(() => {
         localStorage.removeItem("youtube_video_urls");
         localStorage.removeItem("selected_videos");
         navigate("/chatbot");
-      } else {
-        toast.error("Failed to upload files.");
-      }
+      }, 6000); // 4 seconds delay
     } catch (error) {
       console.error("Error creating bot:", error);
       toast.error("An error occurred while uploading files.");
     } finally {
       setIsLoading(false);
+      setLoading(true);
     }
   };
 
@@ -518,7 +600,7 @@ export const CreateBot = () => {
               {/* <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Enter your playlist URL.
               </p> */}
-              <YouTubeUploader />
+              <YouTubeUploader maxVideos={5} />
             </div>
           </div>
         );

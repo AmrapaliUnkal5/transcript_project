@@ -6,9 +6,16 @@ import { useBot } from "../context/BotContext";
 import { toast } from "react-toastify";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
+interface YouTubeUploaderProps {
+  maxVideos: number;
+  refreshKey: number; // Add refreshKey prop
+}
 
-const YouTubeUploader: React.FC = () => {
-  const { selectedBot } = useBot();
+const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
+  maxVideos,
+  refreshKey,
+}) => {
+  const { selectedBot, setSelectedBot } = useBot(); // Use BotContext
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
@@ -16,6 +23,22 @@ const YouTubeUploader: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // ✅ Reload video URLs when refreshKey changes
+  useEffect(() => {
+    const savedVideoUrls = localStorage.getItem("youtube_video_urls");
+    console.log("savedVideoUrls", savedVideoUrls);
+    if (savedVideoUrls) {
+      try {
+        const parsedUrls = JSON.parse(savedVideoUrls);
+        if (Array.isArray(parsedUrls) && parsedUrls.length > 0) {
+          setVideoUrls(parsedUrls);
+        }
+      } catch (error) {
+        console.error("Error parsing stored video URLs:", error);
+      }
+    }
+  }, [refreshKey]); // <-- Refresh when refreshKey updates
 
   /// Load video URLs from localStorage when component mounts
   useEffect(() => {
@@ -75,11 +98,6 @@ const YouTubeUploader: React.FC = () => {
       setError(null); // Clear previous errors
       const response = await authApi.fetchVideosFromPlaylist(youtubeUrl);
       if (response?.video_urls) {
-        //setVideoUrls(response.video_urls); // Fix: Correctly updating state
-        // setVideoUrls((prevUrls) => [...prevUrls, ...response.video_urls]);
-        //const updatedUrls = Array.from(
-        //  new Set([...videoUrls, ...response.video_urls])
-        //); // Avoid duplicates
         const updatedUrls = Array.from(
           new Set([...videoUrls, ...response.video_urls])
         ); // Avoid duplicates
@@ -123,48 +141,13 @@ const YouTubeUploader: React.FC = () => {
         // If already selected, remove from the list
         return prev.filter((id) => id !== videoId);
       } else {
-        if (prev.length >= 5) {
-          toast.error("Free plan allows only 5 videos to be uploaded.");
+        if (prev.length >= maxVideos) {
+          toast.error(`You can only select ${maxVideos} videos.`);
           return prev; // Do not add more than 5
         }
         return [...prev, videoId];
       }
     });
-  };
-
-  const handleProcessVideos = async () => {
-    if (!selectedBot?.id) {
-      console.error("Bot ID is missing.");
-      return;
-    }
-    try {
-      setLoading(true);
-      await authApi.storeSelectedYouTubeTranscripts(
-        selectedVideos,
-        selectedBot.id
-      );
-      //alert("Videos processed and stored successfully!");
-      toast.success("Videos processed and stored successfully!");
-      // Keep only the unchecked videos in the list
-      //setVideoUrls((prev) =>
-      //  prev.filter((videoUrl) => !selectedVideos.includes(videoUrl))
-      //);
-      // Update localStorage to reflect the new state
-      //localStorage.setItem(
-      //  "youtube_video_urls",
-      //  JSON.stringify(
-      //    videoUrls.filter((videoUrl) => !selectedVideos.includes(videoUrl))
-      // )
-      //);
-      //localStorage.removeItem("selected_videos"); // Since none are selected anymore
-      //setVideoUrls([]);
-      //setSelectedVideos([]);
-      localStorage.setItem("selected_videos", JSON.stringify(selectedVideos));
-    } catch (error) {
-      console.error("Error processing videos:", error);
-    } finally {
-      setLoading(false); // Hide loader after API call
-    }
   };
 
   // Pagination logic
@@ -227,12 +210,12 @@ const YouTubeUploader: React.FC = () => {
           <div className="max-h-90 overflow-y-auto border p-2 rounded-md">
             {getPaginatedVideos().map((videoUrl, index) => (
               <div key={index} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={selectedVideos.includes(videoUrl)}
-                onChange={() => handleSelectVideo(videoUrl)}
-              />
-             <a
+                <input
+                  type="checkbox"
+                  checked={selectedVideos.includes(videoUrl)}
+                  onChange={() => handleSelectVideo(videoUrl)}
+                />
+                <a
                   href={videoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -247,6 +230,7 @@ const YouTubeUploader: React.FC = () => {
           <div className="flex justify-center mt-4">
             {renderPaginationButtons()}
           </div>
+          {/* <button
           <button
             onClick={handleProcessVideos}
             className={`ml-2 px-4 py-2 text-white rounded-md ${
@@ -257,7 +241,7 @@ const YouTubeUploader: React.FC = () => {
             disabled={selectedVideos.length === 0}
           >
             Process Selected Videos
-          </button>
+          </button> */}
           {/* Show Loader when loading is true */}
           {loading && <Loader />}
         </div>

@@ -3,6 +3,10 @@ import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi
 from fastapi import APIRouter, Depends, HTTPException
 import re
+from app.models import YouTubeVideo  # Import the model
+from app.database import get_db  # Ensure this is imported
+from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 
 def get_video_urls(channel_url):
     """Fetches all video URLs from a given YouTube channel."""
@@ -45,6 +49,7 @@ def get_video_urls(channel_url):
 
 def get_video_transcript(video_url):
     """Fetches transcript from a YouTube video."""
+    print("get_video_transcript")
     video_id = video_url.split("v=")[-1]
     
     try:
@@ -58,10 +63,13 @@ def get_video_transcript(video_url):
 from app.vector_db import add_document
 
 
-def store_videos_in_chroma(bot_id: int, video_urls: list[str]):
+def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
     """Extracts transcripts from all videos in a channel and stores them in the bot's ChromaDB collection."""
+    stored_videos = []
+    failed_videos = []
 
     #video_urls = get_video_urls(channel_url)  # Fetch all video URLs
+    #print("store_videos_in_chroma")
 
     for video_url in video_urls:
         transcript = get_video_transcript(video_url)  # Get transcript text
@@ -73,6 +81,63 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str]):
                 "source": "YouTube",
                 "video_url": video_url
             }
-            add_document(bot_id, text=transcript, metadata=metadata)  # ✅ Same as PDF & text storage
+            #add_document(bot_id, text=transcript, metadata=metadata)  # ✅ Same as PDF & text storage
+            print("options")
 
-    return {"message": "All YouTube transcripts stored successfully!"}
+
+            # ✅ Extract metadata after ChromaDB storage
+            ydl_opts = {"quiet": True}
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                try:
+                    info = ydl.extract_info(video_url, download=False)
+
+                    # ✅ Check if video already exists in DB
+                    existing_video = (
+                        db.query(YouTubeVideo)
+                        .filter(YouTubeVideo.video_id == info.get("id"), YouTubeVideo.bot_id == bot_id)
+                        .first()
+                    )
+                    if existing_video:
+                        print(f"⚠️ Video {info.get('id')} already exists. Skipping insertion.")
+                        continue  
+
+                    # ✅ Prepare video metadata for DB
+                    video_data = {
+                        "video_id": info.get("id"),
+                        "video_title": info.get("title", "Unknown Title"),
+                        "video_url": video_url,
+                        "channel_id": info.get("channel_id", None),
+                        "channel_name": info.get("channel", "Unknown Channel"),
+                        "duration": info.get("duration", 0),
+                        "upload_date": datetime.strptime(info.get("upload_date", "19700101"), "%Y%m%d"),
+                        "is_playlist": "playlist" in info.get("_type", ""),
+                        "playlist_id": info.get("playlist_id", None),
+                        "playlist_name": info.get("playlist_title", None),
+                        "view_count": info.get("view_count", 0),
+                        "likes": info.get("like_count", 0),
+                        "description": info.get("description", None),
+                        "thumbnail_url": info.get("thumbnail", None),
+                        "bot_id": bot_id,
+                        "created_at": datetime.now(timezone.utc),
+                    }
+                    print("video_data",video_data)
+
+                    # ✅ Store video metadata in PostgreSQL
+                    db_video = YouTubeVideo(**video_data)
+                    db.add(db_video)
+                    db.commit()
+                    stored_videos.append(video_data)
+                    print(f"✅ Successfully stored video: {video_data['video_title']}")
+
+                except Exception as e:
+                    print(f"⚠️ Metadata extraction failed for {video_url}: {e}")
+                    failed_videos.append({"video_url": video_url, "reason": str(e)})
+                    continue  
+        else :
+            print(f"⚠️ Transcript could not be retrieved for {video_url}. Skipping storage.")
+            failed_videos.append({"video_url": video_url, "reason": "Transcript retrieval failed"})
+
+
+    return {"message": "All YouTube transcripts stored successfully!",
+            "stored_videos":stored_videos,
+            "failed_videos":failed_videos}
