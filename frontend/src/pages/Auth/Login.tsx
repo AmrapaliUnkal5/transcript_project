@@ -386,7 +386,7 @@ export const Login = () => {
                   <Typography variant="body2">Visit our FAQ Section</Typography>
                   <Typography variant="body2">
                     <Link
-                      to="/"
+                      to="/faq"
                       className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       {" "}
@@ -418,7 +418,7 @@ export const Login = () => {
                   <Typography variant="body2">Request a demo</Typography>
                   <Typography variant="body2">
                     <Link
-                      to="/"
+                      to="/demo"
                       className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       {" "}

@@ -61,6 +61,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           "/reset-password",
           "/home",
           "/verify-email",
+          "/demo",
+          "/faq",
         ].includes(location.pathname)
       ) {
         navigate("/login");

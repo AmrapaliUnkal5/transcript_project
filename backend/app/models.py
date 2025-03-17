@@ -147,3 +147,14 @@ class UserAuthProvider(Base):
     refresh_token = Column(Text, nullable=True)
     token_expiry = Column(TIMESTAMP, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+
+class DemoRequest(Base):
+    __tablename__ = "demo_request"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=False)
+    country = Column(String(255), nullable=False)
+    company = Column(String(255), nullable=False)
+    phone = Column(String(255), nullable=True)  # Optional field
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)

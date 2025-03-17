@@ -11,7 +11,8 @@ SMTP_CONFIG = {
     "username": config("SMTP_USERNAME"),
     "password": config("SMTP_PASSWORD"),
     "tls": config("SMTP_TLS", default="True", cast=bool),  # Convert string to bool
-    "from_email": config("SMTP_FROM_EMAIL")
+    "from_email": config("SMTP_FROM_EMAIL"),
+    "demo_email":config("Demo_Email")
 }
 
 class Settings(BaseSettings):

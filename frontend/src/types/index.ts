@@ -53,3 +53,11 @@ export interface ApiFile {
   upload_date: string; 
   file_path: string;
 }
+
+export interface DemoRequestData {
+  name: string;
+  email: string;
+  country: string;
+  company: string;
+  phone?: string; // Optional field
+}
