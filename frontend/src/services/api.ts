@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ApiFile } from '../types'; // Adjust the path if necessary
+import { ApiFile, DemoRequestData } from '../types'; 
 
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -312,5 +312,9 @@ export const authApi = {
     const response = await api.put('/user/me', data); // Update user details
     return response.data;
   },  
+  submitDemoRequest: async (data: DemoRequestData) => {
+      const response = await api.post('/submit-demo-request', data); 
+      return response.data;
+    },
 
 };

@@ -21,6 +21,8 @@ import {PlanSelection} from "./pages/Options";
 import { LoaderProvider } from "./context/LoaderContext"; // Import LoaderProvider
 import Loader from "./components/Loader"; // Import Loader component
 import VerifyEmail from "./pages/Auth/VerifyEmail";
+import {Demo} from "./pages/Auth/demo";
+import { FAQ } from "./pages/faq.tsx";
 
 function App() {
   return (
@@ -36,6 +38,8 @@ function App() {
               <Route path="/home" element={<LoginHome />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/demo" element={<Demo />} />
+              <Route path="/faq" element={<FAQ />} />
               <Route
                 path="/"
                 element={

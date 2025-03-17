@@ -136,3 +136,10 @@ class YouTubeRequest(BaseModel):
 class VideoProcessingRequest(BaseModel):
     bot_id: int
     video_urls: List[str]
+
+class DemoRequest(BaseModel):
+    name: str
+    email: str
+    country: str
+    company: str
+    phone: str = None  # Optional field
