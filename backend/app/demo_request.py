@@ -38,7 +38,7 @@ async def submit_demo_request(
             email=demo_request.email,
             country=demo_request.country,
             company=demo_request.company,
-            phone=demo_request.phone,
+            phone=demo_request.phone if demo_request.phone else None,
         )
         db.add(db_demo_request)
         db.commit()
