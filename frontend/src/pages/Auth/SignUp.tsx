@@ -548,14 +548,14 @@ export const SignUp = () => {
                   <Typography variant="body2" color={grey[800]}>
                     By Creating your account you are agree to CheckMe&apos;s{" "}
                     <Link
-                      to="#"
+                      to="/privacy_policy"
                       className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       Privacy Policy
                     </Link>{" "}
                     and{" "}
                     <Link
-                      to="#"
+                      to="/terms"
                       className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       Terms of Service

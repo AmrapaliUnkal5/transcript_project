@@ -23,6 +23,8 @@ import Loader from "./components/Loader"; // Import Loader component
 import VerifyEmail from "./pages/Auth/VerifyEmail";
 import {Demo} from "./pages/Auth/demo";
 import { FAQ } from "./pages/faq.tsx";
+import { PrivacyPolicy } from "./pages/Privacy_Page.tsx";
+import { TermsOfService } from "./pages/Terms_Page.tsx";
 
 function App() {
   return (
@@ -40,6 +42,8 @@ function App() {
               <Route path="/verify-email" element={<VerifyEmail />} />
               <Route path="/demo" element={<Demo />} />
               <Route path="/faq" element={<FAQ />} />
+              <Route path="/privacy_policy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
               <Route
                 path="/"
                 element={

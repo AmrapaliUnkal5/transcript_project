@@ -63,6 +63,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           "/verify-email",
           "/demo",
           "/faq",
+          "/privacy_policy",
+          "/terms",
         ].includes(location.pathname)
       ) {
         navigate("/login");
