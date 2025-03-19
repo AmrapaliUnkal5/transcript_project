@@ -113,6 +113,11 @@ export interface UserUpdate {
   phone_no?: string;
 }
 
+export interface BotStatusUpdate {
+  status: string;
+  is_active: boolean;
+}
+
 export const authApi = {
   signup: async (data: SignUpData) => {
     const response = await api.post('/register', data);
@@ -316,5 +321,15 @@ export const authApi = {
       const response = await api.post('/submit-demo-request', data); 
       return response.data;
     },
+  fetchVideosForBot: async (botId: number) => {
+    const response = await api.get(`/chatbot/bot/${botId}/videos`);
+    return response.data; // Returns list of video URLs
+  },
+  updateBotStatusActive: async (botId: number, data:BotStatusUpdate) => {
+    const response = await api.put(`/botsettings/bots/${botId}`, data);  // API endpoint to update bot settings
+    return response.data;
+  },
+   
+
 
 };

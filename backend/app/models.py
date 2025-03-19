@@ -1,7 +1,9 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric
+from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime
 from app.database import Base
 from pydantic import BaseModel
+from datetime import datetime
+
 
 #Base = declarative_base()
 
@@ -158,3 +160,31 @@ class DemoRequest(Base):
     company = Column(String(255), nullable=False)
     phone = Column(String(255), nullable=True)  # Optional field
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+
+class YouTubeVideo(Base):
+    __tablename__ = "youtube_videos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    video_source = Column(String(50), nullable=False, server_default="YouTube")
+    video_id = Column(String(255),  nullable=False)
+    video_title = Column(String(500), nullable=True)
+    video_url = Column(Text, nullable=False)
+    channel_id = Column(String(255), nullable=True)
+    channel_name = Column(String(500), nullable=True)
+    duration = Column(Integer, nullable=True)
+    upload_date = Column(DateTime, nullable=True)  # Ensure safe handling for missing values
+    is_playlist = Column(Boolean, nullable=False, server_default="false")  # Ensures consistency
+    playlist_id = Column(String(255), nullable=True)
+    playlist_name = Column(String(500), nullable=True)
+    view_count = Column(Integer, nullable=True)
+    likes = Column(Integer, nullable=True)
+    description = Column(Text, nullable=True)
+    thumbnail_url = Column(Text, nullable=True)
+
+    bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"), nullable=False)
+
+    # Uncomment if you have a `Bot` model and want bidirectional access
+    # bot = relationship("Bot", back_populates="youtube_videos")
+
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+

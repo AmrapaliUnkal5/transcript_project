@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Interaction, ChatMessage
+from app.models import Interaction, ChatMessage,YouTubeVideo
 from app.vector_db import retrieve_similar_docs, add_document
 import openai
 import os
@@ -10,6 +10,8 @@ from app.utils.upload_knowledge_utils import extract_text_from_file,validate_and
 from app.youtube import store_videos_in_chroma
 from app.schemas import YouTubeRequest,VideoProcessingRequest
 from app.youtube import store_videos_in_chroma,get_video_urls
+from typing import List
+
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
 
@@ -140,11 +142,24 @@ async def fetch_videos(request: YouTubeRequest):
     return {"video_urls": urls}
 
 @router.post("/process-videos")
-async def process_selected_videos(request: VideoProcessingRequest):
+async def process_selected_videos(request: VideoProcessingRequest,db: Session = Depends(get_db)):
     """API to process selected YouTube video transcripts and store them in ChromaDB."""
     try:
-        result = store_videos_in_chroma(request.bot_id, request.video_urls)
+        result = store_videos_in_chroma(request.bot_id, request.video_urls,db)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@router.get("/bot/{bot_id}/videos", response_model=List[str])
+def get_bot_videos(bot_id: int, db: Session = Depends(get_db)):
+    """
+    Retrieve all video URLs for a given bot_id.
+    """
+    videos = db.query(YouTubeVideo.video_url).filter(YouTubeVideo.bot_id == bot_id).all()
+    
+    # if not videos:
+    #     raise HTTPException(status_code=404, detail="No videos found for this bot.")
+
+    # Extract video URLs from query result (which returns list of tuples)
+    return [video[0] for video in videos] 
 

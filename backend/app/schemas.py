@@ -143,3 +143,8 @@ class DemoRequest(BaseModel):
     country: str
     company: str
     phone: str = None  # Optional field
+
+class BotUpdateStatus(BaseModel):
+    
+    status: str
+    is_active: bool
