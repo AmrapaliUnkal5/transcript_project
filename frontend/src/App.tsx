@@ -22,7 +22,7 @@ import { LoaderProvider } from "./context/LoaderContext"; // Import LoaderProvid
 import Loader from "./components/Loader"; // Import Loader component
 import VerifyEmail from "./pages/Auth/VerifyEmail";
 import {Demo} from "./pages/Demo.tsx";
-import { FAQ } from "./pages/Faq.tsx";
+import { FAQ } from "./pages/FaqPage.tsx";
 import { PrivacyPolicy } from "./pages/Legal/PrivacyPolicy.tsx";
 import { TermsOfService } from "./pages/Legal/TermsOfService.tsx";
 
