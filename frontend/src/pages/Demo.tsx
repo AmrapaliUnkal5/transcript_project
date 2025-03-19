@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
-import { authApi } from "../../services/api"; 
-import { DemoRequestData } from "../../types"; 
+import { authApi } from "../services/api"; 
+import { DemoRequestData } from "../types"; 
 
 export const Demo = () => {
   const [isLoading, setIsLoading] = useState(false);

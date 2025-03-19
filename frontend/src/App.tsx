@@ -21,10 +21,10 @@ import {PlanSelection} from "./pages/Options";
 import { LoaderProvider } from "./context/LoaderContext"; // Import LoaderProvider
 import Loader from "./components/Loader"; // Import Loader component
 import VerifyEmail from "./pages/Auth/VerifyEmail";
-import {Demo} from "./pages/Auth/demo";
-import { FAQ } from "./pages/faq.tsx";
-import { PrivacyPolicy } from "./pages/Privacy_Page.tsx";
-import { TermsOfService } from "./pages/Terms_Page.tsx";
+import {Demo} from "./pages/Demo.tsx";
+import { FAQ } from "./pages/Faq.tsx";
+import { PrivacyPolicy } from "./pages/Legal/PrivacyPolicy.tsx";
+import { TermsOfService } from "./pages/Legal/TermsOfService.tsx";
 
 function App() {
   return (
