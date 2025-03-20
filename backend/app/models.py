@@ -1,8 +1,9 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime
+from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime, UniqueConstraint, Enum
 from app.database import Base
 from pydantic import BaseModel
 from datetime import datetime
+import enum 
 
 
 #Base = declarative_base()
@@ -67,6 +68,8 @@ class Interaction(Base):
     user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False, index=True)  # ✅ Linked to user
     start_time = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False, index=True)
     archived = Column(Boolean, default=False, index=True)  # ✅ For archival optimization
+    end_time = Column(TIMESTAMP, nullable=True, index=True)  # ✅ New column to track session end time
+    session_id = Column(String(50), nullable=True)  # ✅ Added session_id column
 
     # # Relationships
     # user = relationship("User", back_populates="interactions")
@@ -187,4 +190,24 @@ class YouTubeVideo(Base):
     # bot = relationship("Bot", back_populates="youtube_videos")
 
     created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+# Define Enum for reactions
+class ReactionType(enum.Enum):
+    LIKE = "like"
+    DISLIKE = "dislike"
+    
+
+class InteractionReaction(Base):
+    __tablename__ = "interaction_reactions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"), nullable=False, index=True)
+    interaction_id = Column(Integer, ForeignKey("interactions.interaction_id", ondelete="CASCADE"), nullable=False, index=True)
+    session_id = Column(String, nullable=False, index=True)
+    reaction = Column(Enum(ReactionType), nullable=False)
+    reaction_time = Column(TIMESTAMP, nullable=False, server_default=func.current_timestamp())
+
+    __table_args__ = (UniqueConstraint("interaction_id", "session_id", name="unique_user_reaction"),)
+
+    #interaction = relationship("Interaction", back_populates="reactions")
 

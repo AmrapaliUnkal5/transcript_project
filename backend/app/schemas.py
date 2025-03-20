@@ -2,6 +2,7 @@
 from pydantic import BaseModel,EmailStr
 from typing import List, Dict, Optional
 from datetime import datetime
+from enum import Enum
 
 #creating new users
 class UserBase(BaseModel):
@@ -148,3 +149,15 @@ class BotUpdateStatus(BaseModel):
     
     status: str
     is_active: bool
+
+# Define Enum for reactions
+class ReactionEnum(str, Enum):
+    like = "like"
+    dislike = "dislike"
+   
+
+# Response model for API
+class ReactionResponse(BaseModel):
+    bot_id: int
+    likes: int
+    dislikes: int

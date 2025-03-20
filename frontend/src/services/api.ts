@@ -118,6 +118,19 @@ export interface BotStatusUpdate {
   is_active: boolean;
 }
 
+export interface BotMetrics {
+  bot_id: number;
+  reactions: {
+    likes: number;
+    dislikes: number;
+    neutral: number;
+  };
+  average_time_spent: {
+    day: string;
+    average_time_spent: number;
+  }[];
+}
+
 export const authApi = {
   signup: async (data: SignUpData) => {
     const response = await api.post('/register', data);
@@ -329,6 +342,11 @@ export const authApi = {
     const response = await api.put(`/botsettings/bots/${botId}`, data);  // API endpoint to update bot settings
     return response.data;
   },
+  fetchBotMetrics: async (botId: number): Promise<BotMetrics> => {
+    const response = await api.get(`/bot/${botId}/metrics`);
+    return response.data;
+  }
+
    
 
 
