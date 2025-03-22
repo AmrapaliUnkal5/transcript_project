@@ -16,6 +16,7 @@ import Grid from "@mui/material/Grid2";
 import { RefreshCcw } from "lucide-react"; // Import Lucide icon
 import { useLoader } from "../../context/LoaderContext";
 import { Visibility, VisibilityOff } from "@mui/icons-material"; 
+import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -164,24 +165,36 @@ export const Login = () => {
   };
 
   return (
-    <Box bgcolor="#f2f1ef" minHeight={"100vh"} pt={2}>
+    <DarkGBox bgcolor="#f2f1ef" minHeight={"100vh"} >
+      <Box bgcolor={"#000"}>
+        <Box maxWidth={1180} mx={"auto"} borderRadius={4} py={2} px={3}>
+          <Box display={'flex'} gap={1}>
+             <SmartToyOutlinedIcon sx={{color: '#6a4cff'}} /> 
+             <Typography variant="body1" fontFamily={'monospace'} color="#4dc4ff">ChatBot</Typography>
+           </Box>  
+        </Box>
+      </Box>
       <Box maxWidth={1180} mx={"auto"} borderRadius={4} py={2} px={3}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 7 }}>
-            <Box px={5} py={2} bgcolor={"#FFF"} borderRadius={4}>
-              <Typography variant="h6" mb={3}>
-                Check me
-              </Typography>
-              <Box textAlign={"center"}>
-                <StyledImage
-                  src="/images/temp/chatbot-temp1.jpg"
-                  sx={{ margin: "auto", borderRadius: "16px", maxWidth: 525 }}
-                />
+            <LightGBox p={'1px'} borderRadius={4}>
+              <Box px={5} py={2} borderRadius={4}
+                sx={{background:'url(/images/dummy/chatbot-blue.jpeg)', backgroundSize:'cover', backgroundRepeat:'no-repeat', backgroundPosition:'center', minHeight: '74vh'}}
+              >
+                <Typography variant="h6" mb={3} color="#FFF">
+                  Check me
+                </Typography>
+                <Box textAlign={"center"}>
+                  {/* <StyledImage
+                    src="/images/dummy/chatbot-blue.jpeg"
+                    sx={{ margin: "auto", borderRadius: "16px", maxWidth: 525 }}
+                  /> */}
+                </Box>
               </Box>
-            </Box>
+            </LightGBox>
           </Grid>
           <Grid size={{ xs: 12, md: 5 }}>
-            <Box
+            <LightGBox
               minHeight={"100%"}
               px={5}
               py={2}
@@ -361,7 +374,7 @@ export const Login = () => {
                         <Apple className="w-5 h-5" />
                       </button>
                     </div>
-                    <Box my={3}>
+                    <Box mt={3}>
                       <div className="text-center">
                         <Link
                           to="/signup"
@@ -374,11 +387,11 @@ export const Login = () => {
                   </Grid>
                 </Grid>
               </Box>
-            </Box>
+            </LightGBox>
           </Grid>
         </Grid>
         <Box mt={2}>
-          <Box px={5} py={2} bgcolor={"#FFF"} borderRadius={4}>
+          <LightGBox px={5} py={2} bgcolor={"#FFF"} borderRadius={4}>
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, md: 4 }}>
                 <Box>
@@ -428,10 +441,10 @@ export const Login = () => {
                 </Box>
               </Grid>
             </Grid>
-          </Box>
+          </LightGBox>
         </Box>
       </Box>
-    </Box>
+    </DarkGBox>
   );
 };
 
@@ -439,5 +452,14 @@ const StyledImage = styled("img")(() => ({
   maxWidth: "100%",
   maxHeight: "100%",
 }));
+
+const LightGBox = styled(Box)(() => ({
+  background: "linear-gradient(108.14deg, rgb(242, 246, 249) 0%, rgb(233, 243, 247) 9.47%, rgb(226, 240, 247) 20.52%, rgb(219, 235, 247) 36.84%, rgb(211, 225, 247) 51.58%, rgb(213, 222, 247) 68.94%, rgb(219, 221, 242) 83.15%, rgb(221, 220, 240) 101.05%);",
+}));
+
+const DarkGBox = styled(Box)(() => ({
+  background: 'linear-gradient(180deg, #000 0%, #181e4a 35%, #000 100%)',
+}));
+
 
 export default Login;
