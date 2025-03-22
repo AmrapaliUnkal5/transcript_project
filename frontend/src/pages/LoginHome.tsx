@@ -16,7 +16,7 @@ export default function LoginHome() {
               </Typography>
               <Box textAlign={'center'}>
                 <StyledImage
-                  src='/images/temp/chatbot-temp1.jpg'
+                  src='/images/dummy/chatbot-temp1.jpg'
                   sx={{ margin: 'auto', borderRadius: '16px', maxWidth: 525 }}
                 />
               </Box>

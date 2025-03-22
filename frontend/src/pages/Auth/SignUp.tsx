@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 //import { User, Mail, Lock, Building2, Braces, MapPinned } from "lucide-react";
 import { authApi, type SignUpData } from "../../services/api";
-import { Box, Button, TextField, Typography } from "@mui/material";
+import { Box, Button, TextField, Typography, styled } from "@mui/material";
 import Grid from "@mui/material/Grid2";
 //import GoogleIcon from "@mui/icons-material/Google";
 //import AppleIcon from "@mui/icons-material/Apple";
@@ -294,7 +294,7 @@ export const SignUp = () => {
   };
 
   return (
-    <Box
+    <DarkGBox
       bgcolor="#f2f1ef"
       className="min-h-screen dark:bg-gray-900 flex items-center justify-center py-6 px-4 sm:px-6 lg:px-8"
     >
@@ -316,7 +316,7 @@ export const SignUp = () => {
       {loading && <Loader />}
       <ToastContainer position="top-right" autoClose={3000} />
       <Box className="max-w-lg w-full space-y-8">
-        <Box bgcolor={"#FFF"} borderRadius={4} py={2} px={3}>
+        <LightGBox bgcolor={"#FFF"} borderRadius={4} py={2} px={3}>
           <Typography variant="h6" mb={3} textAlign={"center"}>
             Sign Up
           </Typography>
@@ -565,7 +565,7 @@ export const SignUp = () => {
               </Grid>
             </Grid>
           </form>
-        </Box>
+        </LightGBox>
 
         {/* {error && (
           <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
@@ -789,6 +789,16 @@ export const SignUp = () => {
           </div> */}
         </form>
       </Box>
-    </Box>
+    </DarkGBox>
   );
 };
+
+
+
+const LightGBox = styled(Box)(() => ({
+  background: "linear-gradient(108.14deg, rgb(242, 246, 249) 0%, rgb(233, 243, 247) 9.47%, rgb(226, 240, 247) 20.52%, rgb(219, 235, 247) 36.84%, rgb(211, 225, 247) 51.58%, rgb(213, 222, 247) 68.94%, rgb(219, 221, 242) 83.15%, rgb(221, 220, 240) 101.05%);",
+}));
+
+const DarkGBox = styled(Box)(() => ({
+  background: 'linear-gradient(180deg, #000 0%, #181e4a 35%, #000 100%)',
+}));
