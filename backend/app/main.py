@@ -43,6 +43,7 @@ from app.chat_interactions import router as chat_router
 from app.email_verification import router as emailverification_router
 from app.user_settings import router as usersettings_router
 from app.demo_request import router as demo_request_router
+from app.analytics import router as analytics_router
 
 
 app = FastAPI()
@@ -58,6 +59,7 @@ app.include_router(bot_creation)
 app.include_router(emailverification_router)
 app.include_router(usersettings_router)
 app.include_router(demo_request_router)
+app.include_router(analytics_router)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
  
