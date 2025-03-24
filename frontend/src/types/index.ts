@@ -54,10 +54,18 @@ export interface ApiFile {
   file_path: string;
 }
 
+export interface IssueRequestData {
+  botName?: string;
+  description: string;
+  files: FileUploadInterface[];
+}
+
 export interface DemoRequestData {
   name: string;
   email: string;
   country: string;
-  company: string;
-  phone?: string; // Optional field
+  company: string; 
+  phone?: string; 
+  description?: string; 
+  requestType: "demo" | "support"; 
 }
