@@ -8,16 +8,24 @@ from app.database import get_db  # Ensure this is imported
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
+# Regex to allow only YouTube video and playlist URLs
+YOUTUBE_REGEX = re.compile(
+    r"^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|playlist\?list=)|youtu\.be\/).+"
+)
+
 def get_video_urls(channel_url):
     """Fetches all video URLs from a given YouTube channel."""
-    is_single_video = "watch?v=" in channel_url  # Check if it's a single video URL
+    is_single_video = "watch?v=" in channel_url or "youtu.be/" in channel_url # Check if it's a single video URL
    
     is_playlist = "list=" in channel_url  # Check if it's a playlist URL
     print("is_single_video",is_single_video)
     # Check if it's a valid video or playlist URL
-    if not re.match(r"https://www\.youtube\.com/(watch\?v=|playlist\?list=)", channel_url):
-        raise HTTPException(status_code=400, detail="Invalid YouTube URL. Please provide a direct video or playlist URL.")
-
+    # Validate YouTube URL (only allow videos & playlists)
+    if not YOUTUBE_REGEX.match(channel_url):
+        raise HTTPException(
+            status_code=400, 
+            detail="Invalid YouTube URL. Please provide a valid video or playlist URL."
+        )
     ydl_opts = {
         "quiet": True,
         #"extract_flat": True,
@@ -94,7 +102,7 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
                     # ✅ Check if video already exists in DB
                     existing_video = (
                         db.query(YouTubeVideo)
-                        .filter(YouTubeVideo.video_id == info.get("id"), YouTubeVideo.bot_id == bot_id)
+                        .filter(YouTubeVideo.video_id == info.get("id"), YouTubeVideo.bot_id == bot_id,YouTubeVideo.is_deleted == False)
                         .first()
                     )
                     if existing_video:

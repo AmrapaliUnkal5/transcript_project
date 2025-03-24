@@ -214,8 +214,11 @@ export const authApi = {
     return response.data; 
   },
 
-  scrapeNodes: async (selectedNodes: string[]) => {
-    const response = await api.post(`/scrape`, selectedNodes, {
+  scrapeNodes: async (selectedNodes: string[], botId: number) => {
+    const response = await api.post(`/scrape`, { 
+      selected_nodes: selectedNodes,  // ✅ Change from array to object
+      bot_id: botId  // ✅ Include bot_id
+  }, {
         headers: { "Content-Type": "application/json" }
     });
     return response.data; 
@@ -345,7 +348,23 @@ export const authApi = {
   fetchBotMetrics: async (botId: number): Promise<BotMetrics> => {
     const response = await api.get(`/bot/${botId}/metrics`);
     return response.data;
-  }
+  },
+  getScrapedUrls: async (botId: number) => {
+    const response = await api.get(`/scraped-urls/${botId}`);  // API endpoint to fetch scraped URLs
+    return response.data;
+  },
+  deleteVideo: async (botId: number, videoId: string) => {
+    return await api.delete(`/chatbot/bot/${botId}/videos`, {
+      params: { video_id: videoId },  // Pass video_id as query param
+    });
+  },
+
+  deleteScrapedUrl: async (botId: number, url: string) => {
+    return await api.delete(`/chatbot/bot/${botId}/scraped-urls`, {
+      params: {  url: url },
+    });
+  },
+
 
    
 

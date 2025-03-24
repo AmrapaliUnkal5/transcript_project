@@ -8,6 +8,7 @@ import { useBot } from "../context/BotContext";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import YouTubeUploader from "./YouTubeUploader";
+import WebScrapingTab from "./WebScrapingTab";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
 
@@ -25,6 +26,8 @@ export const FileUpload = () => {
   const [existingVideosLength, setExistingVideosLength] = useState(0);
   const [remainingVideos, setRemainingVideos] = useState(5); // Default limit
   const [refreshKey, setRefreshKey] = useState(0); // Add refresh state
+  const [isVideoSelected, setIsVideoSelected] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Calculate total pages
   const totalPages = Math.ceil(youtubeVideos.length / videosPerPage);
@@ -172,6 +175,46 @@ export const FileUpload = () => {
       };
     }
   }, [selectedBot?.id]); // ✅ Runs only when `selectedBot` is updated
+
+  const handleVideoDelete = (videoUrl: string) => {
+    setConfirmDelete(videoUrl); // Show confirmation popup
+  };
+
+  const confirmDeletion = async () => {
+    if (!confirmDelete || !selectedBot?.id) {
+      setConfirmDelete(null);
+      return;
+    }
+
+    try {
+      const videoId = extractVideoId(confirmDelete);
+      if (!videoId) {
+        console.error("Video ID is missing.");
+        return;
+      }
+      console.log("Deleting videoId:", videoId);
+
+      await authApi.deleteVideo(selectedBot?.id, videoId); // API call to soft delete
+
+      setYoutubeVideos((prevVideos) =>
+        prevVideos.filter((url) => url !== confirmDelete)
+      ); // Remove from UI
+    } catch (error) {
+      console.error("Error deleting video:", error);
+    } finally {
+      setConfirmDelete(null); // Close confirmation modal
+    }
+  };
+
+  const cancelDeletion = () => {
+    setConfirmDelete(null); // Close modal without deleting
+  };
+
+  // Function to extract video ID from URL
+  const extractVideoId = (videoUrl: string) => {
+    const urlParams = new URLSearchParams(new URL(videoUrl).search);
+    return urlParams.get("v"); // Extracts video_id
+  };
 
   // Fetch files when the component mounts or when selectedBot changes
   const fetchFiles = async () => {
@@ -390,6 +433,16 @@ export const FileUpload = () => {
         >
           YouTube Videos
         </button>
+        <button
+          onClick={() => setActiveTab("websitescraping")}
+          className={`px-4 py-2 ${
+            activeTab === "websitescraping"
+              ? "border-b-2 border-blue-500 text-blue-600"
+              : "text-gray-500"
+          }`}
+        >
+          Web site
+        </button>
       </div>
       {/* START: Wrap existing file upload content inside this condition */}
       {activeTab === "files" && (
@@ -517,6 +570,7 @@ export const FileUpload = () => {
           <YouTubeUploader
             maxVideos={remainingVideos}
             refreshKey={refreshKey}
+            setIsVideoSelected={setIsVideoSelected}
           />
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
@@ -552,19 +606,33 @@ export const FileUpload = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {/* <span className="text-sm text-gray-500 dark:text-gray-400">
                           {videoUrl}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        </span> */}
                         <a
                           href={videoUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-500 hover:underline"
                         >
-                          Watch
+                          {videoUrl}
                         </a>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        {/* <a
+                          href={videoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:underline"
+                        >
+                          Watch
+                        </a> */}
+                        <button
+                          onClick={() => handleVideoDelete(videoUrl)}
+                          className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -593,6 +661,7 @@ export const FileUpload = () => {
             <button
               onClick={handleFinish}
               className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              disabled={!isVideoSelected} // Enable only when a video is selected
             >
               SAVE
             </button>
@@ -601,6 +670,37 @@ export const FileUpload = () => {
       )}
 
       {/* STOP: End of YouTube Videos tab */}
+      {/* START: New Tab for YouTube Videos */}
+      {activeTab === "websitescraping" && (
+        <div>
+          <WebScrapingTab />
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-lg font-bold">
+              Are you sure you want to delete this video?
+            </h2>
+            <p className="text-gray-500">{confirmDelete}</p>
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={confirmDeletion}
+                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+              >
+                Yes, Delete
+              </button>
+              <button
+                onClick={cancelDeletion}
+                className="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

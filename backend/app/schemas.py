@@ -161,3 +161,11 @@ class ReactionResponse(BaseModel):
     bot_id: int
     likes: int
     dislikes: int
+
+class ScrapeRequest(BaseModel):
+    bot_id: int
+    selected_nodes: List[str]
+
+class PageData(BaseModel):
+    url: str
+    title: str | None  # Allowing None if the title is missing
