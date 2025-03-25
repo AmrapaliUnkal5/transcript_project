@@ -3,6 +3,7 @@ from pydantic import BaseModel,EmailStr
 from typing import List, Dict, Optional
 from datetime import datetime
 from enum import Enum
+from fastapi import UploadFile
 
 #creating new users
 class UserBase(BaseModel):
@@ -138,12 +139,29 @@ class VideoProcessingRequest(BaseModel):
     bot_id: int
     video_urls: List[str]
 
+class BotUpdateStatus(BaseModel):
+    
+    status: str
+    is_active: bool
+
+class IssueRequest(BaseModel):
+    user_id: Optional[int]
+    username: Optional[str]
+    email: Optional[str]
+    phone: Optional[str]
+    bot_name: Optional[str]
+    bot_id: Optional[int]
+    description: Optional[str]
+    file: Optional[UploadFile] 
+
 class DemoRequest(BaseModel):
     name: str
     email: str
     country: str
-    company: str
-    phone: str = None  # Optional field
+    company: Optional[str] = None
+    phone: Optional[str] = None
+    description: Optional[str] = None
+    requestType: str
 
 class BotUpdateStatus(BaseModel):
     
@@ -155,12 +173,15 @@ class ReactionEnum(str, Enum):
     like = "like"
     dislike = "dislike"
    
-
 # Response model for API
 class ReactionResponse(BaseModel):
     bot_id: int
     likes: int
     dislikes: int
+    company: Optional[str] = None
+    phone: Optional[str] = None
+    description: Optional[str] = None
+    requestType: str 
 
 class ScrapeRequest(BaseModel):
     bot_id: int
@@ -169,3 +190,4 @@ class ScrapeRequest(BaseModel):
 class PageData(BaseModel):
     url: str
     title: str | None  # Allowing None if the title is missing
+ 

@@ -416,7 +416,16 @@ export const Login = () => {
                 <Box>
                   <Typography variant="body1">Contact us </Typography>
                   <Typography variant="body2">Support@Checkme.com</Typography>
-                  <Typography variant="body2">0123-456789</Typography>
+                  <Typography variant="body2">0123-456789 or else</Typography>
+                  <Typography variant="body2">
+                    <Link
+                      to="/customersupport"
+                      className="font-medium text-blue-600 hover:text-blue-500"
+                    >
+                      {" "}
+                      click here
+                    </Link>
+                  </Typography>
                 </Box>
               </Grid>
               <Grid
@@ -460,6 +469,5 @@ const LightGBox = styled(Box)(() => ({
 const DarkGBox = styled(Box)(() => ({
   background: 'linear-gradient(180deg, #000 0%, #181e4a 35%, #000 100%)',
 }));
-
 
 export default Login;

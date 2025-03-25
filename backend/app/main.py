@@ -42,8 +42,9 @@ from app.chatbot import router as chatbot_router
 from app.chat_interactions import router as chat_router
 from app.email_verification import router as emailverification_router
 from app.user_settings import router as usersettings_router
-from app.demo_request import router as demo_request_router
+from app.demo_customer_support_request import router as demo_request_router
 from app.analytics import router as analytics_router
+from app.submit_issue_request import router as submit_issue_request
 
 
 app = FastAPI()
@@ -60,6 +61,7 @@ app.include_router(emailverification_router)
 app.include_router(usersettings_router)
 app.include_router(demo_request_router)
 app.include_router(analytics_router)
+app.include_router(submit_issue_request)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
  
@@ -105,7 +107,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     token_data = {
         "sub": new_user.email,
         "role": new_user.role,
-        "user_id": new_user.user_id
+        "user_id": new_user.user_id,
     }
     print("regisering")
     access_token = create_access_token(data=token_data, expires_delta=timedelta(hours=settings.REGISTER_TOKEN_EXPIRE_HOURS))
@@ -150,7 +152,12 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email not verified. Please activate your email-id.")
     
     # Create a token for the user
-    token_data = {"sub": db_user.email,"role":db_user.role, "user_id": db_user.user_id}
+    token_data = {"sub": db_user.email,
+                  "role":db_user.role, 
+                  "user_id": db_user.user_id,
+                  "name": db_user.name,  
+                  "company_name": db_user.company_name,  
+                  "phone_no": db_user.phone_no,}
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     
     # Return token and user info
@@ -284,7 +291,8 @@ def login_for_access_token(
         raise HTTPException(status_code=401, detail="Incorrect password")
 
     print("User authenticated successfully!")
-    access_token = create_access_token(data={"sub": user.email,"role": user.role, "user_id":user.user_id})
+    access_token = create_access_token(data={"sub": user.email,"role": user.role, "user_id":user.user_id,"name": user.name,
+        "company_name": user.company_name, "phone_no": user.phone_no})
     return {"access_token": access_token, "token_type": "bearer"}
 
 #API's to check RBAC Functionality

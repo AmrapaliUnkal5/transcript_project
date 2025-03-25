@@ -333,10 +333,7 @@ export const authApi = {
     const response = await api.put('/user/me', data); // Update user details
     return response.data;
   },  
-  submitDemoRequest: async (data: DemoRequestData) => {
-      const response = await api.post('/submit-demo-request', data); 
-      return response.data;
-    },
+ 
   fetchVideosForBot: async (botId: number) => {
     const response = await api.get(`/chatbot/bot/${botId}/videos`);
     return response.data; // Returns list of video URLs
@@ -366,7 +363,23 @@ export const authApi = {
   },
 
 
-   
+  submitIssueRequest: async (data: FormData) => {
+    const response = await api.post('/submit-issue-request', data, {
+      headers: {
+        'Content-Type': 'multipart/form-data', 
+      },
+    });
+    return response.data;
+  },
 
+  submitDemoRequest: async (data: FormData) => {
+    const response = await api.post("/submit-demo-request", data, {
+      headers: {
+        "Content-Type": "multipart/form-data", 
+      },
+    });
+    return response.data;
+  },
 
 };
+
