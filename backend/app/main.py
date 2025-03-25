@@ -31,7 +31,7 @@ from app.dashboard_consumables import router as bot_conversations_router
 import os
 import uuid
 from fastapi.staticfiles import StaticFiles
-from app.scraper import scrape_selected_nodes, get_website_nodes
+from app.scraper import scrape_selected_nodes, get_website_nodes, get_scraped_urls_func
 from app.file_size_validations import router as file_size_validations_router
 from app.bot_creation import router as bot_creation
 from typing import List
@@ -346,11 +346,11 @@ async def update_avatar_endpoint(request: UpdateAvatarRequest, db: Session = Dep
 
 
 @app.post("/scrape")
-def scrape_endpoint(selected_nodes: List[str]):
+def scrape_endpoint(request: ScrapeRequest ,db: Session = Depends(get_db)):
     """
     Scrapes only the selected nodes provided by the user using the hybrid approach.
     """
-    data = scrape_selected_nodes(selected_nodes)
+    data = scrape_selected_nodes(request.selected_nodes,request.bot_id, db)
     return {"message": "Scraping completed", "data": data}
 
 @app.get("/get_nodes")
@@ -359,6 +359,14 @@ def get_nodes(website_url: str = Query(..., title="Website URL")):
     API to get a list of all available pages (nodes) from a website.
     """
     return get_website_nodes(website_url)
+
+
+@app.get("/scraped-urls/{bot_id}", response_model=List[PageData])
+def get_scraped_urls(bot_id: int, db: Session = Depends(get_db)):
+    """
+    Fetch all scraped URLs for a specific bot_id.
+    """
+    return get_scraped_urls_func(bot_id,db)
 
 # Store captcha values (for demo purposes; use a database in production)
 captcha_store = {}

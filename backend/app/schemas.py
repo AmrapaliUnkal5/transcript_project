@@ -181,4 +181,13 @@ class ReactionResponse(BaseModel):
     company: Optional[str] = None
     phone: Optional[str] = None
     description: Optional[str] = None
-    requestType: str  
+    requestType: str 
+
+class ScrapeRequest(BaseModel):
+    bot_id: int
+    selected_nodes: List[str]
+
+class PageData(BaseModel):
+    url: str
+    title: str | None  # Allowing None if the title is missing
+ 

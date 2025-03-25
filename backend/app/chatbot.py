@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Interaction, ChatMessage,YouTubeVideo
+from app.models import Interaction, ChatMessage,YouTubeVideo, ScrapedNode
 from app.vector_db import retrieve_similar_docs, add_document
 import openai
 import os
@@ -11,9 +11,15 @@ from app.youtube import store_videos_in_chroma
 from app.schemas import YouTubeRequest,VideoProcessingRequest
 from app.youtube import store_videos_in_chroma,get_video_urls
 from typing import List
+from urllib.parse import unquote
+import re
+
 
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
+YOUTUBE_REGEX = re.compile(
+    r"^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|playlist\?list=|channel\/)|youtu\.be\/).+"
+)
 
 # Load OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -125,9 +131,14 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
 @router.post("/process_youtube")
 def process_youtube(bot_id: int, channel_url: str, db: Session = Depends(get_db)):
     """Extracts video transcripts from a YouTube channel and stores them in ChromaDB for the bot."""
+     # Valid YouTube URL patterns
+    # Regex pattern to match valid YouTube URLs
+    youtube_regex = re.compile(
+        r"^(https?:\/\/)?(www\.)?(youtube\.com\/(channel\/|playlist\?list=|watch\?v=)|youtu\.be\/).+"
+    )
 
-    if not channel_url.startswith("https://www.youtube.com/"):
-        raise HTTPException(status_code=400, detail="Invalid YouTube channel URL.")
+    if not youtube_regex.match(channel_url):
+        raise HTTPException(status_code=400, detail="Invalid YouTube channel or playlist URL.")
     
     result = store_videos_in_chroma(bot_id, channel_url)
     return result
@@ -136,8 +147,9 @@ def process_youtube(bot_id: int, channel_url: str, db: Session = Depends(get_db)
 @router.post("/fetch-videos")
 async def fetch_videos(request: YouTubeRequest):
     print(request.url)
-    if not request.url.startswith("https://www.youtube.com/"):
-        raise HTTPException(status_code=400, detail="Invalid YouTube channel URL.")
+    
+    if not YOUTUBE_REGEX.match(request.url):
+        raise HTTPException(status_code=400, detail="Invalid YouTube URL.")
     urls = get_video_urls(request.url)
     return {"video_urls": urls}
 
@@ -155,7 +167,7 @@ def get_bot_videos(bot_id: int, db: Session = Depends(get_db)):
     """
     Retrieve all video URLs for a given bot_id.
     """
-    videos = db.query(YouTubeVideo.video_url).filter(YouTubeVideo.bot_id == bot_id).all()
+    videos = db.query(YouTubeVideo.video_url).filter(YouTubeVideo.bot_id == bot_id, YouTubeVideo.is_deleted == False).all()
     
     # if not videos:
     #     raise HTTPException(status_code=404, detail="No videos found for this bot.")
@@ -163,3 +175,40 @@ def get_bot_videos(bot_id: int, db: Session = Depends(get_db)):
     # Extract video URLs from query result (which returns list of tuples)
     return [video[0] for video in videos] 
 
+
+@router.delete("/bot/{bot_id}/videos")
+def soft_delete_video(bot_id: int, video_id: str = Query(...), db: Session = Depends(get_db)):
+    """
+    Soft delete a YouTube video by marking is_deleted=True.
+    """
+    video = db.query(YouTubeVideo).filter(
+        YouTubeVideo.bot_id == bot_id,
+        YouTubeVideo.video_id == video_id
+    ).first()
+
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    video.is_deleted = True  # Soft delete by marking is_deleted=True
+    db.commit()
+
+    return {"message": "Video soft deleted successfully"}
+
+@router.delete("/bot/{bot_id}/scraped-urls")
+def soft_delete_scraped_url(bot_id: int, url: str = Query(...), db: Session = Depends(get_db)):
+    decoded_url = unquote(url) 
+    print(f"Received bot_id: {bot_id}, url: {url}")  # Debugging
+    print("decoded_url",decoded_url)
+    scraped_url = db.query(ScrapedNode).filter(
+        ScrapedNode.bot_id == bot_id,
+        ScrapedNode.url == url,
+        ScrapedNode.is_deleted == False  # Ensure it's not already deleted
+    ).first()
+
+    if not scraped_url:
+        raise HTTPException(status_code=404, detail="Scraped URL not found.")
+
+    scraped_url.is_deleted = True  # Soft delete by updating the flag
+    db.commit()
+
+    return {"message": "Scraped URL soft deleted successfully."}

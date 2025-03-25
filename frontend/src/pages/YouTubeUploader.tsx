@@ -7,13 +7,15 @@ import { toast } from "react-toastify";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
 interface YouTubeUploaderProps {
-  maxVideos: number;
-  refreshKey: number; // Add refreshKey prop
+  maxVideos?: number;
+  refreshKey?: number; // Add refreshKey prop
+  setIsVideoSelected?: React.Dispatch<React.SetStateAction<boolean>>; // Add this prop
 }
 
 const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
-  maxVideos,
-  refreshKey,
+  maxVideos = 0, // Default to 0
+  refreshKey = 0, // Default to 0 (since it's a number)
+  setIsVideoSelected = () => {}, // Default to a no-op function
 }) => {
   const { selectedBot, setSelectedBot } = useBot(); // Use BotContext
   const [youtubeUrl, setYoutubeUrl] = useState("");
@@ -96,6 +98,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       console.log("selectedBot?.id", selectedBot?.id);
       setLoading(true);
       setError(null); // Clear previous errors
+      console.log(youtubeUrl);
       const response = await authApi.fetchVideosFromPlaylist(youtubeUrl);
       if (response?.video_urls) {
         const updatedUrls = Array.from(
@@ -135,18 +138,44 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
   //         : [...prev, videoId]
   //     );
   //   };
+  // const handleSelectVideo = (videoId: string) => {
+  //   setSelectedVideos((prev) => {
+  //     if (prev.includes(videoId)) {
+  //       // If already selected, remove from the list
+  //       return prev.filter((id) => id !== videoId);
+  //     } else {
+  //       if (prev.length >= maxVideos) {
+  //         toast.error(`You can only select ${maxVideos} videos.`);
+  //         return prev; // Do not add more than 5
+  //       }
+  //       setIsVideoSelected(true); // At least one video is selecte
+  //       return [...prev, videoId];
+  //     }
+  //   });
+  // };
+
   const handleSelectVideo = (videoId: string) => {
     setSelectedVideos((prev) => {
+      let newSelection;
+
       if (prev.includes(videoId)) {
-        // If already selected, remove from the list
-        return prev.filter((id) => id !== videoId);
+        // If the video is already selected, remove it
+        newSelection = prev.filter((id) => id !== videoId);
       } else {
+        console.log("maxVideos", maxVideos);
+        console.log("prev.length", prev.length);
         if (prev.length >= maxVideos) {
           toast.error(`You can only select ${maxVideos} videos.`);
-          return prev; // Do not add more than 5
+          return prev;
         }
-        return [...prev, videoId];
+        // Add the new video
+        newSelection = [...prev, videoId];
       }
+
+      // Check if at least one video is selected
+      setIsVideoSelected(newSelection.length > 0);
+
+      return newSelection;
     });
   };
 

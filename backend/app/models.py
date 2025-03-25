@@ -190,6 +190,8 @@ class YouTubeVideo(Base):
     # bot = relationship("Bot", back_populates="youtube_videos")
 
     created_at = Column(DateTime, nullable=False, server_default=func.now())
+    # New column to indicate soft deletion
+    is_deleted = Column(Boolean, nullable=False, server_default="false")
 
 # Define Enum for reactions
 class ReactionType(enum.Enum):
@@ -210,4 +212,15 @@ class InteractionReaction(Base):
     __table_args__ = (UniqueConstraint("interaction_id", "session_id", name="unique_user_reaction"),)
 
     #interaction = relationship("Interaction", back_populates="reactions")
+
+class ScrapedNode(Base):
+    __tablename__ = "scraped_nodes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    url = Column(Text, nullable=False, unique=True)
+    bot_id = Column(Integer, nullable=False)  # Added bot_id
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    title = Column(String, nullable=True)  # Ensure title is included
+     # New column to indicate soft deletion
+    is_deleted = Column(Boolean, nullable=False, server_default="false")
 

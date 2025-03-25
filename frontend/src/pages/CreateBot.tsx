@@ -243,7 +243,11 @@ export const CreateBot = () => {
       setIsLoading(true);
 
       try {
-        const data = await authApi.scrapeNodes(selectedNodes);
+        if (!selectedBot?.id) {
+          console.error("Bot ID is missing.");
+          return;
+        }
+        const data = await authApi.scrapeNodes(selectedNodes, selectedBot?.id);
         console.log("Scraping result:", data);
 
         if (data.message === "Scraping completed") {
@@ -334,13 +338,11 @@ export const CreateBot = () => {
             if (successCount > 0 && failedCount === 0) {
               isYouTubeSuccess = true;
               toast.success(`${successCount} video(s) uploaded successfully!`);
-            } else if (successCount > 0 && failedCount > 0) {
+            } else if (successCount >= 0 && failedCount >= 0) {
               isYouTubeSuccess = true;
-              toast.success(
+              toast.warning(
                 `${successCount} video(s) uploaded successfully, ${failedCount} failed.`
               );
-            } else if (successCount == 0 && failedCount == 0) {
-              toast.error("Videos already exists");
             }
           }
         } catch (error) {
@@ -380,7 +382,7 @@ export const CreateBot = () => {
         localStorage.removeItem("youtube_video_urls");
         localStorage.removeItem("selected_videos");
         navigate("/chatbot");
-      }, 6000); // 4 seconds delay
+      }, 7000); // 4 seconds delay
     } catch (error) {
       console.error("Error creating bot:", error);
       toast.error("An error occurred while uploading files.");
