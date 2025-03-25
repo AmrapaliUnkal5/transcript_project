@@ -65,6 +65,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           "/faq",
           "/privacy_policy",
           "/terms",
+          "/customersupport"
+         
         ].includes(location.pathname)
       ) {
         navigate("/login");
@@ -88,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.removeItem("user");
     setIsAuthenticated(false);
     setUser(null);
-    navigate("/login"); // Ensure redirection happens after state updates
+    navigate("/login");
   };
 
   return (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Bell, Globe, Sun, Moon, Home, CreditCard, Settings, LogOut } from "lucide-react";
+import { Bell, Sun, Moon, Home, CreditCard, Settings, LogOut,HelpCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
@@ -40,23 +40,35 @@ export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
     <header className="bg-white dark:bg-gray-800 h-16 px-6 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
       <div className="flex-1" />
       <div className="flex items-center space-x-4">
+        {/* Home Button */}
         <button
           onClick={() => navigate("/")}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+          title="Home"
         >
           {/* <Home className="w-5 h-5" /> */}
           <Home color={isDark ? "white" : "black"} className="w-5 h-5" />
         </button>
+         {/* Theme Toggle (Sun/Moon) */}
         <button
           onClick={toggleTheme}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+          title="Change Theme"
         >
           {isDark ? <Sun color={isDark ? "white" : "black"} className="w-5 h-5" /> : <Moon color={isDark ? "white" : "black"} className="w-5 h-5" />}
         </button>
-        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-          <Globe color={isDark ? "white" : "black"} className="w-5 h-5" />
+        {/* Help/Doubt Button */}
+        <button
+          onClick={() => navigate("/report-issue")}
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+          title="Have doubts? Ask here!"
+        >
+          <HelpCircle color={isDark ? "white" : "black"} className="w-5 h-5" />
         </button>
-        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+        {/* Notifications Button */}
+        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+        title="Notifications"
+        >
           <Bell color={isDark ? "white" : "black"} className="w-5 h-5" />
         </button>
 
@@ -114,3 +126,5 @@ export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
     </header>
   );
 };
+
+
