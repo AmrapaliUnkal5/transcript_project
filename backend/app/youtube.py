@@ -7,6 +7,17 @@ from app.models import YouTubeVideo  # Import the model
 from app.database import get_db  # Ensure this is imported
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
+import os
+
+COOKIE_PATH = "~/chatbot/Chatbot/cookies/youtube_cookies.json"
+
+def get_yt_dlp_options(base_opts=None):
+    if base_opts is None:
+        base_opts = {}
+
+    if os.path.exists(COOKIE_PATH):
+        base_opts["cookies"] = COOKIE_PATH
+    return base_opts
 
 # Regex to allow only YouTube video and playlist URLs
 YOUTUBE_REGEX = re.compile(
@@ -26,12 +37,11 @@ def get_video_urls(channel_url):
             status_code=400, 
             detail="Invalid YouTube URL. Please provide a valid video or playlist URL."
         )
-    ydl_opts = {
+    ydl_opts = get_yt_dlp_options({
         "quiet": True,
-        #"extract_flat": True,
         "skip_download": True,
         "force_generic_extractor": True
-    }
+    })
     # If it's a single video, remove extract_flat (needed for full metadata)
     if is_single_video and not is_playlist:
         ydl_opts["extract_flat"] = False
@@ -94,7 +104,7 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
 
 
             # ✅ Extract metadata after ChromaDB storage
-            ydl_opts = {"quiet": True}
+            ydl_opts = get_yt_dlp_options({"quiet": True})
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 try:
                     info = ydl.extract_info(video_url, download=False)
