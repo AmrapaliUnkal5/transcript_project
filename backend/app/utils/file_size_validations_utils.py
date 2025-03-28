@@ -10,9 +10,8 @@ from app.models import File as FileModel, Bot
 from app.schemas import UserOut
 from app.utils.upload_knowledge_utils import extract_text_from_file,validate_and_store_text_in_ChromaDB
 
-
-MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
-MAX_FILE_SIZE_MB = 10
+MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  
+MAX_FILE_SIZE_MB = 20
 UPLOAD_FOLDER = "uploads"
 
 def convert_size(size_bytes):
@@ -27,10 +26,13 @@ def convert_size(size_bytes):
         return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
 def validate_file_size(files: List[UploadFile]):
-    """Validates the total size of the files."""
-    total_size = sum(file.size for file in files)
-    if total_size > MAX_FILE_SIZE_BYTES:
-        raise HTTPException(status_code=400, detail=f"Total file size exceeds {MAX_FILE_SIZE_MB}MB limit")
+    """Validates that each individual file does not exceed 20MB."""
+    for file in files:
+        if file.size > MAX_FILE_SIZE_BYTES:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"File '{file.filename}' exceeds the {MAX_FILE_SIZE_MB}MB limit"
+            )
 
 def generate_unique_filename(filename: str) -> str:
     """Generates a unique filename to avoid conflicts."""

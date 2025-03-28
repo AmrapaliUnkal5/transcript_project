@@ -6,22 +6,33 @@ import {
   MessageSquare,
   ArrowRight,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
-import { File as FileIcon, Trash2, Eye } from "lucide-react";
+import { File as FileIcon, Trash2 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { authApi } from "../services/api";
 import { CreateBotInterface } from "../types";
-import { useBot } from "../context/BotContext"; // Use BotContext
-import YouTubeUploader from "./YouTubeUploader.tsx";
-import { useLoader } from "../context/LoaderContext"; // Use global loader hook
+import { useBot } from "../context/BotContext";
+import YouTubeUploader from "./YouTubeUploader";
+import { useLoader } from "../context/LoaderContext";
 import Loader from "../components/Loader";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+
 
 interface Step {
   title: string;
   description: string;
   icon: React.FC<{ className?: string }>;
+}
+
+interface FileWithCounts extends Omit<CreateBotInterface, 'wordCount' | 'charCount'> {
+  wordCount?: number;
+  charCount?: number;
+  loadingCounts?: boolean;
+  error?: string;
+  file: File; // Adding this since you're using it in the component
 }
 
 const steps: Step[] = [
@@ -32,76 +43,138 @@ const steps: Step[] = [
   },
   {
     title: "Website Information",
-    description:
-      "Add your website URL to help your chatbot understand your domain.",
+    description: "Add your website URL to help your chatbot understand your domain.",
     icon: Globe,
   },
   {
     title: "Knowledge Base",
-    description:
-      "Upload documents that will serve as the knowledge base for your chatbot.",
+    description: "Upload documents that will serve as the knowledge base for your chatbot.",
     icon: Upload,
   },
 ];
 
 export const CreateBot = () => {
-  const { selectedBot, setSelectedBot } = useBot(); // Use BotContext
+  const { selectedBot, setSelectedBot } = useBot();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [websiteUrl, setWebsiteUrl] = useState("");
-  const [files, setFiles] = useState<CreateBotInterface[]>([]);
+  const [files, setFiles] = useState<FileWithCounts[]>([]);
   const [botName, setBotName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { loading, setLoading } = useLoader();
   const [nodes, setNodes] = useState<string[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
-  const [botId, setBotId] = useState<number | null>(null); // Local botId state, resets to null on re-mount
+  const [botId, setBotId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  const [itemsPerPage] = useState(10);
+  const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+  const MAX_WORD_COUNT=50000;
+  const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+  const [totalWordCount, setTotalWordCount] = useState(0);
+  const [processingMessage, setProcessingMessage] = useState("Getting things ready for you...");
 
-  const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
-      const totalSize = files.reduce((acc, file) => acc + file.size, 0);
-      const newFilesSize = acceptedFiles.reduce(
-        (acc, file) => acc + file.size,
-        0
+  const processWordCounts = async (filesToProcess: File[]) => {
+    const formData = new FormData();
+    filesToProcess.forEach(file => formData.append('files', file));
+  
+    try {
+      const response = await authApi.getWordCount(formData);
+      // Ensure we're returning the array of counts
+      return Array.isArray(response) ? response : [];
+    } catch (error) {
+      console.error("Error getting word counts:", error);
+      return []; // Return empty array on error
+    }
+  };
+  
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    setIsProcessingFiles(true);
+  
+    // 1. First validate individual file sizes
+    const oversizedFiles = acceptedFiles.filter(file => file.size > MAX_FILE_SIZE);
+    if (oversizedFiles.length > 0) {
+      toast.error(
+        `The files exceed 20MB limit: ${oversizedFiles}`
       );
-
-      if (totalSize + newFilesSize > MAX_FILE_SIZE) {
-        toast.error("File exceeds size limit. Go for subscription.");
-        return;
+      setIsProcessingFiles(false);
+      return;
+    }
+  
+    try {
+      // 2. Process word counts only for valid files
+      const counts = await processWordCounts(acceptedFiles);
+      
+      // 3. Filter files that would exceed word limit
+      const validFiles: FileWithCounts[] = [];
+      let newTotalWords = totalWordCount;
+  
+      for (let i = 0; i < acceptedFiles.length; i++) {
+        const file = acceptedFiles[i];
+        const countData = counts[i];
+        const fileWords = countData.word_count || 0;
+  
+        if (newTotalWords + fileWords <= MAX_WORD_COUNT) {
+          validFiles.push({
+            id: Math.random().toString(36).substr(2, 9),
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            uploadDate: new Date(),
+            url: URL.createObjectURL(file),
+            file: file,
+            wordCount: fileWords,
+            charCount: countData.character_count,
+            loadingCounts: false
+          });
+          newTotalWords += fileWords;
+        } else {
+          toast.error(
+            `Skipped "${file.name}" - would exceed word limit  ${MAX_WORD_COUNT}`
+          );
+        }
       }
+  
+      // 4. Update state with valid files
+      if (validFiles.length > 0) {
+        setFiles(prev => [...prev, ...validFiles]);
+        setTotalWordCount(newTotalWords);
+      }
+  
+    } catch (error) {
+      toast.error("Failed to process files");
+    } finally {
+      setIsProcessingFiles(false);
+    }
+  }, [totalWordCount, MAX_WORD_COUNT]);
 
-      const newFiles = acceptedFiles.map((file) => ({
-        id: Math.random().toString(36).substr(2, 9),
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        uploadDate: new Date(),
-        url: URL.createObjectURL(file),
-        file: file,
-      }));
 
-      setFiles((prev) => [...prev, ...newFiles]);
-      toast.success("File added successfully");
-    },
-    [files, MAX_FILE_SIZE]
-  );
+  // const { getRootProps, getInputProps } = useDropzone({
+  //   onDrop,
+  //   accept: {
+  //     "application/pdf": [".pdf"],
+  //     "text/plain": [".txt"],
+  //     "application/msword": [".doc"],
+  //     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+  //     "text/csv": [".csv"],
+  //   },
+  // });
+
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
     accept: {
       "application/pdf": [".pdf"],
       "text/plain": [".txt"],
-      "application/msword": [".doc"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        [".docx"],
-      //'application/vnd.ms-excel': ['.xls'],
-      //'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      //'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
-      "text/csv": [".csv"],
     },
+    onDropRejected: (rejectedFiles) => {
+      const rejectedFileTypes = rejectedFiles.map(file => {
+        const ext = file.file.name.split('.').pop()?.toLowerCase();
+        return ext ? `.${ext}` : 'unknown';
+      }).join(', ');
+      
+      toast.error(`Currently we only accept .txt and .pdf files. You tried to upload: ${rejectedFileTypes}`);
+    }
   });
 
   const formatFileSize = (bytes: number) => {
@@ -109,11 +182,28 @@ export const CreateBot = () => {
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2) + " " + sizes[i]);
   };
 
+  // const handleDelete = (id: string) => {
+  //   setFiles((prev) => prev.filter((file) => file.id !== id));
+  // };
+
   const handleDelete = (id: string) => {
-    setFiles((prev) => prev.filter((file) => file.id !== id));
+    setFiles(prevFiles => {
+      // Filter out the deleted file
+      const updatedFiles = prevFiles.filter(file => file.id !== id);
+      
+      // Recalculate total word count from remaining files
+      const newTotalWordCount = updatedFiles.reduce(
+        (sum, file) => sum + (file.wordCount || 0),
+        0
+      );
+      
+      // Update both files list and word count
+      setTotalWordCount(newTotalWordCount);
+      return updatedFiles;
+    });
   };
 
   const fetchNodes = async (websiteUrl: string) => {
@@ -153,7 +243,15 @@ export const CreateBot = () => {
 
   const renderPaginationButtons = () => {
     const buttons = [];
-    for (let i = 1; i <= totalPages; i++) {
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
       buttons.push(
         <button
           key={i}
@@ -172,14 +270,12 @@ export const CreateBot = () => {
   };
 
   const createBotEntry = async (botName: string) => {
-    console.log("botName", botName);
     try {
       const response = await authApi.createBot({
         bot_name: botName,
         status: "In Progress",
         is_active: false,
       });
-      console.log("response", response);
 
       if (!response.bot_id) {
         throw new Error("Bot ID not found in response");
@@ -194,14 +290,11 @@ export const CreateBot = () => {
 
   const handleNext = async () => {
     if (currentStep === 0) {
-      console.log("Current bot", botId);
-
       if (!botName.trim()) {
         toast.error("Please enter a bot name.");
-        return; // Stop execution if bot name is empty
+        return;
       }
 
-      // If the bot ID already exists, update the bot name
       if (botId) {
         try {
           await updateBotName(botId, botName);
@@ -211,24 +304,23 @@ export const CreateBot = () => {
             status: "In Progress",
             conversations: 0,
             satisfaction: 0,
-          }); // Update context
+          });
         } catch (error) {
           return;
         }
       } else {
-        // If the bot ID doesn't exist, create a new bot entry
         try {
           localStorage.removeItem("youtube_video_urls");
           localStorage.removeItem("selected_videos");
           const newBotId = await createBotEntry(botName);
-          setBotId(newBotId); // Update local state
+          setBotId(newBotId);
           setSelectedBot({
             id: newBotId,
             name: botName,
             status: "In Progress",
             conversations: 0,
             satisfaction: 0,
-          }); // Update context
+          });
         } catch (error) {
           return;
         }
@@ -270,15 +362,19 @@ export const CreateBot = () => {
 
   const handleBack = () => {
     if (currentStep === 0) {
-      // Navigate to Options.tsx when on the first step
       navigate("/Options");
     } else if (currentStep > 0) {
-      // Move to the previous step
       setCurrentStep(currentStep - 1);
     }
   };
 
   const handleFinish = async () => {
+    const totalWordCount = files.reduce((acc, file) => acc + (file.wordCount || 0), 0);
+  
+  if (totalWordCount > MAX_WORD_COUNT) {
+    toast.error(`Total word count exceeds limit of ${MAX_WORD_COUNT.toLocaleString()}. Please remove some files or upgrade your plan.`);
+    return;
+  }
     const totalSize = files.reduce((acc, file) => acc + file.size, 0);
     if (totalSize > MAX_FILE_SIZE) {
       toast.error("File size exceeds limit. Go for subscription.");
@@ -290,40 +386,39 @@ export const CreateBot = () => {
     try {
       let isUploadSuccess = false;
       let isYouTubeSuccess = false;
-      const filesToUpload: File[] = files
-        .map((file) => file.file)
-        .filter((file): file is File => file !== undefined);
+      
+      const filesToUpload = files.map(file => ({
+        file: file.file,
+        wordCount: file.wordCount,
+        charCount: file.charCount
+      }));
 
-      // if (filesToUpload.length === 0) {
-      //   toast.error("No valid files to upload.");
-      //   return;
-      // }
       if (filesToUpload.length > 0) {
-        const response = await authApi.uploadFiles(
-          filesToUpload,
-          botId as number
-        ); // Use local botId
+        const formData = new FormData();
+        filesToUpload.forEach(fileData => {
+          formData.append('files', fileData.file!);
+        });
+        formData.append('word_counts', JSON.stringify(filesToUpload.map(f => f.wordCount)));
+        formData.append('char_counts', JSON.stringify(filesToUpload.map(f => f.charCount)));
+        formData.append('bot_id', botId!.toString());
+
+        const response = await authApi.uploadFilesWithCounts(formData);
         console.log("Backend response:", response);
 
         if (response.success) {
           isUploadSuccess = true;
           toast.success(`File uploaded successfully!`);
-          // localStorage.removeItem("youtube_video_urls");
-          // localStorage.removeItem("selected_videos");
-          // navigate("/chatbot");
         } else {
           toast.error("Failed to upload files.");
         }
       }
 
-      //  Load selected videos from localStorage
       const savedSelectedVideos = localStorage.getItem("selected_videos");
       const parsedSelectedVideos = savedSelectedVideos
         ? JSON.parse(savedSelectedVideos)
         : [];
       console.log("parsedSelectedVideos", parsedSelectedVideos);
 
-      // Process YouTube Videos if selected
       if (selectedBot?.id && parsedSelectedVideos.length > 0) {
         try {
           const responseyoutube = await authApi.storeSelectedYouTubeTranscripts(
@@ -332,7 +427,6 @@ export const CreateBot = () => {
           );
           if (responseyoutube && Object.keys(responseyoutube).length > 0) {
             const successCount = responseyoutube.stored_videos?.length || 0;
-
             const failedCount = responseyoutube.failed_videos?.length || 0;
 
             if (successCount > 0 && failedCount === 0) {
@@ -350,15 +444,11 @@ export const CreateBot = () => {
           toast.error("Failed to process YouTube videos.");
         }
       }
-      console.log("isUploadSuccess", isUploadSuccess);
-      console.log("isYouTubeSuccess", isYouTubeSuccess);
 
-      // ✅ Call API to activate bot if at least one process was successful
       if (selectedBot?.id && (isUploadSuccess || isYouTubeSuccess)) {
         try {
           console.log("updateBotStatusActive");
           await authApi.updateBotStatusActive(selectedBot.id, {
-            // Pass ID separately
             status: "Active",
             is_active: true,
           });
@@ -377,12 +467,12 @@ export const CreateBot = () => {
           toast.error("Failed to activate bot.");
         }
       }
-      // ✅ Wait for the toast message to be seen before navigating
+
       setTimeout(() => {
         localStorage.removeItem("youtube_video_urls");
         localStorage.removeItem("selected_videos");
         navigate("/chatbot");
-      }, 7000); // 4 seconds delay
+      }, 7000);
     } catch (error) {
       console.error("Error creating bot:", error);
       toast.error("An error occurred while uploading files.");
@@ -508,104 +598,204 @@ export const CreateBot = () => {
           </div>
         );
 
-      case 2:
-        return (
-          <div>
+        case 2:
+          return (
+            <div>
+              {/* File Dropzone */}
             <div
               {...getRootProps()}
-              className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors"
+              className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors relative"
             >
-              <input {...getInputProps()} />
-              <Upload className="mx-auto h-12 w-12 text-gray-400" />
-              <p className="mt-2 text-sm text-gray-600">
-                Drag and drop files here, or click to select files
-              </p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Uploaded Files
-                </h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50 dark:bg-gray-700">
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Size
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Upload Date
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {files.map((file) => (
-                      <tr
-                        key={file.id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <FileIcon className="w-5 h-5 text-gray-400 mr-2" />
-                            <span className="text-sm text-gray-900 dark:text-white">
-                              {file.name}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {file.type.split("/")[1].toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {formatFileSize(file.size)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {file.uploadDate.toLocaleDateString()}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          {/* <button onClick={() => window.open(file.url)} className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400 mr-4">
-                            <Eye className="w-5 h-5" />
-                          </button> */}
-                          <button
-                            onClick={() => handleDelete(file.id)}
-                            className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            {/* YouTube Upload Section */}
-            <div className="mt-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Add YouTube videos
-              </h2>
-              {/* <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Enter your playlist URL.
-              </p> */}
-              <YouTubeUploader maxVideos={5} />
-            </div>
+            <input {...getInputProps()} />
+            {isProcessingFiles && (
+            <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
+            <p className="text-gray-600">{processingMessage}</p>
+            <p className="text-xs text-gray-500 mt-1">This may take a moment...</p>
           </div>
-        );
+        )}
+        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+        <p className="mt-2 text-sm text-gray-600">
+          Drag and drop files here, or click to select files
+        </p>
+        <p className="text-xs text-gray-500 mt-1">
+          Maximum {MAX_WORD_COUNT.toLocaleString()} words total (PDF and TXT only)
+        </p>
+      </div>
+        
+              {/* Word Count Summary */}
+              <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Document Words
+                  </span>
+                  <span className={`text-sm font-medium ${
+                    totalWordCount > MAX_WORD_COUNT 
+                      ? 'text-red-500' 
+                      : totalWordCount > MAX_WORD_COUNT * 0.8 
+                        ? 'text-yellow-500' 
+                        : 'text-green-500'
+                  }`}>
+                    {totalWordCount.toLocaleString()}/{MAX_WORD_COUNT.toLocaleString()}
+                  </span>
+                </div>
+        
+                {/* Progress Bar */}
+                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600">
+                  <div 
+                    className="h-2.5 rounded-full" 
+                    style={{ 
+                    width: `${Math.min(100, (totalWordCount / MAX_WORD_COUNT) * 100)}%`,
+                    backgroundColor: totalWordCount > MAX_WORD_COUNT 
+                    ? '#ef4444' 
+                    : totalWordCount > MAX_WORD_COUNT * 0.8 
+                    ? '#f59e0b' 
+                    : '#10b981'
+                    }}
+                  ></div>
+                </div>
+        
+                {/* Warning Messages */}
+                {totalWordCount > MAX_WORD_COUNT * 0.8 && (
+                  <div className={`mt-2 text-xs ${
+                    totalWordCount > MAX_WORD_COUNT 
+                      ? 'text-red-500 dark:text-red-400' 
+                      : 'text-yellow-600 dark:text-yellow-400'
+                  }`}>
+                    {totalWordCount > MAX_WORD_COUNT ? (
+                      <>
+                        <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
+                        Limit exceeded! Remove files to continue.
+                      </>
+                    ) : (
+                      <>
+                        <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
+                        Approaching word limit ({Math.round((totalWordCount / MAX_WORD_COUNT) * 100)}%)
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+        
+              
+        
+              {/* Uploaded Files Table */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mt-4">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Uploaded Files
+                  </h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-50 dark:bg-gray-700">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Type
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Words
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Chars
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Size
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Upload Date
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {files.length > 0 ? (
+                        files.map((file) => (
+                          <tr
+                            key={file.id}
+                            className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <FileIcon className="w-5 h-5 text-gray-400 mr-2" />
+                                <span className="text-sm text-gray-900 dark:text-white">
+                                  {file.name}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-500 dark:text-gray-400">
+                                {file.type?.split("/")[1]?.toUpperCase() || 'UNKNOWN'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {file.loadingCounts ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                              ) : file.error ? (
+                                <span className="text-xs text-red-500">Error</span>
+                              ) : (
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                  {file.wordCount?.toLocaleString() || '0'}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {file.loadingCounts ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                              ) : file.error ? (
+                                <span className="text-xs text-red-500">Error</span>
+                              ) : (
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                  {file.charCount?.toLocaleString() || '0'}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-500 dark:text-gray-400">
+                                {formatFileSize(file.size)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-500 dark:text-gray-400">
+                                {file.uploadDate.toLocaleDateString()}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                              <button
+                                onClick={() => handleDelete(file.id)}
+                                className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                            No files uploaded yet
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+        
+              {/* YouTube Uploader */}
+              <div className="mt-6">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Add YouTube videos
+                </h2>
+                <YouTubeUploader maxVideos={5} />
+              </div>
+            </div>
+          );
 
       default:
         return null;
@@ -652,7 +842,6 @@ export const CreateBot = () => {
         <div className="flex justify-between">
           <button
             onClick={handleBack}
-            //disabled={currentStep === 0}
             className={`flex items-center px-6 py-2 ${
               isLoading ? "bg-blue-300" : "bg-blue-500 hover:bg-blue-600"
             } text-white rounded-lg`}

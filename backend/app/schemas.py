@@ -103,7 +103,6 @@ class UpdateAvatarRequest(BaseModel):
 class CaptchaRequest(BaseModel):
     user_input: str
 
-#model for Files
 class FileBase(BaseModel):
     bot_id: int
     file_name: str
@@ -112,6 +111,8 @@ class FileBase(BaseModel):
     file_size: str
     upload_date: datetime
     unique_file_name: str
+    word_count: Optional[int] = None
+    character_count: Optional[int] = None
 
 class FileCreate(FileBase):
     pass

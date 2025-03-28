@@ -45,6 +45,8 @@ from app.user_settings import router as usersettings_router
 from app.demo_customer_support_request import router as demo_request_router
 from app.analytics import router as analytics_router
 from app.submit_issue_request import router as submit_issue_request
+from app.word_count_validation import router as word_count_validation
+
 
 
 app = FastAPI()
@@ -62,6 +64,7 @@ app.include_router(usersettings_router)
 app.include_router(demo_request_router)
 app.include_router(analytics_router)
 app.include_router(submit_issue_request)
+app.include_router(word_count_validation)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
  
