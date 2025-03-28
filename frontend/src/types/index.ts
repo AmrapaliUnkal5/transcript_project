@@ -77,3 +77,7 @@ export interface DemoRequestData {
   description?: string; 
   requestType: "demo" | "support"; 
 }
+
+export interface GetWeeklyConversationsParams {
+  bot_id: number;
+  }

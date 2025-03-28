@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ApiFile, DemoRequestData } from '../types'; 
+import { ApiFile, DemoRequestData, GetWeeklyConversationsParams } from '../types'; 
 
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -400,4 +400,14 @@ uploadFilesWithCounts: async (formData: FormData) => {
   return response.data;
 },
 
+  
+  getWeeklyConversations: async (params: { bot_id: number }) => {
+    const response = await api.get('/weekly-conversations', {
+      params: {
+        bot_id: params.bot_id,
+      },
+    });
+    return response.data; // API response format: { "Monday": 0, "Tuesday": 0, ... }
+  },
+    
 };

@@ -21,6 +21,11 @@ import { useLoader } from "../context/LoaderContext";
 import Loader from "../components/Loader";
 import { authApi } from "../services/api";
 
+interface ConversationData {
+  day: string;
+  count: number;
+}
+
 export const Performance = () => {
   const { loading, setLoading } = useLoader();
   const { selectedBot } = useBot();
@@ -32,70 +37,92 @@ export const Performance = () => {
   const [timeSpentData, setTimeSpentData] = useState<
     { day: string; average_time_spent: number }[]
   >([]);
+  const [conversationData, setConversationData] = useState<ConversationData[]>([]);
 
-  useEffect(() => {
-    const fetchSatisfactionData = async () => {
-      try {
-        if (!selectedBot?.id) {
-          console.error("Bot ID is missing.");
-          return;
-        }
-        setLoading(true);
-        const response = await authApi.fetchBotMetrics(selectedBot.id);
-        const { likes, dislikes, neutral } = response.reactions;
-        console.log("response.reactions", response.reactions);
-        const updatedData = [];
-
-        // ✅ Only add "Likes" if there are any
-        if (likes > 0) {
-          updatedData.push({ name: "Likes", value: likes });
-        }
-
-        // ✅ Only add "Dislikes" if there are any
-        if (dislikes > 0) {
-          updatedData.push({ name: "Dislikes", value: dislikes });
-        }
-
-        // ✅ If both Likes & Dislikes are zero, show 100% Neutral
-        if (updatedData.length === 0) {
-          updatedData.push({ name: "Neutral", value: 100 });
-        } else {
-          // Otherwise, add neutral only if it is nonzero
-          if (neutral > 0) {
-            updatedData.push({ name: "Neutral", value: neutral });
-          }
-        }
-
-        // ✅ Update state with filtered data
-        setSatisfactionData(updatedData);
-
-        const apiData = response.average_time_spent;
-
-        // Get last 7 days in correct order
-        const orderedDays = getLast7Days();
-
-        // Map API data to correct days, filling missing values with 0
-        const formattedData = orderedDays.map((day) => {
-          const found = apiData.find((item) => item.day === day);
-          return {
-            day,
-            average_time_spent: found ? found.average_time_spent : 0,
-          };
-        });
-
-        setTimeSpentData(formattedData);
-      } catch (error) {
-        console.error("Error fetching bot metrics:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (selectedBot) {
-      fetchSatisfactionData();
+  // Fetch conversation data from the API
+  const fetchConversationData = async () => {
+    if (!selectedBot?.id) {
+      console.error("Bot ID is missing.");
+      return;
     }
-  }, [selectedBot]);
 
+    try {
+      setLoading(true);
+      const response = await authApi.getWeeklyConversations({ bot_id: selectedBot.id });
+      const data = response?.data || response || {};
+
+      if (!data || typeof data !== "object") {
+        console.error("Invalid data format received:", data);
+        return;
+      }
+
+      // Convert the API response to an array of { day, count } objects
+      const formattedData = Object.entries(data).map(([day, count]) => ({
+        day: day.substring(0, 3), // Abbreviate day names (e.g., "Monday" -> "Mon")
+        count: Number(count),
+      }));
+
+      // Ensure all days of the week are present in the data
+      const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const completeData = daysOfWeek.map((day) => {
+        const existingData = formattedData.find((d) => d.day === day);
+        return existingData || { day, count: 0 }; // Default to 0 if no data for the day
+      });
+
+      setConversationData(completeData);
+    } catch (error) {
+      console.error("Error fetching conversation data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch satisfaction data
+  const fetchSatisfactionData = async () => {
+    try {
+      if (!selectedBot?.id) {
+        console.error("Bot ID is missing.");
+        return;
+      }
+      setLoading(true);
+      const response = await authApi.fetchBotMetrics(selectedBot.id);
+      const { likes, dislikes, neutral } = response.reactions;
+
+      const updatedData = [];
+
+      if (likes > 0) {
+        updatedData.push({ name: "Likes", value: likes });
+      }
+      if (dislikes > 0) {
+        updatedData.push({ name: "Dislikes", value: dislikes });
+      }
+      if (updatedData.length === 0) {
+        updatedData.push({ name: "Neutral", value: 100 });
+      } else if (neutral > 0) {
+        updatedData.push({ name: "Neutral", value: neutral });
+      }
+
+      setSatisfactionData(updatedData);
+
+      const apiData = response.average_time_spent;
+      const orderedDays = getLast7Days();
+      const formattedData = orderedDays.map((day) => {
+        const found = apiData.find((item) => item.day === day);
+        return {
+          day,
+          average_time_spent: found ? found.average_time_spent : 0,
+        };
+      });
+
+      setTimeSpentData(formattedData);
+    } catch (error) {
+      console.error("Error fetching bot metrics:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get last 7 days in correct order
   const getLast7Days = () => {
     const daysOfWeek = [
       "Sunday",
@@ -106,41 +133,26 @@ export const Performance = () => {
       "Friday",
       "Saturday",
     ];
-    const todayIndex = new Date().getDay(); // Get today's index (0 = Sunday, 6 = Saturday)
-
-    // Generate last 7 days dynamically
+    const todayIndex = new Date().getDay();
     return [...Array(7)].map(
       (_, i) => daysOfWeek[(todayIndex - 6 + i + 7) % 7]
     );
   };
 
-  const conversationData = [
-    { month: "Jan", conversations: 1200 },
-    { month: "Feb", conversations: 1900 },
-    { month: "Mar", conversations: 1500 },
-    { month: "Apr", conversations: 2100 },
-    { month: "May", conversations: 2400 },
-    { month: "Jun", conversations: 1800 },
-  ];
-
-  // const responseTimeData = [
-  //   { time: "00:00", avg: 2.5 },
-  //   { time: "04:00", avg: 1.8 },
-  //   { time: "08:00", avg: 3.2 },
-  //   { time: "12:00", avg: 2.9 },
-  //   { time: "16:00", avg: 3.8 },
-  //   { time: "20:00", avg: 2.1 },
-  // ];
-
-  // const satisfactionData = [
-  //   { name: "Very Satisfied", value: 540 },
-  //   { name: "Satisfied", value: 320 },
-  //   { name: "Neutral", value: 120 },
-  //   { name: "Dissatisfied", value: 20 },
-  // ];
-
   const COLORS = ["#4CAF50", "#2196F3", "#FFC107", "#F44336"];
 
+  // Fetch data on component mount or when selectedBot changes
+  useEffect(() => {
+    fetchConversationData();
+    fetchSatisfactionData();
+  }, [selectedBot?.id]);
+
+  if (loading) {
+    return <Loader />;
+  }
+
+ 
+  
   return (
     <div className="space-y-6">
       {loading && <Loader />}
@@ -148,28 +160,24 @@ export const Performance = () => {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           Performance Metrics
         </h1>
-        <button className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
-          <Download className="w-4 h-4 mr-2" />
-          Export Data
-        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Conversations Chart */}
+        {/* Weekly Conversations Chart */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Monthly Conversations
+            Weekly Conversations
           </h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={conversationData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
+                <XAxis dataKey="day" />
                 <YAxis />
                 <Tooltip />
                 <Legend />
                 <Bar
-                  dataKey="conversations"
+                  dataKey="count"
                   fill="#2196F3"
                   name="Total Conversations"
                 />
@@ -178,7 +186,7 @@ export const Performance = () => {
           </div>
         </div>
 
-        {/* Response Time Chart */}
+        {/* Average Time Spent Chart */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Average Time Spent on Bot (Weekly)
@@ -189,8 +197,8 @@ export const Performance = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="day"
-                  interval={0} // Ensure all labels are shown
-                  angle={-20} // Rotate labels to prevent overlap
+                  interval={0}
+                  angle={-20}
                   textAnchor="end"
                 />
                 <YAxis
@@ -247,7 +255,7 @@ export const Performance = () => {
           </div>
         </div>
 
-        {/* Metrics Table */}
+        {/* Detailed Metrics Table */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Detailed Metrics
