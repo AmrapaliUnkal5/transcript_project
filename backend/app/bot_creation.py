@@ -20,7 +20,7 @@ def create_bot(bot: BotCreation, db: Session = Depends(get_db), current_user: Us
         raise HTTPException(status_code=400, detail="User not authenticated")
 
     # Check if a bot with the same name already exists for the given user_id
-    existing_bot = db.query(Bot).filter(Bot.user_id == user_id, Bot.bot_name == bot.bot_name).first()
+    existing_bot = db.query(Bot).filter(Bot.user_id == user_id, Bot.bot_name == bot.bot_name,Bot.status !="Deleted").first()
     if existing_bot:
         raise HTTPException(status_code=400, detail="A bot with this name already exists for the user")
 
@@ -71,6 +71,7 @@ def update_bot_name(
     existing_bot = db.query(Bot).filter(
         Bot.user_id == user_id,
         Bot.bot_name == bot_update.bot_name,
+        Bot.status !="Deleted",
         Bot.bot_id != bot_id  # Exclude the current bot
     ).first()
     if existing_bot:
