@@ -381,5 +381,23 @@ export const authApi = {
     return response.data;
   },
 
-};
+  
+getWordCount: async (formData: FormData) => {
+  const response = await api.post('/word_count/', formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return response.data;
+},
 
+uploadFilesWithCounts: async (formData: FormData) => {
+  const response = await api.post('/upload', formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return response.data;
+},
+
+};

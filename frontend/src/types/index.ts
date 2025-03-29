@@ -19,7 +19,9 @@ export interface FileUploadInterface {
   size: number;
   uploadDate: Date;
   url: string;
-  file?:File;
+  file?: File;
+  wordCount: number;
+  charCount: number;
 }
 
 export interface CreateBotInterface {
@@ -30,6 +32,8 @@ export interface CreateBotInterface {
   uploadDate: Date;
   url: string;
   file: File;
+  wordCount: number;
+  charCount: number;
 }
 
 export interface BotSettings {
@@ -46,12 +50,16 @@ export interface BotSettings {
 }
 
 export interface ApiFile {
-  file_id: string | number;
-  file_name: string;
-  file_type: string;
-  file_size: string; 
-  upload_date: string; 
+  file_id: number;
   file_path: string;
+  file_size: string;
+  word_count: number;
+  character_count: number;  
+  file_name: string;
+  bot_id: number;
+  file_type: string;
+  upload_date: string;
+  unique_file_name: string;
 }
 
 export interface IssueRequestData {

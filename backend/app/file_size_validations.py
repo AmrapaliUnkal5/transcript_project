@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import uuid
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
 from typing import List
@@ -30,6 +31,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 async def validate_and_upload_files(
     files: List[UploadFile] = File(),
     bot_id: int = Form(...),
+    word_counts: str = Form("[]"),  
+    char_counts: str = Form("[]"),  
     db: Session = Depends(get_db),
     current_user: UserOut = Depends(get_current_user)
 ):
@@ -40,10 +43,29 @@ async def validate_and_upload_files(
     if not bot_id:
         raise HTTPException(status_code=400, detail="Bot ID is required")
     
+    # Parse the word and char counts from JSON strings
+    try:
+        word_counts_list = json.loads(word_counts)
+        char_counts_list = json.loads(char_counts)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid word_counts or char_counts format")
+
+    # Validate that counts lists match the number of files
+    if len(word_counts_list) != len(files) or len(char_counts_list) != len(files):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Counts lists must match number of files. Got {len(files)} files, "
+                  f"{len(word_counts_list)} word counts, {len(char_counts_list)} char counts"
+        )
+
+    # Calculate total word and character counts
+    total_word_count = sum(word_counts_list)
+    total_char_count = sum(char_counts_list)
+
     uploaded_files = []
     knowledge_upload_messages = []
     
-    for file in files:
+    for i, file in enumerate(files):
         original_filename = file.filename
 
         try:
@@ -59,6 +81,11 @@ async def validate_and_upload_files(
 
             # Prepare and insert file metadata into the database
             file_metadata = prepare_file_metadata(file, bot_id, file_path, unique_filename)
+            
+            # Add total word and char counts to the metadata
+            file_metadata["word_count"] = total_word_count
+            file_metadata["character_count"] = total_char_count
+            
             db_file = insert_file_metadata(db, file_metadata)
 
             # Append file details to response
@@ -68,7 +95,11 @@ async def validate_and_upload_files(
                 "size": file_metadata["file_size"],
                 "file_path": str(file_path),
                 "upload_date": datetime.now().isoformat(),
-                "unique_file_name": unique_filename
+                "unique_file_name": unique_filename,
+                "word_count": word_counts_list[i],  
+                "char_count": char_counts_list[i], 
+                "total_word_count": total_word_count,  
+                "total_char_count": total_char_count   
             })
 
             # Success message
@@ -87,7 +118,9 @@ async def validate_and_upload_files(
         "success": True,
         "message": "Files uploaded successfully",
         "files": uploaded_files,
-        "knowledge_upload": knowledge_upload_messages
+        "knowledge_upload": knowledge_upload_messages,
+        "total_word_count": total_word_count,  
+        "total_char_count": total_char_count   
     }
 
 @router.get("/files")
@@ -133,6 +166,3 @@ async def delete_file(
     db.commit()
 
     return {"success": True, "message": "File deleted successfully"}
-
-
-

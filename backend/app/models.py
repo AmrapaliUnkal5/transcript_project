@@ -58,7 +58,9 @@ class File(Base):
     file_path = Column(String(500), nullable=True)
     upload_date = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=True)
     file_size = Column(Text, nullable=True)
-    unique_file_name = Column(Text, nullable=True) 
+    unique_file_name = Column(Text, nullable=True)
+    word_count = Column(Integer) 
+    character_count = Column(Integer) 
 
 class Interaction(Base):
     __tablename__ = "interactions"
@@ -223,4 +225,3 @@ class ScrapedNode(Base):
     title = Column(String, nullable=True)  # Ensure title is included
      # New column to indicate soft deletion
     is_deleted = Column(Boolean, nullable=False, server_default="false")
-

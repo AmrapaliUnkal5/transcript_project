@@ -18,6 +18,11 @@ requests
 beautifulsoup4
 playwright
 captcha
+pymupdf
+pytesseract
+pillow
+python-docx
+pandas
 
 # For LLM Part
 chromadb
