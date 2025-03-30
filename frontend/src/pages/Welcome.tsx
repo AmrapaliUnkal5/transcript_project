@@ -37,6 +37,33 @@ export const Welcome = () => {
     { id: number; name: string; status: string }[] // to display the bots in the tiles
   >([]);
   const [conversationTrends, setConversationTrends] = useState<any[]>([]); // State to store conversation trends
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
+
+  const handleCreateBot = () => {
+    //TEMPORARY: This maybe need to be taken as an API . the limits of a subsccription.
+    const planLimits = {
+      1: 1, // Free Plan
+      2: 2, // Basic Plan
+      3: 2, // Growth Plan
+      4: 5, // Professional Plan
+    };
+
+    const userPlanId = user?.subscription_plan_id || 1; // Default to Free Plan
+    const maxBotsAllowed = planLimits[userPlanId];
+    const userBotCount = bots?.length || 0; // Get bot count from already fetched bots
+    console.log(userBotCount);
+
+    if (userBotCount >= maxBotsAllowed) {
+      setModalMessage(
+        `You already have ${userBotCount} bots. Your plan allows only ${maxBotsAllowed} bot(s). Upgrade to create more.`
+      );
+      setIsModalOpen(true);
+      return;
+    }
+
+    navigate("/Options");
+  };
 
   useEffect(() => {
     const checkUserBot = async () => {
@@ -216,12 +243,35 @@ export const Welcome = () => {
         </div>
         <button
           // onClick={() => navigate("/create-bot")}
-          onClick={() => navigate("/Options")}
+          onClick={handleCreateBot}
           className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors"
         >
           Create New Bot
           <ArrowRight className="ml-2 w-4 h-4" />
         </button>
+        {/* Modal Popup (Reusing Existing Modal) */}
+        {isModalOpen && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 backdrop-blur-sm">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full z-50">
+              <h2 className="text-lg font-semibold mb-2">Upgrade Required</h2>
+              <p className="mb-4">{modalMessage}</p>
+              <div className="flex justify-end space-x-2">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 bg-gray-300 rounded-lg"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => navigate("/subscription")}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  Upgrade Plan
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

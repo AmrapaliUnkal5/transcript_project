@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import User
+from app.models import User, UserSubscription, SubscriptionPlan
 from app.database import get_db
 from app.utils.create_access_token import decode_access_token, create_access_token
 from app.config import settings
@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from app.utils.email_helper import send_email
 from pydantic import BaseModel
 from jose import jwt, JWTError
+from datetime import datetime, timezone, timedelta
 
 router = APIRouter()
 
@@ -20,7 +21,7 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     try:
         payload = decode_access_token(token)  # Decode the token
         email = payload.get("sub")
-
+        
         if not email:
             raise HTTPException(status_code=400, detail="Invalid token")
 
@@ -29,13 +30,35 @@ def verify_email(token: str, db: Session = Depends(get_db)):
 
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-
+       
         if user.is_verified:
             return {"message": "Email already verified. You can log in."}
 
         # Mark user as verified
-        user.is_verified = True
+        
+         # Get the free plan (Explorer Plan) from subscription_plans
+        free_plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.name == "Explorer Plan").first()
+
+        if not free_plan:
+            raise HTTPException(status_code=404, detail="Free plan not found")   
+
+        # Insert user into user_subscriptions with the free plan
+        subscription = UserSubscription(
+            user_id=user.user_id,
+            subscription_plan_id=free_plan.id,
+            amount=0.00,
+            currency="USD",
+            payment_date=datetime.now(timezone.utc),
+            expiry_date=datetime.now(timezone.utc) + timedelta(days=30),
+            status="active",
+            auto_renew=False
+        )
+
+        db.add(subscription)
         db.commit()
+
+        user.is_verified = True
+        db.commit() 
 
         return {"message": "Email verified successfully. You can now log in."}
 

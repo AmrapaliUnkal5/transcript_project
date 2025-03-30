@@ -2,11 +2,12 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from playwright.sync_api import sync_playwright
-from app.models import ScrapedNode  # Import the model
+from app.models import ScrapedNode,WebsiteDB  # Import the model
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from fastapi import Depends
 from app.database import get_db
+from urllib.parse import urlparse
 
 
 # Function to detect if JavaScript is needed
@@ -119,6 +120,22 @@ def save_scraped_nodes(url_list, bot_id, db: Session):
         return  # Stop execution if bot_id is None
 
     try:
+        if url_list:  # Only proceed if there are URLs
+            # Extract domain from first URL
+            first_url = url_list[0]["url"]
+            domain = urlparse(first_url).netloc
+            
+            # Check if website exists or create it
+            website = db.query(WebsiteDB).filter(
+                WebsiteDB.domain == domain,
+                WebsiteDB.bot_id == bot_id
+            ).first()
+            
+            if not website:
+                website = WebsiteDB(domain=domain, bot_id=bot_id)
+                db.add(website)
+                db.flush()
+
         for item in url_list:
             url = item["url"]
             title = item.get("title", "No Title")  # Default to "No Title" if missing
@@ -141,7 +158,7 @@ def save_scraped_nodes(url_list, bot_id, db: Session):
             else:
                 print("New")
                 # Insert new record
-                new_node = ScrapedNode(url=url, title=title, bot_id=bot_id)
+                new_node = ScrapedNode(url=url, title=title, bot_id=bot_id,website_id=website.id if website else None)
                 db.add(new_node)
 
         db.commit()  # Commit changes to the database

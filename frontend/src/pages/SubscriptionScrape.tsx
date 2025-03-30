@@ -5,11 +5,11 @@ import { authApi } from "../services/api";
 import { useBot } from "../context/BotContext";
 //import { toast } from "react-toastify";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
-import Loader from "../components/Loader";
+//import Loader from "../components/Loader";
 import { Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 
-const WebScrapingTab: React.FC = () => {
+const SubscriptionScrape: React.FC = () => {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [nodes, setNodes] = useState<string[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
@@ -20,13 +20,21 @@ const WebScrapingTab: React.FC = () => {
   const { selectedBot, setSelectedBot } = useBot(); // Use BotContext
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [urlToDelete, setUrlToDelete] = useState<string | null>(null);
-  const [scrapedWebsiteUrl, setScrapedWebsiteUrl] = useState<string | null>(
-    null
-  );
+  const [successMessages, setSuccessMessages] = useState<string[]>([]);
+  const [isSaved, setIsSaved] = useState(false); // Track save operation
 
   const [scrapedUrls, setScrapedUrls] = useState<
     { id: number; url: string; title: string }[]
   >([]);
+
+  const handleScrapingSuccess = (scrapedUrl: string) => {
+    if (!successMessages.includes(scrapedUrl)) {
+      setSuccessMessages((prevMessages) => [...prevMessages, scrapedUrl]);
+    }
+  };
+  const handleSaveSuccess = () => {
+    setIsSaved(true); // Allow messages to show after saving
+  };
 
   // ✅ Move fetchScrapedUrls outside of useEffect so it can be reused
   const fetchScrapedUrls = async () => {
@@ -49,11 +57,6 @@ const WebScrapingTab: React.FC = () => {
 
         console.log("Formatted URLs:", formattedUrls);
         setScrapedUrls(formattedUrls); // ✅ Update state correctly
-        // Set the first scraped website URL
-        if (formattedUrls.length > 0) {
-          setScrapedWebsiteUrl(new URL(formattedUrls[0].url).origin);
-          console.log("scrapedWebsiteUrl", scrapedWebsiteUrl);
-        }
       } else {
         setScrapedUrls([]); // ✅ Ensure it's always an array
       }
@@ -86,7 +89,6 @@ const WebScrapingTab: React.FC = () => {
       await authApi.deleteScrapedUrl(selectedBot.id, urlToDelete);
       toast.success("URL deleted successfully!");
       fetchScrapedUrls(); // Refresh list
-      setScrapedWebsiteUrl(null);
     } catch (error) {
       toast.error("Failed to delete URL.");
       console.error("Delete Error:", error);
@@ -99,14 +101,6 @@ const WebScrapingTab: React.FC = () => {
 
   const handleFetchNodes = async () => {
     if (!websiteUrl) return;
-
-    // Restrict changing the website once scraping has started
-    if (scrapedWebsiteUrl && new URL(websiteUrl).origin !== scrapedWebsiteUrl) {
-      toast.error(
-        "You can only scrape from the same website. Delete existing data to scrape a different site."
-      );
-      return;
-    }
     setLoading(true);
     try {
       const response = await authApi.getWebsiteNodes(websiteUrl);
@@ -125,12 +119,13 @@ const WebScrapingTab: React.FC = () => {
     }
     setLoading(false);
   };
-
+  //have to change here
   const handleScrape = async () => {
     if (selectedNodes.length === 0) {
       toast.error("Please select at least one page to scrape.");
       return;
     }
+    console.log("websiteurl", websiteUrl);
 
     setLoading(true);
     try {
@@ -143,13 +138,16 @@ const WebScrapingTab: React.FC = () => {
       console.log("Scraping result:", data);
 
       if (data.message === "Scraping completed") {
-        toast.success("Scraping successful!");
-        setScrapedWebsiteUrl(new URL(websiteUrl).origin);
-        // if (!scrapedWebsiteUrl) {
-        //   setScrapedWebsiteUrl(new URL(websiteUrl).origin);
-        // }
+        toast.success(`Successfully scraped nodes from ${websiteUrl}`);
+        localStorage.setItem("isScraped", "1"); // added for createbot.tsx page
+        if (websiteUrl) {
+          handleScrapingSuccess(websiteUrl);
+        }
         setCurrentPage(1); // Reset pagination
-        setSelectedNodes([]); // Clear selection
+        setWebsiteUrl(""); // Reset the input textbox
+        setSelectedNodes([]); // Clear the checkbox selection
+        handleSaveSuccess(); // Mark save as completed
+        setNodes([]);
         fetchScrapedUrls();
       } else {
         toast.error("Failed to scrape data. Please try again.");
@@ -210,6 +208,7 @@ const WebScrapingTab: React.FC = () => {
       {page}
     </button>
   );
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
@@ -234,6 +233,11 @@ const WebScrapingTab: React.FC = () => {
       setSelectedNodes((prev) => [...prev, url]);
     }
   };
+  useEffect(() => {
+    return () => {
+      setSuccessMessages([]); // Clear messages when leaving the page
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -242,9 +246,18 @@ const WebScrapingTab: React.FC = () => {
       </h1> */}
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        {/* Show only if save operation was completed */}
+        {isSaved && successMessages.length > 0 && (
+          <div className="mb-2">
+            {successMessages.map((msg, index) => (
+              <div key={index} className="text-xs text-green-600">
+                ✅ Successfully scraped nodes from {msg}
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex items-center space-x-2">
           {" "}
-          {/* Added flex and spacing */}
           <input
             type="text"
             placeholder="Enter website URL"
@@ -260,11 +273,8 @@ const WebScrapingTab: React.FC = () => {
           </button>
         </div>
         <p className="text-xs text-gray-500 mt-1 italic">
-          On the free plan, you can scrape only one website.{" "}
-          <a href="/subscription" className="text-blue-500 underline">
-            Upgrade
-          </a>{" "}
-          to unlock unlimited scraping!
+          You can scrape multiple websites! Enter a URL, click Submit, and
+          repeat to add more!
         </p>
       </div>
 
@@ -417,4 +427,4 @@ const WebScrapingTab: React.FC = () => {
   );
 };
 
-export default WebScrapingTab;
+export default SubscriptionScrape;

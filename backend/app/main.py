@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, Upl
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .models import Base, User
+from .models import Base, User, UserSubscription
 from .schemas import *
 from .crud import create_user,get_user_by_email, update_user_password,update_avatar
 from fastapi.security import OAuth2PasswordBearer
@@ -154,6 +154,16 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     if not db_user.is_verified:
         raise HTTPException(status_code=400, detail="Email not verified. Please activate your email-id.")
     
+    
+     # Fetch the user's active subscription
+    user_subscription = db.query(UserSubscription).filter(
+        UserSubscription.user_id == db_user.user_id,
+        UserSubscription.status == "active"
+    ).order_by(UserSubscription.payment_date.desc()).first()
+
+    # If no active subscription exists, set default subscription ID to 1
+    subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
+    
     # Create a token for the user
     token_data = {"sub": db_user.email,
                   "role":db_user.role, 
@@ -174,7 +184,8 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
             "company_name": db_user.company_name,
             "user_id":db_user.user_id,
             "avatar_url":db_user.avatar_url,
-            "phone_no":db_user.phone_no
+            "phone_no":db_user.phone_no,
+            "subscription_plan_id":subscription_plan_id
         }
     }
 

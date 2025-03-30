@@ -10,6 +10,7 @@ interface User {
   user_id: number;
   avatar_url?: string;
   phone_no?: string;
+  subscription_plan_id?: number;
 }
 
 interface AuthContextType {
@@ -65,8 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           "/faq",
           "/privacy_policy",
           "/terms",
-          "/customersupport"
-         
+          "/customersupport",
         ].includes(location.pathname)
       ) {
         navigate("/login");

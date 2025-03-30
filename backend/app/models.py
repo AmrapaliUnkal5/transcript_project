@@ -1,5 +1,5 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime, UniqueConstraint, Enum
+from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime, UniqueConstraint, Enum, DECIMAL
 from app.database import Base
 from pydantic import BaseModel
 from datetime import datetime
@@ -219,9 +219,73 @@ class ScrapedNode(Base):
     __tablename__ = "scraped_nodes"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    url = Column(Text, nullable=False, unique=True)
+    url = Column(Text, nullable=False)
     bot_id = Column(Integer, nullable=False)  # Added bot_id
     created_at = Column(TIMESTAMP, server_default=func.now())
     title = Column(String, nullable=True)  # Ensure title is included
      # New column to indicate soft deletion
     is_deleted = Column(Boolean, nullable=False, server_default="false")
+    website_id = Column(Integer, ForeignKey("websites.id", ondelete="CASCADE"), nullable=True)  # New column
+
+    #website = relationship("Website", back_populates="scraped_nodes")  #
+
+class WebsiteDB(Base):
+    __tablename__ = "websites"
+
+    id = Column(Integer, primary_key=True, index=True)
+    domain = Column(String(255), nullable=False)
+    bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_deleted = Column(Boolean, default=False)
+
+class SubscriptionPlan(Base):
+    __tablename__ = "subscription_plans"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(50), nullable=False)
+    price = Column(Numeric(10, 2), nullable=True)  # NULL for custom pricing (Enterprise)
+    word_count_limit = Column(Integer, nullable=True, default=0)
+    storage_limit = Column(String(50), nullable=True, default="0 MB")  # Storage with MB/GB
+    chatbot_limit = Column(Integer, nullable=True, default=1)
+    website_crawl_limit = Column(String(50), nullable=True, default="1 website")
+    youtube_grounding = Column(Boolean, nullable=True, default=False)
+    message_limit = Column(Integer, nullable=True, default=100)
+    multi_website_deployment = Column(Boolean, nullable=True, default=True)
+    ui_customization = Column(String(50), nullable=True, default="Basic")
+    analytics = Column(String(50), nullable=True, default="None")
+    admin_user_limit = Column(String(50), nullable=True, default="1")
+    support_level = Column(String(50), nullable=True, default="None")
+    internal_team_bots = Column(Boolean, nullable=True, default=False)
+    custom_ai_applications = Column(Boolean, nullable=True, default=False)
+    custom_agents = Column(Boolean, nullable=True, default=False)
+    process_automation = Column(Boolean, nullable=True, default=False)
+    custom_integrations = Column(Boolean, nullable=True, default=False)
+    
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
+    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+class Addon(Base):
+    __tablename__ = "addons"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(50), nullable=False)
+    price = Column(DECIMAL(10, 2), nullable=False)
+    description = Column(Text, nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
+    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+class UserSubscription(Base):
+    __tablename__ = "user_subscriptions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False)  # Links to users table
+    
+    subscription_plan_id = Column(Integer, ForeignKey("subscription_plans.id", ondelete="CASCADE"), nullable=False)
+    amount = Column(DECIMAL(10, 2), nullable=False)
+    currency = Column(String(10), nullable=False, default="USD")
+    payment_date = Column(TIMESTAMP, nullable=False)
+    expiry_date = Column(TIMESTAMP, nullable=False)
+    status = Column(String(50), nullable=False, default="active")  # active, expired, canceled
+    auto_renew = Column(Boolean, default=True)
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
+    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
