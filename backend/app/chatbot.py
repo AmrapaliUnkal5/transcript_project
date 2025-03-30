@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Interaction, ChatMessage,YouTubeVideo, ScrapedNode
+from app.models import Interaction, ChatMessage,YouTubeVideo, ScrapedNode, WebsiteDB
 from app.vector_db import retrieve_similar_docs, add_document
 import openai
 import os
@@ -210,5 +210,23 @@ def soft_delete_scraped_url(bot_id: int, url: str = Query(...), db: Session = De
 
     scraped_url.is_deleted = True  # Soft delete by updating the flag
     db.commit()
+
+    # Check if all URLs of the same website_id for the bot are deleted
+    remaining_active_urls = db.query(ScrapedNode).filter(
+        ScrapedNode.bot_id == bot_id,
+        ScrapedNode.website_id == scraped_url.website_id,
+        ScrapedNode.is_deleted == False
+    ).count()
+
+    if remaining_active_urls == 0:
+        # Soft delete the corresponding Website entry
+        website_entry = db.query(WebsiteDB).filter(
+            WebsiteDB.id == scraped_url.website_id
+        ).first()
+
+        if website_entry:
+            website_entry.is_deleted = True
+            db.commit()
+            print(f"Website {website_entry.id} marked as deleted.")
 
     return {"message": "Scraped URL soft deleted successfully."}
