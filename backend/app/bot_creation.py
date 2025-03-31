@@ -29,7 +29,8 @@ def create_bot(bot: BotCreation, db: Session = Depends(get_db), current_user: Us
         bot_name=bot.bot_name,
         status=bot.status,
         is_active=bot.is_active,
-        user_id=user_id,  
+        user_id=user_id,
+        external_knowledge=bot.external_knowledge
     )
 
     db.add(db_bot)
@@ -39,6 +40,7 @@ def create_bot(bot: BotCreation, db: Session = Depends(get_db), current_user: Us
     return {
         "success": True,
         "bot_id": db_bot.bot_id,
+        "external_knowledge": db_bot.external_knowledge,  # Include this in response
         "message": "Bot created successfully"
     }
 

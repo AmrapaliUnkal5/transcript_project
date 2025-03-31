@@ -80,6 +80,7 @@ export const CreateBot = () => {
   const [processingMessage, setProcessingMessage] = useState(
     "Getting things ready for you..."
   );
+  const [useExternalKnowledge, setUseExternalKnowledge] = useState(false);
 
   const processWordCounts = async (filesToProcess: File[]) => {
     const formData = new FormData();
@@ -286,6 +287,7 @@ export const CreateBot = () => {
         bot_name: botName,
         status: "In Progress",
         is_active: false,
+        external_knowledge: useExternalKnowledge
       });
 
       if (!response.bot_id) {
@@ -583,36 +585,40 @@ export const CreateBot = () => {
               Bot Name
             </label>
             <input
-              type="text"
-              value={botName}
-              onChange={(e) => setBotName(e.target.value)}
-              placeholder="e.g., Support Assistant"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-            />
-
-            {/* Knowledge Source Toggle */}
-            <div className="pt-6">
-              <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Knowledge Source
-              </label>
-              <div className="flex items-center">
-                <span className="mr-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Only provided knowledge
-                </span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                </label>
-                <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Include external knowledge when needed
-                </span>
-              </div>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                {`When enabled, external knowledge helps answer questions beyond your provided content.`}
-              </p>
-            </div>
-          </div>
-        );
+            type="text"
+            value={botName}
+            onChange={(e) => setBotName(e.target.value)}
+            placeholder="e.g., Support Assistant"
+            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+          />
+           
+          {/* Knowledge Source Toggle */}
+        <div className="pt-6">
+          <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Knowledge Source
+          </label>
+          <div className="flex items-center">
+            <span className="mr-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+            Only provided knowledge
+          </span>
+          {/* Toggle Switch */}
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" 
+            className="sr-only peer" 
+            checked={useExternalKnowledge}
+            onChange={() => setUseExternalKnowledge(!useExternalKnowledge)}/>
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+          </label>
+          <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+           Include external knowledge when needed
+          </span>
+        </div>
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          {`When enabled, external knowledge helps answer questions beyond your provided content.`}
+        </p>
+      </div>
+    </div>
+  );
 
       case 1:
         if (user.subscription_plan_id === 1) {

@@ -47,6 +47,7 @@ class Bot(Base):
     appearance = Column(Text, nullable=True)  # New column added
     temperature = Column(Float, nullable=True)  # New column added
     status= Column(String, nullable=True)
+    external_knowledge = Column(Boolean, nullable=False, server_default='false')
 
 class File(Base):
     __tablename__ = "files"
