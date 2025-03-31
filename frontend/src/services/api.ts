@@ -271,7 +271,12 @@ export const authApi = {
     return response.data; 
   },
 
-  createBot: async (botData: { bot_name: string; status: string; is_active: boolean }) => {
+  createBot: async (botData: { 
+    bot_name: string; 
+    status: string; 
+    is_active: boolean;
+    external_knowledge: boolean;
+  }) => {
     const response = await api.post("/create-bot", botData);
     return response.data;
   },

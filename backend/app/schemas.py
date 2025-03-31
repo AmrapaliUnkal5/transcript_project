@@ -77,6 +77,7 @@ class BotCreation(BaseModel):
     bot_name: str
     status: str
     is_active: bool
+    external_knowledge: Optional[bool] = False
 
 class BotRename(BaseModel):
      bot_name: Optional[str] = None
