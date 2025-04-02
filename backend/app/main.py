@@ -23,7 +23,7 @@ from app.botsettings import router as botsettings_router
 from app.admin import init
 from app.utils.verify_password import verify_password
 from app.utils.create_access_token import create_access_token
-from app.database import get_db,engine,SessionLocal, create_tables
+from app.database import get_db,engine,SessionLocal
 from app.dependency import require_role,get_current_user
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.middleware import RoleBasedAccessMiddleware
@@ -86,9 +86,6 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Initialize Admin Panel
 init(app)
-
-# Create tables if they don't exist
-create_tables()
 
 #middleware configuration
 @app.middleware("http")
