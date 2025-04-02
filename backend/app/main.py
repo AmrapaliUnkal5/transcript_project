@@ -23,7 +23,7 @@ from app.botsettings import router as botsettings_router
 from app.admin import init
 from app.utils.verify_password import verify_password
 from app.utils.create_access_token import create_access_token
-from app.database import get_db,engine,SessionLocal
+from app.database import get_db,engine,SessionLocal, create_tables
 from app.dependency import require_role,get_current_user
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.middleware import RoleBasedAccessMiddleware
@@ -47,9 +47,10 @@ from app.analytics import router as analytics_router
 from app.submit_issue_request import router as submit_issue_request
 from app.word_count_validation import router as word_count_validation
 from app.total_conversations_analytics import router as weekly_Conversation
+from app.team_management import router as team_management_router
 
 
-app = FastAPI()
+app = FastAPI(debug=True)
 
 app.mount("/uploads_bot", StaticFiles(directory="uploads_bot"), name="uploads_bot")
 app.include_router(botsettings_router)
@@ -66,6 +67,7 @@ app.include_router(analytics_router)
 app.include_router(submit_issue_request)
 app.include_router(word_count_validation)
 app.include_router(weekly_Conversation)
+app.include_router(team_management_router)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
  
@@ -78,15 +80,15 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all HTTP headers
 )
 
-app.add_middleware(RoleBasedAccessMiddleware)
+# app.add_middleware(RoleBasedAccessMiddleware)
 templates = Jinja2Templates(directory="app/templates")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# # Initialize Admin Panel
+# Initialize Admin Panel
 init(app)
 
-# Create tables
-Base.metadata.create_all(bind=engine)
+# Create tables if they don't exist
+create_tables()
 
 #middleware configuration
 @app.middleware("http")

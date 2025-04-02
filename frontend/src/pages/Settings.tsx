@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { User, Globe, Bell, Shield, Key } from "lucide-react";
+import { User, Globe, Bell, Shield, Key, Users } from "lucide-react";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
 import { authApi, UserUpdate } from "../services/api";
-
+import TeamManagement from "../components/TeamManagement";
 import { ToastContainer, toast } from "react-toastify";
 
 export const Settings = () => {
@@ -15,6 +15,14 @@ export const Settings = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const userData = localStorage.getItem("user");
   const user = userData ? JSON.parse(userData) : null;
+  const [activeTab, setActiveTab] = useState("profile"); // Added activeTab state
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
+  const [passwordErrors, setPasswordErrors] = useState<{ [key: string]: string }>({});
 
   const [settings, setSettings] = useState({
     name: "",
@@ -22,14 +30,6 @@ export const Settings = () => {
     company_name: "",
     communication_email: "",
     phone_no: "",
-    // notifications: {
-    //   email: true,
-    //   push: false,
-    //   desktop: true,
-    // },
-    // language: "en",
-    // theme: "system",
-    // twoFactor: false,
     avatar_url:
       user?.avatar_url ||
       "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png",
@@ -234,123 +234,210 @@ export const Settings = () => {
     }
   };
 
-  const handleNotificationChange = (
-    type: keyof typeof settings.notifications
-  ) => {
-    setSettings((prev) => ({
-      ...prev,
-      notifications: {
-        ...prev.notifications,
-        [type]: !prev.notifications[type],
-      },
-    }));
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({ ...prev, [name]: value }));
+    // Clear error when user starts typing
+    setPasswordErrors(prev => ({ ...prev, [name]: "" }));
   };
 
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-        Settings
-      </h1>
+  const validatePasswordForm = () => {
+    let newErrors: { [key: string]: string } = {};
+    
+    if (!passwordData.current_password) {
+      newErrors.current_password = "Current password is required";
+    }
+    
+    if (!passwordData.new_password) {
+      newErrors.new_password = "New password is required";
+    } else if (passwordData.new_password.length < 8) {
+      newErrors.new_password = "Password must be at least 8 characters";
+    }
+    
+    if (!passwordData.confirm_password) {
+      newErrors.confirm_password = "Please confirm your new password";
+    } else if (passwordData.new_password !== passwordData.confirm_password) {
+      newErrors.confirm_password = "Passwords do not match";
+    }
+    
+    setPasswordErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-      {/* Profile Settings */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <User className="w-5 h-5 text-blue-500" />
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Profile Settings
-          </h2>
+  const handleUpdatePassword = async () => {
+    if (validatePasswordForm()) {
+      setChangingPassword(true);
+      setLoading(true);
+      try {
+        await authApi.changePassword({
+          current_password: passwordData.current_password,
+          new_password: passwordData.new_password,
+        });
+        toast.success("Password updated successfully!");
+        // Reset form
+        setPasswordData({
+          current_password: "",
+          new_password: "",
+          confirm_password: "",
+        });
+      } catch (error) {
+        console.error("Error updating password:", error);
+        toast.error("Failed to update password. Please check your current password.");
+        setPasswordErrors({
+          current_password: "Current password may be incorrect"
+        });
+      } finally {
+        setChangingPassword(false);
+        setLoading(false);
+      }
+    }
+  };
+
+  // Added tab menu component
+  const renderTabMenu = () => (
+    <div className="flex border-b mb-6">
+      <button
+        className={`px-4 py-2 ${
+          activeTab === "profile" 
+            ? "border-b-2 border-blue-500 text-blue-600" 
+            : "text-gray-500 hover:text-gray-700"
+        }`}
+        onClick={() => setActiveTab("profile")}
+      >
+        <div className="flex items-center">
+          <User className="w-4 h-4 mr-2" />
+          Profile
         </div>
-        {/* Display Loader while loading */}
-        {loading && <Loader />}
-        <div className="space-y-4">
-          <div className="flex items-center space-x-4">
-            <img
-              src={settings.avatar_url}
-              alt="Profile"
-              className="w-16 h-16 rounded-full"
-            />
-            <button
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-              onClick={() => document.getElementById("fileInput")?.click()}
-            >
-              Change Photo
-            </button>
-            <input
-              id="fileInput"
-              style={{ display: "none" }} // Hide the input field
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              disabled={loading}
-            />
-            {loading && <p>Uploading...</p>}
-            {error && <p style={{ color: "red" }}>{error}</p>}
-            {message && <p style={{ color: "green" }}>{message}</p>}
+      </button>
+      <button
+        className={`px-4 py-2 ${
+          activeTab === "team" 
+            ? "border-b-2 border-blue-500 text-blue-600" 
+            : "text-gray-500 hover:text-gray-700"
+        }`}
+        onClick={() => setActiveTab("team")}
+      >
+        <div className="flex items-center">
+          <Users className="w-4 h-4 mr-2" />
+          Team
+        </div>
+      </button>
+    </div>
+  );
+
+  // Render appropriate content based on active tab
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "team":
+        return <TeamManagement />;
+      case "profile":
+      default:
+        return renderProfileContent();
+    }
+  };
+
+  // Profile tab content
+  const renderProfileContent = () => (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="md:col-span-1">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="relative w-32 h-32 overflow-hidden rounded-full">
+              <img
+                src={settings.avatar_url}
+                alt="Avatar"
+                className="object-cover w-full h-full"
+              />
+              <label
+                htmlFor="avatar-upload"
+                className="absolute bottom-0 right-0 bg-blue-500 text-white rounded-full p-2 cursor-pointer shadow-lg hover:bg-blue-600 transition-colors"
+                title="Upload Photo"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  ></path>
+                </svg>
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+              </label>
+            </div>
+            <h2 className="text-xl font-semibold">{settings.name}</h2>
+            <p className="text-gray-500 dark:text-gray-400">{settings.email}</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        </div>
+      </div>
+
+      <div className="md:col-span-2">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+          <h2 className="text-lg font-semibold mb-4">Profile Information</h2>
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Full Name
+              <label
+                htmlFor="name"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Name
               </label>
               <input
                 type="text"
+                id="name"
                 name="name"
                 value={settings.name}
                 onChange={handleInputChange}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Email/User Login
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={settings.email}
-                disabled
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            {/* Phone Number */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Phone Number
-              </label>
-              <input
-                type="text"
-                name="phone_no"
-                pattern="[0-9]*"
-                inputMode="numeric"
-                onChange={handleInputChange}
-                value={settings.phone_no || ""}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            {/* Company Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="company_name"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Company Name
               </label>
               <input
                 type="text"
+                id="company_name"
                 name="company_name"
-                value={settings.company_name || ""}
+                value={settings.company_name}
                 onChange={handleInputChange}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               />
             </div>
-            {/* Alternate Address Field */}
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Alternate Email Address
+              <label
+                htmlFor="communication_email"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Communication Email
               </label>
               <input
-                type="text"
+                type="email"
+                id="communication_email"
                 name="communication_email"
                 value={settings.communication_email}
                 onChange={handleInputChange}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 border ${
+                  errors.communication_email
+                    ? "border-red-500"
+                    : "border-gray-300"
+                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
               />
               {errors.communication_email && (
                 <p className="text-red-500 text-sm mt-1">
@@ -358,159 +445,156 @@ export const Settings = () => {
                 </p>
               )}
             </div>
-          </div>
-        </div>
-        <ToastContainer position="top-right" autoClose={3000} />
-      </div>
 
-      {/* Notification Settings 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <Bell className="w-5 h-5 text-blue-500" />
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Notification Settings
-          </h2>
-        </div>
-        <div className="space-y-4">
-          {Object.entries(settings.notifications).map(([key, value]) => (
-            <div
-              key={key}
-              className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-0"
-            >
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {key.charAt(0).toUpperCase() + key.slice(1)} Notifications
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Receive notifications via {key}
-                </p>
-              </div>
+            <div>
+              <label
+                htmlFor="phone_no"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Phone Number
+              </label>
+              <input
+                type="text"
+                id="phone_no"
+                name="phone_no"
+                value={settings.phone_no}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border ${
+                  errors.phone_no ? "border-red-500" : "border-gray-300"
+                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+              />
+              {errors.phone_no && (
+                <p className="text-red-500 text-sm mt-1">{errors.phone_no}</p>
+              )}
+            </div>
+
+            <div className="flex justify-end">
               <button
-                onClick={() =>
-                  handleNotificationChange(
-                    key as keyof typeof settings.notifications
-                  )
-                }
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  value ? "bg-blue-500" : "bg-gray-200 dark:bg-gray-700"
+                onClick={handleSave}
+                disabled={saving}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  saving
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-blue-500 hover:bg-blue-600 text-white"
                 }`}
               >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    value ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
+                {saving ? "Saving..." : "Save Changes"}
               </button>
             </div>
-          ))}
-        </div>
-      </div>*/}
-
-      {/* Language and Region 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <Globe className="w-5 h-5 text-blue-500" />
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Language and Region
-          </h2>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Language
-            </label>
-            <select
-              value={settings.language}
-              onChange={(e) =>
-                setSettings((prev) => ({ ...prev, language: e.target.value }))
-              }
-              className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="en">English</option>
-              <option value="es">Spanish</option>
-              <option value="fr">French</option>
-              <option value="de">German</option>
-            </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Time Zone
-            </label>
-            <select className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500">
-              <option>UTC-8 (Pacific Time)</option>
-              <option>UTC-5 (Eastern Time)</option>
-              <option>UTC+0 (GMT)</option>
-              <option>UTC+1 (Central European Time)</option>
-            </select>
-          </div>
-        </div>{" "}
-      </div>*/}
-
-      {/* Security Settings */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <Shield className="w-5 h-5 text-blue-500" />
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Security
-          </h2>
         </div>
-        {/* 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+        
+        {/* Change Password Section */}
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mt-6">
+          <div className="flex items-center mb-4">
+            <Key className="w-5 h-5 mr-2 text-gray-500" />
+            <h2 className="text-lg font-semibold">Change Password</h2>
+          </div>
+          <div className="space-y-4">
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                Two-Factor Authentication
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Add an extra layer of security to your account
-              </p>
-            </div>
-            <button
-              onClick={() =>
-                setSettings((prev) => ({
-                  ...prev,
-                  twoFactor: !prev.twoFactor,
-                }))
-              }
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                settings.twoFactor
-                  ? "bg-blue-500"
-                  : "bg-gray-200 dark:bg-gray-700"
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  settings.twoFactor ? "translate-x-6" : "translate-x-1"
-                }`}
+              <label
+                htmlFor="current_password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Current Password
+              </label>
+              <input
+                type="password"
+                id="current_password"
+                name="current_password"
+                value={passwordData.current_password}
+                onChange={handlePasswordChange}
+                className={`w-full px-3 py-2 border ${
+                  passwordErrors.current_password
+                    ? "border-red-500"
+                    : "border-gray-300"
+                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
               />
-            </button>
-          </div>
-          <div>
-            <button className="flex items-center text-blue-500 hover:text-blue-600">
-              <Key className="w-4 h-4 mr-2" />
-              <span>Change Password</span>
-            </button>
+              {passwordErrors.current_password && (
+                <p className="text-red-500 text-sm mt-1">
+                  {passwordErrors.current_password}
+                </p>
+              )}
+            </div>
+            <div>
+              <label
+                htmlFor="new_password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                New Password
+              </label>
+              <input
+                type="password"
+                id="new_password"
+                name="new_password"
+                value={passwordData.new_password}
+                onChange={handlePasswordChange}
+                className={`w-full px-3 py-2 border ${
+                  passwordErrors.new_password
+                    ? "border-red-500"
+                    : "border-gray-300"
+                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+              />
+              {passwordErrors.new_password && (
+                <p className="text-red-500 text-sm mt-1">
+                  {passwordErrors.new_password}
+                </p>
+              )}
+            </div>
+            <div>
+              <label
+                htmlFor="confirm_password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                id="confirm_password"
+                name="confirm_password"
+                value={passwordData.confirm_password}
+                onChange={handlePasswordChange}
+                className={`w-full px-3 py-2 border ${
+                  passwordErrors.confirm_password
+                    ? "border-red-500"
+                    : "border-gray-300"
+                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+              />
+              {passwordErrors.confirm_password && (
+                <p className="text-red-500 text-sm mt-1">
+                  {passwordErrors.confirm_password}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={handleUpdatePassword}
+                disabled={changingPassword}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  changingPassword
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-blue-500 hover:bg-blue-600 text-white"
+                }`}
+              >
+                {changingPassword ? "Updating..." : "Update Password"}
+              </button>
+            </div>
           </div>
         </div>
-      </div>*/}
-
-        <div>
-          <button className="flex items-center text-blue-500 hover:text-blue-600">
-            <Key className="w-4 h-4 mr-2" />
-            <span>Change Password</span>
-          </button>
-        </div>
       </div>
+    </div>
+  );
 
-      {/* Save Changes */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-        >
-          Save Changes
-        </button>
-      </div>
+  return (
+    <div className="space-y-6">
+      {loading && <Loader />}
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        Account Settings
+      </h1>
+      <ToastContainer position="top-right" autoClose={3000} />
+      
+      {renderTabMenu()}
+      {renderTabContent()}
     </div>
   );
 };

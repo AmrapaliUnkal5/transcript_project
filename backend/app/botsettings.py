@@ -10,6 +10,7 @@ from app.config import settings
 from app.schemas import  BotUpdateStatus
 from app.models import Bot
 from datetime import datetime
+from app.utils.reembedding_utils import reembed_all_files
 
 router = APIRouter(prefix="/botsettings", tags=["Bot Settings"])
 
@@ -92,3 +93,9 @@ def update_bot(bot_id: int, update_data: BotUpdateStatus, db: Session = Depends(
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+
+
+@router.post("/reembed/{bot_id}")
+async def reembed_bot_knowledge(bot_id: int, db: Session = Depends(get_db)):
+    await reembed_all_files(bot_id, db)
+    return {"message": "Re-embedding completed successfully"}

@@ -12,6 +12,40 @@ export interface ChatMetrics {
  
 }
 
+// Team management types
+export enum TeamMemberRole {
+  ADMIN = "admin",
+  EDITOR = "editor",
+  VIEWER = "viewer"
+}
+
+export interface TeamMember {
+  id: number;
+  member_id: number;
+  member_name: string;
+  member_email: string;
+  role: TeamMemberRole;
+  invitation_status: string;
+  invitation_sent_at: string;
+}
+
+export interface TeamInvitation {
+  id: number;
+  owner_id: number;
+  owner_name: string;
+  owner_email: string;
+  role: TeamMemberRole;
+  invitation_sent_at: string;
+  invitation_token: string;
+}
+
+export interface TeamOwner {
+  owner_id: number;
+  owner_name: string;
+  owner_email: string;
+  role: TeamMemberRole;
+}
+
 export interface FileUploadInterface {
   id: string;
   name: string;

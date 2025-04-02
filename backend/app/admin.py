@@ -4,7 +4,11 @@ from sqladmin.authentication import AuthenticationBackend
 from starlette.responses import RedirectResponse
 from app.config import settings
 from app.database import engine
-from app.models import User, Bot, File, Interaction, Language, PerformanceLog, Rating, Subscription,UserAuthProvider,ChatMessage,DemoRequest# Using models
+from app.models import (
+    User, Bot, File, Interaction, Language, PerformanceLog, 
+    Rating, Subscription, UserAuthProvider, ChatMessage, 
+    DemoRequest, EmbeddingModel, LLMModel
+)
 from sqlalchemy.orm import Session
 import jwt
 from .database import get_db
@@ -12,6 +16,9 @@ from fastapi.security import OAuth2PasswordBearer
 from .crud import get_user_by_email
 from passlib.context import CryptContext
 from app.utils.verify_password import verify_password
+from app.utils.reembedding_utils import reembed_all_files
+import asyncio
+from sqlalchemy.inspection import inspect
 
 # Admin Authentication Backend
 class AdminAuth(AuthenticationBackend):
@@ -61,9 +68,78 @@ class BotAdmin(ModelView, model=Bot):
         Bot.bot_name,
         Bot.user_id,
         Bot.is_active,
-        Bot.created_at
+        Bot.created_at,
+        "embedding_model",
+        "llm_model"
     ]
     column_searchable_list = [Bot.bot_id]
+    
+    async def on_model_change(self, data, model, is_created, request):
+        """
+        When the embedding_model_id changes, automatically trigger re-embedding
+        of all documents associated with the bot.
+        """
+        try:
+            print(f"🔍 BotAdmin.on_model_change called - is_created: {is_created}")
+            print(f"🔍 Model data: {model.__dict__}")
+            print(f"🔍 Form data: {data}")
+            
+            # Only trigger re-embedding if this is an update (not a new creation)
+            if not is_created:
+                # Get the session from the request
+                session = request.state.db
+                
+                # Check if embedding_model has changed by comparing form data with model data
+                new_embedding_model_id = data.get('embedding_model')
+                old_embedding_model_id = str(model.embedding_model_id) if model.embedding_model_id else None
+                
+                print(f"🔄 Embedding model comparison:")
+                print(f"   - Old value (from model): {old_embedding_model_id}")
+                print(f"   - New value (from form): {new_embedding_model_id}")
+                
+                if new_embedding_model_id and old_embedding_model_id != new_embedding_model_id:
+                    print(f"🔄 Embedding model changed for bot {model.bot_id}.")
+                    print(f"   - From: {old_embedding_model_id}")
+                    print(f"   - To: {new_embedding_model_id}")
+                    
+                    # First, complete the parent method to save the model change
+                    await super().on_model_change(data, model, is_created, request)
+                    
+                    # Explicitly update the model in the database
+                    bot = session.query(Bot).filter(Bot.bot_id == model.bot_id).first()
+                    if bot:
+                        bot.embedding_model_id = int(new_embedding_model_id)
+                        session.commit()
+                        print(f"✅ Updated bot {model.bot_id} with new embedding model ID: {new_embedding_model_id}")
+                    else:
+                        print(f"❌ Could not find bot with ID {model.bot_id} in database")
+                    
+                    # Run the re-embedding in the background to avoid blocking the admin UI
+                    task = asyncio.create_task(reembed_all_files(model.bot_id, session))
+                    
+                    def callback(future):
+                        try:
+                            result = future.result()
+                            print(f"✅ Re-embedding task completed for bot {model.bot_id}: {result}")
+                        except Exception as e:
+                            print(f"❌ Re-embedding task failed for bot {model.bot_id}: {str(e)}")
+                    
+                    task.add_done_callback(callback)
+                    print(f"✅ Re-embedding task started for bot {model.bot_id}")
+                    
+                    # Return None since we've already called the parent method
+                    return None
+                else:
+                    print(f"ℹ️ No change detected in embedding model for bot {model.bot_id}")
+            
+            return await super().on_model_change(data, model, is_created, request)
+            
+        except Exception as e:
+            import traceback
+            print(f"❌ Error in on_model_change hook for bot {getattr(model, 'bot_id', 'unknown')}: {str(e)}")
+            print(f"❌ Traceback: {traceback.format_exc()}")
+            # Still allow the save to proceed by calling the parent method
+            return await super().on_model_change(data, model, is_created, request)
 
 class FileAdmin(ModelView, model=File):
     column_list = [
@@ -174,6 +250,27 @@ class DemoRequestAdmin(ModelView, model=DemoRequest):
     column_searchable_list = ["id"]
     column_filters = ["id"]
 
+class EmbeddingModelAdmin(ModelView, model=EmbeddingModel):
+    column_list = [
+        EmbeddingModel.id,
+        EmbeddingModel.name,
+        EmbeddingModel.provider,
+        EmbeddingModel.dimension,
+        EmbeddingModel.is_active,
+        EmbeddingModel.description
+    ]
+    column_searchable_list = [EmbeddingModel.name, EmbeddingModel.provider]
+
+class LLMModelAdmin(ModelView, model=LLMModel):
+    column_list = [
+        LLMModel.id,
+        LLMModel.name,
+        LLMModel.provider,
+        LLMModel.model_type,
+        LLMModel.is_active,
+        LLMModel.description
+    ]
+    column_searchable_list = [LLMModel.name, LLMModel.provider]
 
 def init(app: FastAPI):
     admin = Admin(app=app, engine=engine, authentication_backend=authentication_backend)
@@ -190,3 +287,5 @@ def init(app: FastAPI):
     admin.add_view(InteractionAdmin)
     admin.add_view(ChatMessageAdmin)
     admin.add_view(DemoRequestAdmin)
+    admin.add_view(EmbeddingModelAdmin)
+    admin.add_view(LLMModelAdmin)

@@ -15,11 +15,14 @@ from app.utils.file_size_validations_utils import (
     UPLOAD_FOLDER,MAX_FILE_SIZE_MB,MAX_FILE_SIZE_BYTES,
     convert_size,
     validate_file_size,
-    generate_unique_filename,
+    generate_file_id,
     save_file_to_folder,
     prepare_file_metadata,
     insert_file_metadata,
-    process_file_for_knowledge
+    process_file_for_knowledge,
+    get_hierarchical_file_path,
+    save_extracted_text,
+    archive_original_file
 )
 
 router = APIRouter()
@@ -69,22 +72,34 @@ async def validate_and_upload_files(
         original_filename = file.filename
 
         try:
-            # Generate a unique filename
-            unique_filename = generate_unique_filename(original_filename)
-            file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
-
-            # Process file for knowledge (extract text and store in ChromaDB)
-            await process_file_for_knowledge(file, bot_id)
-
-            # Save the file to disk
-            await save_file_to_folder(file, file_path)
+            # Process file for knowledge extraction and ChromaDB storage
+            # This extracts text and adds to ChromaDB
+            extracted_text, file_id = await process_file_for_knowledge(file, bot_id)
+            
+            # Create text file name with txt extension
+            text_filename = f"{file_id}.txt"
+            
+            # Create path for the text file
+            text_file_path = get_hierarchical_file_path(bot_id, text_filename)
+            
+            # Save extracted text to a text file
+            await save_extracted_text(extracted_text, text_file_path)
+            print(f"✅ Saved extracted text to {text_file_path}")
+            
+            # Archive the original file (optional)
+            archive_path = await archive_original_file(file, bot_id, file_id)
+            print(f"📦 Archived original file to {archive_path}")
 
             # Prepare and insert file metadata into the database
-            file_metadata = prepare_file_metadata(file, bot_id, file_path, unique_filename)
-            
-            # Add total word and char counts to the metadata
-            file_metadata["word_count"] = total_word_count
-            file_metadata["character_count"] = total_char_count
+            file_metadata = prepare_file_metadata(
+                original_filename=original_filename,
+                file_type=file.content_type,
+                bot_id=bot_id,
+                text_file_path=text_file_path,
+                file_id=file_id,
+                word_count=word_counts_list[i],
+                char_count=char_counts_list[i]
+            )
             
             db_file = insert_file_metadata(db, file_metadata)
 
@@ -93,9 +108,9 @@ async def validate_and_upload_files(
                 "filename": original_filename,
                 "filetype": file.content_type,
                 "size": file_metadata["file_size"],
-                "file_path": str(file_path),
+                "file_path": str(text_file_path),
                 "upload_date": datetime.now().isoformat(),
-                "unique_file_name": unique_filename,
+                "unique_file_name": file_id,
                 "word_count": word_counts_list[i],  
                 "char_count": char_counts_list[i], 
                 "total_word_count": total_word_count,  

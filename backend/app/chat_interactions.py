@@ -51,7 +51,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
 
     # ✅ Retrieve context using vector database (ChromaDB)
     similar_docs = retrieve_similar_docs(interaction.bot_id, request.message_text)  # ✅ Pass bot_id as required
-    context = " ".join([doc['text'] for doc in similar_docs]) if similar_docs else "No relevant documents found."
+    context = " ".join([doc.get('content', '') for doc in similar_docs]) if similar_docs else "No relevant documents found."
 
     # ✅ Generate chatbot response using OpenAI or an LLM
     bot_reply_dict = generate_response(

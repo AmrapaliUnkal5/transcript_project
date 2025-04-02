@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ApiFile, DemoRequestData, GetWeeklyConversationsParams } from '../types'; 
+import { ApiFile, DemoRequestData, GetWeeklyConversationsParams, TeamMember, TeamInvitation, TeamMemberRole } from '../types'; 
 
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -129,6 +129,17 @@ export interface BotMetrics {
     day: string;
     average_time_spent: number;
   }[];
+}
+
+// Team management interfaces
+export interface TeamMemberInvite {
+  email: string;
+  role: TeamMemberRole;
+}
+
+export interface TeamMemberUpdate {
+  role?: TeamMemberRole;
+  invitation_status?: string;
 }
 
 export const authApi = {
@@ -415,4 +426,45 @@ uploadFilesWithCounts: async (formData: FormData) => {
     return response.data; // API response format: { "Monday": 0, "Tuesday": 0, ... }
   },
     
+  // Team Management APIs
+  inviteTeamMember: async (data: TeamMemberInvite) => {
+    const response = await api.post('/team/invite', data);
+    return response.data;
+  },
+
+  getTeamMembers: async () => {
+    const response = await api.get('/team/members');
+    return response.data;
+  },
+
+  getPendingInvitations: async () => {
+    const response = await api.get('/team/invitations');
+    return response.data;
+  },
+
+  getMyTeams: async () => {
+    const response = await api.get('/team/teams');
+    return response.data;
+  },
+
+  respondToInvitation: async (invitation_token: string, response: string) => {
+    const responseData = await api.post(`/team/respond/${invitation_token}?response=${response}`);
+    return responseData.data;
+  },
+
+  updateTeamMember: async (member_id: number, data: TeamMemberUpdate) => {
+    const response = await api.put(`/team/members/${member_id}`, data);
+    return response.data;
+  },
+
+  removeTeamMember: async (member_id: number) => {
+    const response = await api.delete(`/team/members/${member_id}`);
+    return response.data;
+  },
+
+  // Password change interface and function
+  changePassword: async (data: { current_password: string; new_password: string }) => {
+    const response = await api.post('/user/change-password', data);
+    return response.data;
+  },
 };

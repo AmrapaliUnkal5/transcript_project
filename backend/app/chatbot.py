@@ -13,7 +13,8 @@ from app.youtube import store_videos_in_chroma,get_video_urls
 from typing import List
 from urllib.parse import unquote
 import re
-
+from app.llm_manager import LLMManager
+from app.models import Bot
 
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
@@ -27,7 +28,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @router.post("/ask")
 def chatbot_response(bot_id: int, user_id: int, user_message: str, db: Session = Depends(get_db)):
-    """Processes user queries, retrieves context, and generates responses using GPT."""
+    """Processes user queries, retrieves context, and generates responses using the bot's assigned LLM model."""
 
     # ✅ Ensure the chat session (interaction) exists
     interaction = db.query(Interaction).filter_by(bot_id=bot_id, user_id=user_id, archived=False).first()
@@ -37,28 +38,51 @@ def chatbot_response(bot_id: int, user_id: int, user_message: str, db: Session =
         db.commit()
         db.refresh(interaction)
 
+    # Get bot configuration for LLM and external knowledge settings
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail=f"Bot with ID {bot_id} not found")
+    
+    llm_model_name = bot.llm_model.name if bot and bot.llm_model else None
+    use_external_knowledge = bot.external_knowledge if bot else False
+    
+    print(f"📝 Bot settings - External knowledge: {use_external_knowledge}, LLM: {llm_model_name}")
+    
+    # If external knowledge is enabled but no LLM is assigned, default to GPT-4
+    if use_external_knowledge and not llm_model_name:
+        llm_model_name = "gpt-4"
+        print(f"⚠️ No LLM assigned but external knowledge enabled. Defaulting to {llm_model_name}")
+
     # ✅ Retrieve relevant documents from ChromaDB
     similar_docs = retrieve_similar_docs(bot_id, user_message)
-    print(f"🔍 Retrieved Documents for Bot {bot_id}: {similar_docs}")
+    print(f"🔍 Retrieved {len(similar_docs) if similar_docs else 0} documents for Bot {bot_id}")
 
-    # ✅ If no relevant documents are found, return a fallback response
-    if not similar_docs or all(doc["text"].strip() == "" for doc in similar_docs):
-        bot_reply = "I can only answer based on uploaded documents, but I don't have information on that topic."
+    # ✅ If no relevant documents are found, use appropriate response
+    if not similar_docs:
+        # Even if no documents are found, we can use external knowledge if enabled
+        if use_external_knowledge:
+            context = ""
+            print("⚠️ No relevant documents found, will use external knowledge if enabled")
+        else:
+            bot_reply = "I can only answer based on uploaded documents, but I don't have information on that topic."
+            # Store conversation
+            user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
+            bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=bot_reply)
+            db.add_all([user_msg, bot_msg])
+            db.commit()
+            return {"bot_reply": bot_reply}
     else:
-        context = " ".join([doc["text"] for doc in similar_docs if doc["text"].strip()])
-        try:
-            response = openai.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You are a helpful chatbot. You should only answer based on the provided context. If the context does not contain relevant information, say you don't know."},
-                    {"role": "user", "content": f"Context: {context}\nUser: {user_message}\nBot:"}
-                ],
-                temperature=0.7,
-                max_tokens=150
-            )
-            bot_reply = response.choices[0].message.content
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Chatbot error: {str(e)}")
+        # Extract context from similar documents
+        # Note: vector_db.py returns documents with a "content" field
+        context = " ".join([doc.get("content", "") for doc in similar_docs])
+    
+    try:
+        # Use the LLMManager to generate response with the appropriate model and knowledge settings
+        llm = LLMManager(llm_model_name)
+        bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge)
+    except Exception as e:
+        print(f"❌ Error generating response: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Chatbot error: {str(e)}")
 
     # ✅ Store both user message & bot reply in `chat_messages` table
     user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
@@ -85,9 +109,8 @@ async def upload_knowledge(
 
 
 def generate_response(bot_id: int, user_id: int, user_message: str, db: Session = Depends(get_db)):
-    """Generates a chatbot response using OpenAI GPT based on uploaded knowledge only."""
-
-    # ✅ Ensure the chat session (interaction) exists
+    """Generate response using the bot's assigned LLM model."""
+    # Ensure chat session exists
     interaction = db.query(Interaction).filter_by(bot_id=bot_id, user_id=user_id, archived=False).first()
     if not interaction:
         interaction = Interaction(bot_id=bot_id, user_id=user_id)
@@ -95,34 +118,54 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         db.commit()
         db.refresh(interaction)
 
-    # ✅ Retrieve relevant documents from ChromaDB
+    # Get bot configuration
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail=f"Bot with ID {bot_id} not found")
+    
+    llm_model_name = bot.llm_model.name if bot and bot.llm_model else None
+    use_external_knowledge = bot.external_knowledge if bot else False
+    
+    print(f"📝 Bot settings - External knowledge: {use_external_knowledge}, LLM: {llm_model_name}")
+    
+    # If external knowledge is enabled but no LLM is assigned, default to GPT-4
+    if use_external_knowledge and not llm_model_name:
+        llm_model_name = "gpt-4"
+        print(f"⚠️ No LLM assigned but external knowledge enabled. Defaulting to {llm_model_name}")
+
+    # Retrieve relevant context
     similar_docs = retrieve_similar_docs(bot_id, user_message)
-    print(f"🔍 Retrieved Documents for Bot {bot_id}: {similar_docs}")
-
-    # ✅ If no relevant documents are found, return a fallback response
-    if not similar_docs or all(doc["text"].strip() == "" for doc in similar_docs):
-        bot_reply = "I can only answer based on uploaded documents, but I don't have information on that topic."
+    print(f"🔍 Retrieved {len(similar_docs) if similar_docs else 0} documents for Bot {bot_id}")
+    
+    # Handle cases with no relevant documents
+    if not similar_docs:
+        if use_external_knowledge:
+            context = ""
+            print("⚠️ No relevant documents found, will use external knowledge if enabled")
+        else:
+            bot_reply = "I can only answer based on uploaded documents, but I don't have information on that topic."
+            
+            # Store conversation
+            db.add_all([
+                ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message),
+                ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=bot_reply)
+            ])
+            db.commit()
+            
+            return {"bot_reply": bot_reply}
     else:
-        context = " ".join([doc["text"] for doc in similar_docs if doc["text"].strip()])
-        try:
-            response = openai.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You are a helpful chatbot. You should only answer based on the provided context. If the context does not contain relevant information, say you don't know."},
-                    {"role": "user", "content": f"Context: {context}\nUser: {user_message}\nBot:"}
-                ],
-                temperature=0.7,
-                max_tokens=150
-            )
-            bot_reply = response.choices[0].message.content
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Chatbot error: {str(e)}")
+        # Note: vector_db.py returns documents with a "content" field
+        context = " ".join([doc.get("content", "") for doc in similar_docs])
 
-    # ✅ Store both user message & bot reply in `chat_messages` table
-    user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
-    bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=bot_reply)
+    # Generate response using appropriate LLM and knowledge settings
+    llm = LLMManager(llm_model_name)
+    bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge)
 
-    db.add_all([user_msg, bot_msg])
+    # Store conversation
+    db.add_all([
+        ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message),
+        ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=bot_reply)
+    ])
     db.commit()
 
     return {"bot_reply": bot_reply}

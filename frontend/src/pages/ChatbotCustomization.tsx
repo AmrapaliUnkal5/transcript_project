@@ -105,6 +105,9 @@ export const ChatbotCustomization = () => {
   );
   const [inputMessage, setInputMessage] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false); // Separate loader for chat preview
+  const [isBotTyping, setIsBotTyping] = useState(false); // New state for typing animation
+  const [currentBotMessage, setCurrentBotMessage] = useState(""); // State to track partially typed bot message
+  const [fullBotMessage, setFullBotMessage] = useState(""); // State to store the complete bot message
 
   if (!selectedBot) {
     return <div className="text-center text-gray-500">No bot selected.</div>;
@@ -192,14 +195,79 @@ export const ChatbotCustomization = () => {
         inputMessage
       );
 
-      // ✅ Add bot response to UI
-      const botMessage = { sender: "bot", text: data.message };
-      setMessages([...newMessages, botMessage]);
+      // Add a thinking delay before typing animation begins
+      const thinkingDelay = Math.random() * 1000 + 500; // Random delay between 500-1500ms
+      
+      // Show thinking indicator during the delay
+      setTimeout(() => {
+        // Set the bot typing state and reset the current message
+        setIsBotTyping(true);
+        setCurrentBotMessage("");
+        setFullBotMessage(data.message);
+        
+        // Simulate typing animation with variable speed
+        let charIndex = 0;
+        const baseTypingSpeed = 25; // base milliseconds per character
+        
+        const typingInterval = setInterval(() => {
+          if (charIndex < data.message.length) {
+            // Add some randomness to typing speed for realism
+            const randomVariation = Math.random() * 30 - 15; // -15 to +15ms variation
+            const adjustedSpeed = baseTypingSpeed + randomVariation;
+            
+            setCurrentBotMessage(prevText => prevText + data.message.charAt(charIndex));
+            charIndex++;
+            
+            // Occasionally add a longer pause after punctuation
+            if (['.', '!', '?', ',', ':'].includes(data.message.charAt(charIndex - 1))) {
+              clearInterval(typingInterval);
+              setTimeout(() => {
+                startTypingAnimation(charIndex, data.message, newMessages);
+              }, 200 + Math.random() * 200); // 200-400ms pause
+            }
+          } else {
+            clearInterval(typingInterval);
+            setIsBotTyping(false);
+            // Add the complete bot message to the messages array
+            setMessages([...newMessages, { sender: "bot", text: data.message }]);
+          }
+        }, baseTypingSpeed);
+      }, thinkingDelay);
+      
     } catch (error) {
       console.error("Failed to send message:", error);
+      setIsBotTyping(false);
     } finally {
-      setPreviewLoading(false); // ✅ Hide loader after bot responds
+      setPreviewLoading(false); // Hide loader after API call
     }
+  };
+  
+  // Helper function to continue typing animation from a specific index
+  const startTypingAnimation = (startIndex: number, fullMessage: string, newMessages: Array<{ sender: string; text: string }>) => {
+    let charIndex = startIndex;
+    const baseTypingSpeed = 25;
+    
+    const typingInterval = setInterval(() => {
+      if (charIndex < fullMessage.length) {
+        const randomVariation = Math.random() * 30 - 15;
+        
+        setCurrentBotMessage(prevText => prevText + fullMessage.charAt(charIndex));
+        charIndex++;
+        
+        // Continue handling punctuation pauses
+        if (['.', '!', '?', ',', ':'].includes(fullMessage.charAt(charIndex - 1)) && charIndex < fullMessage.length) {
+          clearInterval(typingInterval);
+          setTimeout(() => {
+            startTypingAnimation(charIndex, fullMessage, newMessages);
+          }, 200 + Math.random() * 200);
+        }
+      } else {
+        clearInterval(typingInterval);
+        setIsBotTyping(false);
+        // Add the complete bot message to the messages array
+        setMessages([...newMessages, { sender: "bot", text: fullMessage }]);
+      }
+    }, baseTypingSpeed);
   };
 
   //console.log("User ID in ChatbotCustomization:", userId);
@@ -703,9 +771,29 @@ export const ChatbotCustomization = () => {
               </p>
             )}
 
-            {previewLoading && (
+            {/* Typing indicator or loading */}
+            {previewLoading && !isBotTyping && (
               <div className="mr-auto bg-gray-300 text-gray-900 p-3 rounded-lg max-w-[80%]">
                 <span className="animate-pulse">...</span>
+              </div>
+            )}
+            
+            {/* Typing animation */}
+            {isBotTyping && (
+              <div 
+                className="mr-auto rounded-lg max-w-[80%] p-3"
+                style={{
+                  backgroundColor: settings.botColor,
+                  fontSize: settings.fontSize,
+                  fontFamily: settings.fontStyle,
+                }}
+              >
+                {currentBotMessage}
+                <span className="inline-flex items-center ml-1">
+                  <span className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce" style={{ animationDelay: "0ms" }}></span>
+                  <span className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce" style={{ animationDelay: "200ms" }}></span>
+                  <span className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce" style={{ animationDelay: "400ms" }}></span>
+                </span>
               </div>
             )}
           </div>
