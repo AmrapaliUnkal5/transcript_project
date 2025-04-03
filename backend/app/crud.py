@@ -358,9 +358,6 @@ def get_owners_for_user(db: Session, user_id: int):
             "role": relationship.role.value
         })
     
-<<<<<<< HEAD
-    return result
-=======
     return result
 # crud.py
 def update_user_word_count(db: Session, user_id: int, word_count: int):
@@ -373,4 +370,3 @@ def update_user_word_count(db: Session, user_id: int, word_count: int):
     db.commit()
     db.refresh(user)
     return user
->>>>>>> 6cdf0d3 (conflict_resolving)

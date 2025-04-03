@@ -33,6 +33,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             "name": name,  
             "company_name": company_name, 
             "phone_no": phone_no,  
+            "subscription_plan_id": subscription_plan_id
         }
     except JWTError as e:
         print("JWT Error:", e)  # Debugging  

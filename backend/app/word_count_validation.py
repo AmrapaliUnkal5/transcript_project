@@ -275,6 +275,7 @@ async def get_user_usage(
 
         # Get plan limits
         plan_limits = get_plan_limits(current_user["subscription_plan_id"])
+        print("plan_limits=>",plan_limits)
         
         return {
             "totalWordsUsed": total_used,
