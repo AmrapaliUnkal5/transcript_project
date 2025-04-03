@@ -1,5 +1,6 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime, UniqueConstraint, Enum, DECIMAL
+from typing import Optional
+from sqlalchemy import BigInteger, Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime, UniqueConstraint, Enum, DECIMAL
 from app.database import Base
 from pydantic import BaseModel
 from datetime import datetime
@@ -23,6 +24,7 @@ class User(Base):
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
     phone_no = Column(String, nullable=True)  # Optional phone number
     company_name = Column(String, nullable=True)  # Optional company name
+    total_words_used = Column(Integer, default=0)  
     communication_email = Column(String, nullable=True)  # New Field Optional
     
     # Add relationships for team membership
@@ -77,9 +79,10 @@ class Bot(Base):
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp(), nullable=True)
     bot_color = Column(String, nullable=True)
     user_color = Column(String, nullable=True)
-    appearance = Column(Text, nullable=True)  # New column added
-    temperature = Column(Float, nullable=True)  # New column added
+    appearance = Column(Text, nullable=True)  
+    temperature = Column(Float, nullable=True)  
     status= Column(String, nullable=True)
+    word_count = Column(Integer, default=0)
     external_knowledge = Column(Boolean, nullable=False, server_default='false')
     embedding_model_id = Column(Integer, ForeignKey("embedding_models.id"), nullable=True)
     llm_model_id = Column(Integer, ForeignKey("llm_models.id"), nullable=True)

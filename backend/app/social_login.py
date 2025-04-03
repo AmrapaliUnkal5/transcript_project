@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from app.database import get_db
 from app.utils.create_access_token import create_access_token
-from .models import Base, User, UserAuthProvider
+from .models import Base, User, UserAuthProvider, UserSubscription
 from datetime import datetime, timedelta, timezone
 import time
 
@@ -78,8 +78,21 @@ async def google_auth(payload: TokenPayload, db: Session = Depends(get_db)):
             db.add(new_auth_provider)
             db.commit()
 
+        user_subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user.user_id,
+            UserSubscription.status == "active"
+        ).order_by(UserSubscription.payment_date.desc()).first()
+        
+        subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
+
         # Generate access token
-        token_data = {"sub": user.email, "role":"client", "user_id": user.user_id}
+        token_data = {"sub": user.email, 
+                      "role":"client",
+                       "user_id": user.user_id,
+                       "name": user.name,
+                       "avatar_url": user.avatar_url,
+                        "subscription_plan_id": subscription_plan_id,  # Added this line
+                        "total_words_used": user.total_words_used or 0 }
         access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=45))
 
         return {
@@ -90,9 +103,10 @@ async def google_auth(payload: TokenPayload, db: Session = Depends(get_db)):
                 "name": user.name,
                 "user_id": user.user_id,
                 "avatar_url": user.avatar_url,
+                "subscription_plan_id": subscription_plan_id,  
+                "total_words_used": user.total_words_used or 0
             }
         }
-
 
     except ValueError as e:
         # Log the error for debugging purposes

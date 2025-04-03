@@ -21,6 +21,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         name: str = payload.get("name")  
         company_name: str = payload.get("company_name")  
         phone_no: str = payload.get("phone_no")
+        subscription_plan_id: int = payload.get("subscription_plan_id", 1)
         
         if email is None or role is None:
             raise credentials_exception
@@ -34,8 +35,16 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             "phone_no": phone_no,  
         }
     except JWTError as e:
-        print("JWT Error:", e)  # Debugging
-        raise credentials_exception
+        print("JWT Error:", e)  # Debugging  
+    return {
+        "email": email,
+        "role": role,
+        "user_id": user_id,
+        "name": name,  
+        "company_name": company_name, 
+        "phone_no": phone_no,  
+        "subscription_plan_id": subscription_plan_id
+    }
 
 def require_role(allowed_roles: list[str]):
     """

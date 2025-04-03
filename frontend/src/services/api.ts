@@ -417,13 +417,13 @@ uploadFilesWithCounts: async (formData: FormData) => {
 },
 
   
-  getWeeklyConversations: async (params: { bot_id: number }) => {
+getWeeklyConversations: async (params: { bot_id: number }) => {
     const response = await api.get('/weekly-conversations', {
       params: {
         bot_id: params.bot_id,
       },
     });
-    return response.data; // API response format: { "Monday": 0, "Tuesday": 0, ... }
+    return response.data; 
   },
     
   // Team Management APIs
@@ -467,4 +467,19 @@ uploadFilesWithCounts: async (formData: FormData) => {
     const response = await api.post('/user/change-password', data);
     return response.data;
   },
+
+getUserUsage: async (): Promise<{
+  totalWordsUsed: number;
+  remainingWords: number;
+  planLimit: number;
+}> => {
+  const response = await api.get('/user/usage');   return response.data;
+},
+
+updateBotWordCount: async (data: { bot_id: number; word_count: number }):
+  Promise<{ success: boolean }> => {
+    const response = await api.post('/bot/update_word_count', data);
+    return response.data;
+  }
+
 };
