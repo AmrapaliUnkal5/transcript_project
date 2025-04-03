@@ -5,6 +5,7 @@ from app.models import Interaction, ChatMessage
 from pydantic import BaseModel
 from app.vector_db import retrieve_similar_docs
 from app.chatbot import generate_response  
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/chat", tags=["Chat Interactions"])
 
@@ -93,3 +94,17 @@ def get_chat_messages(interaction_id: int, db: Session = Depends(get_db)):
         {"sender": msg.sender, "message": msg.message_text, "timestamp": msg.timestamp}
         for msg in messages
     ] if messages else {"message": "No messages found for this chat session."}
+
+@router.put("/interactions/{interaction_id}/end")
+def end_interaction(interaction_id: int, db: Session = Depends(get_db)):
+    print("End interaction")
+    interaction = db.query(Interaction).filter(Interaction.interaction_id == interaction_id).first()
+    if not interaction:
+        raise HTTPException(status_code=404, detail="Interaction not found")
+    
+    # Get the current UTC time
+    utc_now = datetime.now(timezone.utc)
+    interaction.end_time = utc_now
+    print("interaction.end_time",interaction.end_time)
+    db.commit()
+    return {"message": "Session ended successfully", "end_time": interaction.end_time}

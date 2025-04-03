@@ -20,6 +20,7 @@ interface AuthContextType {
   getBotId: (id: number | null) => void;
   login: (token: string, userData: User) => void;
   logout: () => void;
+  updateUser: (userData: Partial<User>) => void; // Add this line
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +34,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const navigate = useNavigate();
   const location = useLocation();
   console.log("isAuthenticated", isAuthenticated);
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -95,7 +103,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <AuthContext.Provider
-      value={{ isAuthenticated, user, botId, getBotId, login, logout }}
+      value={{
+        isAuthenticated,
+        user,
+        botId,
+        getBotId,
+        login,
+        logout,
+        updateUser,
+      }}
     >
       {children}
     </AuthContext.Provider>

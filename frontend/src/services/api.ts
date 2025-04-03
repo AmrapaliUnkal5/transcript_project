@@ -467,4 +467,16 @@ uploadFilesWithCounts: async (formData: FormData) => {
     const response = await api.post('/user/change-password', data);
     return response.data;
   },
+
+  fetchPlans: async () => {
+    
+    const response = await api.get("/subscriptionplans");
+    return response.data;
+ 
+},
+
+endInteraction: async (interaction_id: number) => {
+  const response = await api.put(`/chat/interactions/${interaction_id}/end`);
+  return response.data; // API response format: { message: "Session ended successfully", end_time: "timestamp" }
+},
 };
