@@ -12,8 +12,6 @@ import enum
 from sqlalchemy import text  # Add this import at the top of your file
 from sqlalchemy import case
 
-
-
 # Initialize password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -215,6 +213,14 @@ def create_file(db: Session, file_data: dict):
 def delete_bot(db: Session, bot_id: int):
     """Soft delete a bot by updating its status to 'Deleted'"""
     bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+
+    # Get the user associated with this bot
+    user = db.query(User).filter(User.user_id == bot.user_id).first()
+    
+    if user:
+        # Subtract the bot's word count from the user's total (if bot has word count)
+        if bot.word_count:
+            user.total_words_used = max(0, (user.total_words_used or 0) - bot.word_count)
     
     if not bot:
         return None  # Return None if bot not found
@@ -405,3 +411,14 @@ def get_owners_for_user(db: Session, user_id: int):
         })
     
     return result
+# crud.py
+def update_user_word_count(db: Session, user_id: int, word_count: int):
+    print("User id here ",user_id)
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.total_words_used += word_count
+    db.commit()
+    db.refresh(user)
+    return user

@@ -27,6 +27,8 @@ class UserOut(BaseModel):
     company_name: Optional[str] = None
     phone_no: Optional[str] = None  # Add this field
     communication_email: Optional[str] = None  # Add this field
+    total_words_used: Optional[int] = 0  
+    subscription_plan_id: Optional[int] = None 
 
     class Config:
         from_attributes = True  # This replaces 'orm_mode'

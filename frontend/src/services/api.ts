@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ApiFile, DemoRequestData, GetWeeklyConversationsParams, TeamMember, TeamInvitation, TeamMemberRole } from '../types'; 
+import { ApiFile, DemoRequestData, GetWeeklyConversationsParams, TeamMember, TeamInvitation, TeamMemberRole } from '../types';
 
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -62,14 +62,14 @@ export interface SignUpData {
   //website: string;
   //country: string;
   name: string;
-  phone_no:string;
+  phone_no: string;
   email: string;
   password: string;
 }
 
 export interface LoginData {
-	email: string;
-	password: string;
+  email: string;
+  password: string;
 }
 
 export interface ForgotPasswordData {
@@ -77,7 +77,7 @@ export interface ForgotPasswordData {
 }
 
 export interface PasswordResetData {
-  
+
   token: string;
   password: string;
 }
@@ -93,17 +93,17 @@ export interface BotSettingsData {
   bot_color: string;
   user_color: string;
   is_active: boolean;
-  appearance:string;
-  temperature:number;
+  appearance: string;
+  temperature: number;
 }
 
-export interface uploadAvatar{
+export interface uploadAvatar {
   user_id: number;
   avatar_url: string;
 }
 
-export interface deleteBot{
-  status:string;
+export interface deleteBot {
+  status: string;
 }
 
 export interface UserUpdate {
@@ -151,7 +151,7 @@ export const authApi = {
     const response = await api.post('/login', data);
     return response.data;
   },
-	logout: async () => {
+  logout: async () => {
     const response = await api.post('/auth/logout');
     return response.data;
   },
@@ -176,17 +176,17 @@ export const authApi = {
     const response = await api.get(`/botsettings/user/${user_id}`);
     return response.data;  // This is not used currently Expecting an array of bot settings
   },
-   // New function to update bot settings
-   updateBotSettings: async (botId: number, data: BotSettingsData) => {
+  // New function to update bot settings
+  updateBotSettings: async (botId: number, data: BotSettingsData) => {
     const response = await api.put(`/botsettings/${botId}`, data);  // API endpoint to update bot settings
     return response.data;
   },
   resetPassword: async (data: PasswordResetData) => {
-    
-      const response = await api.post("/reset-password/", data); // API endpoint to reset password
-      return response.data; // Return the response from the backend
-    
-    
+
+    const response = await api.post("/reset-password/", data); // API endpoint to reset password
+    return response.data; // Return the response from the backend
+
+
   },
 
   uploadBotIcon: async (fileData: FormData) => {
@@ -204,7 +204,7 @@ export const authApi = {
     });
     return response.data;
   },
-  
+
   getBotConversations: async () => {
     const response = await api.get('/dashboard_consumables');
     return response.data;
@@ -222,21 +222,21 @@ export const authApi = {
 
   getWebsiteNodes: async (websiteUrl: string) => {
     const response = await api.get(`/get_nodes`, { params: { website_url: websiteUrl } });
-    return response.data; 
+    return response.data;
   },
 
   scrapeNodes: async (selectedNodes: string[], botId: number) => {
-    const response = await api.post(`/scrape`, { 
+    const response = await api.post(`/scrape`, {
       selected_nodes: selectedNodes,  // ✅ Change from array to object
       bot_id: botId  // ✅ Include bot_id
-  }, {
-        headers: { "Content-Type": "application/json" }
+    }, {
+      headers: { "Content-Type": "application/json" }
     });
-    return response.data; 
+    return response.data;
   },
 
   validatecaptcha: async (data: string) => {
-    const response = await api.post('/validate-captcha',{ user_input: data });
+    const response = await api.post('/validate-captcha', { user_input: data });
     return response.data;
   },
 
@@ -250,7 +250,7 @@ export const authApi = {
     files.forEach((file) => {
       formData.append("files", file);
     });
-    formData.append("bot_id", botId.toString()); 
+    formData.append("bot_id", botId.toString());
 
     const response = await api.post('/upload', formData, {
       headers: {
@@ -274,17 +274,17 @@ export const authApi = {
     const response = await api.get(`/chat/get_chat_messages?interaction_id=${interactionId}`);
     return response.data;
   },
- 
-  getFiles: async (botId:number): Promise<ApiFile[]> => {
-    const response = await api.get<ApiFile[]>('/files',{
-      params: { bot_id: botId }, 
-    }); 
-    return response.data; 
+
+  getFiles: async (botId: number): Promise<ApiFile[]> => {
+    const response = await api.get<ApiFile[]>('/files', {
+      params: { bot_id: botId },
+    });
+    return response.data;
   },
 
-  createBot: async (botData: { 
-    bot_name: string; 
-    status: string; 
+  createBot: async (botData: {
+    bot_name: string;
+    status: string;
     is_active: boolean;
     external_knowledge: boolean;
   }) => {
@@ -292,12 +292,12 @@ export const authApi = {
     return response.data;
   },
 
- 
+
   updateBotStatus: async (botId: number, statusData: { status?: string; is_active?: boolean }) => {
     const response = await api.patch(`/bots/${botId}`, statusData);
     return response.data;
   },
-  
+
   updateBotName: async (botData: { bot_id: number; bot_name: string }) => {
     const response = await api.put("/update-bot-name/" + botData.bot_id, { bot_name: botData.bot_name });
     return response.data;
@@ -311,10 +311,10 @@ export const authApi = {
     return response.data;
   },
 
-  deletebot: async (botId: number, data:deleteBot) => {
+  deletebot: async (botId: number, data: deleteBot) => {
     const response = await api.put(`/botsettings/del/${botId}`, data);  // API endpoint to update bot settings
     return response.data;
-},
+  },
 
   deleteFile: async (fileId: string) => {
     const response = await api.delete(`/files/${fileId}`);
@@ -325,7 +325,7 @@ export const authApi = {
     const response = await api.get(`/verify-email?token=${token}`); // Send the token as a query parameter
     return response.data; // Return the response from the backend
   },
-  resendVerificationEmail: async (token:string) => {
+  resendVerificationEmail: async (token: string) => {
     const response = await api.post("/resend-verification-email", { token });
     return response.data;
   },
@@ -335,9 +335,9 @@ export const authApi = {
   },
 
   storeSelectedYouTubeTranscripts: async (videoUrls: string[], botId: number) => {
-    const response = await api.post("/chatbot/process-videos", { 
-        bot_id: botId, 
-        video_urls: videoUrls 
+    const response = await api.post("/chatbot/process-videos", {
+      bot_id: botId,
+      video_urls: videoUrls
     });
     return response.data; // Returns success message after storing transcripts
   },
@@ -348,13 +348,13 @@ export const authApi = {
   updateUserDetails: async (data: Partial<UserUpdate>) => {
     const response = await api.put('/user/me', data); // Update user details
     return response.data;
-  },  
- 
+  },
+
   fetchVideosForBot: async (botId: number) => {
     const response = await api.get(`/chatbot/bot/${botId}/videos`);
     return response.data; // Returns list of video URLs
   },
-  updateBotStatusActive: async (botId: number, data:BotStatusUpdate) => {
+  updateBotStatusActive: async (botId: number, data: BotStatusUpdate) => {
     const response = await api.put(`/botsettings/bots/${botId}`, data);  // API endpoint to update bot settings
     return response.data;
   },
@@ -374,7 +374,7 @@ export const authApi = {
 
   deleteScrapedUrl: async (botId: number, url: string) => {
     return await api.delete(`/chatbot/bot/${botId}/scraped-urls`, {
-      params: {  url: url },
+      params: { url: url },
     });
   },
 
@@ -382,7 +382,7 @@ export const authApi = {
   submitIssueRequest: async (data: FormData) => {
     const response = await api.post('/submit-issue-request', data, {
       headers: {
-        'Content-Type': 'multipart/form-data', 
+        'Content-Type': 'multipart/form-data',
       },
     });
     return response.data;
@@ -391,41 +391,41 @@ export const authApi = {
   submitDemoRequest: async (data: FormData) => {
     const response = await api.post("/submit-demo-request", data, {
       headers: {
-        "Content-Type": "multipart/form-data", 
+        "Content-Type": "multipart/form-data",
       },
     });
     return response.data;
   },
 
-  
-getWordCount: async (formData: FormData) => {
-  const response = await api.post('/word_count/', formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
-  return response.data;
-},
 
-uploadFilesWithCounts: async (formData: FormData) => {
-  const response = await api.post('/upload', formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
-  return response.data;
-},
+  getWordCount: async (formData: FormData) => {
+    const response = await api.post('/word_count/', formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
 
-  
+  uploadFilesWithCounts: async (formData: FormData) => {
+    const response = await api.post('/upload', formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+
+
   getWeeklyConversations: async (params: { bot_id: number }) => {
     const response = await api.get('/weekly-conversations', {
       params: {
         bot_id: params.bot_id,
       },
     });
-    return response.data; // API response format: { "Monday": 0, "Tuesday": 0, ... }
+    return response.data;
   },
-    
+
   // Team Management APIs
   inviteTeamMember: async (data: TeamMemberInvite) => {
     const response = await api.post('/team/invite', data);
@@ -469,14 +469,28 @@ uploadFilesWithCounts: async (formData: FormData) => {
   },
 
   fetchPlans: async () => {
-    
+
     const response = await api.get("/subscriptionplans");
     return response.data;
- 
-},
 
-endInteraction: async (interaction_id: number) => {
-  const response = await api.put(`/chat/interactions/${interaction_id}/end`);
-  return response.data; // API response format: { message: "Session ended successfully", end_time: "timestamp" }
-},
+  },
+
+  endInteraction: async (interaction_id: number) => {
+    const response = await api.put(`/chat/interactions/${interaction_id}/end`);
+    return response.data; // API response format: { message: "Session ended successfully", end_time: "timestamp" }
+  },
+  getUserUsage: async (): Promise<{
+    totalWordsUsed: number;
+    remainingWords: number;
+    planLimit: number;
+  }> => {
+    const response = await api.get('/user/usage'); return response.data;
+  },
+
+  updateBotWordCount: async (data: { bot_id: number; word_count: number }):
+    Promise<{ success: boolean }> => {
+    const response = await api.post('/bot/update_word_count', data);
+    return response.data;
+  }
+
 };
