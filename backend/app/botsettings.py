@@ -8,9 +8,10 @@ from fastapi.responses import JSONResponse
 import shutil
 from app.config import settings
 from app.schemas import  BotUpdateStatus
-from app.models import Bot
+from app.models import Bot, User
 from datetime import datetime
 from app.utils.reembedding_utils import reembed_all_files
+from app.dependency import get_current_user
 
 router = APIRouter(prefix="/botsettings", tags=["Bot Settings"])
 
@@ -68,6 +69,47 @@ def update_bot_status(bot_id: int, db: Session = Depends(get_db)):
 
     return updated_bot  # Return updated bot object
 
+
+@router.put("/del/{bot_id}", response_model=schemas.BotResponse)
+def update_bot_status(
+    bot_id: int, 
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Soft delete a bot and update word counts"""
+    try:
+        with db.begin():
+            # Get the bot with lock
+            bot = db.query(Bot).filter(
+                Bot.bot_id == bot_id,
+                Bot.user_id == current_user["user_id"]  # Ownership check
+            ).with_for_update().first()
+            
+            if not bot:
+                raise HTTPException(status_code=404, detail="Bot not found")
+            
+            # Store word count before deletion
+            deleted_word_count = bot.word_count or 0
+            
+            # Perform soft delete
+            bot.status = "Deleted"
+            bot.is_active = False
+            
+            # Update user's word count
+            user = db.query(User).filter(
+                User.user_id == current_user["user_id"]
+            ).with_for_update().first()
+            
+            if user:
+                user.total_words_used = max(0, (user.total_words_used or 0) - deleted_word_count)
+            
+            db.refresh(bot)
+            return bot
+            
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Endpoint to update bot status and is_active
 @router.put("/bots/{bot_id}")
 def update_bot(bot_id: int, update_data: BotUpdateStatus, db: Session = Depends(get_db)):
@@ -99,3 +141,5 @@ def update_bot(bot_id: int, update_data: BotUpdateStatus, db: Session = Depends(
 async def reembed_bot_knowledge(bot_id: int, db: Session = Depends(get_db)):
     await reembed_all_files(bot_id, db)
     return {"message": "Re-embedding completed successfully"}
+    db.close()
+

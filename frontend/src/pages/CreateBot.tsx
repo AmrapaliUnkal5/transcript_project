@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Globe,
@@ -7,6 +7,7 @@ import {
   ArrowRight,
   ArrowLeft,
   Loader2,
+  Lock,
 } from "lucide-react";
 import { File as FileIcon, Trash2 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
@@ -21,6 +22,8 @@ import Loader from "../components/Loader";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import SubscriptionScrape from "./SubscriptionScrape";
 import WebScrapingTab from "./WebScrapingTab.tsx";
+import { getPlanById, SubscriptionPlan } from "../types/index";
+import {UserUsage} from "../types/index";
 
 interface Step {
   title: string;
@@ -34,7 +37,7 @@ interface FileWithCounts
   charCount?: number;
   loadingCounts?: boolean;
   error?: string;
-  file: File; // Adding this since you're using it in the component
+  file: File; 
 }
 
 const steps: Step[] = [
@@ -57,6 +60,32 @@ const steps: Step[] = [
   },
 ];
 
+const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
+  return (
+    <div className="absolute top-0 left-0 right-0 bottom--3 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+      <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-lg max-w-sm mx-4">
+        <Lock className="w-10 h-10 mx-auto text-gray-400 mb-3" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2 text-center">
+          YouTube Videos Locked
+        </h3>
+        <p className="text-gray-600 mb-4 text-center text-sm">
+          To add YouTube videos to your knowledge base, upgrade to our <span className="font-semibold">{requiredPlan} plan.
+            </span>
+            This feature allows your bot to learn from video content.
+        </p>
+        <div className="flex justify-center">
+          <a
+            href="/subscription"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            Upgrade Plan
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const CreateBot = () => {
   const { selectedBot, setSelectedBot } = useBot();
   const navigate = useNavigate();
@@ -71,103 +100,137 @@ export const CreateBot = () => {
   const [botId, setBotId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
-  const MAX_WORD_COUNT = 50000;
+  // const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+  // const MAX_WORD_COUNT = 50000;
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
   const [totalWordCount, setTotalWordCount] = useState(0);
   const userData = localStorage.getItem("user");
   const user = userData ? JSON.parse(userData) : null;
+  const userPlan: SubscriptionPlan = getPlanById(user?.subscription_plan_id);
   const [processingMessage, setProcessingMessage] = useState(
     "Getting things ready for you..."
   );
   const [useExternalKnowledge, setUseExternalKnowledge] = useState(false);
+  const MAX_FILE_SIZE = userPlan.fileSizeLimitMB * 1024 * 1024;
+  const MAX_WORD_COUNT = userPlan.wordCountLimit;
+  const [userUsage, setUserUsage] = useState({
+    globalWordsUsed: 0,  
+    currentSessionWords: 0,   
+    planLimit: userPlan.wordCountLimit
+  });
+
+ // Derived values
+const totalWordsUsed = userUsage.globalWordsUsed + userUsage.currentSessionWords;
+const remainingWords = Math.max(0, userUsage.planLimit - totalWordsUsed);
+const usagePercentage = Math.min(100, (totalWordsUsed / userUsage.planLimit) * 100);
+  // Fetch user usage on component mount
+  useEffect(() => {
+    const fetchUsage = async () => {
+      try {
+        const apiUsage = await authApi.getUserUsage();
+        const mappedUsage: UserUsage = {
+          globalWordsUsed: apiUsage.totalWordsUsed,
+          currentSessionWords: 0,
+          planLimit: apiUsage.planLimit,
+          remainingWords: 0
+        };
+        
+        setUserUsage(mappedUsage);
+      } catch (error) {
+        console.error("Failed to fetch user usage", error);
+      }
+    };
+    fetchUsage();
+  }, []);
 
   const processWordCounts = async (filesToProcess: File[]) => {
     const formData = new FormData();
     filesToProcess.forEach((file) => formData.append("files", file));
-
+  
     try {
       const response = await authApi.getWordCount(formData);
-      // Ensure we're returning the array of counts
+      
+      // Check for error response structure
+      if (Array.isArray(response) && response[0]?.error) {
+        throw new Error(response[0].error);
+      }
+      
       return Array.isArray(response) ? response : [];
     } catch (error) {
       console.error("Error getting word counts:", error);
-      return []; // Return empty array on error
+      
+      // Show toast with the error message
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Failed to process word counts");
+      }
+      
+      throw error; 
     }
   };
 
-  const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
-      setIsProcessingFiles(true);
-
-      // 1. First validate individual file sizes
-      const oversizedFiles = acceptedFiles.filter(
-        (file) => file.size > MAX_FILE_SIZE
-      );
-      if (oversizedFiles.length > 0) {
-        toast.error(`The files exceed 20MB limit: ${oversizedFiles}`);
-        setIsProcessingFiles(false);
-        return;
-      }
-
-      try {
-        // 2. Process word counts only for valid files
-        const counts = await processWordCounts(acceptedFiles);
-
-        // 3. Filter files that would exceed word limit
-        const validFiles: FileWithCounts[] = [];
-        let newTotalWords = totalWordCount;
-
-        for (let i = 0; i < acceptedFiles.length; i++) {
-          const file = acceptedFiles[i];
-          const countData = counts[i];
-          const fileWords = countData.word_count || 0;
-
-          if (newTotalWords + fileWords <= MAX_WORD_COUNT) {
-            validFiles.push({
-              id: Math.random().toString(36).substr(2, 9),
-              name: file.name,
-              type: file.type,
-              size: file.size,
-              uploadDate: new Date(),
-              url: URL.createObjectURL(file),
-              file: file,
-              wordCount: fileWords,
-              charCount: countData.character_count,
-              loadingCounts: false,
-            });
-            newTotalWords += fileWords;
-          } else {
-            toast.error(
-              `Skipped "${file.name}" - would exceed word limit  ${MAX_WORD_COUNT}`
-            );
-          }
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+      
+    if (remainingWords <= 0) {
+      toast.error("You've reached your word limit. Please upgrade your plan.");
+      return;
+    }
+  
+    setIsProcessingFiles(true);
+    
+    try {
+      const counts = await processWordCounts(acceptedFiles);
+          
+      let newWords = 0;
+      const validFiles: FileWithCounts[] = [];
+  
+      for (let i = 0; i < acceptedFiles.length; i++) {
+        const file = acceptedFiles[i];
+        const countData = counts[i];
+        
+        if (countData.error) {
+          console.log(`File ${file.name} has error:`, countData.error);
+          toast.error(`${file.name}: ${countData.error}`);
+          continue;
         }
-
-        // 4. Update state with valid files
-        if (validFiles.length > 0) {
-          setFiles((prev) => [...prev, ...validFiles]);
-          setTotalWordCount(newTotalWords);
+  
+        const fileWords = countData.word_count || 0;
+        
+        if (totalWordsUsed + fileWords > userUsage.planLimit) {
+          toast.error(`Skipped "${file.name}" - would exceed word limit`);
+          continue;
         }
-      } catch (error) {
-        toast.error("Failed to process files");
-      } finally {
-        setIsProcessingFiles(false);
+        
+        validFiles.push({
+          id: Math.random().toString(36).substr(2, 9),
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          uploadDate: new Date(),
+          url: URL.createObjectURL(file),
+          file: file,
+          wordCount: fileWords,
+          charCount: countData.character_count,
+          loadingCounts: false,
+        });
+        
+        newWords += fileWords;
       }
-    },
-    [totalWordCount, MAX_WORD_COUNT]
-  );
-
-  // const { getRootProps, getInputProps } = useDropzone({
-  //   onDrop,
-  //   accept: {
-  //     "application/pdf": [".pdf"],
-  //     "text/plain": [".txt"],
-  //     "application/msword": [".doc"],
-  //     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-  //     "text/csv": [".csv"],
-  //   },
-  // });
+   
+      setFiles(prev => [...prev, ...validFiles]);
+      setUserUsage(prev => {
+        const newUsage = {
+          ...prev,
+          currentSessionWords: prev.currentSessionWords + newWords
+        };
+        return newUsage;
+      });
+  
+    } finally {
+      setIsProcessingFiles(false);
+    }
+  }, [totalWordsUsed, userUsage.planLimit]);  
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
@@ -196,27 +259,29 @@ export const CreateBot = () => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2) + " " + sizes[i]);
   };
-
-  // const handleDelete = (id: string) => {
-  //   setFiles((prev) => prev.filter((file) => file.id !== id));
-  // };
-
   const handleDelete = (id: string) => {
-    setFiles((prevFiles) => {
-      // Filter out the deleted file
-      const updatedFiles = prevFiles.filter((file) => file.id !== id);
+      setFiles(prevFiles => {
+      const fileToDelete = prevFiles.find(file => file.id === id);
+      if (!fileToDelete) {
+        return prevFiles;
+      }
+  
+      const deletedWordCount = fileToDelete.wordCount || 0;
+        
+      setUserUsage(prev => {
+        const newCurrentSessionWords = Math.max(0, prev.currentSessionWords - deletedWordCount);
+          
+        return {
+          ...prev,
+          currentSessionWords: newCurrentSessionWords
+        };
+      });
+  
+      return prevFiles.filter(file => file.id !== id);
 
-      // Recalculate total word count from remaining files
-      const newTotalWordCount = updatedFiles.reduce(
-        (sum, file) => sum + (file.wordCount || 0),
-        0
-      );
-
-      // Update both files list and word count
-      setTotalWordCount(newTotalWordCount);
-      return updatedFiles;
     });
   };
+  
 
   const fetchNodes = async (websiteUrl: string) => {
     if (!websiteUrl) {
@@ -394,7 +459,14 @@ export const CreateBot = () => {
   };
 
   const handleFinish = async () => {
-    const isScraped = localStorage.getItem("isScraped") === "1"; // Convert to boolean
+    console.log('=== STARTING BOT FINALIZATION ===');
+  console.log('Current state before submission:', {
+    files,
+    userUsage,
+    totalWordsUsed,
+    remainingWords
+  });
+    const isScraped = localStorage.getItem("isScraped") === "1"; 
     const totalWordCount = files.reduce(
       (acc, file) => acc + (file.wordCount || 0),
       0
@@ -415,6 +487,25 @@ export const CreateBot = () => {
     setIsLoading(true);
     setLoading(true);
     try {
+      if (selectedBot?.id) {
+        console.log('Updating bot word count with:', userUsage.currentSessionWords);
+        await authApi.updateBotWordCount({
+          bot_id: selectedBot.id,
+          word_count: userUsage.currentSessionWords
+        });
+  
+        // Update global words used after successful submission
+        setUserUsage(prev => {
+          const newUsage = {
+            ...prev,
+            globalWordsUsed: prev.globalWordsUsed + prev.currentSessionWords,
+            currentSessionWords: 0
+          };
+          console.log('Updating userUsage after submission:', newUsage);
+          return newUsage;
+        });
+      }
+
       let isUploadSuccess = false;
       let isYouTubeSuccess = false;
 
@@ -476,11 +567,32 @@ export const CreateBot = () => {
               );
             }
           }
-        } catch (error) {
-          console.error("Error processing YouTube videos:", error);
-          toast.error("Failed to process YouTube videos.");
-        }
+      //   } catch (error) {
+      //     console.error("Error processing YouTube videos:", error);
+      //     toast.error("Failed to process YouTube videos.");
+      //   }
+      // }
+        }catch (error) {
+        console.error("Error creating bot:", error);
+        console.error("Error processing YouTube videos:", error);
+        toast.error("Failed to process YouTube videos.");
+        toast.error("An error occurred while uploading files.");
+      } finally {
+        setIsLoading(false);
+        setLoading(true);
+        // Log final state
+        setTimeout(() => {
+          console.log('=== AFTER FINALIZATION COMPLETE ===');
+          console.log('Final files:', files);
+          console.log('Final userUsage:', userUsage);
+          console.log('Final derived values:', {
+            totalWordsUsed,
+            remainingWords,
+            usagePercentage
+          });
+        }, 0);
       }
+    };
 
       // ✅ Check if at least one source is provided
       if (!(isUploadSuccess || isYouTubeSuccess || isScraped)) {
@@ -715,74 +827,62 @@ export const CreateBot = () => {
                 Drag and drop files here, or click to select files
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Maximum {MAX_WORD_COUNT.toLocaleString()} words total (PDF and
-                TXT only)
+                Maximum {userUsage.planLimit.toLocaleString()} words total, {userPlan.fileSizeLimitMB}MB per file (PDF and TXT only)
               </p>
             </div>
-
+      
             {/* Word Count Summary */}
             <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Document Words
+                  Your Word Usage
                 </span>
-                <span
-                  className={`text-sm font-medium ${
-                    totalWordCount > MAX_WORD_COUNT
-                      ? "text-red-500"
-                      : totalWordCount > MAX_WORD_COUNT * 0.8
-                      ? "text-yellow-500"
+                <span className={`text-sm font-medium ${
+                  remainingWords <= 0 
+                    ? "text-red-500" 
+                    : remainingWords < (userUsage.planLimit * 0.2) 
+                      ? "text-yellow-500" 
                       : "text-green-500"
-                  }`}
-                >
-                  {totalWordCount.toLocaleString()}/
-                  {MAX_WORD_COUNT.toLocaleString()}
+                }`}>
+                  {totalWordsUsed.toLocaleString()}/{userUsage.planLimit.toLocaleString()} words
+                  {userUsage.currentSessionWords > 0 && (
+                    <span className="text-gray-500 ml-2">
+                      (This bot: {userUsage.currentSessionWords.toLocaleString()})
+                    </span>
+                  )}
                 </span>
               </div>
-
-              {/* Progress Bar */}
+      
+              {/* Progress Bar - Fixed Calculation */}
               <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600">
                 <div
                   className="h-2.5 rounded-full"
                   style={{
-                    width: `${Math.min(
-                      100,
-                      (totalWordCount / MAX_WORD_COUNT) * 100
-                    )}%`,
+                    width: `${usagePercentage}%`,
                     backgroundColor:
-                      totalWordCount > MAX_WORD_COUNT
+                      remainingWords <= 0
                         ? "#ef4444"
-                        : totalWordCount > MAX_WORD_COUNT * 0.8
+                        : remainingWords < (userUsage.planLimit * 0.2)
                         ? "#f59e0b"
-                        : "#10b981",
+                        : "#10b981"
                   }}
                 ></div>
               </div>
-
+      
               {/* Warning Messages */}
-              {totalWordCount > MAX_WORD_COUNT * 0.8 && (
-                <div
-                  className={`mt-2 text-xs ${
-                    totalWordCount > MAX_WORD_COUNT
-                      ? "text-red-500 dark:text-red-400"
-                      : "text-yellow-600 dark:text-yellow-400"
-                  }`}
-                >
-                  {totalWordCount > MAX_WORD_COUNT ? (
-                    <>
-                      <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-                      Limit exceeded! Remove files to continue.
-                    </>
-                  ) : (
-                    <>
-                      <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-                      Approaching word limit (
-                      {Math.round((totalWordCount / MAX_WORD_COUNT) * 100)}%)
-                    </>
-                  )}
+              {remainingWords <= 0 ? (
+                <div className="mt-2 text-xs text-red-500 dark:text-red-400">
+                  <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
+                  You've reached your word limit! Remove files or upgrade your plan.
                 </div>
-              )}
+              ) : remainingWords < (userUsage.planLimit * 0.2) ? (
+                <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
+                  <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
+                  Approaching word limit ({Math.round(usagePercentage)}% used)
+                </div>
+              ) : null}
             </div>
+      
 
             {/* Uploaded Files Table */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mt-4">
@@ -901,19 +1001,26 @@ export const CreateBot = () => {
             </div>
 
             {/* YouTube Uploader */}
-            <div className="mt-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Add YouTube videos
-              </h2>
-              <YouTubeUploader maxVideos={5} />
-            </div>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
+                        <div className="mt-6 relative">
+                          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                            Add YouTube videos
+                          </h2>
+            {/* This container holds both the uploader and overlay */}
+                        <div className="min-h-[200px] relative rounded-md border border-dashed border-gray-300 dark:border-gray-600">
+                          <YouTubeUploader maxVideos={5} />
+    
+          {/* Show upgrade message only for plans 1 and 2 */}
+                          {[1, 2].includes(user.subscription_plan_id) && (
+                            <YouTubeUpgradeMessage requiredPlan="Growth" />
+                          )}
+                         </div>
+                       </div>
+                      </div>
+                    );
+                    default:
+                    return null;
+                  }
+                };
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gray-50 dark:bg-gray-900 py-8">

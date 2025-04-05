@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import File as FileModel, Bot
+from app.models import File as FileModel, Bot, User
 from app.dependency import get_current_user
 from app.schemas import UserOut
 from app.utils.file_size_validations_utils import (
@@ -24,11 +24,26 @@ from app.utils.file_size_validations_utils import (
     save_extracted_text,
     archive_original_file
 )
+from app.subscription_config import get_plan_limits
+from .crud import update_user_word_count
 
 router = APIRouter()
 
 # Ensure the upload folder exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def validate_file_size(files: List[UploadFile], current_user: dict):
+    """Validate file sizes against user's subscription limits"""
+    plan_limits = get_plan_limits(current_user["subscription_plan_id"])
+    max_size_bytes = plan_limits["file_size_limit_mb"] * 1024 * 1024
+    
+    for file in files:
+        if file.size > max_size_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File {file.filename} exceeds {plan_limits['file_size_limit_mb']}MB limit for your {plan_limits['name']} plan"
+            )
+    return plan_limits
 
 @router.post("/upload")
 async def validate_and_upload_files(
@@ -40,8 +55,8 @@ async def validate_and_upload_files(
     current_user: UserOut = Depends(get_current_user)
 ):
     """Validates total file size, extracts text, stores in ChromaDB, and uploads files only if successful."""
-    # Validate total file size
-    validate_file_size(files)
+    # Validate total file size and get plan limits
+    plan_limits = validate_file_size(files, current_user)
 
     if not bot_id:
         raise HTTPException(status_code=400, detail="Bot ID is required")
@@ -109,12 +124,14 @@ async def validate_and_upload_files(
                 "filetype": file.content_type,
                 "size": file_metadata["file_size"],
                 "file_path": str(text_file_path),
+                "size_limit": plan_limits["file_size_limit_mb"] * 1024 * 1024,
                 "upload_date": datetime.now().isoformat(),
                 "unique_file_name": file_id,
                 "word_count": word_counts_list[i],  
                 "char_count": char_counts_list[i], 
                 "total_word_count": total_word_count,  
-                "total_char_count": total_char_count   
+                "total_char_count": total_char_count,
+                "plan_name": plan_limits["name"] 
             })
 
             # Success message
@@ -135,7 +152,11 @@ async def validate_and_upload_files(
         "files": uploaded_files,
         "knowledge_upload": knowledge_upload_messages,
         "total_word_count": total_word_count,  
-        "total_char_count": total_char_count   
+        "total_char_count": total_char_count,
+        "plan_limits": {  # Include plan info in response
+            "name": plan_limits["name"],
+            "file_size_limit_mb": plan_limits["file_size_limit_mb"],
+        }
     }
 
 @router.get("/files")

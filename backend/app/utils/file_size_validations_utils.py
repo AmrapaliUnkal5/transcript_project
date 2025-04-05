@@ -11,11 +11,15 @@ from app.models import File as FileModel, Bot, User
 from app.schemas import UserOut
 from app.utils.upload_knowledge_utils import extract_text_from_file
 from app.vector_db import add_document
+from app.utils.upload_knowledge_utils import extract_text_from_file,validate_and_store_text_in_ChromaDB
+from app.subscription_config import get_plan_limits
 
-MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  
-MAX_FILE_SIZE_MB = 20
-UPLOAD_FOLDER = "uploads"
+# Update other constants to be dynamic
+UPLOAD_FOLDER = "uploads"  
+MAX_FILE_SIZE_MB = None  
+MAX_FILE_SIZE_BYTES = None 
 ARCHIVE_FOLDER = "archives"
+
 
 def convert_size(size_bytes):
     """Convert file size in bytes to a human-readable format (KB, MB, etc.)."""
@@ -28,13 +32,15 @@ def convert_size(size_bytes):
     else:
         return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
-def validate_file_size(files: List[UploadFile]):
-    """Validates that each individual file does not exceed 20MB."""
+def validate_file_size(files: List[UploadFile], current_user: dict):
+    plan_limits = get_plan_limits(current_user["subscription_plan_id"])
+    max_size_bytes = plan_limits["file_size_limit_mb"] * 1024 * 1024
+    
     for file in files:
-        if file.size > MAX_FILE_SIZE_BYTES:
+        if file.size > max_size_bytes:
             raise HTTPException(
-                status_code=400, 
-                detail=f"File '{file.filename}' exceeds the {MAX_FILE_SIZE_MB}MB limit"
+                status_code=400,
+                detail=f"File {file.filename} exceeds {plan_limits['file_size_limit_mb']}MB limit for your {plan_limits['name']} plan"
             )
 
 def generate_file_id(bot_id: int, filename: str) -> str:
