@@ -5,6 +5,7 @@ import Loader from "../components/Loader";
 import { authApi, UserUpdate } from "../services/api";
 import TeamManagement from "../components/TeamManagement";
 import { ToastContainer, toast } from "react-toastify";
+import { useAuth } from "../context/AuthContext";
 
 export const Settings = () => {
   // Retrieve user data from localStorage
@@ -22,7 +23,10 @@ export const Settings = () => {
     new_password: "",
     confirm_password: "",
   });
-  const [passwordErrors, setPasswordErrors] = useState<{ [key: string]: string }>({});
+  const [passwordErrors, setPasswordErrors] = useState<{
+    [key: string]: string;
+  }>({});
+  const { updateUser } = useAuth();
 
   const [settings, setSettings] = useState({
     name: "",
@@ -222,6 +226,12 @@ export const Settings = () => {
         };
         //console.log("userUpdateData", userUpdateData);
         await authApi.updateUserDetails(userUpdateData); // Update user details
+        // Update the user in context and localStorage
+        updateUser({
+          name: settings.name,
+          company_name: settings.company_name,
+          phone_no: settings.phone_no,
+        });
         toast.success("Changes saved successfully!"); // Success toast
         //alert("Changes saved successfully");
       } catch (error) {
@@ -236,30 +246,30 @@ export const Settings = () => {
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setPasswordData(prev => ({ ...prev, [name]: value }));
+    setPasswordData((prev) => ({ ...prev, [name]: value }));
     // Clear error when user starts typing
-    setPasswordErrors(prev => ({ ...prev, [name]: "" }));
+    setPasswordErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const validatePasswordForm = () => {
     let newErrors: { [key: string]: string } = {};
-    
+
     if (!passwordData.current_password) {
       newErrors.current_password = "Current password is required";
     }
-    
+
     if (!passwordData.new_password) {
       newErrors.new_password = "New password is required";
     } else if (passwordData.new_password.length < 8) {
       newErrors.new_password = "Password must be at least 8 characters";
     }
-    
+
     if (!passwordData.confirm_password) {
       newErrors.confirm_password = "Please confirm your new password";
     } else if (passwordData.new_password !== passwordData.confirm_password) {
       newErrors.confirm_password = "Passwords do not match";
     }
-    
+
     setPasswordErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -282,9 +292,11 @@ export const Settings = () => {
         });
       } catch (error) {
         console.error("Error updating password:", error);
-        toast.error("Failed to update password. Please check your current password.");
+        toast.error(
+          "Failed to update password. Please check your current password."
+        );
         setPasswordErrors({
-          current_password: "Current password may be incorrect"
+          current_password: "Current password may be incorrect",
         });
       } finally {
         setChangingPassword(false);
@@ -298,8 +310,8 @@ export const Settings = () => {
     <div className="flex border-b mb-6">
       <button
         className={`px-4 py-2 ${
-          activeTab === "profile" 
-            ? "border-b-2 border-blue-500 text-blue-600" 
+          activeTab === "profile"
+            ? "border-b-2 border-blue-500 text-blue-600"
             : "text-gray-500 hover:text-gray-700"
         }`}
         onClick={() => setActiveTab("profile")}
@@ -311,8 +323,8 @@ export const Settings = () => {
       </button>
       <button
         className={`px-4 py-2 ${
-          activeTab === "team" 
-            ? "border-b-2 border-blue-500 text-blue-600" 
+          activeTab === "team"
+            ? "border-b-2 border-blue-500 text-blue-600"
             : "text-gray-500 hover:text-gray-700"
         }`}
         onClick={() => setActiveTab("team")}
@@ -483,7 +495,7 @@ export const Settings = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Change Password Section */}
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mt-6">
           <div className="flex items-center mb-4">
@@ -592,7 +604,7 @@ export const Settings = () => {
         Account Settings
       </h1>
       <ToastContainer position="top-right" autoClose={3000} />
-      
+
       {renderTabMenu()}
       {renderTabContent()}
     </div>

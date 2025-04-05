@@ -47,11 +47,11 @@ def get_bot_metrics(bot_id: int, db: Session = Depends(get_db)):
         db.query(
             func.date_trunc('day', Interaction.start_time).label("day"),
             func.sum(func.extract('epoch', Interaction.end_time - Interaction.start_time)).label("total_time_seconds"),
-            func.count(Interaction.session_id.distinct()).label("unique_sessions")  # Count unique sessions
+            func.count(Interaction.interaction_id).label("unique_interactions")  # Count unique interactions
         )
         .filter(
-            Interaction.bot_id == bot_id,  # ✅ Filter by bot_id
-            Interaction.end_time.isnot(None),  # ✅ Only consider completed interactions
+            Interaction.bot_id == bot_id,
+            Interaction.end_time.isnot(None),  # Ignore interactions with NULL end_time
             Interaction.start_time >= func.date_trunc('day', func.now()) - text("interval '6 days'")
         )
         .group_by(func.date_trunc('day', Interaction.start_time))
@@ -59,11 +59,12 @@ def get_bot_metrics(bot_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
+
     # ✅ Process data for frontend
     average_time_spent = [
         {
             "day": row.day.strftime("%A"),  # Convert date to weekday name
-            "average_time_spent": round((row.total_time_seconds / 60) / row.unique_sessions, 2) if row.unique_sessions else 0
+            "average_time_spent": round((row.total_time_seconds / 60) / row.unique_interactions) if row.unique_interactions else 0
         }
         for row in interaction_data
     ]

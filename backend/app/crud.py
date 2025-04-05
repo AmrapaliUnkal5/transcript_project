@@ -1,11 +1,16 @@
 # app/crud.py
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from .models import User, Bot, File, TeamMember, TeamMemberRole
+from .models import User, Bot, File, TeamMember, TeamMemberRole,InteractionReaction, ReactionType,Interaction
 from .schemas import UserCreate, BotCreate, BotUpdate, BotResponse, TeamMemberCreate, TeamMemberUpdate
 from passlib.context import CryptContext
 import secrets
 import string
+from datetime import datetime, date
+from sqlalchemy import func, and_
+import enum
+from sqlalchemy import text  # Add this import at the top of your file
+from sqlalchemy import case
 
 # Initialize password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -107,6 +112,48 @@ def update_user_password(db: Session, user_id: int, new_password: str):
 def get_bot_by_user_id(db: Session, user_id: int):
     """Fetch all bot settings for a user_id"""
     bots = db.query(Bot).filter(Bot.user_id == user_id, Bot.status != "Deleted").all()
+    bot_ids = [bot.bot_id for bot in bots]
+
+    today_start = datetime.combine(date.today(), datetime.min.time())  # Start of today
+    print("today_start",today_start)
+    
+    today_end = datetime.combine(date.today(), datetime.max.time())  # End of today
+    print("today_end",today_end)
+
+    # Get conversation count per bot for today
+    bot_conversation_counts = (
+        db.query(Interaction.bot_id, func.count().label("conversation_count"))
+        .filter(
+            Interaction.bot_id.in_([bot.bot_id for bot in bots]),  # Filter interactions of these bots
+            Interaction.start_time.between(today_start, today_end)  # Only today's interactions
+        )
+        .group_by(Interaction.bot_id)
+        .all()
+    )
+
+    # Convert results to a dictionary for quick lookup
+    bot_conversation_dict = {bot_id: count for bot_id, count in bot_conversation_counts}
+
+    
+    # Get reaction counts - PROPER ENUM USAGE
+    reaction_counts = (
+        db.query(
+            InteractionReaction.bot_id,
+            func.sum(case((InteractionReaction.reaction == ReactionType.LIKE.value, 1), else_=0)).label("like"),
+            func.sum(case((InteractionReaction.reaction == ReactionType.DISLIKE.value, 1), else_=0)).label("dislike")
+        )
+        .filter(InteractionReaction.bot_id.in_(bot_ids))
+        .group_by(InteractionReaction.bot_id)
+        .all()
+    )
+
+    bot_reaction_dict = {
+        row.bot_id: {
+            "like": row.like or 0,
+            "dislike": row.dislike or 0
+        }
+        for row in reaction_counts
+    }
     
     if not bots:
         return []
@@ -125,6 +172,11 @@ def get_bot_by_user_id(db: Session, user_id: int):
         "appearance":bot.appearance,
         "temperature":bot.temperature,
         "status":bot.status,
+        "conversation_count_today": bot_conversation_dict.get(bot.bot_id, 0),  # Default to 0 if no interactions
+        "satisfaction": {
+                "likes": bot_reaction_dict.get(bot.bot_id, {}).get("like", 0),
+                "dislikes": bot_reaction_dict.get(bot.bot_id, {}).get("dislike", 0)
+            }
     }} for bot in bots]
 
 

@@ -48,6 +48,7 @@ from app.submit_issue_request import router as submit_issue_request
 from app.word_count_validation import router as word_count_validation
 from app.total_conversations_analytics import router as weekly_Conversation
 from app.team_management import router as team_management_router
+from app.fetchsubscripitonplans import router as fetchsubscriptionplans_router
 
 
 app = FastAPI(debug=True)
@@ -68,6 +69,7 @@ app.include_router(submit_issue_request)
 app.include_router(word_count_validation)
 app.include_router(weekly_Conversation)
 app.include_router(team_management_router)
+app.include_router(fetchsubscriptionplans_router)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
  

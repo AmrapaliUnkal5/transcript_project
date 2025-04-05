@@ -277,4 +277,27 @@ class LLMModelOut(LLMModelBase):
     id: int
     class Config:
         from_attributes = True
- 
+
+class SubscriptionPlanSchema(BaseModel):
+    id: int
+    name: str
+    price: Optional[float]  # Let FastAPI return it as float
+    word_count_limit: Optional[int]
+    storage_limit: Optional[str]
+    chatbot_limit: Optional[int]
+    website_crawl_limit: Optional[str]
+    youtube_grounding: Optional[bool]
+    message_limit: Optional[int]
+    multi_website_deployment: Optional[bool]
+    ui_customization: Optional[str]
+    analytics: Optional[str]
+    admin_user_limit: Optional[str]
+    support_level: Optional[str]
+    internal_team_bots: Optional[bool]
+    custom_ai_applications: Optional[bool]
+    custom_agents: Optional[bool]
+    process_automation: Optional[bool]
+    custom_integrations: Optional[bool]
+
+    # class Config:
+    #     orm_mode = True  # Enables auto-conversion from SQLAlchemy models

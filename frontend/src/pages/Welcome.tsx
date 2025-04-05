@@ -1,14 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Bot,
-  ArrowRight,
-  TrendingUp,
-  Settings,
-  MessageSquare,
-  Users,
-  ArrowUpRight,
-} from "lucide-react";
+import { Bot, ArrowRight, TrendingUp, Settings } from "lucide-react";
 import { Legend } from "recharts";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -18,11 +10,13 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  CartesianGrid,
 } from "recharts";
 import { authApi } from "../services/api";
 import { useBot } from "../context/BotContext";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
+import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 
 export const Welcome = () => {
   const { user } = useAuth();
@@ -34,23 +28,41 @@ export const Welcome = () => {
   const [hasBots, setHasBots] = useState<boolean | null>(null); // Track bot existence
   const { setLoading } = useLoader(); // Get loader state from context
   const [bots, setBots] = useState<
-    { id: number; name: string; status: string }[] // to display the bots in the tiles
+    {
+      id: number;
+      name: string;
+      status: string;
+      conversations: number;
+      satisfaction: {
+        likes: number;
+        dislikes: number;
+      };
+    }[] // to display the bots in the tiles
   >([]);
-  const [conversationTrends, setConversationTrends] = useState<any[]>([]); // State to store conversation trends
+  interface ConversationTrend {
+    bot_id: number;
+    data: { day: string; conversations: number }[];
+  }
+  const [conversationTrends, setConversationTrends] = useState<
+    ConversationTrend[]
+  >([]); // State to store conversation trends
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
+  const { plans, getPlanById } = useSubscriptionPlans(); // ✅ Ensure plans is included
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const handleCreateBot = () => {
-    //TEMPORARY: This maybe need to be taken as an API . the limits of a subsccription.
-    const planLimits = {
-      1: 1, // Free Plan
-      2: 2, // Basic Plan
-      3: 2, // Growth Plan
-      4: 5, // Professional Plan
-    };
-
     const userPlanId = user?.subscription_plan_id || 1; // Default to Free Plan
-    const maxBotsAllowed = planLimits[userPlanId];
+    // ✅ Add a loading check
+    if (!plans || plans.length === 0) {
+      return <p>Loading subscription plans...</p>;
+    }
+    const userPlan = getPlanById(userPlanId);
+    console.log("userPlan", userPlan);
+    if (!userPlan) return;
+
+    const maxBotsAllowed = userPlan.chatbot_limit;
+    console.log("maxBotsAllowed", maxBotsAllowed);
     const userBotCount = bots?.length || 0; // Get bot count from already fetched bots
     console.log(userBotCount);
 
@@ -61,13 +73,15 @@ export const Welcome = () => {
       setIsModalOpen(true);
       return;
     }
+    navigate("/create-bot");
 
-    navigate("/Options");
+    //navigate("/Options");
   };
 
   useEffect(() => {
     const checkUserBot = async () => {
       try {
+        console.log("Now", userId);
         if (userId === undefined) return; // Ensure userId is defined before making API call
         setLoading(true); // Show loader before API call
 
@@ -84,8 +98,11 @@ export const Welcome = () => {
             id: Number(botId), // Convert string ID to number
             name: botData.bot_name,
             status: botData.status,
-            //conversations: 0, // Placeholder for conversations
-            //satisfaction: 0, // Placeholder for satisfaction
+            conversations: botData.conversation_count_today, // Placeholder for conversations
+            satisfaction: {
+              likes: botData.satisfaction?.likes || 0, // Default to 0 if missing
+              dislikes: botData.satisfaction?.dislikes || 0,
+            },
           };
         });
 
@@ -105,34 +122,34 @@ export const Welcome = () => {
     checkUserBot();
   }, [userId, setLoading]);
 
-  const transformDataForGraph = (trends: any[]) => {
-    const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const today = new Date().getDay(); // Get the current day of the week (0 = Sunday, 1 = Monday, etc.)
+  // const transformDataForGraph = (trends: any[]) => {
+  //   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  //   const today = new Date().getDay(); // Get the current day of the week (0 = Sunday, 1 = Monday, etc.)
 
-    const graphData: any[] = [];
+  //   const graphData: any[] = [];
 
-    // Loop through all days of the week
-    daysOfWeek.forEach((day, index) => {
-      const dayData: any = { day };
+  //   // Loop through all days of the week
+  //   daysOfWeek.forEach((day, index) => {
+  //     const dayData: any = { day };
 
-      trends.forEach((trend) => {
-        const botId = trend.bot_id;
+  //     trends.forEach((trend) => {
+  //       const botId = trend.bot_id;
 
-        // For days up to today, plot the data (or 0 if no data exists)
-        if (index <= today) {
-          const botDayData = trend.data.find((d: any) => d.day === day);
-          dayData[`bot_${botId}`] = botDayData ? botDayData.conversations : 0;
-        } else {
-          // For future days, set the value to null (no plotting)
-          dayData[`bot_${botId}`] = null;
-        }
-      });
+  //       // For days up to today, plot the data (or 0 if no data exists)
+  //       if (index <= today) {
+  //         const botDayData = trend.data.find((d: any) => d.day === day);
+  //         dayData[`bot_${botId}`] = botDayData ? botDayData.conversations : 0;
+  //       } else {
+  //         // For future days, set the value to null (no plotting)
+  //         dayData[`bot_${botId}`] = null;
+  //       }
+  //     });
 
-      graphData.push(dayData);
-    });
+  //     graphData.push(dayData);
+  //   });
 
-    return graphData;
-  };
+  //   return graphData;
+  // };
 
   // Generate a unique color for each bot
   const generateColors = (count: number) => {
@@ -158,12 +175,31 @@ export const Welcome = () => {
   const renderGraph = () => {
     const transformedData = transformDataForGraph(conversationTrends);
     const colors = generateColors(conversationTrends.length);
+    // Example insights (You can generate these dynamically based on data)
+    const insights = [
+      "High activity during business hours suggests peak chatbot usage times.",
+      "Low interaction periods indicate potential opportunities for engagement strategies.",
+      "A spike in interactions may correlate with marketing campaigns or promotions.",
+    ];
 
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={transformedData}>
+      <ResponsiveContainer width="100%" height={350}>
+        <LineChart
+          data={transformedData}
+          margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
+        >
           <XAxis dataKey="day" stroke="#888888" />
-          <YAxis stroke="#888888" />
+          <YAxis
+            stroke="#888888"
+            label={{
+              value: "Number of Interactions",
+              angle: -90,
+              position: "insideLeft",
+              dy: 30,
+              x: 13,
+            }}
+          />
+          <CartesianGrid strokeDasharray="3 3" />
           <Tooltip />
           <Legend />
           {conversationTrends.map((trend, index) => (
@@ -172,13 +208,46 @@ export const Welcome = () => {
               type="monotone"
               dataKey={`bot_${trend.bot_id}`}
               stroke={colors[index]}
-              strokeWidth={2}
-              name={getBotNameById(trend.bot_id)}
+              strokeWidth={3}
+              dot={{ r: 5 }}
+              activeDot={{ r: 8 }}
+              name={`Bot ${trend.bot_id}`}
             />
           ))}
         </LineChart>
       </ResponsiveContainer>
     );
+  };
+
+  const transformDataForGraph = (conversationTrends: ConversationTrend[]) => {
+    const last7Days = getLast7Days(); // Get the last 7 days array
+    const transformedData = last7Days.map((day) => {
+      const dayData: Record<string, number | string> = { day };
+
+      conversationTrends.forEach((trend) => {
+        const botKey = `bot_${trend.bot_id}`; // Store computed key in a variable
+        const botData = trend.data.find((d) => d.day === day);
+        dayData[botKey] = botData ? botData.conversations : 0; // Default to 0 if no data
+      });
+
+      return dayData;
+    });
+
+    return transformedData;
+  };
+
+  const getLast7Days = () => {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const today = new Date();
+    const last7Days = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date();
+      day.setDate(today.getDate() - i);
+      last7Days.push(days[day.getDay()]); // Get weekday name
+    }
+
+    return last7Days;
   };
 
   if (hasBots === null) {
@@ -308,20 +377,39 @@ export const Welcome = () => {
               </button>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+              <div className="col-span-2 text-center text-sm font-medium text-gray-600 dark:text-gray-300">
+                📅 Today's Metrics
+              </div>
+              <div
+                className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3"
+                title="Total number of interactions for today"
+              >
                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                  Conversations
+                  Interactions
                 </div>
                 <div className="text-xl font-semibold text-gray-900 dark:text-white">
-                  0
+                  {bot.conversations}
                 </div>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+              <div
+                className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3"
+                title="How many likes and dislikes did the bot receive."
+              >
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                   Satisfaction
                 </div>
                 <div className="text-xl font-semibold text-gray-900 dark:text-white">
-                  0
+                  <span className="text-sm">
+                    <span className="text-green-500">
+                      👍 {bot.satisfaction.likes}
+                    </span>
+                    <span className="mx-1 text-gray-300 dark:text-gray-500">
+                      |
+                    </span>
+                    <span className="text-red-500">
+                      👎 {bot.satisfaction.dislikes}
+                    </span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -331,16 +419,33 @@ export const Welcome = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          {/* <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+            This graph displays the number of interactions users had with the
+            chatbot. An interaction is counted each time a user sends a message.
+            The session ends when the user becomes inactive or leaves the chat.
+          </p> */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Conversation Trends
+              Chatbot Interaction Trends
             </h2>
-            <TrendingUp className="w-5 h-5 text-blue-500" />
+            {/* Info Tooltip */}
+            <div className="relative group">
+              <span className="text-gray-500 hover:text-blue-500 cursor-pointer">
+                ℹ️
+              </span>
+              <div className="absolute left-0 top-7 w-64 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg">
+                This graph shows the number of chatbot interaction last seven
+                days. Each interaction starts when a user sends a message and
+                ends when they become inactive or leave the session.
+              </div>
+            </div>
+
+            <TrendingUp className="w-5 h-5 text-blue-500 ml-auto mr-4" />
           </div>
-          <div className="h-64">{renderGraph()}</div>
+          <div className="h-96 overflow-hidden">{renderGraph()}</div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        {/* <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Quick Actions
           </h2>
@@ -369,7 +474,7 @@ export const Welcome = () => {
               </button>
             ))}
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );
