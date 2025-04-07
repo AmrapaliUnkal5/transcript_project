@@ -297,7 +297,7 @@ export const Settings = () => {
                 name="name"
                 value={settings.name}
                 onChange={handleInputChange}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             <div>
@@ -309,7 +309,7 @@ export const Settings = () => {
                 name="email"
                 value={settings.email}
                 disabled
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             {/* Phone Number */}
@@ -324,7 +324,7 @@ export const Settings = () => {
                 inputMode="numeric"
                 onChange={handleInputChange}
                 value={settings.phone_no || ""}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             {/* Company Name */}
@@ -337,7 +337,7 @@ export const Settings = () => {
                 name="company_name"
                 value={settings.company_name || ""}
                 onChange={handleInputChange}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             {/* Alternate Address Field */}
@@ -350,7 +350,7 @@ export const Settings = () => {
                 name="communication_email"
                 value={settings.communication_email}
                 onChange={handleInputChange}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
               />
               {errors.communication_email && (
                 <p className="text-red-500 text-sm mt-1">

@@ -214,7 +214,8 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Import Videos from YouTube</h2>
+     <h2 className="text-lg font-semibold text-white">Import Videos from YouTube</h2>
+
       <div className="flex gap-2">
         <input
           type="text"
