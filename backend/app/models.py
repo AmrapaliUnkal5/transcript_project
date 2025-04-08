@@ -1,9 +1,11 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime, UniqueConstraint, Enum, DECIMAL
+from typing import Optional
+from sqlalchemy import BigInteger, Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime, UniqueConstraint, Enum, DECIMAL
 from app.database import Base
 from pydantic import BaseModel
 from datetime import datetime
 import enum 
+from sqlalchemy.orm import relationship
 
 
 #Base = declarative_base()
@@ -22,11 +24,44 @@ class User(Base):
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
     phone_no = Column(String, nullable=True)  # Optional phone number
     company_name = Column(String, nullable=True)  # Optional company name
+    total_words_used = Column(Integer, default=0)  
     communication_email = Column(String, nullable=True)  # New Field Optional
+    
+    # Add relationships for team membership
+    owned_teams = relationship("TeamMember", foreign_keys="TeamMember.owner_id", back_populates="owner", cascade="all, delete-orphan")
+    team_memberships = relationship("TeamMember", foreign_keys="TeamMember.member_id", back_populates="member", cascade="all, delete-orphan")
 
 # Model for the token
 class TokenPayload(BaseModel):
     credential: str
+
+# Define permission levels for team members
+class TeamMemberRole(enum.Enum):
+    ADMIN = "admin"       # Can manage team members and all bots
+    EDITOR = "editor"     # Can edit bot settings, training data, etc.
+    VIEWER = "viewer"     # Can only view bots and analytics
+
+# Team member model to track user relationships
+class TeamMember(Base):
+    __tablename__ = "teammembers"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    member_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(Enum(TeamMemberRole), nullable=False, default=TeamMemberRole.VIEWER)
+    invitation_status = Column(String(20), nullable=False, default="pending")  # pending, accepted, declined
+    invitation_token = Column(String(255), nullable=True)
+    invitation_sent_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+    
+    # Define relationships
+    owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_teams")
+    member = relationship("User", foreign_keys=[member_id], back_populates="team_memberships")
+    
+    # Ensure unique owner-member combinations
+    __table_args__ = (
+        UniqueConstraint('owner_id', 'member_id', name='unique_team_member'),
+    )
 
 class Bot(Base):
     __tablename__ = "bots"
@@ -44,10 +79,18 @@ class Bot(Base):
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp(), nullable=True)
     bot_color = Column(String, nullable=True)
     user_color = Column(String, nullable=True)
-    appearance = Column(Text, nullable=True)  # New column added
-    temperature = Column(Float, nullable=True)  # New column added
+    appearance = Column(Text, nullable=True)  
+    temperature = Column(Float, nullable=True)  
     status= Column(String, nullable=True)
+    word_count = Column(Integer, default=0)
     external_knowledge = Column(Boolean, nullable=False, server_default='false')
+    embedding_model_id = Column(Integer, ForeignKey("embedding_models.id"), nullable=True)
+    llm_model_id = Column(Integer, ForeignKey("llm_models.id"), nullable=True)
+
+    # Add relationships
+    embedding_model = relationship("EmbeddingModel", back_populates="bots")
+    llm_model = relationship("LLMModel", back_populates="bots")
+    files = relationship("File", back_populates="bot", cascade="all, delete-orphan")
 
 class File(Base):
     __tablename__ = "files"
@@ -61,7 +104,14 @@ class File(Base):
     file_size = Column(Text, nullable=True)
     unique_file_name = Column(Text, nullable=True)
     word_count = Column(Integer) 
-    character_count = Column(Integer) 
+    character_count = Column(Integer)
+    embedding_model_id = Column(Integer, ForeignKey("embedding_models.id"), nullable=True)
+    embedding_status = Column(String(50), default="pending", nullable=True)  # pending, completed, failed
+    last_embedded = Column(TIMESTAMP, nullable=True)
+
+    # Relationships
+    bot = relationship("Bot", back_populates="files")
+    embedding_model = relationship("EmbeddingModel", back_populates="files")
 
 class Interaction(Base):
     __tablename__ = "interactions"
@@ -290,3 +340,43 @@ class UserSubscription(Base):
     auto_renew = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+    
+class EmbeddingModel(Base):
+    __tablename__ = "embedding_models"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), unique=True, nullable=False)  # e.g., "openai_ada"
+    provider = Column(String(100))
+    endpoint = Column(Text, nullable=True)
+    dimension = Column(Integer, nullable=True)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+
+    # Add relationships
+    bots = relationship("Bot", back_populates="embedding_model")
+    files = relationship("File", back_populates="embedding_model")
+    
+    def __str__(self):
+        """Return a string representation of the model for display in UI"""
+        return f"{self.name} ({self.provider})"
+
+class LLMModel(Base):
+    __tablename__ = "llm_models"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), unique=True, nullable=False)  # e.g., "gpt-4"
+    provider = Column(String(100))
+    endpoint = Column(Text, nullable=True)
+    model_type = Column(String(100), nullable=True)  # chat/completion
+    pricing_per_1k_tokens = Column(Numeric(10, 4), nullable=True)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+
+    # Add relationship
+    bots = relationship("Bot", back_populates="llm_model")
+    
+    def __str__(self):
+        """Return a string representation of the model for display in UI"""
+        return f"{self.name} ({self.provider})"
+
+

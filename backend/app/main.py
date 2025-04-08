@@ -47,9 +47,11 @@ from app.analytics import router as analytics_router
 from app.submit_issue_request import router as submit_issue_request
 from app.word_count_validation import router as word_count_validation
 from app.total_conversations_analytics import router as weekly_Conversation
+from app.team_management import router as team_management_router
+from app.fetchsubscripitonplans import router as fetchsubscriptionplans_router
 
 
-app = FastAPI()
+app = FastAPI(debug=True)
 
 app.mount("/uploads_bot", StaticFiles(directory="uploads_bot"), name="uploads_bot")
 app.include_router(botsettings_router)
@@ -66,6 +68,8 @@ app.include_router(analytics_router)
 app.include_router(submit_issue_request)
 app.include_router(word_count_validation)
 app.include_router(weekly_Conversation)
+app.include_router(team_management_router)
+app.include_router(fetchsubscriptionplans_router)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
  
@@ -82,11 +86,8 @@ app.add_middleware(RoleBasedAccessMiddleware)
 templates = Jinja2Templates(directory="app/templates")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# # Initialize Admin Panel
+# Initialize Admin Panel
 init(app)
-
-# Create tables
-Base.metadata.create_all(bind=engine)
 
 #middleware configuration
 @app.middleware("http")
@@ -171,7 +172,10 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
                   "user_id": db_user.user_id,
                   "name": db_user.name,  
                   "company_name": db_user.company_name,  
-                  "phone_no": db_user.phone_no,}
+                  "phone_no": db_user.phone_no,
+                  "subscription_plan_id": subscription_plan_id,
+                  "total_words_used":db_user.total_words_used
+                  }
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     
     # Return token and user info
@@ -186,7 +190,8 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
             "user_id":db_user.user_id,
             "avatar_url":db_user.avatar_url,
             "phone_no":db_user.phone_no,
-            "subscription_plan_id":subscription_plan_id
+            "subscription_plan_id":subscription_plan_id,
+            "total_words_used":db_user.total_words_used
         }
     }
 
@@ -306,8 +311,24 @@ def login_for_access_token(
         raise HTTPException(status_code=401, detail="Incorrect password")
 
     print("User authenticated successfully!")
-    access_token = create_access_token(data={"sub": user.email,"role": user.role, "user_id":user.user_id,"name": user.name,
-        "company_name": user.company_name, "phone_no": user.phone_no})
+
+    user_subscription = db.query(UserSubscription).filter(
+        UserSubscription.user_id == user.user_id,
+        UserSubscription.status == "active"
+    ).order_by(UserSubscription.payment_date.desc()).first()
+    
+    subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
+
+    access_token = create_access_token(data={
+        "sub": user.email,
+        "role": user.role, 
+        "user_id": user.user_id,
+        "name": user.name,
+        "company_name": user.company_name, 
+        "phone_no": user.phone_no,
+        "subscription_plan_id": subscription_plan_id,
+        "total_words_used":user.total_words_used
+    })
     return {"access_token": access_token, "token_type": "bearer"}
 
 #API's to check RBAC Functionality

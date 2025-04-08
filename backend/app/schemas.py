@@ -27,6 +27,8 @@ class UserOut(BaseModel):
     company_name: Optional[str] = None
     phone_no: Optional[str] = None  # Add this field
     communication_email: Optional[str] = None  # Add this field
+    total_words_used: Optional[int] = 0  
+    subscription_plan_id: Optional[int] = None 
 
     class Config:
         from_attributes = True  # This replaces 'orm_mode'
@@ -44,6 +46,49 @@ class RegisterResponse(BaseModel):
     class Config:
         from_attributes = True  # This replaces 'orm_mode' for working with SQLAlchemy models
 
+# Team member schemas
+class TeamMemberRole(str, Enum):
+    ADMIN = "admin"
+    EDITOR = "editor"
+    VIEWER = "viewer"
+
+class TeamMemberInviteRequest(BaseModel):
+    email: EmailStr
+    role: TeamMemberRole
+
+class TeamMemberBase(BaseModel):
+    owner_id: int
+    member_id: int
+    role: TeamMemberRole
+    invitation_status: str
+
+class TeamMemberCreate(BaseModel):
+    member_email: EmailStr
+    role: TeamMemberRole
+
+class TeamMemberUpdate(BaseModel):
+    role: Optional[TeamMemberRole] = None
+    invitation_status: Optional[str] = None
+
+class TeamMemberResponse(TeamMemberBase):
+    id: int
+    invitation_sent_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+class TeamMemberListItem(BaseModel):
+    id: int
+    member_id: int
+    member_name: str
+    member_email: str
+    role: str
+    invitation_status: str
+    invitation_sent_at: datetime
+    
+    class Config:
+        from_attributes = True
 
 # Model for login request
 class LoginRequest(BaseModel):
@@ -65,6 +110,8 @@ class BotBase(BaseModel):
     appearance: Optional[str] = None
     temperature: Optional[float] = None
     status: Optional[str]=None
+    embedding_model_id: Optional[int] = None
+    llm_model_id: Optional[int] = None
 
 class BotCreate(BotBase):
     pass  
@@ -114,6 +161,9 @@ class FileBase(BaseModel):
     unique_file_name: str
     word_count: Optional[int] = None
     character_count: Optional[int] = None
+    embedding_model_id: Optional[int] = None
+    embedding_status: Optional[str] = "pending"
+    last_embedded: Optional[datetime] = None
 
 class FileCreate(FileBase):
     pass
@@ -192,4 +242,62 @@ class ScrapeRequest(BaseModel):
 class PageData(BaseModel):
     url: str
     title: str | None  # Allowing None if the title is missing
- 
+
+class EmbeddingModelBase(BaseModel):
+    name: str
+    provider: Optional[str] = None
+    endpoint: Optional[str] = None
+    dimension: Optional[int] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = True
+
+class EmbeddingModelCreate(EmbeddingModelBase):
+    pass
+
+class EmbeddingModelOut(EmbeddingModelBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+
+# LLMModel Schemas
+class LLMModelBase(BaseModel):
+    name: str
+    provider: Optional[str] = None
+    endpoint: Optional[str] = None
+    model_type: Optional[str] = None
+    pricing_per_1k_tokens: Optional[float] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = True
+
+class LLMModelCreate(LLMModelBase):
+    pass
+
+class LLMModelOut(LLMModelBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+class SubscriptionPlanSchema(BaseModel):
+    id: int
+    name: str
+    price: Optional[float]  # Let FastAPI return it as float
+    word_count_limit: Optional[int]
+    storage_limit: Optional[str]
+    chatbot_limit: Optional[int]
+    website_crawl_limit: Optional[str]
+    youtube_grounding: Optional[bool]
+    message_limit: Optional[int]
+    multi_website_deployment: Optional[bool]
+    ui_customization: Optional[str]
+    analytics: Optional[str]
+    admin_user_limit: Optional[str]
+    support_level: Optional[str]
+    internal_team_bots: Optional[bool]
+    custom_ai_applications: Optional[bool]
+    custom_agents: Optional[bool]
+    process_automation: Optional[bool]
+    custom_integrations: Optional[bool]
+
+    # class Config:
+    #     orm_mode = True  # Enables auto-conversion from SQLAlchemy models

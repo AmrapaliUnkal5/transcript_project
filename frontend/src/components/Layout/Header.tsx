@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Bell, Sun, Moon, Home, CreditCard, Settings, LogOut,HelpCircle } from "lucide-react";
+import {
+  Bell,
+  Sun,
+  Moon,
+  Home,
+  CreditCard,
+  Settings,
+  LogOut,
+  HelpCircle,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 interface HeaderProps {
   user: {
@@ -11,10 +21,17 @@ interface HeaderProps {
   toggleTheme: () => void;
 }
 
-export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
+export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
+  const { user: authUser } = useAuth(); // Get user and logout from context
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null); // Ref for dropdown
+
+  // Transform the authUser to match your existing user prop structure
+  const user = {
+    name: authUser?.name || "",
+    avatar: authUser?.avatar_url || "default-avatar-url",
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -25,7 +42,10 @@ export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setDropdownOpen(false);
       }
     };
@@ -134,10 +154,12 @@ export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
           >
             <img
               src={user.avatar}
-              alt={user.name}
+              alt={user?.name || "User"}
               className="w-8 h-8 rounded-full border border-gray-300 dark:border-white cursor-pointer"
             />
-            <span className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-white">
+              {user?.name || "User"}
+            </span>
           </button>
 
           {/* Dropdown Content */}
@@ -150,8 +172,13 @@ export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                <CreditCard color={isDark ? "white" : "black"} className="w-4 h-4" />
-                <span className="text-sm font-medium text-gray-900 dark:text-white">Subscription</span>
+                <CreditCard
+                  color={isDark ? "white" : "black"}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  Subscription
+                </span>
               </button>
               <button
                 onClick={() => {
@@ -160,8 +187,13 @@ export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                <Settings color={isDark ? "white" : "black"} className="w-4 h-4" />
-                <span className="text-sm font-medium text-gray-900 dark:text-white">My Account</span>
+                <Settings
+                  color={isDark ? "white" : "black"}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  My Account
+                </span>
               </button>
               <button
                 onClick={() => {
@@ -170,8 +202,13 @@ export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                <LogOut color={isDark ? "white" : "black"} className="w-4 h-4" />
-                <span className="text-sm font-medium text-gray-900 dark:text-white">Logout</span>
+                <LogOut
+                  color={isDark ? "white" : "black"}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  Logout
+                </span>
               </button>
             </div>
           )}
@@ -180,5 +217,3 @@ export const Header = ({ user, isDark, toggleTheme }: HeaderProps) => {
     </header>
   );
 };
-
-

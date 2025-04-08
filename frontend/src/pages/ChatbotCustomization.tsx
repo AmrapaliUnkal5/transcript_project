@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Type, Move, MessageSquare, Palette, Sliders } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { BotSettings } from "../types";
@@ -105,6 +105,72 @@ export const ChatbotCustomization = () => {
   );
   const [inputMessage, setInputMessage] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false); // Separate loader for chat preview
+  const [isBotTyping, setIsBotTyping] = useState(false); // New state for typing animation
+  const [currentBotMessage, setCurrentBotMessage] = useState(""); // State to track partially typed bot message
+  const [fullBotMessage, setFullBotMessage] = useState(""); // State to store the complete bot message
+  const [lastActivityTime, setLastActivityTime] = useState<Date | null>(null);
+  const idleTimeoutRef = useRef<number | null>(null);
+  const sessionExpiryRef = useRef<number | null>(null);
+  const interactionIdRef = useRef(interactionId); // Store latest value
+
+  useEffect(() => {
+    interactionIdRef.current = interactionId; // Update ref whenever interactionId changes
+  }, [interactionId]);
+
+  useEffect(() => {
+    console.log("Unload move to another page");
+    console.log("interactionId", interactionIdRef.current);
+    // Attach event listeners
+    // Attach event listeners
+    const handleBeforeUnload = async () => {
+      console.log("beforeunload event triggered");
+      console.log("interactionId", interactionIdRef.current);
+      await endChatSession(); // Call the session end function
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      endChatSession(); // Ensure session ends when unmounting
+    };
+  }, []);
+
+  const handleUserActivity = () => {
+    setLastActivityTime(new Date()); // Update last activity timestamp
+    console.log("lastActivityTime", lastActivityTime);
+    if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
+
+    // Set idle timeout (1 hour)
+    idleTimeoutRef.current = setTimeout(() => {
+      console.log("User inactive for 1 hour. Ending session.");
+      endChatSession();
+    }, 60 * 60 * 1000); // 1 hour
+  };
+
+  const endChatSession = async () => {
+    console.log("endChatSession");
+    console.log("interactionId", interactionIdRef.current);
+    if (!interactionIdRef.current) return;
+    try {
+      console.log(
+        `Ending chat session ${
+          interactionIdRef.current
+        } at ${new Date().toISOString()}`
+      );
+
+      // Call API to end session in the backend
+      await authApi.endInteraction(interactionIdRef.current);
+
+      console.log("Session successfully ended in the database");
+    } catch (error) {
+      console.error("Failed to end session:", error);
+    }
+    setInteractionId(null);
+    setMessages([]);
+    if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
+    if (sessionExpiryRef.current) clearTimeout(sessionExpiryRef.current);
+  };
 
   if (!selectedBot) {
     return <div className="text-center text-gray-500 dark:text-white">No bot selected.</div>;
@@ -132,20 +198,30 @@ export const ChatbotCustomization = () => {
     console.log("slelelct bit", selectedBot);
 
     if (selectedBot) {
-      startChatSession();
+      //startChatSession();
     }
   }, [selectedBot]);
 
   /** ✅ Start Chat Session */
-  const startChatSession = async () => {
-    if (!selectedBot || !userId) return;
+  const startChatSession = async (): Promise<number | null> => {
+    if (!selectedBot || !userId || interactionId) return interactionId ?? null;
     setPreviewLoading(true); // ✅ Show "..." in preview only
     try {
       const data = await authApi.startChat(selectedBot.id, userId);
       setInteractionId(data.interaction_id);
-      fetchChatMessages(data.interaction_id);
+      //fetchChatMessages(data.interaction_id);
+      console.log("interactionid - startChatSession", interactionId);
+      setLastActivityTime(new Date()); // Record session start time
+
+      // Expire session after 6 hours
+      sessionExpiryRef.current = setTimeout(() => {
+        console.log("Session expired after 6 hours.");
+        endChatSession();
+      }, 6 * 60 * 60 * 1000); // 6 hours
+      return data.interaction_id ?? null; // Ensure correct type
     } catch (error) {
       console.error("Failed to start chat session:", error);
+      return null;
     } finally {
       setPreviewLoading(false); // ✅ Hide "..." after fetching messages
     }
@@ -177,7 +253,24 @@ export const ChatbotCustomization = () => {
   /** ✅ Send Message */
   const sendMessage = async () => {
     console.log("sendmessage");
-    if (!interactionId || !inputMessage.trim()) return;
+    if (!inputMessage.trim()) return;
+    // ✅ Ensure an interaction session is started before sending the first message
+    let sessionId: number | null = interactionId ?? null; // Ensure it's a number or null
+    console.log("interactionid - sendMessage", interactionId);
+
+    if (!sessionId) {
+      sessionId = await startChatSession(); // ✅ Get interaction ID from function return
+      setInteractionId(sessionId);
+    }
+
+    if (!sessionId) {
+      console.error(
+        "Interaction ID is still null after starting chat session."
+      );
+      return;
+    }
+
+    handleUserActivity(); // Reset idle timer on user activity
 
     // ✅ Immediately add user message to UI
     const newMessages = [...messages, { sender: "user", text: inputMessage }];
@@ -186,20 +279,100 @@ export const ChatbotCustomization = () => {
     setPreviewLoading(true); // Use global loading state
 
     try {
-      const data = await authApi.sendMessage(
-        interactionId,
-        "user",
-        inputMessage
-      );
+      const data = await authApi.sendMessage(sessionId, "user", inputMessage);
 
-      // ✅ Add bot response to UI
-      const botMessage = { sender: "bot", text: data.message };
-      setMessages([...newMessages, botMessage]);
+      // Add a thinking delay before typing animation begins
+      const thinkingDelay = Math.random() * 1000 + 500; // Random delay between 500-1500ms
+
+      // Show thinking indicator during the delay
+      setTimeout(() => {
+        // Set the bot typing state and reset the current message
+        setIsBotTyping(true);
+        setCurrentBotMessage("");
+        setFullBotMessage(data.message);
+
+        // Simulate typing animation with variable speed
+        let charIndex = 0;
+        const baseTypingSpeed = 25; // base milliseconds per character
+
+        const typingInterval = setInterval(() => {
+          if (charIndex < data.message.length) {
+            // Add some randomness to typing speed for realism
+            const randomVariation = Math.random() * 30 - 15; // -15 to +15ms variation
+            const adjustedSpeed = baseTypingSpeed + randomVariation;
+
+            setCurrentBotMessage(
+              (prevText) => prevText + data.message.charAt(charIndex)
+            );
+            charIndex++;
+
+            // Occasionally add a longer pause after punctuation
+            if (
+              [".", "!", "?", ",", ":"].includes(
+                data.message.charAt(charIndex - 1)
+              )
+            ) {
+              clearInterval(typingInterval);
+              setTimeout(() => {
+                startTypingAnimation(charIndex, data.message, newMessages);
+              }, 200 + Math.random() * 200); // 200-400ms pause
+            }
+          } else {
+            clearInterval(typingInterval);
+            setIsBotTyping(false);
+            // Add the complete bot message to the messages array
+            setMessages([
+              ...newMessages,
+              { sender: "bot", text: data.message },
+            ]);
+          }
+        }, baseTypingSpeed);
+      }, thinkingDelay);
     } catch (error) {
       console.error("Failed to send message:", error);
+      setIsBotTyping(false);
     } finally {
-      setPreviewLoading(false); // ✅ Hide loader after bot responds
+      setPreviewLoading(false); // Hide loader after API call
     }
+  };
+
+  // Helper function to continue typing animation from a specific index
+  const startTypingAnimation = (
+    startIndex: number,
+    fullMessage: string,
+    newMessages: Array<{ sender: string; text: string }>
+  ) => {
+    let charIndex = startIndex;
+    const baseTypingSpeed = 25;
+
+    const typingInterval = setInterval(() => {
+      if (charIndex < fullMessage.length) {
+        const randomVariation = Math.random() * 30 - 15;
+
+        setCurrentBotMessage(
+          (prevText) => prevText + fullMessage.charAt(charIndex)
+        );
+        charIndex++;
+
+        // Continue handling punctuation pauses
+        if (
+          [".", "!", "?", ",", ":"].includes(
+            fullMessage.charAt(charIndex - 1)
+          ) &&
+          charIndex < fullMessage.length
+        ) {
+          clearInterval(typingInterval);
+          setTimeout(() => {
+            startTypingAnimation(charIndex, fullMessage, newMessages);
+          }, 200 + Math.random() * 200);
+        }
+      } else {
+        clearInterval(typingInterval);
+        setIsBotTyping(false);
+        // Add the complete bot message to the messages array
+        setMessages([...newMessages, { sender: "bot", text: fullMessage }]);
+      }
+    }, baseTypingSpeed);
   };
 
   //console.log("User ID in ChatbotCustomization:", userId);
@@ -703,9 +876,38 @@ export const ChatbotCustomization = () => {
               </p>
             )}
 
-            {previewLoading && (
+            {/* Typing indicator or loading */}
+            {previewLoading && !isBotTyping && (
               <div className="mr-auto bg-gray-300 text-gray-900 p-3 rounded-lg max-w-[80%]">
                 <span className="animate-pulse">...</span>
+              </div>
+            )}
+
+            {/* Typing animation */}
+            {isBotTyping && (
+              <div
+                className="mr-auto rounded-lg max-w-[80%] p-3"
+                style={{
+                  backgroundColor: settings.botColor,
+                  fontSize: settings.fontSize,
+                  fontFamily: settings.fontStyle,
+                }}
+              >
+                {currentBotMessage}
+                <span className="inline-flex items-center ml-1">
+                  <span
+                    className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce"
+                    style={{ animationDelay: "0ms" }}
+                  ></span>
+                  <span
+                    className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce"
+                    style={{ animationDelay: "200ms" }}
+                  ></span>
+                  <span
+                    className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce"
+                    style={{ animationDelay: "400ms" }}
+                  ></span>
+                </span>
               </div>
             )}
           </div>

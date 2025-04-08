@@ -12,11 +12,46 @@ export interface ChatMetrics {
  
 }
 
+// Team management types
+export enum TeamMemberRole {
+  ADMIN = "admin",
+  EDITOR = "editor",
+  VIEWER = "viewer"
+}
+
+export interface TeamMember {
+  id: number;
+  member_id: number;
+  member_name: string;
+  member_email: string;
+  role: TeamMemberRole;
+  invitation_status: string;
+  invitation_sent_at: string;
+}
+
+export interface TeamInvitation {
+  id: number;
+  owner_id: number;
+  owner_name: string;
+  owner_email: string;
+  role: TeamMemberRole;
+  invitation_sent_at: string;
+  invitation_token: string;
+}
+
+export interface TeamOwner {
+  owner_id: number;
+  owner_name: string;
+  owner_email: string;
+  role: TeamMemberRole;
+}
+
 export interface FileUploadInterface {
   id: string;
   name: string;
   type: string;
   size: number;
+  displaySize: string;
   uploadDate: Date;
   url: string;
   file?: File;
@@ -81,3 +116,68 @@ export interface DemoRequestData {
 export interface GetWeeklyConversationsParams {
   bot_id: number;
   }
+
+
+  export interface SubscriptionPlan {
+    id: number;
+    name: string;
+    wordCountLimit: number;
+    fileSizeLimitMB: number;
+    maxFiles: number;
+    maxWebPages: number;
+  }
+  
+  export const SUBSCRIPTION_PLANS: Record<number, SubscriptionPlan> = {
+    1: { // Explorer Plan (Free)
+      id: 1,
+      name: "Explorer",
+      wordCountLimit: 50000,
+      fileSizeLimitMB: 20,
+      maxFiles: 10,
+      maxWebPages: 1
+    },
+    2: { // Starter Plan
+      id: 2,
+      name: "Starter",
+      wordCountLimit: 1000000,
+      fileSizeLimitMB: 500,
+      maxFiles: 50,
+      maxWebPages: 1
+    },
+    3: { // Growth Plan
+      id: 3,
+      name: "Growth",
+      wordCountLimit: 2000000,
+      fileSizeLimitMB: 1024,
+      maxFiles: 100,
+      maxWebPages: 5
+    },
+    4: { // Professional Plan
+      id: 4,
+      name: "Professional",
+      wordCountLimit: 3000000,
+      fileSizeLimitMB: 2048,
+      maxFiles: 200,
+      maxWebPages: 10
+    }
+  };
+  
+  export const DEFAULT_PLAN_ID = 1;
+  
+  export const getPlanById = (planId: number): SubscriptionPlan => {
+    return SUBSCRIPTION_PLANS[planId] || SUBSCRIPTION_PLANS[DEFAULT_PLAN_ID];
+  };
+
+  export interface UserUsage {
+    globalWordsUsed: number;
+    currentSessionWords: number;
+    planLimit: number;
+    remainingWords:number;
+  }
+  
+  export interface UserUsageResponse {
+    totalWordsUsed: number;  
+    planLimit: number;
+    botWords?: number;      
+  }
+  
