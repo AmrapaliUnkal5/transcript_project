@@ -10,6 +10,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { useBot } from "../context/BotContext";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
+import { ThumbsUp, ThumbsDown } from "lucide-react";
 
 const saveBotSettings = async (
   settings: BotSettings,
@@ -100,9 +101,9 @@ export const ChatbotCustomization = () => {
   }
 
   const [interactionId, setInteractionId] = useState<number | null>(null);
-  const [messages, setMessages] = useState<{ sender: string; text: string }[]>(
-    []
-  );
+  const [messages, setMessages] = useState<
+    { sender: string; text: string; reaction?: "like" | "dislike" }[]
+  >([]);
   const [inputMessage, setInputMessage] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false); // Separate loader for chat preview
   const [isBotTyping, setIsBotTyping] = useState(false); // New state for typing animation
@@ -112,6 +113,8 @@ export const ChatbotCustomization = () => {
   const idleTimeoutRef = useRef<number | null>(null);
   const sessionExpiryRef = useRef<number | null>(null);
   const interactionIdRef = useRef(interactionId); // Store latest value
+  const [reactionGiven, setReactionGiven] = useState(false); //store the reaction
+  const [reaction, setReaction] = useState<"like" | "dislike" | null>(null);
 
   useEffect(() => {
     interactionIdRef.current = interactionId; // Update ref whenever interactionId changes
@@ -146,6 +149,26 @@ export const ChatbotCustomization = () => {
       console.log("User inactive for 1 hour. Ending session.");
       endChatSession();
     }, 60 * 60 * 1000); // 1 hour
+  };
+
+  const handleReaction = async (type: "like" | "dislike", index: number) => {
+    if (!interactionId || !userId || !botId) return;
+
+    try {
+      await authApi.submitReaction({
+        interaction_id: interactionId,
+        session_id: `${userId}-${index}`,
+        bot_id: botId,
+        reaction: type,
+      });
+
+      // Update reaction for THIS message only
+      setMessages((prev) =>
+        prev.map((msg, i) => (i === index ? { ...msg, reaction: type } : msg))
+      );
+    } catch (error) {
+      console.error("Failed to submit reaction:", error);
+    }
   };
 
   const endChatSession = async () => {
@@ -218,7 +241,7 @@ export const ChatbotCustomization = () => {
         console.log("Session expired after 6 hours.");
         endChatSession();
       }, 6 * 60 * 60 * 1000); // 6 hours
-      return data.interaction_id ?? null; // Ensure correct type
+      return data.interaction_id; // Ensure correct type
     } catch (error) {
       console.error("Failed to start chat session:", error);
       return null;
@@ -849,6 +872,7 @@ export const ChatbotCustomization = () => {
           {/* Chat Window */}
           <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 h-80 overflow-y-auto flex flex-col">
             {/* Chat Messages */}
+            {/* 🔽 START: Updated Chat Messages with Reactions */}
             {messages.length > 0 ? (
               messages.map((msg, index) => (
                 <div
@@ -867,7 +891,37 @@ export const ChatbotCustomization = () => {
                     fontFamily: settings.fontStyle,
                   }}
                 >
-                  {msg.text}
+                  <div>{msg.text}</div>
+
+                  {/* 👍👎 Reactions - only show for bot messages */}
+                  {msg.sender === "bot" && (
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => handleReaction("like", index)} // Pass index
+                        className={`p-1 rounded-full transition-colors ${
+                          msg.reaction === "like"
+                            ? "text-blue-500 fill-blue-500"
+                            : "text-gray-500 hover:text-gray-700"
+                        }`}
+                        disabled={msg.reaction !== undefined} // Disable if reacted
+                      >
+                        <ThumbsUp className="w-4 h-4" />
+                      </button>
+                      {/* Dislike Button */}
+                      {/* Dislike Button */}
+                      <button
+                        onClick={() => handleReaction("dislike", index)} // Pass index
+                        className={`p-1 rounded-full transition-colors ${
+                          msg.reaction === "dislike"
+                            ? "text-red-500 fill-red-500"
+                            : "text-gray-500 hover:text-gray-700"
+                        }`}
+                        disabled={msg.reaction !== undefined} // Disable if reacted
+                      >
+                        <ThumbsDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))
             ) : (
@@ -875,6 +929,7 @@ export const ChatbotCustomization = () => {
                 Start chatting with the bot!
               </p>
             )}
+            {/* 🔼 END: Updated Chat Messages with Reactions */}
 
             {/* Typing indicator or loading */}
             {previewLoading && !isBotTyping && (

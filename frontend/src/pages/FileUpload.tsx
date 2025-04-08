@@ -1,6 +1,13 @@
 import React, { useCallback, useState, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, File as FileIcon, Trash2, Eye, Loader2, Lock, } from "lucide-react";
+import {
+  Upload,
+  File as FileIcon,
+  Trash2,
+  Eye,
+  Loader2,
+  Lock,
+} from "lucide-react";
 import type { FileUploadInterface } from "../types";
 import { authApi } from "../services/api";
 import { ApiFile } from "../types";
@@ -14,7 +21,7 @@ import Loader from "../components/Loader";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import SubscriptionScrape from "./SubscriptionScrape";
 import { getPlanById } from "../types/index";
-import {UserUsageResponse } from "../types/index";
+import { UserUsageResponse } from "../types/index";
 
 const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
   return (
@@ -25,9 +32,9 @@ const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
           YouTube Videos Locked
         </h3>
         <p className="text-gray-600 mb-4 text-center text-sm">
-          To add YouTube videos to your knowledge base, upgrade to our <span className="font-semibold">{requiredPlan} plan.
-            </span>
-            This feature allows your bot to learn from video content.
+          To add YouTube videos to your knowledge base, upgrade to our{" "}
+          <span className="font-semibold">{requiredPlan} plan.</span>
+          This feature allows your bot to learn from video content.
         </p>
         <div className="flex justify-center">
           <a
@@ -63,10 +70,15 @@ export const FileUpload = () => {
     "Getting things ready for you..."
   );
   const [userUsage, setUserUsage] = useState({
-    globalWordsUsed: 0,  
-    currentSessionWords: 0, 
-    planLimit: 0
+    globalWordsUsed: 0,
+    currentSessionWords: 0,
+    planLimit: 0,
   });
+
+  type Video1 = {
+    video_url: string;
+    reason: string;
+  };
 
   const userData = localStorage.getItem("user");
   const user = userData ? JSON.parse(userData) : null;
@@ -75,12 +87,16 @@ export const FileUpload = () => {
   const MAX_WORD_COUNT = userPlan.wordCountLimit;
 
   // Calculate usage metrics
-  const totalWordsUsed = userUsage.globalWordsUsed + userUsage.currentSessionWords;
-  console.log("userUsage.globalWordsUsed=>",userUsage.globalWordsUsed)
-  console.log("userUsage.currentSessionWords=>",userUsage.currentSessionWords)
-  console.log("TotalWordsUsed=>",totalWordsUsed)
+  const totalWordsUsed =
+    userUsage.globalWordsUsed + userUsage.currentSessionWords;
+  console.log("userUsage.globalWordsUsed=>", userUsage.globalWordsUsed);
+  console.log("userUsage.currentSessionWords=>", userUsage.currentSessionWords);
+  console.log("TotalWordsUsed=>", totalWordsUsed);
   const remainingWords = Math.max(0, userUsage.planLimit - totalWordsUsed);
-  const usagePercentage = Math.min(100, (totalWordsUsed / userUsage.planLimit) * 100);
+  const usagePercentage = Math.min(
+    100,
+    (totalWordsUsed / userUsage.planLimit) * 100
+  );
 
   // Calculate total pages
   const totalPages = Math.ceil(youtubeVideos.length / videosPerPage);
@@ -96,7 +112,6 @@ export const FileUpload = () => {
   // Generate page numbers
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
 
-
   // Fetch user usage on component mount
   useEffect(() => {
     const fetchUsage = async () => {
@@ -105,13 +120,25 @@ export const FileUpload = () => {
         setUserUsage({
           globalWordsUsed: apiUsage.totalWordsUsed,
           currentSessionWords: 0,
-          planLimit: apiUsage.planLimit
+          planLimit: apiUsage.planLimit,
         });
       } catch (error) {
         console.error("Failed to fetch user usage", error);
       }
     };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchUsage(); // 👈 Re-fetch usage when tab becomes active
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Initial fetch on mount
     fetchUsage();
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   // Fetch YouTube videos for the selected bot
@@ -170,10 +197,32 @@ export const FileUpload = () => {
             const failedCount = responseyoutube.failed_videos?.length || 0;
 
             if (successCount > 0 && failedCount === 0) {
+              // All successful
               toast.success(`${successCount} video(s) uploaded successfully!`);
-            } else if (successCount >= 0 && failedCount >= 0) {
+            } else if (successCount > 0 && failedCount > 0) {
+              // Some success, some failed
+              const failedDetails = responseyoutube.failed_videos
+                .map(
+                  (video: Video1, index: number) =>
+                    `${index + 1}. ${video.video_url} - ${video.reason}`
+                )
+                .join("\n");
+
+              toast.success(`${successCount} video(s) uploaded successfully!`);
               toast.warning(
-                `${successCount} video(s) uploaded successfully, ${failedCount} failed.`
+                `However, ${failedCount} video(s) failed to upload:\n\n${failedDetails}`
+              );
+            } else if (successCount === 0 && failedCount > 0) {
+              // All failed
+              const failedDetails = responseyoutube.failed_videos
+                .map(
+                  (video: Video1, index: number) =>
+                    `${index + 1}. ${video.video_url} - ${video.reason}`
+                )
+                .join("\n");
+
+              toast.error(
+                `All ${failedCount} video(s) failed to upload:\n\n${failedDetails}`
               );
             }
           } // ✅ Remove processed videos from local storage
@@ -182,14 +231,16 @@ export const FileUpload = () => {
             responseyoutube.stored_videos
           );
           const storedVideos = Array.isArray(responseyoutube.stored_videos)
-            ? responseyoutube.stored_videos.map((video) => video.video_url)
+            ? responseyoutube.stored_videos.map(
+                (video: Video1) => video.video_url
+              )
             : [];
           // ✅ Remove processed videos from local storage
           const remainingVideos = parsedSelectedVideos.filter(
-            (video) => !responseyoutube.stored_videos.includes(video)
+            (video: Video1) => !responseyoutube.stored_videos.includes(video)
           );
           const toshow = allvideosconst.filter(
-            (video) => !storedVideos.includes(video)
+            (video: Video1) => !storedVideos.includes(video)
           );
           localStorage.setItem("youtube_video_urls", JSON.stringify(toshow));
           localStorage.removeItem("selected_videos");
@@ -200,6 +251,12 @@ export const FileUpload = () => {
           fetchYouTubeVideos();
           // ✅ Refresh YouTubeUploader component
           setRefreshKey((prev) => prev + 1);
+          if (selectedBot?.status === "In Progress") {
+            await authApi.updateBotStatusActive(selectedBot.id, {
+              status: "Active",
+              is_active: true,
+            });
+          }
         } catch (error) {
           console.error("Error processing YouTube videos:", error);
           toast.error("Failed to process YouTube videos.");
@@ -308,12 +365,11 @@ export const FileUpload = () => {
       );
 
       setTotalSize(formattedFiles.reduce((acc, file) => acc + file.size, 0));
-      setExistingFiles(formattedFiles);      
+      setExistingFiles(formattedFiles);
     } catch (error) {
       console.error("Failed to fetch files:", error);
     }
   };
-      
 
   useEffect(() => {
     fetchFiles();
@@ -322,7 +378,7 @@ export const FileUpload = () => {
   const processWordCounts = async (filesToProcess: File[]) => {
     const formData = new FormData();
     filesToProcess.forEach((file) => formData.append("files", file));
-    
+
     try {
       const response = await authApi.getWordCount(formData);
       return Array.isArray(response) ? response : [];
@@ -333,7 +389,7 @@ export const FileUpload = () => {
     }
   };
 
-    const parseFileSizeToBytes = (size: string): number => {
+  const parseFileSizeToBytes = (size: string): number => {
     const sizeRegex = /^(\d+(\.\d+)?)\s*(B|KB|MB|GB)$/i;
     const match = size.match(sizeRegex);
 
@@ -372,7 +428,9 @@ export const FileUpload = () => {
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       if (remainingWords <= 0) {
-        toast.error("You've reached your word limit. Please upgrade your plan.");
+        toast.error(
+          "You've reached your word limit. Please upgrade your plan."
+        );
         return;
       }
       setIsProcessingFiles(true);
@@ -384,9 +442,9 @@ export const FileUpload = () => {
 
       if (oversizedFiles.length > 0) {
         toast.error(
-          `Files exceed the ${userPlan.fileSizeLimitMB}MB limit: ${oversizedFiles
-            .map((f) => f.name)
-            .join(", ")}`
+          `Files exceed the ${
+            userPlan.fileSizeLimitMB
+          }MB limit: ${oversizedFiles.map((f) => f.name).join(", ")}`
         );
         setIsProcessingFiles(false);
         return;
@@ -395,14 +453,14 @@ export const FileUpload = () => {
       try {
         // Process word counts for new files
         const counts = await processWordCounts(acceptedFiles);
-        
+
         let newWords = 0;
         const validFiles: FileUploadInterface[] = [];
 
         for (let i = 0; i < acceptedFiles.length; i++) {
           const file = acceptedFiles[i];
           const countData = counts[i];
-          
+
           if (countData.error) {
             console.log(`File ${file.name} has error:`, countData.error);
             toast.error(`${file.name}: ${countData.error}`);
@@ -410,12 +468,12 @@ export const FileUpload = () => {
           }
 
           const fileWords = countData.word_count || 0;
-          
+
           if (totalWordsUsed + fileWords > userUsage.planLimit) {
             toast.error(`Skipped "${file.name}" - would exceed word limit`);
             continue;
           }
-          
+
           validFiles.push({
             id: Math.random().toString(36).substr(2, 9),
             name: file.name,
@@ -428,18 +486,20 @@ export const FileUpload = () => {
             wordCount: fileWords,
             charCount: countData.character_count,
           });
-          
+
           newWords += fileWords;
         }
 
         // Update state
         setNewFiles((prev) => [...prev, ...validFiles]);
-        setTotalSize((prev) => prev + validFiles.reduce((acc, file) => acc + file.size, 0));
-        setUserUsage(prev => ({
+        setTotalSize(
+          (prev) => prev + validFiles.reduce((acc, file) => acc + file.size, 0)
+        );
+        setUserUsage((prev) => ({
           ...prev,
-          currentSessionWords: prev.currentSessionWords + newWords
+          currentSessionWords: prev.currentSessionWords + newWords,
         }));
-        
+
         toast.success("Files added successfully");
       } catch (error) {
         console.error("Error processing files:", error);
@@ -449,7 +509,6 @@ export const FileUpload = () => {
     },
     [totalWordsUsed, userUsage.planLimit, MAX_FILE_SIZE]
   );
-
 
   // Handle file deletion
   const handleDelete = async (id: string) => {
@@ -466,33 +525,34 @@ export const FileUpload = () => {
       if (existingFiles.some((file) => file.id === id)) {
         await authApi.deleteFile(id);
         setExistingFiles((prev) => prev.filter((file) => file.id !== id));
-        
+
         // Update bot word count in backend
         await authApi.updateBotWordCount({
           bot_id: selectedBot.id,
-          word_count: -fileToDelete.wordCount
+          word_count: -fileToDelete.wordCount,
         });
-        
+
         // Update global words used
         const apiUsage: UserUsageResponse = await authApi.getUserUsage();
-        setUserUsage(prev => ({
+        setUserUsage((prev) => ({
           ...prev,
-          globalWordsUsed: apiUsage.totalWordsUsed
+          globalWordsUsed: apiUsage.totalWordsUsed,
         }));
       } else {
         // File is in user state - just remove from newFiles
         setNewFiles((prev) => prev.filter((file) => file.id !== id));
-        
+
         // Update current session words (only for files not yet saved)
-        setUserUsage(prev => ({
+        setUserUsage((prev) => ({
           ...prev,
-          currentSessionWords: prev.currentSessionWords - (fileToDelete.wordCount || 0)
+          currentSessionWords:
+            prev.currentSessionWords - (fileToDelete.wordCount || 0),
         }));
       }
-      
+
       // Update total size in both cases
       setTotalSize((prev) => prev - fileToDelete.size);
-      
+
       toast.success("File deleted successfully");
     } catch (error) {
       toast.error("Failed to delete file");
@@ -531,23 +591,32 @@ export const FileUpload = () => {
         formData.append("bot_id", selectedBot.id.toString());
 
         await authApi.uploadFilesWithCounts(formData);
-        
-        const newWords = newFiles.reduce((acc, file) => acc + (file.wordCount || 0), 0);
+
+        const newWords = newFiles.reduce(
+          (acc, file) => acc + (file.wordCount || 0),
+          0
+        );
         await authApi.updateBotWordCount({
           bot_id: selectedBot.id,
-          word_count: newWords
+          word_count: newWords,
         });
 
         const apiUsage = await authApi.getUserUsage();
         setUserUsage({
           globalWordsUsed: apiUsage.totalWordsUsed,
           currentSessionWords: 0, // Reset session words
-          planLimit: apiUsage.planLimit
+          planLimit: apiUsage.planLimit,
         });
-        
+
         setNewFiles([]);
         await fetchFiles();
         toast.success("Files saved successfully");
+        if (selectedBot?.status === "In Progress") {
+          await authApi.updateBotStatusActive(selectedBot.id, {
+            status: "Active",
+            is_active: true,
+          });
+        }
       } else {
         toast.info("No new files to save");
       }
@@ -579,7 +648,9 @@ export const FileUpload = () => {
     if (tab === "websitescraping" || tab === "websiteSub") {
       // Determine the tab based on the user's subscription_plan_id
       setActiveTab(
-        user.subscription_plan_id === 1 ? "websitescraping" : "websiteSub"
+        user.subscription_plan_id === 1 || user.subscription_plan_id === 2
+          ? "websitescraping"
+          : "websiteSub"
       );
     } else {
       setActiveTab(tab);
@@ -658,11 +729,12 @@ export const FileUpload = () => {
                 : "Drag & drop files here, or click to select files"}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-            Maximum {userUsage.planLimit.toLocaleString()} words total, {userPlan.fileSizeLimitMB}MB per file (PDF and TXT only)
+              Maximum {userUsage.planLimit.toLocaleString()} words total,{" "}
+              {userPlan.fileSizeLimitMB}MB per file (PDF and TXT only)
             </p>
           </div>
 
-         {/* Progress Bar Section */}
+          {/* Progress Bar Section */}
           <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -672,7 +744,7 @@ export const FileUpload = () => {
                 className={`text-sm font-medium ${
                   remainingWords <= 0
                     ? "text-red-500"
-                    : remainingWords < (userUsage.planLimit * 0.2)
+                    : remainingWords < userUsage.planLimit * 0.2
                     ? "text-yellow-500"
                     : "text-green-500"
                 }`}
@@ -681,7 +753,8 @@ export const FileUpload = () => {
                 {userUsage.planLimit.toLocaleString()}
                 {userUsage.currentSessionWords > 0 && (
                   <span className="text-gray-500 ml-2">
-                    (This session: {userUsage.currentSessionWords.toLocaleString()})
+                    (This session:{" "}
+                    {userUsage.currentSessionWords.toLocaleString()})
                   </span>
                 )}
               </span>
@@ -694,7 +767,7 @@ export const FileUpload = () => {
                   backgroundColor:
                     remainingWords <= 0
                       ? "#ef4444"
-                      : remainingWords < (userUsage.planLimit * 0.2)
+                      : remainingWords < userUsage.planLimit * 0.2
                       ? "#f59e0b"
                       : "#10b981",
                 }}
@@ -703,9 +776,10 @@ export const FileUpload = () => {
             {remainingWords <= 0 ? (
               <div className="mt-2 text-xs text-red-500 dark:text-red-400">
                 <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-                You've reached your word limit! Remove files or upgrade your plan.
+                You've reached your word limit! Remove files or upgrade your
+                plan.
               </div>
-            ) : remainingWords < (userUsage.planLimit * 0.2) ? (
+            ) : remainingWords < userUsage.planLimit * 0.2 ? (
               <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
                 <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
                 Approaching word limit ({Math.round(usagePercentage)}% used)
@@ -813,126 +887,136 @@ export const FileUpload = () => {
 
       {/* YouTube Videos Tab Content */}
       {activeTab === "youtube" && (
-        <div>
-          <YouTubeUploader
-            maxVideos={remainingVideos}
-            refreshKey={refreshKey}
-            setIsVideoSelected={setIsVideoSelected}
-          />
-
-          <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Uploaded YouTube Videos
-              </h2>
-              {/* This container holds both the uploader and overlay */}
-              <div className="min-h-[200px] relative rounded-md border border-dashed border-gray-300 dark:border-gray-600">
-                <YouTubeUploader maxVideos={5} />
-    
-              {/* Show upgrade message only for plans 1 and 2 */}
-                {[1, 2].includes(user.subscription_plan_id) && (
-                <YouTubeUpgradeMessage requiredPlan="Growth" />
-              )}
+        <div className="min-h-[200px] relative rounded-md border border-dashed border-gray-300 dark:border-gray-600">
+          {/* Show upgrade message only for plans 1 and 2 */}
+          {/* Overlay if plan is restricted */}
+          {[1, 2].includes(user.subscription_plan_id) && (
+            <div className="absolute inset-0 z-20 bg-white/80 dark:bg-gray-900/80 flex items-center justify-center pointer-events-auto">
+              <YouTubeUpgradeMessage requiredPlan="Growth" />
             </div>
+          )}
+          <div
+            className={`${
+              [1, 2].includes(user.subscription_plan_id)
+                ? "pointer-events-none opacity-50"
+                : ""
+            }`}
+          >
+            <YouTubeUploader
+              maxVideos={remainingVideos}
+              refreshKey={refreshKey}
+              setIsVideoSelected={setIsVideoSelected}
+            />
 
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-700">
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Video URL
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {currentVideos.map((videoUrl, index) => (
-                    <tr
-                      key={index}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-900 dark:text-white">
-                          {indexOfFirstVideo + index + 1}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <a
-                          href={videoUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 hover:underline"
-                        >
-                          {videoUrl}
-                        </a>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <button
-                          onClick={() => handleVideoDelete(videoUrl)}
-                          className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </td>
+            <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Uploaded YouTube Videos
+                </h2>
+                {/* This container holds both the uploader and overlay */}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-700">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        #
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Video URL
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {currentVideos.map((videoUrl, index) => (
+                      <tr
+                        key={index}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-900 dark:text-white">
+                            {indexOfFirstVideo + index + 1}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <a
+                            href={videoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:underline"
+                          >
+                            {videoUrl}
+                          </a>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <button
+                            onClick={() => handleVideoDelete(videoUrl)}
+                            className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Pagination Controls */}
+              <div className="flex justify-center p-4 space-x-2">
+                {pageNumbers.map((number) => (
+                  <button
+                    key={number}
+                    onClick={() => setCurrentPage(number)}
+                    className={`px-4 py-2 rounded-lg ${
+                      currentPage === number
+                        ? "bg-blue-500 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    }`}
+                  >
+                    {number}
+                  </button>
+                ))}
+              </div>
             </div>
-            {/* Pagination Controls */}
-            <div className="flex justify-center p-4 space-x-2">
-              {pageNumbers.map((number) => (
-                <button
-                  key={number}
-                  onClick={() => setCurrentPage(number)}
-                  className={`px-4 py-2 rounded-lg ${
-                    currentPage === number
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
-                >
-                  {number}
-                </button>
-              ))}
+            {/* PROCESS Button */}
+            <div className="p-4">
+              <button
+                onClick={handleFinish}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                disabled={!isVideoSelected}
+              >
+                SAVE
+              </button>
             </div>
-          </div>
-          {/* PROCESS Button */}
-          <div className="p-4">
-            <button
-              onClick={handleFinish}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
-              disabled={!isVideoSelected}
-            >
-              SAVE
-            </button>
           </div>
         </div>
       )}
 
       {/* Website Scraping Tab Content */}
-      {activeTab === "websitescraping" && user.subscription_plan_id === 1 && (
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
-            Website Scraping
-          </h1>
-          <WebScrapingTab />
-        </div>
-      )}
+      {activeTab === "websitescraping" &&
+        (user.subscription_plan_id === 1 ||
+          user.subscription_plan_id === 2) && (
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
+              Website Scraping
+            </h1>
+            <WebScrapingTab />
+          </div>
+        )}
 
-      {activeTab === "websiteSub" && user.subscription_plan_id !== 1 && (
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
-            Website Scraping
-          </h1>
-          <SubscriptionScrape />
-        </div>
-      )}
+      {activeTab === "websiteSub" &&
+        (user.subscription_plan_id === 3 ||
+          user.subscription_plan_id === 4) && (
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
+              Website Scraping
+            </h1>
+            <SubscriptionScrape />
+          </div>
+        )}
 
       {/* Delete Confirmation Modal */}
       {confirmDelete && (

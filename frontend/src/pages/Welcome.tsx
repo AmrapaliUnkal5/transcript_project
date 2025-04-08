@@ -49,19 +49,64 @@ export const Welcome = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const { plans, getPlanById } = useSubscriptionPlans(); // ✅ Ensure plans is included
-  const [showTooltip, setShowTooltip] = useState(false);
+  const userPlanId = user?.subscription_plan_id || 1;
+  const userPlan = getPlanById(userPlanId);
+  const maxBotsAllowed = userPlan?.chatbot_limit ?? 0;
+  const maxWordsAllowed = userPlan?.word_count_limit ?? 0;
+  const chatbotlimit = userPlan?.chatbot_limit ?? 0;
+  const storagelimit = userPlan?.storage_limit ?? "0";
+  const chat_messages_used = userPlan?.message_limit ?? 0;
+
+  const [usageMetrics, setUsageMetrics] = useState({
+    total_words_used: 0,
+    chat_messages_used: 0,
+    total_bots: 0,
+    total_storage_used: "0",
+  });
+
+  const usedBytes = convertToBytes(usageMetrics.total_storage_used); // e.g., "2.4 GB"
+  const limitBytes = convertToBytes(storagelimit); // e.g., "500 MB"
+  const storageUsagePercent = Math.min(
+    (usedBytes / limitBytes) * 100,
+    100
+  ).toFixed(2);
+
+  function convertToBytes(sizeStr: string): number {
+    if (!sizeStr) return 0;
+
+    const match = sizeStr
+      .trim()
+      .toUpperCase()
+      .match(/^([\d.]+)\s*(B|KB|MB|GB|TB)$/);
+    if (!match) return 0;
+
+    const [, valueStr, unit] = match;
+    const value = parseFloat(valueStr);
+
+    const unitMultipliers: { [key: string]: number } = {
+      B: 1,
+      KB: 1024,
+      MB: 1024 ** 2,
+      GB: 1024 ** 3,
+      TB: 1024 ** 4,
+    };
+
+    return value * (unitMultipliers[unit] || 1);
+  }
 
   const handleCreateBot = () => {
-    const userPlanId = user?.subscription_plan_id || 1; // Default to Free Plan
+    //const userPlanId = user?.subscription_plan_id || 1; // Default to Free Plan
     // ✅ Add a loading check
     if (!plans || plans.length === 0) {
       return <p>Loading subscription plans...</p>;
     }
-    const userPlan = getPlanById(userPlanId);
+    //const userPlan = getPlanById(userPlanId);
+
     console.log("userPlan", userPlan);
     if (!userPlan) return;
 
-    const maxBotsAllowed = userPlan.chatbot_limit;
+    //const maxBotsAllowed = userPlan.chatbot_limit;
+    //const maxWordsAllowed = userPlan.word_count_limit;
     console.log("maxBotsAllowed", maxBotsAllowed);
     const userBotCount = bots?.length || 0; // Get bot count from already fetched bots
     console.log(userBotCount);
@@ -110,8 +155,17 @@ export const Welcome = () => {
 
         setBots(extractedBots);
         const trendsResponse = await authApi.getConversationTrends(userId);
-        //console.log(trendsResponse);
+        console.log("trendsResponse", trendsResponse);
         setConversationTrends(trendsResponse);
+
+        const metrics = await authApi.getUsageMetrics(); // 👈 Call your backend API
+        console.log("Usage Metrics", metrics);
+        setUsageMetrics(metrics);
+
+        const storageUsagePercent = Math.min(
+          (usedBytes / limitBytes) * 100,
+          100
+        ).toFixed(2);
       } catch (error) {
         console.error("Error checking user bot:", error);
         setHasBots(false); // Assume no bot in case of error
@@ -173,14 +227,32 @@ export const Welcome = () => {
 
   // Render the graph
   const renderGraph = () => {
-    const transformedData = transformDataForGraph(conversationTrends);
-    const colors = generateColors(conversationTrends.length);
+    const hasData = conversationTrends.length > 0;
+    // Generate last 7 days as fallback data
+    // Generate last 7 day names (e.g., Mon, Tue, Wed...)
+    const getLast7DayNames = () => {
+      const today = new Date();
+      return Array.from({ length: 7 }, (_, i) => {
+        const day = new Date(today);
+        day.setDate(today.getDate() - (6 - i));
+        return day.toLocaleDateString("en-US", { weekday: "short" }); // 'Mon', 'Tue', etc.
+      });
+    };
+
+    const fallbackDays = getLast7DayNames();
+
+    const fallbackData = fallbackDays.map((day) => ({
+      day,
+      bot_0: 0,
+    }));
+
+    const transformedData = hasData
+      ? transformDataForGraph(conversationTrends)
+      : fallbackData;
+    const colors = hasData
+      ? generateColors(conversationTrends.length)
+      : ["#8884d8"];
     // Example insights (You can generate these dynamically based on data)
-    const insights = [
-      "High activity during business hours suggests peak chatbot usage times.",
-      "Low interaction periods indicate potential opportunities for engagement strategies.",
-      "A spike in interactions may correlate with marketing campaigns or promotions.",
-    ];
 
     return (
       <ResponsiveContainer width="100%" height={350}>
@@ -198,36 +270,54 @@ export const Welcome = () => {
               dy: 30,
               x: 13,
             }}
+            allowDecimals={false}
           />
           <CartesianGrid strokeDasharray="3 3" />
           <Tooltip />
           <Legend />
-          {conversationTrends.map((trend, index) => (
+          {hasData ? (
+            conversationTrends.map((trend, index) => (
+              <Line
+                key={trend.bot_id}
+                type="monotone"
+                dataKey={`bot_${trend.bot_id}`}
+                stroke={colors[index]}
+                strokeWidth={3}
+                dot={{ r: 5 }}
+                activeDot={{ r: 8 }}
+                name={getBotNameById(trend.bot_id)}
+              />
+            ))
+          ) : (
             <Line
-              key={trend.bot_id}
               type="monotone"
-              dataKey={`bot_${trend.bot_id}`}
-              stroke={colors[index]}
-              strokeWidth={3}
-              dot={{ r: 5 }}
-              activeDot={{ r: 8 }}
-              name={`Bot ${trend.bot_id}`}
+              dataKey="bot_0"
+              stroke={colors[0]}
+              strokeWidth={2}
+              dot={{ r: 0 }}
+              activeDot={false}
+              name="No Data"
             />
-          ))}
+          )}
         </LineChart>
       </ResponsiveContainer>
     );
   };
 
   const transformDataForGraph = (conversationTrends: ConversationTrend[]) => {
-    const last7Days = getLast7Days(); // Get the last 7 days array
-    const transformedData = last7Days.map((day) => {
+    // Extract all days from the first bot (since all bots will have all 7 days)
+    const days =
+      conversationTrends.length > 0
+        ? conversationTrends[0].data.map((item) => item.day)
+        : [];
+
+    // For each day, collect the conversations for all bots
+    const transformedData = days.map((day, index) => {
       const dayData: Record<string, number | string> = { day };
 
       conversationTrends.forEach((trend) => {
-        const botKey = `bot_${trend.bot_id}`; // Store computed key in a variable
-        const botData = trend.data.find((d) => d.day === day);
-        dayData[botKey] = botData ? botData.conversations : 0; // Default to 0 if no data
+        const botKey = `bot_${trend.bot_id}`;
+        dayData[botKey] = trend.data[index].conversations; // Index is safe since all bots have 7 days
       });
 
       return dayData;
@@ -236,19 +326,19 @@ export const Welcome = () => {
     return transformedData;
   };
 
-  const getLast7Days = () => {
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const today = new Date();
-    const last7Days = [];
+  // const getLast7Days = () => {
+  //   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  //   const today = new Date();
+  //   const last7Days = [];
 
-    for (let i = 6; i >= 0; i--) {
-      const day = new Date();
-      day.setDate(today.getDate() - i);
-      last7Days.push(days[day.getDay()]); // Get weekday name
-    }
+  //   for (let i = 6; i >= 0; i--) {
+  //     const day = new Date();
+  //     day.setDate(today.getDate() - i);
+  //     last7Days.push(days[day.getDay()]); // Get weekday name
+  //   }
 
-    return last7Days;
-  };
+  //   return last7Days;
+  // };
 
   if (hasBots === null) {
     return <Loader />; // Show loading state while API call is in progress
@@ -418,6 +508,99 @@ export const Welcome = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Usage Summary
+          </h2>
+
+          {/* Storage Usage */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                Storage Used
+              </span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                {usageMetrics.total_storage_used}/ {storagelimit}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+              <div
+                className="bg-blue-500 h-3 rounded-full"
+                style={{ width: `${storageUsagePercent}%` }}
+              ></div>
+            </div>
+          </div>
+
+          {/* Chat Usage */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                Word Count
+              </span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                {usageMetrics.total_words_used} / {maxWordsAllowed}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+              <div
+                className="bg-green-500 h-3 rounded-full"
+                style={{
+                  width: `${Math.min(
+                    (usageMetrics.total_words_used / maxWordsAllowed) * 100,
+                    100
+                  ).toFixed(2)}%`,
+                }}
+              ></div>
+            </div>
+          </div>
+
+          {/* Chat Messages */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                Chat messages
+              </span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                {usageMetrics.chat_messages_used} / {chat_messages_used}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+              <div
+                className="bg-green-500 h-3 rounded-full"
+                style={{
+                  width: `${Math.min(
+                    (usageMetrics.chat_messages_used / chat_messages_used) *
+                      100,
+                    100
+                  ).toFixed(2)}%`,
+                }}
+              ></div>
+            </div>
+          </div>
+
+          {/* Total Chatbots */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600 dark:text-gray-300">
+                Total Chatbots
+              </span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                {usageMetrics.total_bots}/ {chatbotlimit}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+              <div
+                className="bg-purple-500 h-3 rounded-full"
+                style={{
+                  width: `${Math.min(
+                    (usageMetrics.total_bots / chatbotlimit) * 100,
+                    100
+                  ).toFixed(2)}%`,
+                }}
+              ></div>
+            </div>
+          </div>
+        </div>
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           {/* <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
             This graph displays the number of interactions users had with the

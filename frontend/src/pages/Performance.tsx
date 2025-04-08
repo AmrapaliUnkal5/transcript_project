@@ -37,7 +37,10 @@ export const Performance = () => {
   const [timeSpentData, setTimeSpentData] = useState<
     { day: string; average_time_spent: number }[]
   >([]);
-  const [conversationData, setConversationData] = useState<ConversationData[]>([]);
+  const [conversationData, setConversationData] = useState<ConversationData[]>(
+    []
+  );
+  const [totalTimeSpent, setTotalTimeSpent] = useState(0);
 
   // Fetch conversation data from the API
   const fetchConversationData = async () => {
@@ -48,7 +51,9 @@ export const Performance = () => {
 
     try {
       setLoading(true);
-      const response = await authApi.getWeeklyConversations({ bot_id: selectedBot.id });
+      const response = await authApi.getWeeklyConversations({
+        bot_id: selectedBot.id,
+      });
       const data = response?.data || response || {};
 
       if (!data || typeof data !== "object") {
@@ -105,6 +110,7 @@ export const Performance = () => {
       setSatisfactionData(updatedData);
 
       const apiData = response.average_time_spent;
+      console.log("apiData", apiData);
       const orderedDays = getLast7Days();
       const formattedData = orderedDays.map((day) => {
         const found = apiData.find((item) => item.day === day);
@@ -115,6 +121,11 @@ export const Performance = () => {
       });
 
       setTimeSpentData(formattedData);
+      const totalTimeSpent = formattedData.reduce(
+        (sum, item) => sum + item.average_time_spent,
+        0
+      );
+      setTotalTimeSpent(totalTimeSpent);
     } catch (error) {
       console.error("Error fetching bot metrics:", error);
     } finally {
@@ -151,8 +162,6 @@ export const Performance = () => {
     return <Loader />;
   }
 
- 
-  
   return (
     <div className="space-y-6">
       {loading && <Loader />}
@@ -270,31 +279,27 @@ export const Performance = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Value
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Change
-                  </th>
+                  </th> */}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {[
                   {
-                    metric: "Total Users",
-                    value: "12,345",
-                    change: "+12%",
-                    positive: true,
+                    metric: "Total Conversations",
+                    value: "",
                   },
                   {
-                    metric: "Avg. Session Duration",
-                    value: "5m 23s",
-                    change: "+8%",
-                    positive: true,
+                    metric: "Avg. Session Duration (Last 7 days)",
+                    value: `${totalTimeSpent} min`,
                   },
-                  {
-                    metric: "Bounce Rate",
-                    value: "32%",
-                    change: "-5%",
-                    positive: true,
-                  },
+                  // {
+                  //   metric: "Bounce Rate",
+                  //   value: "32%",
+                  //   change: "-5%",
+                  //   positive: true,
+                  // },
                 ].map((item) => (
                   <tr
                     key={item.metric}
@@ -306,7 +311,7 @@ export const Performance = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {item.value}
                     </td>
-                    <td
+                    {/* <td
                       className={`px-6 py-4 whitespace-nowrap text-sm ${
                         item.positive
                           ? "text-green-600 dark:text-green-400"
@@ -314,7 +319,7 @@ export const Performance = () => {
                       }`}
                     >
                       {item.change}
-                    </td>
+                    </td> */}
                   </tr>
                 ))}
               </tbody>

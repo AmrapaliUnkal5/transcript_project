@@ -16,12 +16,17 @@ const SubscriptionScrape: React.FC = () => {
   const { loading, setLoading } = useLoader();
   //const { selectedBot, setSelectedBot } = useBot(); // Use BotContext
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-  const { selectedBot, setSelectedBot } = useBot(); // Use BotContext
+  const itemsPerPage = 10;
+  const { selectedBot } = useBot(); // Use BotContext
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [urlToDelete, setUrlToDelete] = useState<string | null>(null);
   const [successMessages, setSuccessMessages] = useState<string[]>([]);
   const [isSaved, setIsSaved] = useState(false); // Track save operation
+  const userData = localStorage.getItem("user");
+  const user = userData ? JSON.parse(userData) : null;
+  const [scrapedWebsiteOrigins, setScrapedWebsiteOrigins] = useState<string[]>(
+    []
+  );
 
   const [scrapedUrls, setScrapedUrls] = useState<
     { id: number; url: string; title: string }[]
@@ -36,8 +41,16 @@ const SubscriptionScrape: React.FC = () => {
     setIsSaved(true); // Allow messages to show after saving
   };
 
+  const getWebsiteLimit = (planId: number): number => {
+    if (planId === 4) return Infinity; // Unlimited
+    if (planId === 3) return 2;
+    return 1; // Or 0 for free plans
+  };
+
   // ✅ Move fetchScrapedUrls outside of useEffect so it can be reused
   const fetchScrapedUrls = async () => {
+    console.log("user.subscription_plan_id", user.subscription_plan_id);
+    console.log("websiteUrl", websiteUrl.length);
     try {
       setLoading(true);
       if (!selectedBot?.id) {
@@ -57,6 +70,13 @@ const SubscriptionScrape: React.FC = () => {
 
         console.log("Formatted URLs:", formattedUrls);
         setScrapedUrls(formattedUrls); // ✅ Update state correctly
+        // Set the first scraped website URL
+        if (formattedUrls.length > 0) {
+          const uniqueOrigins = [
+            ...new Set(formattedUrls.map((item) => new URL(item.url).origin)),
+          ];
+          setScrapedWebsiteOrigins(uniqueOrigins);
+        }
       } else {
         setScrapedUrls([]); // ✅ Ensure it's always an array
       }
@@ -100,6 +120,28 @@ const SubscriptionScrape: React.FC = () => {
   };
 
   const handleFetchNodes = async () => {
+    console.log(
+      "getWebsiteLimit(user.subscription_plan_id)",
+      getWebsiteLimit(user.subscription_plan_id)
+    );
+    console.log("scrapedWebsiteUrl.length", scrapedWebsiteOrigins.length);
+
+    const currentOrigin = new URL(websiteUrl).origin;
+
+    const isExistingOrigin = scrapedWebsiteOrigins.includes(currentOrigin);
+    if (
+      scrapedWebsiteOrigins.length >=
+        getWebsiteLimit(user.subscription_plan_id) &&
+      !isExistingOrigin
+    ) {
+      toast.error(
+        user.subscription_plan_id === 3
+          ? "You’ve reached the limit of 2 website scrapes on your current plan. Upgrade to scrape more."
+          : "You cannot scrape more websites on your current plan."
+      );
+      return;
+    }
+
     if (!websiteUrl) return;
     setLoading(true);
     try {
@@ -139,6 +181,7 @@ const SubscriptionScrape: React.FC = () => {
 
       if (data.message === "Scraping completed") {
         toast.success(`Successfully scraped nodes from ${websiteUrl}`);
+
         localStorage.setItem("isScraped", "1"); // added for createbot.tsx page
         if (websiteUrl) {
           handleScrapingSuccess(websiteUrl);
@@ -178,8 +221,8 @@ const SubscriptionScrape: React.FC = () => {
       }
 
       // Show up to 3 pages around the current page
-      let startPage = Math.max(2, currentPage - 1);
-      let endPage = Math.min(totalPages - 1, currentPage + 1);
+      const startPage = Math.max(2, currentPage - 1);
+      const endPage = Math.min(totalPages - 1, currentPage + 1);
 
       for (let i = startPage; i <= endPage; i++) {
         buttons.push(renderButton(i));
@@ -195,7 +238,7 @@ const SubscriptionScrape: React.FC = () => {
     return buttons;
   };
 
-  const renderButton = (page) => (
+  const renderButton = (page: number) => (
     <button
       key={page}
       onClick={() => handlePageChange(page)}
@@ -225,10 +268,10 @@ const SubscriptionScrape: React.FC = () => {
       setSelectedNodes((prev) => prev.filter((node) => node !== url));
     } else {
       if (selectedNodes.length >= 10) {
-        toast.error(
-          "You are on the Free Tier! Upgrade your subscription to select more pages."
-        );
-        return;
+        // toast.error(
+        //   "You are on the Free Tier! Upgrade your subscription to select more pages."
+        // );
+        // return;
       }
       setSelectedNodes((prev) => [...prev, url]);
     }
@@ -273,8 +316,13 @@ const SubscriptionScrape: React.FC = () => {
           </button>
         </div>
         <p className="text-xs text-gray-500 mt-1 italic">
-          You can scrape multiple websites! Enter a URL, click Submit, and
-          repeat to add more!
+          {getWebsiteLimit(user.subscription_plan_id) === Infinity
+            ? "You can scrape multiple websites! Enter a URL, click Submit, and repeat to add more!"
+            : `You can scrape up to ${getWebsiteLimit(
+                user.subscription_plan_id
+              )} website${
+                getWebsiteLimit(user.subscription_plan_id) > 1 ? "s" : ""
+              }.Enter a URL and click Submit`}
         </p>
       </div>
 
