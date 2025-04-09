@@ -6,6 +6,7 @@ import { authApi, UserUpdate } from "../services/api";
 import TeamManagement from "../components/TeamManagement";
 import { ToastContainer, toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
+import { Eye, EyeOff } from "lucide-react";
 
 export const Settings = () => {
   // Retrieve user data from localStorage
@@ -23,6 +24,11 @@ export const Settings = () => {
     new_password: "",
     confirm_password: "",
   });
+  const [showPassword, setShowPassword] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
   const [passwordErrors, setPasswordErrors] = useState<{
     [key: string]: string;
   }>({});
@@ -37,6 +43,15 @@ export const Settings = () => {
     avatar_url:
       user?.avatar_url ||
       "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png",
+    subscription: {
+      plan_name: "",
+      amount: null,
+      currency: "", // or "" if you prefer empty string
+      payment_date: "",
+      expiry_date: "",
+      auto_renew: false,
+      status: "",
+    },
   });
 
   useEffect(() => {
@@ -44,7 +59,7 @@ export const Settings = () => {
       try {
         const response = await authApi.getUserDetails(); // Fetch user details
         if (response) {
-          //console.log("response", response);
+          console.log("response", response);
           setSettings((prev) => ({
             ...prev, // Keep previous values
             name: response.name || "",
@@ -55,6 +70,15 @@ export const Settings = () => {
             avatar_url:
               user?.avatar_url ||
               "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png",
+            subscription: {
+              plan_name: response.subscription?.plan_name || "Free Plan",
+              amount: response.subscription?.amount || 0,
+              currency: response.subscription?.currency || "",
+              payment_date: response.subscription?.payment_date || null,
+              expiry_date: response.subscription?.expiry_date || null,
+              auto_renew: response.subscription?.auto_renew || false,
+              status: response.subscription?.status || "active",
+            },
           }));
         }
       } catch (error) {
@@ -67,7 +91,7 @@ export const Settings = () => {
     fetchUserDetails();
   }, []);
 
-  if (!settings || !settings.name) {
+  if (!settings) {
     return <p>Loading...</p>;
   }
 
@@ -107,7 +131,7 @@ export const Settings = () => {
 
       // Update localStorage and AuthContext
       const updatedUser = { ...user, avatar_url: newAvatarUrl };
-      //setUser(updatedUser); // Update AuthContext state
+      updateUser(updatedUser); // Update AuthContext state
       localStorage.setItem("user", JSON.stringify(updatedUser)); // Update localStorage
       setSettings((prev) => ({
         ...prev,
@@ -198,11 +222,11 @@ export const Settings = () => {
   };
 
   const validateForm = () => {
-    let newErrors: { [key: string]: string } = {};
+    const newErrors: { [key: string]: string } = {};
     const emailRegex = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/;
 
     if (
-      !settings.communication_email ||
+      settings.communication_email &&
       !emailRegex.test(settings.communication_email)
     ) {
       newErrors.communication_email = "Invalid email address";
@@ -354,15 +378,18 @@ export const Settings = () => {
       <div className="md:col-span-1">
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
           <div className="flex flex-col items-center space-y-4">
-            <div className="relative w-32 h-32 overflow-hidden rounded-full">
+            <div className="relative w-32 h-32">
+              {/* Avatar Image */}
               <img
                 src={settings.avatar_url}
                 alt="Avatar"
-                className="object-cover w-full h-full"
+                className="object-cover w-full h-full rounded-full border-2 border-gray-300 shadow-md"
               />
+
+              {/* Upload Icon Positioned Over Avatar */}
               <label
                 htmlFor="avatar-upload"
-                className="absolute bottom-0 right-0 bg-blue-500 text-white rounded-full p-2 cursor-pointer shadow-lg hover:bg-blue-600 transition-colors"
+                className="absolute bottom-2 right-2 bg-blue-600 text-white rounded-full p-2 cursor-pointer shadow-lg border-2 border-white hover:bg-blue-700 transition"
                 title="Upload Photo"
               >
                 <svg
@@ -388,7 +415,9 @@ export const Settings = () => {
                 />
               </label>
             </div>
-            <h2 className="text-xl font-semibold">{settings.name}</h2>
+            <h2 className="text-xl font-semibold">
+              {settings.name || "Unnamed"}
+            </h2>
             <p className="text-gray-500 dark:text-gray-400">{settings.email}</p>
           </div>
         </div>
@@ -516,6 +545,90 @@ export const Settings = () => {
             </div>
           </div>
         </div>
+        <div className="md:col-span-2 mt-6">
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <h2 className="text-lg font-semibold mb-4">Subscription Details</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Plan Name
+                </label>
+                <p className="text-gray-900 dark:text-white">
+                  {settings.subscription?.plan_name || "N/A"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Amount
+                </label>
+                <p className="text-gray-900 dark:text-white">
+                  {settings.subscription?.amount
+                    ? `${settings.subscription.amount} ${settings.subscription.currency}`
+                    : "Free"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Payment Date
+                </label>
+                <p className="text-gray-900 dark:text-white">
+                  {settings.subscription?.payment_date
+                    ? new Date(
+                        settings.subscription.payment_date
+                      ).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                      })
+                    : "N/A"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Expiry Date
+                </label>
+                <p className="text-gray-900 dark:text-white">
+                  {settings.subscription?.expiry_date
+                    ? new Date(
+                        settings.subscription.expiry_date
+                      ).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                      })
+                    : "N/A"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Auto Renew
+                </label>
+                <p className="text-gray-900 dark:text-white">
+                  {settings.subscription?.auto_renew ? "Yes" : "No"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Status
+                </label>
+                <p
+                  className={`inline-block px-2 py-1 rounded-full text-sm font-medium ${
+                    settings.subscription?.status === "active"
+                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                      : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  {settings.subscription?.status || "N/A"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Change Password Section */}
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mt-6">
@@ -531,18 +644,36 @@ export const Settings = () => {
               >
                 Current Password
               </label>
-              <input
-                type="password"
-                id="current_password"
-                name="current_password"
-                value={passwordData.current_password}
-                onChange={handlePasswordChange}
-                className={`w-full px-3 py-2 border ${
-                  passwordErrors.current_password
-                    ? "border-red-500"
-                    : "border-gray-300"
-                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
-              />
+              <div className="relative w-full">
+                <input
+                  type={showPassword.current ? "text" : "password"}
+                  id="current_password"
+                  name="current_password"
+                  value={passwordData.current_password}
+                  onChange={handlePasswordChange}
+                  className={`w-full px-3 py-2 border ${
+                    passwordErrors.current_password
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+                />
+                {/* Eye icon toggle */}
+                <div
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer"
+                  onClick={() =>
+                    setShowPassword((prev) => ({
+                      ...prev,
+                      current: !prev.current,
+                    }))
+                  }
+                >
+                  {showPassword.current ? (
+                    <Eye className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                  ) : (
+                    <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                  )}
+                </div>
+              </div>
               {passwordErrors.current_password && (
                 <p className="text-red-500 text-sm mt-1">
                   {passwordErrors.current_password}
@@ -556,18 +687,33 @@ export const Settings = () => {
               >
                 New Password
               </label>
-              <input
-                type="password"
-                id="new_password"
-                name="new_password"
-                value={passwordData.new_password}
-                onChange={handlePasswordChange}
-                className={`w-full px-3 py-2 border ${
-                  passwordErrors.new_password
-                    ? "border-red-500"
-                    : "border-gray-300"
-                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
-              />
+              <div className="relative w-full">
+                <input
+                  type={showPassword.new ? "text" : "password"}
+                  id="new_password"
+                  name="new_password"
+                  value={passwordData.new_password}
+                  onChange={handlePasswordChange}
+                  className={`w-full px-3 py-2 border ${
+                    passwordErrors.new_password
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+                />
+                {/* Eye icon toggle */}
+                <div
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer"
+                  onClick={() =>
+                    setShowPassword((prev) => ({ ...prev, new: !prev.new }))
+                  }
+                >
+                  {showPassword.new ? (
+                    <Eye className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                  ) : (
+                    <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                  )}
+                </div>
+              </div>
               {passwordErrors.new_password && (
                 <p className="text-red-500 text-sm mt-1">
                   {passwordErrors.new_password}
@@ -581,18 +727,36 @@ export const Settings = () => {
               >
                 Confirm New Password
               </label>
-              <input
-                type="password"
-                id="confirm_password"
-                name="confirm_password"
-                value={passwordData.confirm_password}
-                onChange={handlePasswordChange}
-                className={`w-full px-3 py-2 border ${
-                  passwordErrors.confirm_password
-                    ? "border-red-500"
-                    : "border-gray-300"
-                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
-              />
+              <div className="relative w-full">
+                <input
+                  type={showPassword.confirm ? "text" : "password"}
+                  id="confirm_password"
+                  name="confirm_password"
+                  value={passwordData.confirm_password}
+                  onChange={handlePasswordChange}
+                  className={`w-full px-3 py-2 border ${
+                    passwordErrors.confirm_password
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+                />
+                {/* Eye icon toggle */}
+                <div
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer"
+                  onClick={() =>
+                    setShowPassword((prev) => ({
+                      ...prev,
+                      confirm: !prev.confirm,
+                    }))
+                  }
+                >
+                  {showPassword.confirm ? (
+                    <Eye className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                  ) : (
+                    <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                  )}
+                </div>
+              </div>
               {passwordErrors.confirm_password && (
                 <p className="text-red-500 text-sm mt-1">
                   {passwordErrors.confirm_password}

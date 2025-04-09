@@ -301,3 +301,7 @@ class SubscriptionPlanSchema(BaseModel):
 
     # class Config:
     #     orm_mode = True  # Enables auto-conversion from SQLAlchemy models
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
