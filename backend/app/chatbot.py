@@ -146,11 +146,11 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
             bot_reply = "I can only answer based on uploaded documents, but I don't have information on that topic."
             
             # Store conversation
-            db.add_all([
-                ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message),
-                ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=bot_reply)
-            ])
-            db.commit()
+            # db.add_all([
+            #     ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message),
+            #     ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=bot_reply)
+            # ])
+            # db.commit()
             
             return {"bot_reply": bot_reply}
     else:

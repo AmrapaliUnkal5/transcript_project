@@ -5,7 +5,7 @@ import { authApi } from "../services/api";
 import { useBot } from "../context/BotContext";
 //import { toast } from "react-toastify";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
-import Loader from "../components/Loader";
+
 import { Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -16,8 +16,8 @@ const WebScrapingTab: React.FC = () => {
   const { loading, setLoading } = useLoader();
   //const { selectedBot, setSelectedBot } = useBot(); // Use BotContext
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-  const { selectedBot, setSelectedBot } = useBot(); // Use BotContext
+  const itemsPerPage = 10;
+  const { selectedBot } = useBot(); // Use BotContext
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [urlToDelete, setUrlToDelete] = useState<string | null>(null);
   const [scrapedWebsiteUrl, setScrapedWebsiteUrl] = useState<string | null>(
@@ -151,6 +151,12 @@ const WebScrapingTab: React.FC = () => {
         setCurrentPage(1); // Reset pagination
         setSelectedNodes([]); // Clear selection
         fetchScrapedUrls();
+        if (selectedBot?.status === "In Progress") {
+          await authApi.updateBotStatusActive(selectedBot.id, {
+            status: "Active",
+            is_active: true,
+          });
+        }
       } else {
         toast.error("Failed to scrape data. Please try again.");
       }
@@ -180,8 +186,8 @@ const WebScrapingTab: React.FC = () => {
       }
 
       // Show up to 3 pages around the current page
-      let startPage = Math.max(2, currentPage - 1);
-      let endPage = Math.min(totalPages - 1, currentPage + 1);
+      const startPage = Math.max(2, currentPage - 1);
+      const endPage = Math.min(totalPages - 1, currentPage + 1);
 
       for (let i = startPage; i <= endPage; i++) {
         buttons.push(renderButton(i));
@@ -197,7 +203,7 @@ const WebScrapingTab: React.FC = () => {
     return buttons;
   };
 
-  const renderButton = (page) => (
+  const renderButton = (page: number) => (
     <button
       key={page}
       onClick={() => handlePageChange(page)}
@@ -226,10 +232,10 @@ const WebScrapingTab: React.FC = () => {
       setSelectedNodes((prev) => prev.filter((node) => node !== url));
     } else {
       if (selectedNodes.length >= 10) {
-        toast.error(
-          "You are on the Free Tier! Upgrade your subscription to select more pages."
-        );
-        return;
+        // toast.error(
+        //   "You are on the Free Tier! Upgrade your subscription to select more pages."
+        // );
+        // return;
       }
       setSelectedNodes((prev) => [...prev, url]);
     }

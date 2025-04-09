@@ -3,11 +3,12 @@ import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi
 from fastapi import APIRouter, Depends, HTTPException
 import re
-from app.models import YouTubeVideo  # Import the model
+from app.models import YouTubeVideo, User, Bot,UserSubscription,SubscriptionPlan  # Import the model
 from app.database import get_db  # Ensure this is imported
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 import os
+from app.dependency import get_current_user
 
 COOKIE_PATH = "~/chatbot/Chatbot/cookies/youtube_cookies.json"
 
@@ -99,6 +100,9 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
                 "source": "YouTube",
                 "video_url": video_url
             }
+            print("test")
+            
+
             add_document(bot_id, text=transcript, metadata=metadata)  # ✅ Same as PDF & text storage
             print("options")
 
@@ -117,7 +121,15 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
                     )
                     if existing_video:
                         print(f"⚠️ Video {info.get('id')} already exists. Skipping insertion.")
+                        failed_videos.append({"video_url": video_url, "reason": f"⚠️ Video {info.get('id')} already exists. Skipping insertion."})
                         continue  
+
+                    limit_status = update_word_count_for_bot(transcript, bot_id, db)
+                    word_count_transcript = len(transcript.split())  # Calculate words in the transcript
+                    if limit_status["status"] == "error":
+                        print(limit_status["message"])
+                        failed_videos.append({"video_url": video_url, "reason": limit_status["message"]})
+                        continue  # Skip this video if word limit exceeded
 
                     # ✅ Prepare video metadata for DB
                     video_data = {
@@ -136,6 +148,7 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
                         "description": info.get("description", None),
                         "thumbnail_url": info.get("thumbnail", None),
                         "bot_id": bot_id,
+                        "transcript_count": word_count_transcript, 
                         "created_at": datetime.now(timezone.utc),
                     }
                     print("video_data",video_data)
@@ -146,6 +159,7 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
                     db.commit()
                     stored_videos.append(video_data)
                     print(f"✅ Successfully stored video: {video_data['video_title']}")
+                    
 
                 except Exception as e:
                     print(f"⚠️ Metadata extraction failed for {video_url}: {e}")
@@ -159,3 +173,36 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
     return {"message": "All YouTube transcripts stored successfully!",
             "stored_videos":stored_videos,
             "failed_videos":failed_videos}
+
+
+
+
+def update_word_count_for_bot(transcript: str, bot_id: int, db: Session) -> dict:
+    """Checks word count against the user's subscription limit and updates the total word count."""
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    user = db.query(User).filter(User.user_id == bot.user_id).first() if bot else None
+    
+    if not user:
+        return {"status": "error", "message": "User not found."}
+    
+    user_subscription = db.query(UserSubscription).filter(UserSubscription.user_id == user.user_id).first()
+    subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
+    
+    subscription_plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == subscription_plan_id).first()
+    word_count_limit = subscription_plan.word_count_limit if subscription_plan else 0
+    print("word_count_limit",word_count_limit)
+    
+    word_count = len(transcript.split())  # Calculate words in the transcript
+    
+    new_total_words = (user.total_words_used or 0) + word_count
+    new_total_words_of_bot = ( bot.word_count or 0) + word_count
+    print("new_total_words",new_total_words)
+    
+    
+    if new_total_words > word_count_limit:
+        return {"status": "error", "message": f"⚠️ Word count limit exceeded! You have used {user.total_words_used} words out of {word_count_limit}."}
+    
+    user.total_words_used = new_total_words
+    bot.word_count = new_total_words_of_bot
+    db.commit()
+    return {"status": "success", "message": "✅ Word count updated successfully."}

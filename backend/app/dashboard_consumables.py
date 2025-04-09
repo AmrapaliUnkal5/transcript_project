@@ -3,12 +3,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import User, Bot, Interaction, Rating
+from app.models import User, Bot, Interaction, Rating, ChatMessage, File
 from app.database import get_db
 from app.dependency import get_current_user
 from datetime import datetime, timedelta, timezone
 from typing import List
 from app.schemas import ConversationTrendResponse
+from collections import defaultdict
+import re
 
 router = APIRouter()
 
@@ -107,34 +109,150 @@ def get_conversation_trends(user_id: int, db: Session = Depends(get_db)):
     """
     Fetches the count of conversations per bot for the last 7 days.
     """
-    end_date = datetime.now(timezone.utc)
-    start_date = end_date - timedelta(days=7)
+    today = datetime.now(timezone.utc).date()
+    start_date = datetime.combine(today - timedelta(days=6), datetime.min.time(), tzinfo=timezone.utc)
+    end_date = datetime.combine(today + timedelta(days=1), datetime.min.time(), tzinfo=timezone.utc)
 
-    # Fetch conversation count per bot, per day
+    date_list = [start_date + timedelta(days=i) for i in range(7)]
+    date_map = {date.strftime("%Y-%m-%d"): date.strftime("%a") for date in date_list}
+
     query = (
-        db.query(Interaction.bot_id, 
-                 func.date_trunc('day', Interaction.start_time).label("day"),
-                 func.count(Interaction.interaction_id).label("conversations"))
-        .filter(Interaction.start_time >= start_date, Interaction.start_time <= end_date)
+        db.query(
+            Interaction.bot_id,
+            func.date_trunc('day', Interaction.start_time).label("day"),
+            func.count(Interaction.interaction_id).label("conversations")
+        )
+        .filter(Interaction.start_time >= start_date, Interaction.start_time < end_date)
         .join(Bot, Interaction.bot_id == Bot.bot_id)
-        .filter(Bot.user_id == user_id)  # Only fetch user's bots
-        .filter(Bot.status != "Deleted")  # Exclude bots with status "deleted"
+        .filter(Bot.user_id == user_id)
+        .filter(Bot.status != "Deleted")
         .group_by(Interaction.bot_id, "day")
-        .order_by("day")
         .all()
     )
 
-    # Convert query result to the required response format
-    trends = {}
-    for bot_id, day, count in query:
-        formatted_day = day.strftime("%a")  # Convert to "Mon", "Tue", etc.
-        if bot_id not in trends:
-            trends[bot_id] = []
-        trends[bot_id].append({"day": formatted_day, "conversations": count})
+    bot_data = defaultdict(lambda: {date: 0 for date in date_map.keys()})
 
-    # Format response
-    response = [
-        {"bot_id": bot_id, "data": trend_data} for bot_id, trend_data in trends.items()
-    ]
-    
+    for bot_id, day, count in query:
+        formatted_date = day.strftime("%Y-%m-%d")
+        bot_data[bot_id][formatted_date] = count
+
+    response = []
+    for bot_id, date_counts in bot_data.items():
+        data = []
+        for date_str in sorted(date_map.keys()):
+            data.append({
+                "day": date_map[date_str],
+                "conversations": date_counts[date_str]
+            })
+        response.append({"bot_id": bot_id, "data": data})
+
     return response
+
+@router.get("/usage-metrics")
+def get_usage_metrics(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        if not current_user:
+            raise HTTPException(
+                status_code=401,
+                detail="Unauthorized user"
+            )
+
+        user_id = current_user["user_id"]
+
+        # ✅ Fetch user from DB to get total_words_used
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+
+        # 1. Total words used
+        total_words_used = user.total_words_used or 0
+
+        # 2. Total bots
+        bots = db.query(Bot).filter(Bot.user_id == user_id, Bot.status != "Deleted").all()
+        total_bots = len(bots)
+        bot_ids = [bot.bot_id for bot in bots]
+
+        # 3. Interaction IDs of the user
+        interaction_ids = (db.query(Interaction.interaction_id)
+                            .join(Bot, Bot.bot_id == Interaction.bot_id)
+                            .filter(
+                                Interaction.user_id == user_id,
+                                Bot.status != "Deleted"
+                            )
+                        .all()
+                        )
+        interaction_ids = [id_[0] for id_ in interaction_ids]
+
+        # 4. Chat messages by user
+        chat_messages_used = 0
+        if interaction_ids:
+            chat_messages_used = db.query(ChatMessage)\
+                .filter(ChatMessage.interaction_id.in_(interaction_ids))\
+                .filter(ChatMessage.sender == "user")\
+                .count()
+            
+
+        # 5. Total storage used (parse file sizes and sum up)
+        total_bytes_used = 0
+        if bot_ids:
+            files = db.query(File).filter(File.bot_id.in_(bot_ids)).all()
+            for file in files:
+                total_bytes_used += convert_to_bytes(file.file_size)
+
+        # Convert total_bytes_used to readable format
+        def format_bytes(size):
+            # Convert bytes into KB, MB, GB etc.
+            for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+                if size < 1024:
+                    return f"{size:.2f} {unit}"
+                size /= 1024
+            return f"{size:.2f} PB"
+
+        total_storage_used = format_bytes(total_bytes_used)
+
+        return {
+            "total_words_used": total_words_used,
+            "chat_messages_used": chat_messages_used,
+            "total_bots": total_bots,
+            "total_storage_used":total_storage_used
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Server error: {str(e)}"
+        )
+    
+
+
+def convert_to_bytes(size_str):
+    """
+    Converts a file size string like '19.44 KB', '2 MB', '1.5 GB' to bytes.
+    """
+    if not size_str:
+        return 0
+
+    size_str = size_str.strip().upper()
+    match = re.match(r"([\d\.]+)\s*(B|KB|MB|GB|TB)", size_str)
+
+    if not match:
+        return 0
+
+    size, unit = match.groups()
+    size = float(size)
+
+    unit_multipliers = {
+        "B": 1,
+        "KB": 1024,
+        "MB": 1024**2,
+        "GB": 1024**3,
+        "TB": 1024**4,
+    }
+
+    return int(size * unit_multipliers.get(unit, 0))

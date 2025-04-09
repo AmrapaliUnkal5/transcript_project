@@ -302,6 +302,11 @@ class SubscriptionPlanSchema(BaseModel):
     # class Config:
     #     orm_mode = True  # Enables auto-conversion from SQLAlchemy models
 
+class ReactionCreate(BaseModel):
+    interaction_id: int
+    session_id: str
+    bot_id: int
+    reaction: ReactionEnum
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str

@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
-//import { Button } from "@/components/ui/button";
-//import { Input } from "@/components/ui/input";
 import { authApi } from "../services/api";
 import { useBot } from "../context/BotContext";
-import { toast } from "react-toastify";
+
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
 interface YouTubeUploaderProps {
@@ -17,17 +15,18 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
   refreshKey = 0, // Default to 0 (since it's a number)
   setIsVideoSelected = () => {}, // Default to a no-op function
 }) => {
-  const { selectedBot, setSelectedBot } = useBot(); // Use BotContext
+  const { selectedBot } = useBot(); // Use BotContext
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const { loading, setLoading } = useLoader();
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const itemsPerPage = 10;
 
   // ✅ Reload video URLs when refreshKey changes
   useEffect(() => {
+    setSelectedVideos([]);
     const savedVideoUrls = localStorage.getItem("youtube_video_urls");
     console.log("savedVideoUrls", savedVideoUrls);
     if (savedVideoUrls) {
@@ -35,6 +34,8 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
         const parsedUrls = JSON.parse(savedVideoUrls);
         if (Array.isArray(parsedUrls) && parsedUrls.length > 0) {
           setVideoUrls(parsedUrls);
+        } else {
+          setVideoUrls([]); // ✅ Clear if empty or invalid
         }
       } catch (error) {
         console.error("Error parsing stored video URLs:", error);
@@ -42,21 +43,21 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
     }
   }, [refreshKey]); // <-- Refresh when refreshKey updates
 
-  /// Load video URLs from localStorage when component mounts
-  useEffect(() => {
-    const savedVideoUrls = localStorage.getItem("youtube_video_urls");
-    console.log("savedVideoUrls", savedVideoUrls);
-    if (savedVideoUrls) {
-      try {
-        const parsedUrls = JSON.parse(savedVideoUrls);
-        if (Array.isArray(parsedUrls) && parsedUrls.length > 0) {
-          setVideoUrls(parsedUrls);
-        }
-      } catch (error) {
-        console.error("Error parsing stored video URLs:", error);
-      }
-    }
-  }, []);
+  // /// Load video URLs from localStorage when component mounts
+  // useEffect(() => {
+  //   const savedVideoUrls = localStorage.getItem("youtube_video_urls");
+  //   console.log("savedVideoUrls", savedVideoUrls);
+  //   if (savedVideoUrls) {
+  //     try {
+  //       const parsedUrls = JSON.parse(savedVideoUrls);
+  //       if (Array.isArray(parsedUrls) && parsedUrls.length > 0) {
+  //         setVideoUrls(parsedUrls);
+  //       }
+  //     } catch (error) {
+  //       console.error("Error parsing stored video URLs:", error);
+  //     }
+  //   }
+  // }, []);
 
   // Load selected videos from localStorage when component mounts
   useEffect(() => {
@@ -156,6 +157,8 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
 
   const handleSelectVideo = (videoId: string) => {
     setSelectedVideos((prev) => {
+      const test = localStorage.getItem("selected_videos");
+      console.log("handleSelectVideo", test);
       let newSelection;
 
       if (prev.includes(videoId)) {
@@ -164,20 +167,24 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       } else {
         console.log("maxVideos", maxVideos);
         console.log("prev.length", prev.length);
-        if (prev.length >= maxVideos) {
-          toast.error(`You can only select ${maxVideos} videos.`);
-          return prev;
-        }
+        // if (prev.length >= maxVideos) {
+        //   toast.error(`You can only select ${maxVideos} videos.`);
+        //   return prev;
+        // }
         // Add the new video
         newSelection = [...prev, videoId];
       }
 
       // Check if at least one video is selected
-      setIsVideoSelected(newSelection.length > 0);
+      //setIsVideoSelected(newSelection.length > 0);
 
       return newSelection;
     });
   };
+
+  useEffect(() => {
+    setIsVideoSelected(selectedVideos.length > 0);
+  }, [selectedVideos]);
 
   // Pagination logic
   const getPaginatedVideos = () => {

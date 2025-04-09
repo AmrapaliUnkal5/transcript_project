@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from playwright.sync_api import sync_playwright
-from app.models import ScrapedNode,WebsiteDB  # Import the model
+from app.models import ScrapedNode,WebsiteDB, Bot, User  # Import the model
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from fastapi import Depends
@@ -76,6 +76,10 @@ def scrape_selected_nodes(url_list,bot_id,db: Session):
             # title = result.pop("title", "No Title")  # Extract title but do not return it
             crawled_data.append(result)
             crawled_urls.append({"url": url, "title": title})  # Store only URLs for saving
+            if result["text"]:
+                word_count = len(result["text"].split())
+                print("word count for url")
+                update_word_counts(db, bot_id=bot_id, word_count=word_count)
 
         #Below lines(80 - 82 should be removed when it successfuly extracts data )    
         title = "No title"  # Extract title from page conten
@@ -85,6 +89,7 @@ def scrape_selected_nodes(url_list,bot_id,db: Session):
 
     if crawled_urls:
         save_scraped_nodes(crawled_urls,bot_id, db)  # Save URLs to DB
+        update_word_counts(db, bot_id=bot_id, word_count=20)
 
     return crawled_data
 
@@ -145,7 +150,8 @@ def save_scraped_nodes(url_list, bot_id, db: Session):
             # Check if URL already exists for the given bot_id
             existing_node = db.query(ScrapedNode).filter(
                 ScrapedNode.url == url,
-                ScrapedNode.bot_id == bot_id  # ✅ Ensure uniqueness per bot_id
+                ScrapedNode.bot_id == bot_id,
+                ScrapedNode.is_deleted == False  # ✅ Ensure uniqueness per bot_id
             ).first()
             print(existing_node)
 
@@ -183,3 +189,17 @@ def extract_page_title(html_content):
     soup = BeautifulSoup(html_content, "html.parser")
     title_tag = soup.find("title")
     return title_tag.text.strip() if title_tag else "No Title"
+
+
+def update_word_counts(db: Session, bot_id: int, word_count: int):
+    # Update bot word count
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if bot:
+        bot.word_count = (bot.word_count or 0) + word_count
+
+    # Update user's total words used
+    user = db.query(User).filter(User.user_id == bot.user_id).first()
+    if user:
+        user.total_words_used = (user.total_words_used or 0) + word_count
+
+    db.commit()

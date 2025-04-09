@@ -7,8 +7,8 @@ import os
 from fastapi.responses import JSONResponse
 import shutil
 from app.config import settings
-from app.schemas import  BotUpdateStatus
-from app.models import Bot, User
+from app.schemas import  BotUpdateStatus, ReactionCreate
+from app.models import Bot, User, InteractionReaction
 from datetime import datetime
 from app.utils.reembedding_utils import reembed_all_files
 from app.dependency import get_current_user
@@ -142,4 +142,27 @@ async def reembed_bot_knowledge(bot_id: int, db: Session = Depends(get_db)):
     await reembed_all_files(bot_id, db)
     return {"message": "Re-embedding completed successfully"}
     db.close()
+
+
+@router.post("/interactions/reaction")
+async def submit_reaction(payload: ReactionCreate, db: Session = Depends(get_db)):
+    # existing = (
+    #     db.query(InteractionReaction)
+    #     .filter_by(interaction_id=payload.interaction_id, session_id=payload.session_id)
+    #     .first()
+    # )
+    # if existing:
+    #     raise HTTPException(status_code=400, detail="Reaction already exists.")
+    # print("reaction payload",payload)
+
+    reaction = InteractionReaction(
+        interaction_id=payload.interaction_id,
+        session_id=payload.session_id,
+        bot_id=payload.bot_id,
+        reaction=payload.reaction,
+    )
+    db.add(reaction)
+    db.commit()
+    db.refresh(reaction)
+    return {"message": "Reaction recorded successfully"}
 

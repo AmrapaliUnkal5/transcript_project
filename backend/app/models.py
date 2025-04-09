@@ -7,6 +7,8 @@ from datetime import datetime
 import enum 
 from sqlalchemy.orm import relationship
 
+from app.schemas import ReactionEnum
+
 
 #Base = declarative_base()
 
@@ -236,12 +238,10 @@ class YouTubeVideo(Base):
     likes = Column(Integer, nullable=True)
     description = Column(Text, nullable=True)
     thumbnail_url = Column(Text, nullable=True)
-
     bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"), nullable=False)
-
     # Uncomment if you have a `Bot` model and want bidirectional access
     # bot = relationship("Bot", back_populates="youtube_videos")
-
+    transcript_count = Column(Integer, default=0)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     # New column to indicate soft deletion
     is_deleted = Column(Boolean, nullable=False, server_default="false")
@@ -259,7 +259,7 @@ class InteractionReaction(Base):
     bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"), nullable=False, index=True)
     interaction_id = Column(Integer, ForeignKey("interactions.interaction_id", ondelete="CASCADE"), nullable=False, index=True)
     session_id = Column(String, nullable=False, index=True)
-    reaction = Column(Enum(ReactionType), nullable=False)
+    reaction = Column(Enum(ReactionEnum, name="reaction_type", create_type=False), nullable=False)
     reaction_time = Column(TIMESTAMP, nullable=False, server_default=func.current_timestamp())
 
     __table_args__ = (UniqueConstraint("interaction_id", "session_id", name="unique_user_reaction"),)
@@ -277,6 +277,7 @@ class ScrapedNode(Base):
      # New column to indicate soft deletion
     is_deleted = Column(Boolean, nullable=False, server_default="false")
     website_id = Column(Integer, ForeignKey("websites.id", ondelete="CASCADE"), nullable=True)  # New column
+    nodes_text_count = Column(Integer, nullable=True, server_default="0")
 
     #website = relationship("Website", back_populates="scraped_nodes")  #
 

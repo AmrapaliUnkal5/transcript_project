@@ -130,6 +130,12 @@ export interface BotMetrics {
     average_time_spent: number;
   }[];
 }
+export interface ReactionData {
+  interaction_id: number;
+  session_id: string;
+  bot_id: number;
+  reaction: "like" | "dislike";
+}
 
 // Team management interfaces
 export interface TeamMemberInvite {
@@ -491,6 +497,16 @@ export const authApi = {
     Promise<{ success: boolean }> => {
     const response = await api.post('/bot/update_word_count', data);
     return response.data;
-  }
+  },
+
+  getUsageMetrics: async () => {
+    const response = await api.get('/usage-metrics');
+    return response.data;
+  },
+
+  submitReaction: async (data: ReactionData) => {
+    const response = await api.post("/botsettings/interactions/reaction", data);
+    return response.data;
+  },
 
 };
