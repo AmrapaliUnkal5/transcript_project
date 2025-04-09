@@ -176,6 +176,21 @@ const usagePercentage = Math.min(100, (totalWordsUsed / userUsage.planLimit) * 1
       toast.error("You've reached your word limit. Please upgrade your plan.");
       return;
     }
+
+    // Check for duplicate file names (both existing and new files)
+  const existingFileNames = files.map(f => f.name.toLowerCase());
+  const duplicateFiles = acceptedFiles.filter(file => 
+    existingFileNames.includes(file.name.toLowerCase())
+  );
+
+  if (duplicateFiles.length > 0) {
+    const duplicateNames = duplicateFiles.map(f => `"${f.name}"`).join(', ');
+    toast.error(
+      `File(s) with the same name already exist: ${duplicateNames}. ` +
+      `Please rename the file(s) or remove the existing ones before uploading.`
+    );
+    return;
+  }
   
     setIsProcessingFiles(true);
     

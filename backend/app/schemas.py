@@ -307,3 +307,6 @@ class ReactionCreate(BaseModel):
     session_id: str
     bot_id: int
     reaction: ReactionEnum
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str

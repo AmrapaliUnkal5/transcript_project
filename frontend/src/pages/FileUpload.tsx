@@ -433,30 +433,49 @@ export const FileUpload = () => {
         );
         return;
       }
-      setIsProcessingFiles(true);
-
+  
+      // Check for duplicate file names (case-insensitive)
+      const allFileNames = [
+        ...existingFiles.map(f => f.name.toLowerCase()),
+        ...newFiles.map(f => f.name.toLowerCase())
+      ];
+      
+      const duplicateFiles = acceptedFiles.filter(file => 
+        allFileNames.includes(file.name.toLowerCase())
+      );
+  
+      if (duplicateFiles.length > 0) {
+        const duplicateNames = duplicateFiles.map(f => `"${f.name}"`).join(', ');
+        toast.error(
+          `Cannot upload files with duplicate names: ${duplicateNames}. ` +
+          `Please rename the file(s) or delete the existing ones before uploading.`
+        );
+        return;
+      }
+  
       // Check each file's size before processing
       const oversizedFiles = acceptedFiles.filter(
         (file) => file.size > MAX_FILE_SIZE
       );
-
+  
       if (oversizedFiles.length > 0) {
         toast.error(
           `Files exceed the ${
             userPlan.fileSizeLimitMB
           }MB limit: ${oversizedFiles.map((f) => f.name).join(", ")}`
         );
-        setIsProcessingFiles(false);
         return;
       }
-
+  
+      setIsProcessingFiles(true);
+  
       try {
         // Process word counts for new files
         const counts = await processWordCounts(acceptedFiles);
 
         let newWords = 0;
         const validFiles: FileUploadInterface[] = [];
-
+  
         for (let i = 0; i < acceptedFiles.length; i++) {
           const file = acceptedFiles[i];
           const countData = counts[i];
@@ -466,7 +485,7 @@ export const FileUpload = () => {
             toast.error(`${file.name}: ${countData.error}`);
             continue;
           }
-
+  
           const fileWords = countData.word_count || 0;
 
           if (totalWordsUsed + fileWords > userUsage.planLimit) {
@@ -489,7 +508,7 @@ export const FileUpload = () => {
 
           newWords += fileWords;
         }
-
+  
         // Update state
         setNewFiles((prev) => [...prev, ...validFiles]);
         setTotalSize(
@@ -507,7 +526,7 @@ export const FileUpload = () => {
         setIsProcessingFiles(false);
       }
     },
-    [totalWordsUsed, userUsage.planLimit, MAX_FILE_SIZE]
+    [totalWordsUsed, userUsage.planLimit, MAX_FILE_SIZE, existingFiles, newFiles, remainingWords]
   );
 
   // Handle file deletion
