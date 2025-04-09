@@ -41,7 +41,7 @@ export const Sidebar = () => {
   };
 
   return (
-    <aside className="bg-white dark:bg-gray-800 w-64 h-[calc(100vh-4rem)] mt-16 p-4 border-r border-gray-200 dark:border-gray-700">
+    <aside className="bg-white dark:bg-gray-800 w-64 h-[calc(100vh-4rem)] p-4 border-r border-gray-200 dark:border-gray-700">
       <div
         className="flex items-center justify-center mb-8 cursor-pointer hover:opacity-80 transition-opacity"
         onClick={() => navigate("/")}
