@@ -411,15 +411,40 @@ export const Settings = () => {
                 name="name"
                 value={settings.name}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="company_name"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Email/User Login
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={settings.email}
+                disabled
+                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            {/* Phone Number */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Phone Number
+              </label>
+              <input
+                type="text"
+                name="phone_no"
+                pattern="[0-9]*"
+                inputMode="numeric"
+                onChange={handleInputChange}
+                value={settings.phone_no || ""}
+                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            {/* Company Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Company Name
               </label>
               <input
@@ -428,7 +453,7 @@ export const Settings = () => {
                 name="company_name"
                 value={settings.company_name}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 
@@ -445,11 +470,7 @@ export const Settings = () => {
                 name="communication_email"
                 value={settings.communication_email}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border ${
-                  errors.communication_email
-                    ? "border-red-500"
-                    : "border-gray-300"
-                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
               />
               {errors.communication_email && (
                 <p className="text-red-500 text-sm mt-1">

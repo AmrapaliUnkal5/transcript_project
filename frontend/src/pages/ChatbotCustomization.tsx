@@ -173,7 +173,7 @@ export const ChatbotCustomization = () => {
   };
 
   if (!selectedBot) {
-    return <div className="text-center text-gray-500">No bot selected.</div>;
+    return <div className="text-center text-gray-500 dark:text-white">No bot selected.</div>;
   }
 
   const handleDeleteBot = async () => {
@@ -768,11 +768,11 @@ export const ChatbotCustomization = () => {
           {sections.map((section) => (
             <div
               key={section.title}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-gray-900 dark:text-white"
             >
               <div className="flex items-center space-x-2 mb-4">
                 <section.icon className="w-5 h-5 text-blue-500" />
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h2 className="dark:text-white">
                   {section.title}
                 </h2>
               </div>
@@ -871,7 +871,7 @@ export const ChatbotCustomization = () => {
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-center mt-auto">
+              <p className="text-white text-center mt-auto">
                 Start chatting with the bot!
               </p>
             )}

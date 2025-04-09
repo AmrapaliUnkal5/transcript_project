@@ -4,7 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 
 export const Layout = () => {
-  const [isDark, setIsDark] = React.useState(false);
+  const [isDark, setIsDark] = React.useState(true);
   const [user, setUser] = useState<{ name: string; avatar: string }>({
     name: "Guest",
     avatar:
