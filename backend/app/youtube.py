@@ -103,7 +103,7 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
             print("test")
             
 
-            #add_document(bot_id, text=transcript, metadata=metadata)  # ✅ Same as PDF & text storage
+            add_document(bot_id, text=transcript, metadata=metadata)  # ✅ Same as PDF & text storage
             print("options")
 
 
