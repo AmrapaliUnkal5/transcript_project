@@ -6,11 +6,11 @@ from app.database import get_db
 from app.models import Bot, Interaction
 from app.schemas import UserOut
 from app.dependency import get_current_user
-from sqlalchemy import func
+from sqlalchemy import func, Date, cast
 
 router = APIRouter()
 
-@router.get("/weekly-conversations")
+@router.get("/last-seven-days-conversations")
 def get_weekly_conversations(
     bot_id: int,
     db: Session = Depends(get_db),
@@ -30,30 +30,36 @@ def get_weekly_conversations(
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found for this user")
 
-    # Get the start and end of the current week
-    today = datetime.today()
-    start_of_week = today - timedelta(days=today.weekday())  # Monday of this week
-    end_of_week = start_of_week + timedelta(days=6)  # Sunday of this week
+    # Calculate date range for last 7 days (including today)
+    end_date = datetime.today()
+    start_date = end_date - timedelta(days=6)  # Last 7 days including today
 
-    # Query to get daily interaction counts for the bot within the current week
+    # Query to get daily interaction counts for the bot within the last 7 days
     daily_counts = (
         db.query(
-            func.to_char(Interaction.start_time, 'Dy').label('day'),  # Extract abbreviated day name (e.g., Mon)
+            cast(Interaction.start_time, Date).label('date'),  # Extract just the date part
             func.count(Interaction.interaction_id).label('interaction_count')
         )
         .filter(Interaction.bot_id == bot_id)
-        .filter(Interaction.start_time >= start_of_week)
-        .filter(Interaction.start_time <= end_of_week)
-        .group_by(func.to_char(Interaction.start_time, 'Dy'))
+        .filter(Interaction.start_time >= start_date)
+        .filter(Interaction.start_time <= end_date)
+        .group_by(cast(Interaction.start_time, Date))
+        .order_by(cast(Interaction.start_time, Date))
         .all()
     )
 
-    # Define the correct weekday abbreviations in order
-    days_of_week = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    response = {day: 0 for day in days_of_week}  
-    
-    # Ensure consistent abbreviation mapping
-    for day, count in daily_counts:
-        response[day.strip()[:3]] = count  
+    # Create a dictionary with dates as keys
+    date_counts = {str(record.date): record.interaction_count for record in daily_counts}
+
+    # Generate response for all dates in the range, including days with zero interactions
+    response = {}
+    current_date = start_date
+    while current_date <= end_date:
+        date_str = current_date.strftime('%Y-%m-%d')
+        day_name = current_date.strftime('%a')  # Short day name (Mon, Tue, etc.)
+        month_abbr = current_date.strftime('%b')  # Month abbreviation (Jan, Feb, etc.)
+        day_number = current_date.day
+        response[f"{day_name} {month_abbr} {day_number}"] = date_counts.get(date_str, 0)
+        current_date += timedelta(days=1)
 
     return response

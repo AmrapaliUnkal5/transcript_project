@@ -424,7 +424,7 @@ export const authApi = {
 
 
   getWeeklyConversations: async (params: { bot_id: number }) => {
-    const response = await api.get('/weekly-conversations', {
+    const response = await api.get('/last-seven-days-conversations', {
       params: {
         bot_id: params.bot_id,
       },
