@@ -1,24 +1,108 @@
-from fastapi import  HTTPException, UploadFile
+from fastapi import HTTPException, UploadFile
 from app.vector_db import retrieve_similar_docs, add_document
 import pdfplumber 
 from typing import Union
 import io
 import asyncio
 import os
+import fitz 
+import pytesseract
+from PIL import Image
+import tempfile
+import zipfile
+from docx import Document
 
 def extract_text_from_pdf(pdf_file):
     """Extracts text from a PDF file using pdfplumber."""
     try:
         with pdfplumber.open(pdf_file) as pdf:
             text = "\n".join([page.extract_text() or "" for page in pdf.pages])
-        return text.strip() if text.strip() else None  # Remove empty text
+        return text.strip() if text.strip() else None
     except Exception as e:
         print(f"⚠️ Error extracting PDF text: {e}")
         return None
-    
+
+def extract_text_from_pdf_images(pdf_content: bytes) -> str:
+    """Extracts text from images in a PDF using OCR."""
+    try:
+        extracted_text = ""
+        doc = fitz.open(stream=pdf_content, filetype="pdf")
+        
+        for page in doc:
+            for img in page.get_images(full=True):
+                xref = img[0]
+                base_image = doc.extract_image(xref)
+                image = Image.open(io.BytesIO(base_image["image"]))
+                extracted_text += pytesseract.image_to_string(image) + " "
+        
+        return extracted_text.strip()
+    except Exception as e:
+        print(f"⚠️ Error extracting text from PDF images: {e}")
+        return ""
+
+def extract_text_from_image(image_bytes: bytes) -> str:
+    """Extracts text from an image file using OCR."""
+    try:
+        image = Image.open(io.BytesIO(image_bytes))
+        return pytesseract.image_to_string(image)
+    except Exception as e:
+        print(f"⚠️ Error extracting text from image: {e}")
+        return ""
+
+def extract_text_from_docx(docx_content: bytes) -> str:
+    """Extracts text from a DOCX file."""
+    try:
+        doc = Document(io.BytesIO(docx_content))
+        return " ".join([para.text for para in doc.paragraphs])
+    except Exception as e:
+        print(f"⚠️ Error extracting text from DOCX: {e}")
+        return ""
+
+def extract_text_from_docx_images(docx_content: bytes) -> str:
+    """Extracts text from images within a DOCX file."""
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_file:
+            temp_file.write(docx_content)
+            temp_path = temp_file.name
+        
+        extracted_text = ""
+        
+        with zipfile.ZipFile(temp_path, "r") as docx_zip:
+            for file_name in docx_zip.namelist():
+                if file_name.startswith("word/media/") and file_name.lower().endswith((".png", ".jpg", ".jpeg")):
+                    with docx_zip.open(file_name) as image_file:
+                        extracted_text += extract_text_from_image(image_file.read()) + " "
+        
+        return extracted_text.strip()
+    except Exception as e:
+        print(f"⚠️ Error extracting text from DOCX images: {e}")
+        return ""
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)
+
+def extract_text_from_doc(doc_content: bytes) -> str:
+    """Extracts text from older .doc files (requires antiword or similar tool)."""
+    try:
+        # This requires antiword to be installed on the system
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".doc") as temp_file:
+            temp_file.write(doc_content)
+            temp_path = temp_file.name
+        
+        # Using antiword to extract text from .doc files
+        text = os.popen(f"antiword '{temp_path}'").read()
+        return text.strip()
+    except Exception as e:
+        print(f"⚠️ Error extracting text from DOC file: {e}")
+        return ""
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)
+
 async def extract_text_from_file(file, filename=None) -> Union[str, None]:
     """
-    Extracts text from a file (TXT or PDF).
+    Extracts text from any supported file type (TXT, PDF, DOC, DOCX, PNG, JPG).
     
     Args:
         file: Either a file-like object with read() method or raw bytes content
@@ -30,7 +114,7 @@ async def extract_text_from_file(file, filename=None) -> Union[str, None]:
             if hasattr(file, 'filename'):
                 filename = file.filename
             else:
-                print(f"⚠️ No filename provided and file object has no filename attribute")
+                print("⚠️ No filename provided and file object has no filename attribute")
                 raise ValueError("Filename must be provided when file does not have filename attribute")
         
         print(f"📄 Extracting text from file: {filename}")
@@ -39,66 +123,72 @@ async def extract_text_from_file(file, filename=None) -> Union[str, None]:
         file_extension = filename.split(".")[-1].lower()
         print(f"📋 File extension: {file_extension}")
 
+        # Get file content
+        if isinstance(file, bytes):
+            content = file
+        elif hasattr(file, 'read'):
+            if asyncio.iscoroutinefunction(getattr(file, 'read')):
+                content = await file.read()
+            else:
+                content = file.read()
+        else:
+            raise TypeError(f"File must be bytes or have a read() method. Got {type(file)}")
+
+        # Process based on file type
         if file_extension == "txt":
             print("📝 Processing as TXT file")
-            # Handle different types of input files
-            if isinstance(file, bytes):
-                # If file is already bytes content
-                print("🔄 File is bytes content")
-                content = file
-            elif hasattr(file, 'read'):
-                # If file is a file-like object
-                print("🔄 File is a file-like object")
-                if callable(getattr(file, 'read')) and asyncio.iscoroutinefunction(file.read):
-                    print("🔄 Reading file asynchronously")
-                    content = await file.read()
-                else:
-                    print("🔄 Reading file synchronously")
-                    content = file.read()
-            else:
-                print(f"❌ Unsupported file type: {type(file)}")
-                raise TypeError(f"File must be bytes or have a read() method. Got {type(file)}")
-                
             text = content.decode("utf-8")
             print(f"✅ Successfully extracted text from TXT file (length: {len(text)})")
             return text
             
         elif file_extension == "pdf":
             print("📄 Processing as PDF file")
-            # For PDF, we need a file-like object
-            if isinstance(file, bytes):
-                # Convert bytes to file-like object
-                print("🔄 Converting bytes to file-like object")
-                file_obj = io.BytesIO(file)
-            elif hasattr(file, 'read'):
-                # If we have a read method, use it to get content
-                if asyncio.iscoroutinefunction(getattr(file, 'read')):
-                    print("🔄 Reading PDF file asynchronously")
-                    content = await file.read()
-                    file_obj = io.BytesIO(content)
-                else:
-                    # Use the file's 'file' attribute or the file itself
-                    print("🔄 Using file object directly")
-                    file_obj = getattr(file, 'file', file)
-            else:
-                print(f"❌ Unsupported PDF file type: {type(file)}")
-                raise TypeError(f"Cannot process PDF from the provided file type: {type(file)}")
-                
+            # First try regular text extraction
+            file_obj = io.BytesIO(content)
             text = extract_text_from_pdf(file_obj)
+            
+            # If no text found or very little text, try OCR on images
+            if not text or len(text.strip()) < 50:  # Arbitrary threshold
+                print("🔍 Trying OCR for possible image-based PDF")
+                ocr_text = extract_text_from_pdf_images(content)
+                text = (text + " " + ocr_text).strip() if text else ocr_text
+            
             if text:
                 print(f"✅ Successfully extracted text from PDF file (length: {len(text)})")
             else:
                 print("⚠️ No text extracted from PDF file")
             return text
             
+        elif file_extension == "docx":
+            print("📝 Processing as DOCX file")
+            text = extract_text_from_docx(content)
+            ocr_text = extract_text_from_docx_images(content)
+            combined_text = (text + " " + ocr_text).strip()
+            print(f"✅ Successfully extracted text from DOCX file (length: {len(combined_text)})")
+            return combined_text
+            
+        elif file_extension == "doc":
+            print("📝 Processing as DOC file")
+            text = extract_text_from_doc(content)
+            print(f"✅ Successfully extracted text from DOC file (length: {len(text)})")
+            return text
+            
+        elif file_extension in ("png", "jpg", "jpeg"):
+            print("🖼️ Processing as image file")
+            text = extract_text_from_image(content)
+            print(f"✅ Successfully extracted text from image file (length: {len(text)})")
+            return text
+            
         else:
             print(f"❌ Unsupported file extension: {file_extension}")
-            raise HTTPException(status_code=400, detail=f"File format '{file_extension}' is not supported. Only TXT and PDF files are supported.")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"File format '{file_extension}' is not supported. Supported formats: TXT, PDF, DOC, DOCX, PNG, JPG."
+            )
 
     except Exception as e:
         print(f"❌ Error extracting text from file {filename if filename else 'unknown'}: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Error extracting text: {str(e)}")
-
 
 def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file) -> None:
     """Validates extracted text and stores it in ChromaDB."""
@@ -116,5 +206,3 @@ def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file) -> None:
     # Store extracted text in ChromaDB
     print(f"💾 Storing document in ChromaDB for bot {bot_id}: {metadata['id']}")
     add_document(bot_id, text, metadata)
-
-

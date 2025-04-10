@@ -252,6 +252,9 @@ const usagePercentage = Math.min(100, (totalWordsUsed / userUsage.planLimit) * 1
     accept: {
       "application/pdf": [".pdf"],
       "text/plain": [".txt"],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
     },
     onDropRejected: (rejectedFiles) => {
       const rejectedFileTypes = rejectedFiles
