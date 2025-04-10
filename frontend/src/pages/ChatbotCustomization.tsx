@@ -102,13 +102,19 @@ export const ChatbotCustomization = () => {
 
   const [interactionId, setInteractionId] = useState<number | null>(null);
   const [messages, setMessages] = useState<
-    { sender: string; text: string; reaction?: "like" | "dislike" }[]
+    {
+      sender: string;
+      text: string;
+      message_id?: number;
+      reaction?: "like" | "dislike";
+    }[]
   >([]);
   const [inputMessage, setInputMessage] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false); // Separate loader for chat preview
   const [isBotTyping, setIsBotTyping] = useState(false); // New state for typing animation
   const [currentBotMessage, setCurrentBotMessage] = useState(""); // State to track partially typed bot message
   const [fullBotMessage, setFullBotMessage] = useState(""); // State to store the complete bot message
+  const [botMessageId, setBotMessageId] = useState<number | null>(null); // State to store the complete bot message
   const [lastActivityTime, setLastActivityTime] = useState<Date | null>(null);
   const idleTimeoutRef = useRef<number | null>(null);
   const sessionExpiryRef = useRef<number | null>(null);
@@ -152,6 +158,12 @@ export const ChatbotCustomization = () => {
   };
 
   const handleReaction = async (type: "like" | "dislike", index: number) => {
+    const message = messages[index];
+    const messageId = message?.message_id;
+    if (!messageId) {
+      console.error("No message_id found for this index");
+      return;
+    }
     if (!interactionId || !userId || !botId) return;
 
     try {
@@ -160,6 +172,7 @@ export const ChatbotCustomization = () => {
         session_id: `${userId}-${index}`,
         bot_id: botId,
         reaction: type,
+        message_id: messageId,
       });
 
       // Update reaction for THIS message only
@@ -196,7 +209,11 @@ export const ChatbotCustomization = () => {
   };
 
   if (!selectedBot) {
-    return <div className="text-center text-gray-500 dark:text-white">No bot selected.</div>;
+    return (
+      <div className="text-center text-gray-500 dark:text-white">
+        No bot selected.
+      </div>
+    );
   }
 
   const handleDeleteBot = async () => {
@@ -303,6 +320,7 @@ export const ChatbotCustomization = () => {
 
     try {
       const data = await authApi.sendMessage(sessionId, "user", inputMessage);
+      setBotMessageId(data.message_id);
 
       // Add a thinking delay before typing animation begins
       const thinkingDelay = Math.random() * 1000 + 500; // Random delay between 500-1500ms
@@ -337,7 +355,12 @@ export const ChatbotCustomization = () => {
             ) {
               clearInterval(typingInterval);
               setTimeout(() => {
-                startTypingAnimation(charIndex, data.message, newMessages);
+                startTypingAnimation(
+                  charIndex,
+                  data.message,
+                  data.message_id,
+                  newMessages
+                );
               }, 200 + Math.random() * 200); // 200-400ms pause
             }
           } else {
@@ -346,7 +369,11 @@ export const ChatbotCustomization = () => {
             // Add the complete bot message to the messages array
             setMessages([
               ...newMessages,
-              { sender: "bot", text: data.message },
+              {
+                sender: "bot",
+                text: data.message,
+                message_id: data.message_id,
+              },
             ]);
           }
         }, baseTypingSpeed);
@@ -363,6 +390,7 @@ export const ChatbotCustomization = () => {
   const startTypingAnimation = (
     startIndex: number,
     fullMessage: string,
+    message_id: number,
     newMessages: Array<{ sender: string; text: string }>
   ) => {
     let charIndex = startIndex;
@@ -386,14 +414,22 @@ export const ChatbotCustomization = () => {
         ) {
           clearInterval(typingInterval);
           setTimeout(() => {
-            startTypingAnimation(charIndex, fullMessage, newMessages);
+            startTypingAnimation(
+              charIndex,
+              fullMessage,
+              message_id,
+              newMessages
+            );
           }, 200 + Math.random() * 200);
         }
       } else {
         clearInterval(typingInterval);
         setIsBotTyping(false);
         // Add the complete bot message to the messages array
-        setMessages([...newMessages, { sender: "bot", text: fullMessage }]);
+        setMessages([
+          ...newMessages,
+          { sender: "bot", text: fullMessage, message_id: message_id },
+        ]);
       }
     }, baseTypingSpeed);
   };
@@ -795,9 +831,7 @@ export const ChatbotCustomization = () => {
             >
               <div className="flex items-center space-x-2 mb-4">
                 <section.icon className="w-5 h-5 text-blue-500" />
-                <h2 className="dark:text-white">
-                  {section.title}
-                </h2>
+                <h2 className="dark:text-white">{section.title}</h2>
               </div>
               <div className="space-y-4">
                 {section.fields.map((field) => (
@@ -903,7 +937,7 @@ export const ChatbotCustomization = () => {
                             ? "text-blue-500 fill-blue-500"
                             : "text-gray-500 hover:text-gray-700"
                         }`}
-                        disabled={msg.reaction !== undefined} // Disable if reacted
+                        // disabled={msg.reaction !== undefined} // Disable if reacted
                       >
                         <ThumbsUp className="w-4 h-4" />
                       </button>
@@ -916,7 +950,7 @@ export const ChatbotCustomization = () => {
                             ? "text-red-500 fill-red-500"
                             : "text-gray-500 hover:text-gray-700"
                         }`}
-                        disabled={msg.reaction !== undefined} // Disable if reacted
+                        // disabled={msg.reaction !== undefined} // Disable if reacted
                       >
                         <ThumbsDown className="w-4 h-4" />
                       </button>

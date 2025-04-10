@@ -135,6 +135,7 @@ export interface ReactionData {
   session_id: string;
   bot_id: number;
   reaction: "like" | "dislike";
+  message_id: number;
 }
 
 // Team management interfaces

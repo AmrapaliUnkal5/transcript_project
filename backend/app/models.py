@@ -258,9 +258,12 @@ class InteractionReaction(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"), nullable=False, index=True)
     interaction_id = Column(Integer, ForeignKey("interactions.interaction_id", ondelete="CASCADE"), nullable=False, index=True)
-    session_id = Column(String, nullable=False, index=True)
+    session_id = Column(String, nullable=True, index=True)
     reaction = Column(Enum(ReactionEnum, name="reaction_type", create_type=False), nullable=False)
     reaction_time = Column(TIMESTAMP, nullable=False, server_default=func.current_timestamp())
+    message_id = Column(Integer, ForeignKey("chat_messages.message_id", ondelete="CASCADE"), nullable=True,  #  Consider changing to False once all reactions are guaranteed to have a message
+                        index=True
+)
 
     __table_args__ = (UniqueConstraint("interaction_id", "session_id", name="unique_user_reaction"),)
 

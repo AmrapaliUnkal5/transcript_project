@@ -74,7 +74,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     db.add(bot_message)
     db.commit()
 
-    return {"message": bot_reply_text}
+    return {"message": bot_reply_text,"message_id": bot_message.message_id}
 
 
 

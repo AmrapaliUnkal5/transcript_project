@@ -134,7 +134,7 @@ def get_bot_by_user_id(db: Session, user_id: int):
     # Convert results to a dictionary for quick lookup
     bot_conversation_dict = {bot_id: count for bot_id, count in bot_conversation_counts}
 
-    
+       
     # Get reaction counts - PROPER ENUM USAGE
     reaction_counts = (
         db.query(
@@ -142,7 +142,9 @@ def get_bot_by_user_id(db: Session, user_id: int):
             func.sum(case((InteractionReaction.reaction == ReactionType.LIKE.value, 1), else_=0)).label("like"),
             func.sum(case((InteractionReaction.reaction == ReactionType.DISLIKE.value, 1), else_=0)).label("dislike")
         )
-        .filter(InteractionReaction.bot_id.in_(bot_ids))
+        .filter(InteractionReaction.bot_id.in_(bot_ids),
+                 InteractionReaction.reaction_time.between(today_start, today_end)  # ✅ Only today's reactions
+        )
         .group_by(InteractionReaction.bot_id)
         .all()
     )
