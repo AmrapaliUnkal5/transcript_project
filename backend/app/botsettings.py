@@ -146,20 +146,25 @@ async def reembed_bot_knowledge(bot_id: int, db: Session = Depends(get_db)):
 
 @router.post("/interactions/reaction")
 async def submit_reaction(payload: ReactionCreate, db: Session = Depends(get_db)):
-    # existing = (
-    #     db.query(InteractionReaction)
-    #     .filter_by(interaction_id=payload.interaction_id, session_id=payload.session_id)
-    #     .first()
-    # )
-    # if existing:
-    #     raise HTTPException(status_code=400, detail="Reaction already exists.")
-    # print("reaction payload",payload)
+    existing = (
+        db.query(InteractionReaction)
+        .filter_by(interaction_id=payload.interaction_id, message_id=payload.message_id)
+        .first()
+    )
+    if existing:
+        # Update the existing reaction
+        existing.reaction = payload.reaction
+        db.commit()
+        db.refresh(existing)
+        return {"detail": "Reaction updated."}
+    print("reaction payload",payload)
 
     reaction = InteractionReaction(
         interaction_id=payload.interaction_id,
         session_id=payload.session_id,
         bot_id=payload.bot_id,
         reaction=payload.reaction,
+        message_id = payload.message_id
     )
     db.add(reaction)
     db.commit()

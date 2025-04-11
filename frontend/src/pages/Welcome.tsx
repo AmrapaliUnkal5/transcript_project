@@ -16,7 +16,9 @@ import { authApi } from "../services/api";
 import { useBot } from "../context/BotContext";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
-import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
+import { UserUsage } from "../types/index";
+import { getPlanById, SubscriptionPlan } from "../types/index";
+//import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 
 export const Welcome = () => {
   const { user } = useAuth();
@@ -48,11 +50,11 @@ export const Welcome = () => {
   >([]); // State to store conversation trends
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
-  const { plans, getPlanById } = useSubscriptionPlans(); // ✅ Ensure plans is included
+
   const userPlanId = user?.subscription_plan_id || 1;
-  const userPlan = getPlanById(userPlanId);
+  const userPlan: SubscriptionPlan = getPlanById(userPlanId);
   const maxBotsAllowed = userPlan?.chatbot_limit ?? 0;
-  const maxWordsAllowed = userPlan?.word_count_limit ?? 0;
+  const maxWordsAllowed = userPlan?.wordCountLimit ?? 0;
   const chatbotlimit = userPlan?.chatbot_limit ?? 0;
   const storagelimit = userPlan?.storage_limit ?? "0";
   const chat_messages_used = userPlan?.message_limit ?? 0;
@@ -97,9 +99,7 @@ export const Welcome = () => {
   const handleCreateBot = () => {
     //const userPlanId = user?.subscription_plan_id || 1; // Default to Free Plan
     // ✅ Add a loading check
-    if (!plans || plans.length === 0) {
-      return <p>Loading subscription plans...</p>;
-    }
+
     //const userPlan = getPlanById(userPlanId);
 
     console.log("userPlan", userPlan);
@@ -363,7 +363,7 @@ export const Welcome = () => {
 
   const NewUserWelcome = () => {
     const isFreePlan = user?.subscription_plan_id === 1; // Check if user is on free plan
-    
+
     const handleBuildBotClick = () => {
       if (isFreePlan) {
         navigate("/Options"); // Free plan users go to Options
@@ -371,7 +371,7 @@ export const Welcome = () => {
         navigate("/create-bot"); // All other plans go directly to create-bot
       }
     };
-  
+
     return (
       <div className="text-center max-w-2xl mx-auto">
         <div className="mb-8 flex justify-center">
@@ -398,7 +398,7 @@ export const Welcome = () => {
       </div>
     );
   };
-  
+
   const ExistingUserDashboard = () => (
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-8">

@@ -126,6 +126,10 @@ export interface GetWeeklyConversationsParams {
     maxFiles: number;
     maxWebPages: number;
     analytics: string;
+    chatbot_limit:number;
+    storage_limit:string;
+    message_limit:number;
+    
   }
   
   export const SUBSCRIPTION_PLANS: Record<number, SubscriptionPlan> = {
@@ -136,7 +140,10 @@ export interface GetWeeklyConversationsParams {
       fileSizeLimitMB: 20,
       maxFiles: 10,
       maxWebPages: 1,
-      analytics: "None"
+      analytics: "None",
+      chatbot_limit:1,
+      storage_limit:"20 MB",
+      message_limit:100
     },
     2: { // Starter Plan
       id: 2,
@@ -145,7 +152,10 @@ export interface GetWeeklyConversationsParams {
       fileSizeLimitMB: 500,
       maxFiles: 50,
       maxWebPages: 1,
-      analytics: "Standard"
+      analytics: "Standard",
+      chatbot_limit:1,
+      storage_limit:"500 MB",
+      message_limit:1000
     },
     3: { // Growth Plan
       id: 3,
@@ -154,7 +164,10 @@ export interface GetWeeklyConversationsParams {
       fileSizeLimitMB: 1024,
       maxFiles: 100,
       maxWebPages: 5,
-      analytics: "Standard"
+      analytics: "Standard",
+      chatbot_limit:2,
+      storage_limit:"1 GB",
+      message_limit:2500
     },
     4: { // Professional Plan
       id: 4,
@@ -163,7 +176,10 @@ export interface GetWeeklyConversationsParams {
       fileSizeLimitMB: 2048,
       maxFiles: 200,
       maxWebPages: 10,
-      analytics: "Advanced"
+      analytics: "Advanced",
+      chatbot_limit:5,
+      storage_limit:"5 GB",
+      message_limit:6000
     }
   };
   
