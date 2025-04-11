@@ -66,6 +66,7 @@ export const FileUpload = () => {
   const [isVideoSelected, setIsVideoSelected] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [processingMessage, setProcessingMessage] = useState(
     "Getting things ready for you..."
   );
@@ -475,6 +476,7 @@ export const FileUpload = () => {
 
         let newWords = 0;
         const validFiles: FileUploadInterface[] = [];
+        let hasExceededLimit = false;
   
         for (let i = 0; i < acceptedFiles.length; i++) {
           const file = acceptedFiles[i];
@@ -509,6 +511,27 @@ export const FileUpload = () => {
           newWords += fileWords;
         }
   
+  //       // Update state
+  //       setNewFiles((prev) => [...prev, ...validFiles]);
+  //       setTotalSize(
+  //         (prev) => prev + validFiles.reduce((acc, file) => acc + file.size, 0)
+  //       );
+  //       setUserUsage((prev) => ({
+  //         ...prev,
+  //         currentSessionWords: prev.currentSessionWords + newWords,
+  //       }));
+
+  //       toast.success("Files added successfully");
+  //     } catch (error) {
+  //       console.error("Error processing files:", error);
+  //     } finally {
+  //       setIsProcessingFiles(false);
+  //     }
+  //   },
+  //   [totalWordsUsed, userUsage.planLimit, MAX_FILE_SIZE, existingFiles, newFiles, remainingWords]
+  // );
+        // Only show success message if files were actually added
+      if (validFiles.length > 0) {
         // Update state
         setNewFiles((prev) => [...prev, ...validFiles]);
         setTotalSize(
@@ -520,15 +543,18 @@ export const FileUpload = () => {
         }));
 
         toast.success("Files added successfully");
-      } catch (error) {
-        console.error("Error processing files:", error);
-      } finally {
-        setIsProcessingFiles(false);
+      } else if (!hasExceededLimit) {
+        // Only show info message if no files were added but not due to word limit
+        //toast.info("No valid files were added");
       }
-    },
-    [totalWordsUsed, userUsage.planLimit, MAX_FILE_SIZE, existingFiles, newFiles, remainingWords]
-  );
-
+    } catch (error) {
+      console.error("Error processing files:", error);
+    } finally {
+      setIsProcessingFiles(false);
+    }
+  },
+  [totalWordsUsed, userUsage.planLimit, MAX_FILE_SIZE, existingFiles, newFiles, remainingWords]
+);
   // Handle file deletion
   const handleDelete = async (id: string) => {
     if (!selectedBot || !selectedBot.id) {
@@ -579,15 +605,17 @@ export const FileUpload = () => {
   };
 
   const handleSave = async () => {
-    if (!selectedBot) {
+    if (!selectedBot || isSaving) {
       toast.error("No bot selected.");
       return;
     }
+    setIsSaving(true); 
 
     if (totalWordsUsed > userUsage.planLimit) {
       toast.error(
         `Total word count exceeds limit of ${userUsage.planLimit.toLocaleString()}`
       );
+      setIsSaving(false); 
       return;
     }
 
@@ -641,6 +669,8 @@ export const FileUpload = () => {
       }
     } catch (error) {
       toast.error("An error occurred while saving files");
+    }finally {
+      setIsSaving(false); // Re-enable the button when done
     }
   };
 
@@ -659,7 +689,7 @@ export const FileUpload = () => {
       "application/msword": [".doc"],
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         [".docx"],
-      "text/csv": [".csv"],
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
     },
   });
 
@@ -896,11 +926,20 @@ export const FileUpload = () => {
 
           <button
             onClick={handleSave}
-            disabled={isSaveDisabled}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            Save
-          </button>
+            disabled={isSaveDisabled || isSaving}
+            className={`px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed ${
+            isSaving ? "opacity-75" : ""
+          }`}
+        >
+        {isSaving ? (
+        <>
+        <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+            Saving...
+        </>
+            ) : (
+            "Save"
+        )}
+            </button>
         </>
       )}
 
