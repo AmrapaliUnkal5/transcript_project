@@ -415,7 +415,7 @@ export const Settings = () => {
                 />
               </label>
             </div>
-            <h2 className="text-xl font-semibold">
+            <h2 className="text-lg font-semibold mb-4 text-white">
               {settings.name || "Unnamed"}
             </h2>
             <p className="text-gray-500 dark:text-gray-400">{settings.email}</p>
@@ -425,7 +425,7 @@ export const Settings = () => {
 
       <div className="md:col-span-2">
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">Profile Information</h2>
+          <h2 className="text-lg font-semibold mb-4 text-white">Profile Information</h2>
           <div className="space-y-4">
             <div>
               <label
@@ -547,7 +547,7 @@ export const Settings = () => {
         </div>
         <div className="md:col-span-2 mt-6">
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">Subscription Details</h2>
+            <h2 className="text-lg font-semibold mb-4 text-white">Subscription Details</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -634,7 +634,7 @@ export const Settings = () => {
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mt-6">
           <div className="flex items-center mb-4">
             <Key className="w-5 h-5 mr-2 text-gray-500" />
-            <h2 className="text-lg font-semibold">Change Password</h2>
+            <h2 className="text-lg font-semibold mb-4 text-white">Change Password</h2>
           </div>
           <div className="space-y-4">
             <div>
