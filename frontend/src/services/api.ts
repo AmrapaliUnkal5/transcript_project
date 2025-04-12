@@ -509,5 +509,19 @@ export const authApi = {
     const response = await api.post("/botsettings/interactions/reaction", data);
     return response.data;
   },
+  fetchNotifications: async () => {
+    const response = await api.get("/notifications");
+    return response.data;
+  },
+
+  markNotificationAsRead: async (notif_id: number) => {
+    const response = await api.post(`/notifications/${notif_id}/mark-read`);
+    return response.data;
+  },
+
+  markAllNotificationsAsRead: async () => {
+    const response = await api.post("/notifications/mark-all-read");
+    return response.data;
+  },
 
 };

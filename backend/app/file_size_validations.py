@@ -26,6 +26,7 @@ from app.utils.file_size_validations_utils import (
 )
 from app.subscription_config import get_plan_limits
 from .crud import update_user_word_count
+from app.notifications import add_notification
 
 router = APIRouter()
 
@@ -136,6 +137,17 @@ async def validate_and_upload_files(
 
             # Success message
             knowledge_upload_messages.append(f"Knowledge uploaded successfully for file: {original_filename}")
+            event_type = "DOCUMENT UPLOADED"
+            event_data = f'"{original_filename}" uploaded to bot. {word_counts_list[i]} words extracted successfully.'
+            add_notification(
+                    
+                    db=db,
+                    event_type=event_type,
+                    event_data=event_data,
+                    bot_id=bot_id,
+                    user_id=current_user["user_id"]
+                    )
+                   
 
         except HTTPException as e:
             knowledge_upload_messages.append(f"Failed to upload knowledge for file: {original_filename}. Error: {e.detail}")
@@ -200,5 +212,18 @@ async def delete_file(
     # Delete the file record from the database
     db.delete(file)
     db.commit()
+    print("DOCUMENT DELETED")
+    event_type = "DOCUMENT DELETED"
+    message = f"Document '{file.file_name}' deleted successfully."
+    print("Bot.bot_id",Bot.bot_id)
+    print("current",current_user["user_id"])
+    add_notification(
+                    
+                    db=db,
+                    event_type=event_type,
+                    event_data=message,
+                    bot_id=bot.bot_id,
+                    user_id=current_user["user_id"]
+                    )
 
     return {"success": True, "message": "File deleted successfully"}

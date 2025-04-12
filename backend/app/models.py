@@ -382,5 +382,17 @@ class LLMModel(Base):
     def __str__(self):
         """Return a string representation of the model for display in UI"""
         return f"{self.name} ({self.provider})"
+    
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False)
+    bot_id = Column(Integer, nullable=True)
+    event_type = Column(String(50), nullable=False)
+    event_data = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
 
 

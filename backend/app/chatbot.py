@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Interaction, ChatMessage,YouTubeVideo, ScrapedNode, WebsiteDB
+from app.models import Interaction, ChatMessage,YouTubeVideo, ScrapedNode, WebsiteDB,User, Bot
 from app.vector_db import retrieve_similar_docs, add_document
 import openai
 import os
@@ -15,6 +15,7 @@ from urllib.parse import unquote
 import re
 from app.llm_manager import LLMManager
 from app.models import Bot
+from app.notifications import add_notification
 
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
@@ -231,9 +232,25 @@ def soft_delete_video(bot_id: int, video_id: str = Query(...), db: Session = Dep
 
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
+    transcript_word_count = video.transcript_count or 0
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if bot:
+        bot.word_count = max(0, bot.word_count - transcript_word_count)  # Prevent negative
+
+        # Get associated user
+        user = db.query(User).filter(User.user_id == bot.user_id).first()
+        if user:
+            user.total_words_used = max(0, user.total_words_used - transcript_word_count)
 
     video.is_deleted = True  # Soft delete by marking is_deleted=True
     db.commit()
+    event_type="VIDEO_DELETED",
+    event_data=f"Video '{video.video_url}' has been deleted."
+    add_notification(db=db,
+                    event_type=event_type,
+                    event_data=event_data,
+                    bot_id=bot_id,
+                    user_id=bot.user_id)
 
     return {"message": "Video soft deleted successfully"}
 
@@ -252,7 +269,25 @@ def soft_delete_scraped_url(bot_id: int, url: str = Query(...), db: Session = De
         raise HTTPException(status_code=404, detail="Scraped URL not found.")
 
     scraped_url.is_deleted = True  # Soft delete by updating the flag
+    word_count = scraped_url.nodes_text_count or 0
+
+    # Update bot word count
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if bot:
+        bot.word_count = max(0, bot.word_count - word_count)
+
+        # Update user total word count
+        user = db.query(User).filter(User.user_id == bot.user_id).first()
+        if user:
+            user.total_words_used = max(0, user.total_words_used - word_count)
     db.commit()
+    event_type="WEBSITE_URL_DELETED",
+    event_data=f"Video '{scraped_url.url}' has been deleted."
+    add_notification(db=db,
+                    event_type=event_type,
+                    event_data=event_data,
+                    bot_id=bot_id,
+                    user_id=bot.user_id)
 
     # Check if all URLs of the same website_id for the bot are deleted
     remaining_active_urls = db.query(ScrapedNode).filter(

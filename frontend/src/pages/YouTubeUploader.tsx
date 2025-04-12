@@ -221,7 +221,9 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
 
   return (
     <div className="space-y-4">
-     <h2 className="text-lg font-semibold text-white">Import Videos from YouTube</h2>
+      <h2 className="text-lg font-semibold text-white">
+        Import Videos from YouTube
+      </h2>
 
       <div className="flex gap-2">
         <input
@@ -243,7 +245,9 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
       {videoUrls.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-md font-semibold">Select Videos to Process</h3>
+          <h3 className="text-md font-semibold text-white">
+            Select Videos to Process
+          </h3>
           <div className="max-h-90 overflow-y-auto border p-2 rounded-md">
             {getPaginatedVideos().map((videoUrl, index) => (
               <div key={index} className="flex items-center gap-2">

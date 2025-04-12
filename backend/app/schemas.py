@@ -312,3 +312,16 @@ class ReactionCreate(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+class NotificationOut(BaseModel):
+    id: int
+    user_id: Optional[int]
+    bot_id: Optional[int]
+    event_type: Optional[str]
+    event_data: Optional[str]
+    is_read: Optional[bool]
+    created_at: Optional[datetime]
+
+    # class Config:
+    #     orm_mode = True  # You commented this out, but it's needed!
+
