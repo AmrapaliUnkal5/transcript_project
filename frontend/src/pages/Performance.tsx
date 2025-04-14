@@ -277,7 +277,6 @@ export const Performance = () => {
                   {[
                     { metric: "Total Users", value: "12,345", change: "+12%", positive: true },
                     { metric: "Avg. Session Duration", value: "5m 23s", change: "+8%", positive: true },
-                    { metric: "Bounce Rate", value: "32%", change: "-5%", positive: true },
                   ].map((item) => (
                     <tr key={item.metric} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">

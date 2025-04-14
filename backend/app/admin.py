@@ -7,7 +7,8 @@ from app.database import engine
 from app.models import (
     User, Bot, File, Interaction, Language, PerformanceLog, 
     Rating, Subscription, UserAuthProvider, ChatMessage, 
-    DemoRequest, EmbeddingModel, LLMModel
+    DemoRequest, EmbeddingModel, LLMModel, SubscriptionPlan,
+    Addon, UserSubscription
 )
 from sqlalchemy.orm import Session
 import jwt
@@ -272,6 +273,52 @@ class LLMModelAdmin(ModelView, model=LLMModel):
     ]
     column_searchable_list = [LLMModel.name, LLMModel.provider]
 
+class SubscriptionPlanAdmin(ModelView, model=SubscriptionPlan):
+    column_list = [
+        SubscriptionPlan.id,
+        SubscriptionPlan.name,
+        SubscriptionPlan.price,
+        SubscriptionPlan.word_count_limit,
+        SubscriptionPlan.storage_limit,
+        SubscriptionPlan.chatbot_limit,
+        SubscriptionPlan.website_crawl_limit,
+        SubscriptionPlan.youtube_grounding,
+        SubscriptionPlan.message_limit,
+        SubscriptionPlan.created_at,
+        SubscriptionPlan.updated_at
+    ]
+    column_searchable_list = [SubscriptionPlan.name]
+    column_filters = ["name", "price", "created_at"]
+
+class AddonAdmin(ModelView, model=Addon):
+    column_list = [
+        Addon.id,
+        Addon.name,
+        Addon.price,
+        Addon.description,
+        Addon.created_at,
+        Addon.updated_at
+    ]
+    column_searchable_list = [Addon.name, Addon.description]
+    column_filters = ["name", "price", "created_at"]
+
+class UserSubscriptionAdmin(ModelView, model=UserSubscription):
+    column_list = [
+        UserSubscription.id,
+        UserSubscription.user_id,
+        UserSubscription.subscription_plan_id,
+        UserSubscription.amount,
+        UserSubscription.currency,
+        UserSubscription.payment_date,
+        UserSubscription.expiry_date,
+        UserSubscription.status,
+        UserSubscription.auto_renew,
+        UserSubscription.created_at,
+        UserSubscription.updated_at
+    ]
+    column_searchable_list = [UserSubscription.user_id, UserSubscription.status]
+    column_filters = ["user_id", "subscription_plan_id", "status", "payment_date", "expiry_date"]
+
 def init(app: FastAPI):
     admin = Admin(app=app, engine=engine, authentication_backend=authentication_backend)
     app.mount("/admin", admin)
@@ -289,3 +336,6 @@ def init(app: FastAPI):
     admin.add_view(DemoRequestAdmin)
     admin.add_view(EmbeddingModelAdmin)
     admin.add_view(LLMModelAdmin)
+    admin.add_view(SubscriptionPlanAdmin)
+    admin.add_view(AddonAdmin)
+    admin.add_view(UserSubscriptionAdmin)
