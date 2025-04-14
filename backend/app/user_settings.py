@@ -8,6 +8,8 @@ from app.schemas import UserOut,UserUpdate, ChangePasswordRequest
 from app.dependency import get_current_user
 from app.utils.verify_password import verify_password
 from passlib.context import CryptContext
+from datetime import datetime, timezone
+from app.notifications import add_notification
 
 router = APIRouter()
 
@@ -119,5 +121,16 @@ def change_password(
     db_user.password = hashed_new_password
     db.add(db_user)
     db.commit()
+    event_type = "PASSWORD_CHANGED"
+    event_data = f"Your password was updated on {datetime.now(timezone.utc).strftime('%d %b %Y at %H:%M UTC')}."
+    add_notification(
+        
+        db=db,
+        event_type=event_type,
+        event_data=event_data,
+        bot_id=None,
+        user_id=current_user["user_id"]
+        
+)
 
     return {"message": "Password updated successfully"}

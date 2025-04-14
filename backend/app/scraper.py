@@ -11,6 +11,7 @@ from app.database import get_db
 from urllib.parse import urlparse
 from app.vector_db import add_document
 from app.subscription_config import get_plan_limits
+from app.notifications import add_notification
 
 # Function to detect if JavaScript is needed
 def is_js_heavy(url):
@@ -82,7 +83,7 @@ def scrape_selected_nodes(url_list,bot_id,db: Session):
         else:
             print(f"🟢 Static HTML detected - Using BeautifulSoup for {url}")
             result = scrape_static_page(url)
-        print("result",result)
+        # print("result",result)
         # text="Contact Us\nPortfolio\nE-commerce platform development for london based company\n\nThe makers of AI have announced the company will be dedicating 20% of its compute processing power over the next four years\n\nIntroduction\n\nIn today's fast-paced and technologically advanced world, businesses rely heavily on Information Technology (IT) services to remain competitive, innovative, and efficient. From streamlining operations to enhancing customer experience\n\nIT services play a crucial role in transforming businesses across all industries. In this blog, we will explore the significance of IT services, the key benefits they offer, and how they can empower your business to reach new heights.\n\nIT services encompass a wide range of solutions aimed at managing, optimizing, and supporting the technology infrastructure of a business. This includes hardware and software management, network administration, cybersecurity, data backup and recovery, cloud services, and more. Whether you run a small startup or a large enterprise, leveraging the right IT services can have a profound impact on your business's success. One of the primary benefits of adopting IT services is their ability to streamline various business operations. Automated processes, such as enterprise resource planning (ERP) systems, can integrate different departments and make data accessible in real-time.\n\nAs businesses increasingly rely on digital technologies, the risk of cyber threats also grows. A robust IT service provider will implement cutting-edge cybersecurity measures to safeguard your valuable data, sensitive information, and intellectual property. From firewall protection to regular vulnerability assessments, a comprehensive security strategy ensures that your business stays protected against cyberattacks.\n\nIn a dynamic business environment, scalability is crucial. IT services provide the flexibility to scale up or down your resources based on changing business needs. Cloud services, for instance, allow seamless expansion of storage and computational power\n\nSerana Belluci\nProduct Designer\n\nCustomer experience has become a key differentiator in today's competitive landscape. IT services enable businesses to personalize customer interactions, provide efficient support through various channels, and offer seamless online experiences.\n\nIT services facilitate data collection, storage, analysis, and visualization, turning raw information into actionable intelligence. By harnessing the power of data analytics, businesses can identify trends, customer preferences, and areas for improvement, leading to more effective strategies and increased profitability. Disruptions, such as natural disasters or system failures, can severely impact a business's operations. IT services include robust disaster recovery and backup solutions, ensuring that critical data is protected and can be swiftly recovered in case of any unforeseen events. This level of preparedness helps maintain business continuity and minimizes downtime,\n\nWhether it's through chatbots, mobile apps, or responsive websites, IT services empower businesses to exceed customer expectations and build lasting relationships. Data is a goldmine of valuable insights that can help businesses make informed decisions.\n\nEnsuring Business Continuity\n\nDisruptions, such as natural disasters or system failures, can severely impact a business's operations. IT services include robust disaster recovery and backup solutions, ensuring that critical data is protected and can be swiftly recovered in case of any unforeseen events.\n\nThis level of preparedness helps maintain business continuity and minimizes downtime, thus safeguarding your reputation and revenue. This includes"       
         # word_count = len(text.split())
         # result = {"url": url, "title": "Portfolio Detail- BytePX Technologies","text": text,"word_count":word_count}
@@ -108,11 +109,13 @@ def scrape_selected_nodes(url_list,bot_id,db: Session):
                 add_document(bot_id, text=result["text"], metadata=metadata)
                 
         else:
+            print("No text was scraped from the website")
             return 
     
 
     if crawled_data:
         save_scraped_nodes(crawled_data,bot_id, db)  # Save URLs to DB
+        
         #update_word_counts(db, bot_id=bot_id, word_count=20)
 
     return crawled_data
@@ -192,6 +195,17 @@ def save_scraped_nodes(url_list, bot_id, db: Session):
                 # Insert new record
                 new_node = ScrapedNode(url=url, title=title, bot_id=bot_id,website_id=website.id,nodes_text_count = word_count if website else None)
                 db.add(new_node)
+                event_type = "SCRAPED_URL_SAVED"
+                event_data = f"URL '{url}' for bot added successfully. {word_count} words extracted."
+                add_notification(
+                    
+                    db=db,
+                    event_type=event_type,
+                    event_data=event_data,
+                    bot_id=bot_id,
+                    user_id=None
+
+                    )
 
         db.commit()  # Commit changes to the database
         print("✅ Scraped nodes with titles saved successfully!")

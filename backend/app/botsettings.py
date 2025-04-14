@@ -8,10 +8,12 @@ from fastapi.responses import JSONResponse
 import shutil
 from app.config import settings
 from app.schemas import  BotUpdateStatus, ReactionCreate
-from app.models import Bot, User, InteractionReaction
+from app.models import Bot, User, InteractionReaction, Notification
 from datetime import datetime
 from app.utils.reembedding_utils import reembed_all_files
 from app.dependency import get_current_user
+from datetime import datetime, timezone
+from app.notifications import add_notification
 
 router = APIRouter(prefix="/botsettings", tags=["Bot Settings"])
 
@@ -63,6 +65,15 @@ async def upload_bot_icon(file: UploadFile = File(...)):
 def update_bot_status(bot_id: int, db: Session = Depends(get_db)):
     """Update only the status of the bot to 'Deleted'"""
     updated_bot = crud.delete_bot(db, bot_id)
+    #add notification
+    event_type="BOT_DELETED",
+    event_data=f"Bot has been deleted."
+    add_notification(db=db,
+                    event_type=event_type,
+                    event_data=event_data,
+                    bot_id=bot_id,
+                    user_id=updated_bot.user_id)
+
 
     if not updated_bot:
         raise HTTPException(status_code=404, detail="Bot not found")
@@ -129,6 +140,16 @@ def update_bot(bot_id: int, update_data: BotUpdateStatus, db: Session = Depends(
         db.commit()
         db.refresh(bot)
 
+        # Create a new notification for bot activation
+        print("bot.user_id",bot.user_id)
+        event_type="BOT_ACTIVATED",
+        event_data=f"Bot has been activated."
+        add_notification(db=db,
+                    event_type=event_type,
+                    event_data=event_data,
+                    bot_id=bot_id,
+                    user_id=bot.user_id)
+        
         return {"message": "Bot updated successfully", "bot": bot}
     except Exception as e:
         db.rollback()

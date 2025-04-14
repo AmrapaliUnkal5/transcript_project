@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 import os
 from app.dependency import get_current_user
+from app.notifications import add_notification
 
 COOKIE_PATH = "~/chatbot/Chatbot/cookies/youtube_cookies.json"
 
@@ -83,96 +84,123 @@ from app.vector_db import add_document
 
 
 def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
-    """Extracts transcripts from all videos in a channel and stores them in the bot's ChromaDB collection."""
+
     stored_videos = []
     failed_videos = []
 
-    #video_urls = get_video_urls(channel_url)  # Fetch all video URLs
-    #print("store_videos_in_chroma")
 
     for video_url in video_urls:
-        transcript = get_video_transcript(video_url)  # Get transcript text
-        
-        if transcript:
-            video_id = hashlib.md5(video_url.encode()).hexdigest()  # ✅ Generate unique ID from URL
+        transcript = get_video_transcript(video_url)
+
+        if not transcript:
+            reason = "Transcript retrieval failed"
+            print(f"⚠️ {reason} for {video_url}")
+            failed_videos.append({"video_url": video_url, "reason": reason})
+            send_failure_notification(db, bot_id,  video_url, reason)
+            continue
+
+        try:
+            # Generate ChromaDB ID
+            video_id = hashlib.md5(video_url.encode()).hexdigest()
             metadata = {
-                "id": video_id,   # ✅ Ensure unique ID is included
+                "id": video_id,
                 "source": "YouTube",
                 "video_url": video_url
             }
-            print("test")
-            
 
-            add_document(bot_id, text=transcript, metadata=metadata)  # ✅ Same as PDF & text storage
-            print("options")
+            # Attempt storing in ChromaDB
+            add_document(bot_id, text=transcript, metadata=metadata)
 
-
-            # ✅ Extract metadata after ChromaDB storage
+            # Extract video info with yt_dlp
             ydl_opts = get_yt_dlp_options({"quiet": True})
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                try:
-                    info = ydl.extract_info(video_url, download=False)
+                info = ydl.extract_info(video_url, download=False)
 
-                    # ✅ Check if video already exists in DB
-                    existing_video = (
-                        db.query(YouTubeVideo)
-                        .filter(YouTubeVideo.video_id == info.get("id"), YouTubeVideo.bot_id == bot_id,YouTubeVideo.is_deleted == False)
-                        .first()
-                    )
-                    if existing_video:
-                        print(f"⚠️ Video {info.get('id')} already exists. Skipping insertion.")
-                        failed_videos.append({"video_url": video_url, "reason": f"⚠️ Video {info.get('id')} already exists. Skipping insertion."})
-                        continue  
+            # Check for duplicates
+            existing_video = db.query(YouTubeVideo).filter(
+                YouTubeVideo.video_id == info.get("id"),
+                YouTubeVideo.bot_id == bot_id,
+                YouTubeVideo.is_deleted == False
+            ).first()
 
-                    limit_status = update_word_count_for_bot(transcript, bot_id, db)
-                    word_count_transcript = len(transcript.split())  # Calculate words in the transcript
-                    if limit_status["status"] == "error":
-                        print(limit_status["message"])
-                        failed_videos.append({"video_url": video_url, "reason": limit_status["message"]})
-                        continue  # Skip this video if word limit exceeded
+            if existing_video:
+                reason = f"Video {info.get('id')} already exists. Skipping."
+                print(f"⚠️ {reason}")
+                failed_videos.append({"video_url": video_url, "reason": reason})
+                send_failure_notification(db, bot_id,  video_url, reason)
+                continue
 
-                    # ✅ Prepare video metadata for DB
-                    video_data = {
-                        "video_id": info.get("id"),
-                        "video_title": info.get("title", "Unknown Title"),
-                        "video_url": video_url,
-                        "channel_id": info.get("channel_id", None),
-                        "channel_name": info.get("channel", "Unknown Channel"),
-                        "duration": info.get("duration", 0),
-                        "upload_date": datetime.strptime(info.get("upload_date", "19700101"), "%Y%m%d"),
-                        "is_playlist": "playlist" in info.get("_type", ""),
-                        "playlist_id": info.get("playlist_id", None),
-                        "playlist_name": info.get("playlist_title", None),
-                        "view_count": info.get("view_count", 0),
-                        "likes": info.get("like_count", 0),
-                        "description": info.get("description", None),
-                        "thumbnail_url": info.get("thumbnail", None),
-                        "bot_id": bot_id,
-                        "transcript_count": word_count_transcript, 
-                        "created_at": datetime.now(timezone.utc),
-                    }
-                    print("video_data",video_data)
+            # Enforce word limit
+            word_count_transcript = len(transcript.split())
+            limit_status = update_word_count_for_bot(transcript, bot_id, db)
+            if limit_status["status"] == "error":
+                reason = limit_status["message"]
+                print(reason)
+                failed_videos.append({"video_url": video_url, "reason": reason})
+                send_failure_notification(db, bot_id, video_url, reason)
+                continue
 
-                    # ✅ Store video metadata in PostgreSQL
-                    db_video = YouTubeVideo(**video_data)
-                    db.add(db_video)
-                    db.commit()
-                    stored_videos.append(video_data)
-                    print(f"✅ Successfully stored video: {video_data['video_title']}")
-                    
+            # Construct video data
+            video_data = {
+                "video_id": info.get("id"),
+                "video_title": info.get("title", "Unknown Title"),
+                "video_url": video_url,
+                "channel_id": info.get("channel_id", None),
+                "channel_name": info.get("channel", "Unknown Channel"),
+                "duration": info.get("duration", 0),
+                "upload_date": datetime.strptime(info.get("upload_date", "19700101"), "%Y%m%d"),
+                "is_playlist": "playlist" in info.get("_type", ""),
+                "playlist_id": info.get("playlist_id", None),
+                "playlist_name": info.get("playlist_title", None),
+                "view_count": info.get("view_count", 0),
+                "likes": info.get("like_count", 0),
+                "description": info.get("description", None),
+                "thumbnail_url": info.get("thumbnail", None),
+                "bot_id": bot_id,
+                "transcript_count": word_count_transcript,
+                "created_at": datetime.now(timezone.utc),
+            }
 
-                except Exception as e:
-                    print(f"⚠️ Metadata extraction failed for {video_url}: {e}")
-                    failed_videos.append({"video_url": video_url, "reason": str(e)})
-                    continue  
-        else :
-            print(f"⚠️ Transcript could not be retrieved for {video_url}. Skipping storage.")
-            failed_videos.append({"video_url": video_url, "reason": "Transcript retrieval failed"})
+            # Save to DB
+            db_video = YouTubeVideo(**video_data)
+            db.add(db_video)
+            db.commit()
 
+            stored_videos.append(video_data)
 
-    return {"message": "All YouTube transcripts stored successfully!",
-            "stored_videos":stored_videos,
-            "failed_videos":failed_videos}
+            # Send success notification
+            message = f"Video '{video_data['video_title']}' for bot added successfully. {word_count_transcript} words extracted."
+            add_notification(
+                db=db,
+                event_type="YOUTUBE_VIDEO_SAVED",
+                event_data=message,
+                bot_id=bot_id,
+                user_id=None
+            )
+
+            print(f"✅ Stored video: {video_data['video_title']}")
+
+        except Exception as e:
+            reason = str(e)
+            print(f"⚠️ Metadata or ChromaDB error for {video_url}: {reason}")
+            failed_videos.append({"video_url": video_url, "reason": reason})
+            send_failure_notification(db, bot_id, video_url, reason)
+
+    return {
+        "message": "YouTube transcript processing completed!",
+        "stored_videos": stored_videos,
+        "failed_videos": failed_videos
+    }
+
+def send_failure_notification(db, bot_id, video_url, reason):
+    message = f"Failed to add video '{video_url}' for bot. Reason: {reason}"
+    add_notification(
+        db=db,
+        event_type="YOUTUBE_VIDEO_FAILED",
+        event_data=message,
+        bot_id=bot_id,
+        user_id=None
+    )
 
 
 
@@ -193,8 +221,10 @@ def update_word_count_for_bot(transcript: str, bot_id: int, db: Session) -> dict
     print("word_count_limit",word_count_limit)
     
     word_count = len(transcript.split())  # Calculate words in the transcript
+    print("user.total_words_used before adding from DB",user.total_words_used)
     
     new_total_words = (user.total_words_used or 0) + word_count
+    print("user.total_words_used after adding from DB",new_total_words)
     new_total_words_of_bot = ( bot.word_count or 0) + word_count
     print("new_total_words",new_total_words)
     
