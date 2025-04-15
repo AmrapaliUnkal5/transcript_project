@@ -33,9 +33,12 @@ interface FAQData {
   cluster_id: string;
 }
 
-const COLORS = ["#4CAF50", "#2196F3", "#FFC107", "#F44336"];
+const COLORS = ["#4CAF50", "#F44336", "#2196F3", "#FFC107", "#F44336"];
 
-const UpgradeMessage = ({ requiredPlan = "Starter", feature = "analytics" }) => {
+const UpgradeMessage = ({
+  requiredPlan = "Starter",
+  feature = "analytics",
+}) => {
   return (
     <div className="bg-white dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg w-64 text-center">
       <Lock className="w-6 h-6 mx-auto text-gray-400 mb-2" />
@@ -43,7 +46,7 @@ const UpgradeMessage = ({ requiredPlan = "Starter", feature = "analytics" }) => 
         {feature === "analytics" ? "Analytics Locked" : "Feature Locked"}
       </h3>
       <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">
-        {feature === "analytics" 
+        {feature === "analytics"
           ? `Upgrade to ${requiredPlan} plan to view analytics.`
           : `Upgrade to ${requiredPlan} plan for detailed metrics.`}
       </p>
@@ -74,31 +77,38 @@ export const Performance = () => {
     []
   );
   const [faqData, setFaqData] = useState<FAQData[]>([]);
-  const [totalTimeSpent, setTotalTimeSpent] = useState(0);
+  const [totalTimeSpent, setTotalTimeSpent] = useState<number>(0);
 
   const userData = localStorage.getItem("user");
   const user = userData ? JSON.parse(userData) : null;
   const userPlan: SubscriptionPlan = getPlanById(user?.subscription_plan_id);
   const hasNoAnalyticsAccess = user?.subscription_plan_id === 1;
   const hasAdvancedAnalytics = user?.subscription_plan_id === 4;
+  const [totalConversations, setTotalConversations] = useState(0);
 
   const getLast7DaysFormatted = () => {
     const days = [];
     const today = new Date();
-    
+
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(today.getDate() - i);
-      
-      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+
+      const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
+      const monthName = date.toLocaleDateString("en-US", { month: "short" });
       const dayNumber = date.getDate();
-      
+
       days.push(`${dayName} ${monthName} ${dayNumber}`);
     }
-    
+
     return days;
   };
+
+  function formatToHourMinute(totalMinutes: number): string {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return hours > 0 ? `${hours} hr ${minutes} min` : `${minutes} min`;
+  }
 
   const fetchConversationData = async () => {
     if (!selectedBot?.id) return;
@@ -110,11 +120,14 @@ export const Performance = () => {
       });
       const data = response?.data || response || {};
       const expectedDays = getLast7DaysFormatted();
-      const formattedData = expectedDays.map(day => ({
+      const formattedData = expectedDays.map((day) => ({
         day,
-        count: data[day] || 0
+        count: data[day] || 0,
       }));
       setConversationData(formattedData);
+      setTotalConversations(
+        formattedData.reduce((sum, day) => sum + day.count, 0)
+      );
     } catch (error) {
       console.error("Error fetching conversation data:", error);
     } finally {
@@ -143,17 +156,38 @@ export const Performance = () => {
       const apiData = response.average_time_spent;
       console.log("apiData", apiData);
       const orderedDays = getLast7Days();
-      const formattedData = orderedDays.map((day) => ({
-        day,
-        average_time_spent: apiData.find((item) => item.day === day)?.average_time_spent || 0,
-      }));
+      const fullDayMap: Record<
+        "Sun" | "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat",
+        string
+      > = {
+        Sun: "Sunday",
+        Mon: "Monday",
+        Tue: "Tuesday",
+        Wed: "Wednesday",
+        Thu: "Thursday",
+        Fri: "Friday",
+        Sat: "Saturday",
+      };
+
+      const formattedData = orderedDays.map((shortDay) => {
+        const fullDay = fullDayMap[shortDay as keyof typeof fullDayMap];
+        return {
+          day: shortDay,
+          average_time_spent:
+            apiData.find((item) => item.day === fullDay)?.average_time_spent ||
+            0,
+        };
+      });
 
       setTimeSpentData(formattedData);
-      const totalTimeSpent = formattedData.reduce(
-        (sum, item) => sum + item.average_time_spent,
+      const totalMinutes = apiData.reduce(
+        (sum, item) => sum + (item.average_time_spent || 0),
         0
       );
-      setTotalTimeSpent(totalTimeSpent);
+
+      // Convert total minutes to "Xm Ys" format
+      const formattedTime = formatToHourMinute(totalMinutes);
+      setTotalTimeSpent(formattedTime);
     } catch (error) {
       console.error("Error fetching bot metrics:", error);
     } finally {
@@ -163,20 +197,22 @@ export const Performance = () => {
 
   const fetchFaqData = async () => {
     if (!selectedBot?.id) return;
-    
+
     try {
       setLoading(true);
       const response = await authApi.getFAQ({
         bot_id: selectedBot.id,
       });
       const faqs = response?.data || response || [];
-   
-      const formattedData = faqs.map((faq: any) => ({
-        question: faq.question,
-        count: faq.count,
-        cluster_id: faq.cluster_id
-      })).slice(0, 10); // Only take first 10 FAQs
-      
+
+      const formattedData = faqs
+        .map((faq: any) => ({
+          question: faq.question,
+          count: faq.count,
+          cluster_id: faq.cluster_id,
+        }))
+        .slice(0, 10); // Only take first 10 FAQs
+
       setFaqData(formattedData);
     } catch (error) {
       console.error("Error fetching FAQ data:", error);
@@ -186,9 +222,11 @@ export const Performance = () => {
   };
 
   const getLast7Days = () => {
-    const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const shortDaysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const todayIndex = new Date().getDay();
-    return [...Array(7)].map((_, i) => daysOfWeek[(todayIndex - 6 + i + 7) % 7]);
+    return [...Array(7)].map(
+      (_, i) => shortDaysOfWeek[(todayIndex - 6 + i + 7) % 7]
+    );
   };
 
   useEffect(() => {
@@ -210,9 +248,11 @@ export const Performance = () => {
       </div>
 
       <div className="relative">
-        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${
-          hasNoAnalyticsAccess ? "filter blur-xl pointer-events-none" : ""
-        }`}>
+        <div
+          className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${
+            hasNoAnalyticsAccess ? "filter blur-xl pointer-events-none" : ""
+          }`}
+        >
           {/* Weekly Conversations Chart */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -222,11 +262,20 @@ export const Performance = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={conversationData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" angle={-45} textAnchor="end" height={70} />
-                  <YAxis domain={[0, 'dataMax + 1']} allowDecimals={false} />
+                  <XAxis
+                    dataKey="day"
+                    angle={-45}
+                    textAnchor="end"
+                    height={70}
+                  />
+                  <YAxis domain={[0, "dataMax + 1"]} allowDecimals={false} />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="count" fill="#2196F3" name="Total Conversations" />
+                  <Bar
+                    dataKey="count"
+                    fill="#2196F3"
+                    name="Total Conversations"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -235,15 +284,26 @@ export const Performance = () => {
           {/* Average Time Spent Chart */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Average Time Spent on Bot (Weekly)
+              Last Seven days: Daily Average Time Spent on Bot
             </h2>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={timeSpentData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="day" angle={-20} textAnchor="end" />
-                  <YAxis />
-                  <Tooltip />
+                  <YAxis
+                    label={{
+                      value: "Minutes",
+                      angle: -90,
+                      position: "insideLeft",
+                    }}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [
+                      `${value} min`,
+                      "Avg Time Spent",
+                    ]}
+                  />
                   <Legend />
                   <Line
                     type="monotone"
@@ -269,13 +329,18 @@ export const Performance = () => {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    label={({ name, percent }) =>
+                      `${name} (${(percent * 100).toFixed(0)}%)`
+                    }
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
                   >
                     {satisfactionData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -290,7 +355,11 @@ export const Performance = () => {
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
               Detailed Metrics
             </h2>
-            <div className={`overflow-x-auto ${!hasAdvancedAnalytics ? "filter blur-xl" : ""}`}>
+            <div
+              className={`overflow-x-auto ${
+                !hasAdvancedAnalytics ? "filter blur-xl" : ""
+              }`}
+            >
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-700">
@@ -300,81 +369,111 @@ export const Performance = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Value
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Change
-                    </th>
+                    </th> */}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {[
-                    { metric: "Total Users", value: "12,345", change: "+12%", positive: true },
-                    { metric: "Avg. Session Duration", value: "5m 23s", change: "+8%", positive: true },
+                    {
+                      metric: "Total Conversation Last 7 days",
+                      value: totalConversations.toLocaleString(),
+                      change: "+12%",
+                      positive: true,
+                    },
+                    {
+                      metric: "Avg. Session Duration Last 7 days",
+                      value: totalTimeSpent.toLocaleString(),
+                      change: "+8%",
+                      positive: true,
+                    },
                   ].map((item) => (
-                    <tr key={item.metric} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <tr
+                      key={item.metric}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                         {item.metric}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {item.value}
                       </td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                        item.positive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                      }`}>
+                      {/* <td
+                        className={`px-6 py-4 whitespace-nowrap text-sm ${
+                          item.positive
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
+                        }`}
+                      >
                         {item.change}
-                      </td>
+                      </td> */}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             {!hasAdvancedAnalytics && (
-               <div className="absolute top-[50%] left-[75%] transform -translate-x-1/2 -translate-y-1/2 z-10">
-                <UpgradeMessage requiredPlan="Professional" feature=" detailed analytics" />
+              <div className="absolute top-[50%] left-[75%] transform -translate-x-1/2 -translate-y-1/2 z-10">
+                <UpgradeMessage
+                  requiredPlan="Professional"
+                  feature=" detailed analytics"
+                />
               </div>
             )}
           </div>
-        {/* FAQ Analytics Chart */}
-          
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 h-[420px]">
+          {/* FAQ Analytics Chart */}
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 h-[420px]">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Frequently Asked Questions
             </h2>
-          <div className={`h-[calc(100%-40px)] overflow-y-auto ${!hasAdvancedAnalytics ? "filter blur-xl" : ""}`}>
-            {faqData.length > 0 ? (
-          <div className="space-y-3">
-            {faqData.map((faq, index) => (
-            <div key={index} className="group">
-              <p className="text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-              {`${index + 1}. ` +
-                faq.question
-                .split(' ')
-                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                .join(' ')
-              }
-              </p>
-            {/* <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <div
+              className={`h-[calc(100%-40px)] overflow-y-auto ${
+                !hasAdvancedAnalytics ? "filter blur-xl" : ""
+              }`}
+            >
+              {faqData.length > 0 ? (
+                <div className="space-y-3">
+                  {faqData.map((faq, index) => (
+                    <div key={index} className="group">
+                      <p className="text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        {`${index + 1}. ` +
+                          faq.question
+                            .split(" ")
+                            .map(
+                              (word) =>
+                                word.charAt(0).toUpperCase() +
+                                word.slice(1).toLowerCase()
+                            )
+                            .join(" ")}
+                      </p>
+                      {/* <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Asked {faq.count} {faq.count === 1 ? 'time' : 'times'}
             </p> */}
-            </div>
-            ))}
-              {/* Fill remaining space if less than 10 questions */}
-              {faqData.length < 10 && (
-                <div className="h-[calc((10-${faqData.length})*60px)]"></div>
+                    </div>
+                  ))}
+                  {/* Fill remaining space if less than 10 questions */}
+                  {faqData.length < 10 && (
+                    <div className="h-[calc((10-${faqData.length})*60px)]"></div>
+                  )}
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No frequently asked questions data available yet.
+                  </p>
+                </div>
               )}
             </div>
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <p className="text-gray-500 dark:text-gray-400">
-                No frequently asked questions data available yet.
-              </p>
-            </div>
-          )}
-        </div>
-          {!hasAdvancedAnalytics && (
-            <div className="absolute top-[85%] left-[25%] transform -translate-x-1/2 -translate-y-1/2 z-10">
-              <UpgradeMessage requiredPlan="Professional" feature="FAQ analytics" />
-            </div>
-          )}
+            {!hasAdvancedAnalytics && (
+              <div className="absolute top-[85%] left-[25%] transform -translate-x-1/2 -translate-y-1/2 z-10">
+                <UpgradeMessage
+                  requiredPlan="Professional"
+                  feature="FAQ analytics"
+                />
+              </div>
+            )}
           </div>
         </div>
 

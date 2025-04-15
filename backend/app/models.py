@@ -156,46 +156,46 @@ class Language(Base):
     language_code = Column(String(10), nullable=False)
     language_name = Column(String(50), nullable=False)
 
-class PerformanceLog(Base):
-    __tablename__ = "performance_logs"
+# class PerformanceLog(Base):
+#     __tablename__ = "performance_logs"
 
-    log_id = Column(
-        Integer, 
-        primary_key=True, 
-        server_default="nextval('performance_logs_log_id_seq'::regclass)"
-    )
-    bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"))
-    user_id = Column(Integer, nullable=True)
-    interaction_count = Column(Integer, default=0, nullable=True)
-    last_interaction = Column(TIMESTAMP, nullable=True)
-    created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
-    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp(), nullable=False)
+#     log_id = Column(
+#         Integer, 
+#         primary_key=True, 
+#         server_default="nextval('performance_logs_log_id_seq'::regclass)"
+#     )
+#     bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"))
+#     user_id = Column(Integer, nullable=True)
+#     interaction_count = Column(Integer, default=0, nullable=True)
+#     last_interaction = Column(TIMESTAMP, nullable=True)
+#     created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+#     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp(), nullable=False)
 
-class Rating(Base):
-    __tablename__ = "ratings"
+# class Rating(Base):
+#     __tablename__ = "ratings"
 
-    rating_id = Column(Integer, primary_key=True, autoincrement=True)
-    interaction_id = Column(Integer, ForeignKey("interactions.interaction_id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(Integer, nullable=True)
-    rating = Column(Integer, nullable=False)
-    feedback = Column(Text, nullable=True)
-    created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+#     rating_id = Column(Integer, primary_key=True, autoincrement=True)
+#     interaction_id = Column(Integer, ForeignKey("interactions.interaction_id", ondelete="CASCADE"), nullable=False)
+#     user_id = Column(Integer, nullable=True)
+#     rating = Column(Integer, nullable=False)
+#     feedback = Column(Text, nullable=True)
+#     created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
 
-    __table_args__ = (
-        CheckConstraint("rating >= 1 AND rating <= 5", name="ratings_rating_check"),
-    )
+#     __table_args__ = (
+#         CheckConstraint("rating >= 1 AND rating <= 5", name="ratings_rating_check"),
+#     )
 
-class Subscription(Base):
-    __tablename__ = "subscriptions"
+# class Subscription(Base):
+#     __tablename__ = "subscriptions"
 
-    subscription_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, nullable=True)
-    bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"), nullable=False)
-    amount = Column(Numeric(10, 2), nullable=True)
-    currency = Column(String(10), nullable=False)
-    payment_date = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
-    expiry_date = Column(TIMESTAMP, nullable=True)
-    status = Column(String(20), nullable=False, default="active")
+#     subscription_id = Column(Integer, primary_key=True, autoincrement=True)
+#     user_id = Column(Integer, nullable=True)
+#     bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"), nullable=False)
+#     amount = Column(Numeric(10, 2), nullable=True)
+#     currency = Column(String(10), nullable=False)
+#     payment_date = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+#     expiry_date = Column(TIMESTAMP, nullable=True)
+#     status = Column(String(20), nullable=False, default="active")
 
 class UserAuthProvider(Base):
     __tablename__ = "user_auth_providers"

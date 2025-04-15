@@ -406,10 +406,7 @@ export const Welcome = () => {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             Welcome back, {user?.name}!
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-2">
-            Your bots are performing well. Here's an overview of the last 7
-            days.
-          </p>
+          <p className="text-gray-600 dark:text-gray-300 mt-2"></p>
         </div>
         <button
           // onClick={() => navigate("/create-bot")}
@@ -620,7 +617,7 @@ export const Welcome = () => {
           </p> */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Chatbot Interaction Trends
+              Bot Session Trends
             </h2>
             {/* Info Tooltip */}
             <div className="relative group">
