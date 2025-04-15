@@ -1,12 +1,12 @@
 # app/models.py
 from typing import Optional
-from sqlalchemy import BigInteger, Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime, UniqueConstraint, Enum, DECIMAL
+from sqlalchemy import JSON, BigInteger, Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime, UniqueConstraint, Enum, DECIMAL,LargeBinary
 from app.database import Base
 from pydantic import BaseModel
 from datetime import datetime
 import enum 
 from sqlalchemy.orm import relationship
-
+import numpy as np
 from app.schemas import ReactionEnum
 
 
@@ -139,6 +139,7 @@ class ChatMessage(Base):
     sender = Column(String, nullable=False)  # "user" or "bot"
     message_text = Column(Text, nullable=False)
     timestamp = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False, index=True)
+    cluster_id = Column(String, nullable=True)
 
     # Relationships
     # interaction = relationship("Interaction", back_populates="messages")
@@ -394,5 +395,23 @@ class Notification(Base):
     is_read = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
 
+class Cluster(Base):
+    __tablename__ = "clusters"
+    cluster_id = Column(Integer, primary_key=True, index=True)
+    bot_id = Column(Integer, index=True)
+    cluster_number = Column(Integer)  # e.g., 0,1,2...
+    centroid = Column(JSON, nullable=False)
+    count = Column(Integer, default=1)
 
+    questions = relationship("ClusteredQuestion", back_populates="cluster")
 
+    __table_args__ = (UniqueConstraint('bot_id', 'cluster_number', name='unique_bot_cluster'),)
+
+class ClusteredQuestion(Base):
+    __tablename__ = "clustered_questions"
+    id = Column(Integer, primary_key=True)
+    cluster_id = Column(Integer, ForeignKey("clusters.cluster_id"))
+    question_text = Column(String)
+    embedding = Column(JSON)
+
+    cluster = relationship("Cluster", back_populates="questions")

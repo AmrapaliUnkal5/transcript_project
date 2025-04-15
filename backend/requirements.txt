@@ -24,6 +24,8 @@ pytesseract
 pillow
 python-docx
 pandas
+sentence-transformers
+numpy
 
 # For LLM Part
 chromadb

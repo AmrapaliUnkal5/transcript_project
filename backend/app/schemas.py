@@ -325,3 +325,8 @@ class NotificationOut(BaseModel):
     # class Config:
     #     orm_mode = True  # You commented this out, but it's needed!
 
+class FAQResponse(BaseModel):
+    question: str
+    similar_questions: List[str]
+    count: int
+    cluster_id: str
