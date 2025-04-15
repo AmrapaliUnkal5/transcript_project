@@ -197,7 +197,16 @@ export const ChatbotCustomization = () => {
 
       // Update reaction for THIS message only
       setMessages((prev) =>
-        prev.map((msg, i) => (i === index ? { ...msg, reaction: type } : msg))
+        prev.map((msg, i) => {
+          if (i !== index) return msg;
+
+          // Toggle off if same reaction is clicked again
+          if (msg.reaction === type) {
+            return { ...msg, reaction: undefined };
+          }
+
+          return { ...msg, reaction: type };
+        })
       );
     } catch (error) {
       console.error("Failed to submit reaction:", error);
