@@ -121,6 +121,7 @@ export const ChatbotCustomization = () => {
   const interactionIdRef = useRef(interactionId); // Store latest value
   const [reactionGiven, setReactionGiven] = useState(false); //store the reaction
   const [reaction, setReaction] = useState<"like" | "dislike" | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     interactionIdRef.current = interactionId; // Update ref whenever interactionId changes
@@ -144,6 +145,25 @@ export const ChatbotCustomization = () => {
       endChatSession(); // Ensure session ends when unmounting
     };
   }, []);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      // Scroll to bottom when new messages arrive
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
+    }
+  }, [messages, isBotTyping]);
+
+  useEffect(() => {
+    const chat = chatContainerRef.current;
+    if (!chat) return;
+
+    const isAtBottom = chat.scrollHeight - chat.scrollTop === chat.clientHeight;
+
+    if (isAtBottom) {
+      chat.scrollTop = chat.scrollHeight;
+    }
+  }, [messages]);
 
   const handleUserActivity = () => {
     setLastActivityTime(new Date()); // Update last activity timestamp
@@ -904,14 +924,19 @@ export const ChatbotCustomization = () => {
           </h2>
 
           {/* Chat Window */}
-          <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 h-80 overflow-y-auto flex flex-col">
+          <div
+            ref={chatContainerRef}
+            className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 h-[950px] overflow-y-auto flex flex-col"
+          >
+            {/* This empty div acts as an anchor for the scroll */}
+            <div className="flex-1"></div>
             {/* Chat Messages */}
             {/* 🔽 START: Updated Chat Messages with Reactions */}
             {messages.length > 0 ? (
               messages.map((msg, index) => (
                 <div
                   key={index}
-                  className={`p-3 rounded-lg max-w-[80%] ${
+                  className={`p-3 rounded-lg max-w-[80%] mb-2 ${
                     msg.sender === "user"
                       ? "ml-auto bg-blue-500 text-white"
                       : "mr-auto bg-gray-300 text-gray-900"

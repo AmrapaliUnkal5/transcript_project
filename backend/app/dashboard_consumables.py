@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import User, Bot, Interaction, Rating, ChatMessage, File
+from app.models import User, Bot, Interaction,  ChatMessage, File #Rating,
 from app.database import get_db
 from app.dependency import get_current_user
 from datetime import datetime, timedelta, timezone
@@ -33,38 +33,38 @@ def get_dashboard_consumables(
       ]
     """
     # Retrieve the full user record using the email from the token.
-    user = db.query(User).filter(User.email == current_user.get("email")).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    # user = db.query(User).filter(User.email == current_user.get("email")).first()
+    # if not user:
+    #     raise HTTPException(status_code=404, detail="User not found")
     
-    user_id = user.user_id
+    # user_id = user.user_id
 
-    # Query bots with LEFT OUTER JOINs to interactions and ratings.
-    # - conversation_count: count of interactions
-    # - avg_rating: average of Rating.rating
-    # - avg_responsetime: average of the seconds extracted from Interaction.timestamp
-    results = (
-        db.query(
-            Bot.bot_id,
-            func.count(Interaction.interaction_id).label("conversation_count"),
-            func.avg(Rating.rating).label("avg_rating"),
-            func.avg(func.extract('second', Interaction.timestamp)).label("avg_responsetime")
-        )
-        .outerjoin(Interaction, Interaction.bot_id == Bot.bot_id)
-        .outerjoin(Rating, Rating.interaction_id == Interaction.interaction_id)
-        .filter(Bot.user_id == user_id)
-        .group_by(Bot.bot_id)
-        .all()
-    )
+    # # Query bots with LEFT OUTER JOINs to interactions and ratings.
+    # # - conversation_count: count of interactions
+    # # - avg_rating: average of Rating.rating
+    # # - avg_responsetime: average of the seconds extracted from Interaction.timestamp
+    # results = (
+    #     db.query(
+    #         Bot.bot_id,
+    #         func.count(Interaction.interaction_id).label("conversation_count"),
+    #         func.avg(Rating.rating).label("avg_rating"),
+    #         func.avg(func.extract('second', Interaction.timestamp)).label("avg_responsetime")
+    #     )
+    #     .outerjoin(Interaction, Interaction.bot_id == Bot.bot_id)
+    #     .outerjoin(Rating, Rating.interaction_id == Interaction.interaction_id)
+    #     .filter(Bot.user_id == user_id)
+    #     .group_by(Bot.bot_id)
+    #     .all()
+    # )
 
     output = []
-    for bot_id, conversation_count, avg_rating, avg_responsetime in results:
-        output.append({
-            "bot_id": bot_id,
-            "Total Conversation": conversation_count,
-            "rating": round(avg_rating, 2) if avg_rating is not None else None,
-            "responsetime": round(avg_responsetime, 2) if avg_responsetime is not None else None
-        })
+    # for bot_id, conversation_count, avg_rating, avg_responsetime in results:
+    #     output.append({
+    #         "bot_id": bot_id,
+    #         "Total Conversation": conversation_count,
+    #         "rating": round(avg_rating, 2) if avg_rating is not None else None,
+    #         "responsetime": round(avg_responsetime, 2) if avg_responsetime is not None else None
+    #     })
 
     return output
 

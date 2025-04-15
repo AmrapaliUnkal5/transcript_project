@@ -5,10 +5,10 @@ from starlette.responses import RedirectResponse
 from app.config import settings
 from app.database import engine
 from app.models import (
-    User, Bot, File, Interaction, Language, PerformanceLog, 
-    Rating, Subscription, UserAuthProvider, ChatMessage, 
+    User, Bot, File, Interaction, Language, 
+     UserAuthProvider, ChatMessage, 
     DemoRequest, EmbeddingModel, LLMModel, SubscriptionPlan,
-    Addon, UserSubscription
+    Addon, UserSubscription #Sunscription PerformanceLog, Rating,
 )
 from sqlalchemy.orm import Session
 import jwt
@@ -163,44 +163,44 @@ class LanguageAdmin(ModelView, model=Language):
     column_searchable_list = [Language.language_code, Language.language_name]
     column_filters = ["language_code", "language_name"]
    
-class PerformanceLogAdmin(ModelView, model=PerformanceLog):
-    column_list = [
-        PerformanceLog.log_id,
-        PerformanceLog.bot_id,
-        PerformanceLog.user_id,
-        PerformanceLog.interaction_count,
-        PerformanceLog.last_interaction,
-        PerformanceLog.created_at,
-        PerformanceLog.updated_at,
-    ]
-    column_searchable_list = [PerformanceLog.bot_id, PerformanceLog.user_id]
-    column_filters = ["bot_id", "user_id", "created_at"]
+# class PerformanceLogAdmin(ModelView, model=PerformanceLog):
+#     column_list = [
+#         PerformanceLog.log_id,
+#         PerformanceLog.bot_id,
+#         PerformanceLog.user_id,
+#         PerformanceLog.interaction_count,
+#         PerformanceLog.last_interaction,
+#         PerformanceLog.created_at,
+#         PerformanceLog.updated_at,
+#     ]
+#     column_searchable_list = [PerformanceLog.bot_id, PerformanceLog.user_id]
+#     column_filters = ["bot_id", "user_id", "created_at"]
 
-class RatingAdmin(ModelView, model=Rating):
-    column_list = [
-        Rating.rating_id,
-        Rating.interaction_id,
-        Rating.user_id,
-        Rating.rating,
-        Rating.feedback,
-        Rating.created_at,
-    ]
-    column_searchable_list = [Rating.rating, Rating.feedback]
-    column_filters = ["interaction_id", "user_id", "rating"]
+# class RatingAdmin(ModelView, model=Rating):
+#     column_list = [
+#         Rating.rating_id,
+#         Rating.interaction_id,
+#         Rating.user_id,
+#         Rating.rating,
+#         Rating.feedback,
+#         Rating.created_at,
+#     ]
+#     column_searchable_list = [Rating.rating, Rating.feedback]
+#     column_filters = ["interaction_id", "user_id", "rating"]
 
-class SubscriptionAdmin(ModelView, model=Subscription):
-    column_list = [
-        Subscription.subscription_id,
-        Subscription.user_id,
-        Subscription.bot_id,
-        Subscription.amount,
-        Subscription.currency,
-        Subscription.payment_date,
-        Subscription.expiry_date,
-        Subscription.status,
-    ]
-    column_searchable_list = [Subscription.currency, Subscription.status]
-    column_filters = ["user_id", "bot_id", "status"]
+# class SubscriptionAdmin(ModelView, model=Subscription):
+#     column_list = [
+#         Subscription.subscription_id,
+#         Subscription.user_id,
+#         Subscription.bot_id,
+#         Subscription.amount,
+#         Subscription.currency,
+#         Subscription.payment_date,
+#         Subscription.expiry_date,
+#         Subscription.status,
+#     ]
+#     column_searchable_list = [Subscription.currency, Subscription.status]
+#     column_filters = ["user_id", "bot_id", "status"]
 
 class UserAuthProviderAdmin(ModelView, model=UserAuthProvider):
     column_list = [
@@ -327,9 +327,9 @@ def init(app: FastAPI):
     admin.add_view(FileAdmin)
     # admin.add_view(InteractionAdmin)
     admin.add_view(LanguageAdmin)
-    admin.add_view(PerformanceLogAdmin)
-    admin.add_view(RatingAdmin) 
-    admin.add_view(SubscriptionAdmin)
+    # admin.add_view(PerformanceLogAdmin)
+    # admin.add_view(RatingAdmin) 
+    # admin.add_view(SubscriptionAdmin)
     admin.add_view(UserAuthProviderAdmin)
     admin.add_view(InteractionAdmin)
     admin.add_view(ChatMessageAdmin)
