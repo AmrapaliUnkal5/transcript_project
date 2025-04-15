@@ -27,11 +27,17 @@ interface ConversationData {
   count: number;
 }
 
+interface FAQData {
+  question: string;
+  count: number;
+  cluster_id: string;
+}
+
 const COLORS = ["#4CAF50", "#2196F3", "#FFC107", "#F44336"];
 
 const UpgradeMessage = ({ requiredPlan = "Starter", feature = "analytics" }) => {
   return (
-    <div className="bg-white dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg max-w-xs mx-4 text-center">
+    <div className="bg-white dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg w-64 text-center">
       <Lock className="w-6 h-6 mx-auto text-gray-400 mb-2" />
       <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
         {feature === "analytics" ? "Analytics Locked" : "Feature Locked"}
@@ -67,6 +73,7 @@ export const Performance = () => {
   const [conversationData, setConversationData] = useState<ConversationData[]>(
     []
   );
+  const [faqData, setFaqData] = useState<FAQData[]>([]);
   const [totalTimeSpent, setTotalTimeSpent] = useState(0);
 
   const userData = localStorage.getItem("user");
@@ -154,6 +161,30 @@ export const Performance = () => {
     }
   };
 
+  const fetchFaqData = async () => {
+    if (!selectedBot?.id) return;
+    
+    try {
+      setLoading(true);
+      const response = await authApi.getFAQ({
+        bot_id: selectedBot.id,
+      });
+      const faqs = response?.data || response || [];
+   
+      const formattedData = faqs.map((faq: any) => ({
+        question: faq.question,
+        count: faq.count,
+        cluster_id: faq.cluster_id
+      })).slice(0, 10); // Only take first 10 FAQs
+      
+      setFaqData(formattedData);
+    } catch (error) {
+      console.error("Error fetching FAQ data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getLast7Days = () => {
     const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const todayIndex = new Date().getDay();
@@ -163,6 +194,7 @@ export const Performance = () => {
   useEffect(() => {
     fetchConversationData();
     fetchSatisfactionData();
+    fetchFaqData();
   }, [selectedBot?.id]);
 
   if (loading) {
@@ -179,7 +211,7 @@ export const Performance = () => {
 
       <div className="relative">
         <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${
-          hasNoAnalyticsAccess ? "filter blur-lg pointer-events-none" : ""
+          hasNoAnalyticsAccess ? "filter blur-xl pointer-events-none" : ""
         }`}>
           {/* Weekly Conversations Chart */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
@@ -258,7 +290,7 @@ export const Performance = () => {
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
               Detailed Metrics
             </h2>
-            <div className={`overflow-x-auto ${!hasAdvancedAnalytics ? "filter blur-sm" : ""}`}>
+            <div className={`overflow-x-auto ${!hasAdvancedAnalytics ? "filter blur-xl" : ""}`}>
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-700">
@@ -296,10 +328,53 @@ export const Performance = () => {
               </table>
             </div>
             {!hasAdvancedAnalytics && (
-               <div className="absolute top-[75%] left-[75%] transform -translate-x-1/2 -translate-y-1/2 z-10">
-                <UpgradeMessage requiredPlan="Professional" feature="detailed analytics" />
+               <div className="absolute top-[50%] left-[75%] transform -translate-x-1/2 -translate-y-1/2 z-10">
+                <UpgradeMessage requiredPlan="Professional" feature=" detailed analytics" />
               </div>
             )}
+          </div>
+        {/* FAQ Analytics Chart */}
+          
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 h-[420px]">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Frequently Asked Questions
+            </h2>
+          <div className={`h-[calc(100%-40px)] overflow-y-auto ${!hasAdvancedAnalytics ? "filter blur-xl" : ""}`}>
+            {faqData.length > 0 ? (
+          <div className="space-y-3">
+            {faqData.map((faq, index) => (
+            <div key={index} className="group">
+              <p className="text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+              {`${index + 1}. ` +
+                faq.question
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                .join(' ')
+              }
+              </p>
+            {/* <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Asked {faq.count} {faq.count === 1 ? 'time' : 'times'}
+            </p> */}
+            </div>
+            ))}
+              {/* Fill remaining space if less than 10 questions */}
+              {faqData.length < 10 && (
+                <div className="h-[calc((10-${faqData.length})*60px)]"></div>
+              )}
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <p className="text-gray-500 dark:text-gray-400">
+                No frequently asked questions data available yet.
+              </p>
+            </div>
+          )}
+        </div>
+          {!hasAdvancedAnalytics && (
+            <div className="absolute top-[85%] left-[25%] transform -translate-x-1/2 -translate-y-1/2 z-10">
+              <UpgradeMessage requiredPlan="Professional" feature="FAQ analytics" />
+            </div>
+          )}
           </div>
         </div>
 

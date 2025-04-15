@@ -524,4 +524,14 @@ export const authApi = {
     return response.data;
   },
 
+  getFAQ: async (params: { bot_id: number }) => {
+    try {
+      const response = await api.get(`/chat/analytics/faqs/${params.bot_id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching FAQ data:', error);
+      throw error;
+    }
+  },
+
 };
