@@ -173,12 +173,17 @@ async def submit_reaction(payload: ReactionCreate, db: Session = Depends(get_db)
         .first()
     )
     if existing:
-        # Update the existing reaction
-        existing.reaction = payload.reaction
-        db.commit()
-        db.refresh(existing)
-        return {"detail": "Reaction updated."}
-    print("reaction payload",payload)
+        if existing.reaction == payload.reaction:
+            # Same reaction sent again — deselect (delete)
+            db.delete(existing)
+            db.commit()
+            return {"message": "Reaction removed."}
+        else:
+            # Different reaction — update
+            existing.reaction = payload.reaction
+            db.commit()
+            db.refresh(existing)
+            return {"message": "Reaction updated."}
 
     reaction = InteractionReaction(
         interaction_id=payload.interaction_id,
