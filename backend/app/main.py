@@ -50,7 +50,6 @@ from app.total_conversations_analytics import router as weekly_Conversation
 from app.team_management import router as team_management_router
 from app.fetchsubscripitonplans import router as fetchsubscriptionplans_router
 from app.notifications import router as notifications_router
-from app.message_count_validations import router as message_count_validations_router
 
 
 app = FastAPI(debug=True)
@@ -73,7 +72,6 @@ app.include_router(weekly_Conversation)
 app.include_router(team_management_router)
 app.include_router(fetchsubscriptionplans_router)
 app.include_router(notifications_router)
-app.include_router(message_count_validations_router)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
  
@@ -86,7 +84,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all HTTP headers
 )
 
-app.add_middleware(RoleBasedAccessMiddleware)
+# app.add_middleware(RoleBasedAccessMiddleware)
 templates = Jinja2Templates(directory="app/templates")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
