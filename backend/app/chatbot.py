@@ -46,8 +46,9 @@ def chatbot_response(bot_id: int, user_id: int, user_message: str, db: Session =
     
     llm_model_name = bot.llm_model.name if bot and bot.llm_model else None
     use_external_knowledge = bot.external_knowledge if bot else False
+    temperature = bot.temperature if bot and bot.temperature is not None else 0.7
     
-    print(f"📝 Bot settings - External knowledge: {use_external_knowledge}, LLM: {llm_model_name}")
+    print(f"📝 Bot settings - External knowledge: {use_external_knowledge}, LLM: {llm_model_name}, Temperature: {temperature}")
     
     # If external knowledge is enabled but no LLM is assigned, default to GPT-4
     if use_external_knowledge and not llm_model_name:
@@ -80,7 +81,7 @@ def chatbot_response(bot_id: int, user_id: int, user_message: str, db: Session =
     try:
         # Use the LLMManager to generate response with the appropriate model and knowledge settings
         llm = LLMManager(llm_model_name)
-        bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge)
+        bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, temperature=temperature)
     except Exception as e:
         print(f"❌ Error generating response: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Chatbot error: {str(e)}")
@@ -126,8 +127,9 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
     
     llm_model_name = bot.llm_model.name if bot and bot.llm_model else None
     use_external_knowledge = bot.external_knowledge if bot else False
+    temperature = bot.temperature if bot and bot.temperature is not None else 0.7
     
-    print(f"📝 Bot settings - External knowledge: {use_external_knowledge}, LLM: {llm_model_name}")
+    print(f"📝 Bot settings - External knowledge: {use_external_knowledge}, LLM: {llm_model_name}, Temperature: {temperature}")
     
     # If external knowledge is enabled but no LLM is assigned, default to GPT-4
     if use_external_knowledge and not llm_model_name:
@@ -160,7 +162,7 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
 
     # Generate response using appropriate LLM and knowledge settings
     llm = LLMManager(llm_model_name)
-    bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge)
+    bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, temperature=temperature)
 
     # Store conversation
     db.add_all([

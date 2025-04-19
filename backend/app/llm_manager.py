@@ -19,7 +19,7 @@ class HuggingFaceLLM:
         
         print(f"🔄 Initialized HuggingFace LLM with model: {model_name}")
     
-    def generate(self, context: str, user_message: str) -> str:
+    def generate(self, context: str, user_message: str, temperature: float = 0.7) -> str:
         """Generate a response using the HuggingFace model."""
         try:
             # Construct the prompt based on the type of model
@@ -43,7 +43,7 @@ class HuggingFaceLLM:
                     "inputs": prompt,
                     "parameters": {
                         "max_new_tokens": 250,
-                        "temperature": 0.7,
+                        "temperature": temperature,
                         "do_sample": True,
                         "return_full_text": False
                     },
@@ -155,7 +155,7 @@ class LLMManager:
                 raise ValueError("OPENAI_API_KEY is not set")
             return OpenAI(api_key=api_key)
 
-    def generate(self, context: str, user_message: str, use_external_knowledge: bool = False) -> str:
+    def generate(self, context: str, user_message: str, use_external_knowledge: bool = False, temperature: float = 0.7) -> str:
         """
         Generate a response using the specified LLM.
         
@@ -163,12 +163,14 @@ class LLMManager:
             context (str): The context from retrieved documents
             user_message (str): The user's query
             use_external_knowledge (bool): Whether to use external knowledge if context is insufficient
+            temperature (float): The temperature value to control randomness in LLM responses
         """
         provider = self.model_info.get("provider", "").lower()
         model_name = self.model_info.get("name", "")
         
         print(f"🔄 Generating response with {model_name} ({provider})")
         print(f"🔍 External knowledge enabled: {use_external_knowledge}")
+        print(f"🌡️ Using temperature: {temperature}")
         
         try:
             if provider == "openai":
@@ -191,7 +193,7 @@ class LLMManager:
                         {"role": "system", "content": system_content},
                         {"role": "user", "content": f"Context: {context}\nUser: {user_message}\nBot:"}
                     ],
-                    temperature=0.7,
+                    temperature=temperature,
                     max_tokens=250
                 )
                 return response.choices[0].message.content
@@ -202,9 +204,9 @@ class LLMManager:
                 if use_external_knowledge:
                     # Modify the prompt to include instructions about external knowledge
                     enhanced_context = f"{context}\n\nIf the context above doesn't answer the question, you can use your general knowledge."
-                    return self.llm.generate(enhanced_context, user_message)
+                    return self.llm.generate(enhanced_context, user_message, temperature)
                 else:
-                    return self.llm.generate(context, user_message)
+                    return self.llm.generate(context, user_message, temperature)
             else:
                 raise ValueError(f"Unsupported provider: {provider}")
         except Exception as e:

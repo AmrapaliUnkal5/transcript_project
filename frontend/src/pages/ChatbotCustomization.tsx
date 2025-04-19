@@ -660,7 +660,7 @@ export const ChatbotCustomization = () => {
             handleChange("appearance", e.target.value),
         },
         {
-          label: "Temperature",
+          label: "Model Temperature",
           type: "slider",
           min: 0,
           max: 1,
