@@ -37,7 +37,6 @@ export const Sidebar = () => {
   const handleLogout = async () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    localStorage.removeItem("subscriptionPlans");
     navigate("/login");
   };
 
