@@ -36,6 +36,7 @@ export const Welcome = () => {
   // This would come from your API in a real app
   //const [hasBots] = useState(true);
   const [hasBots, setHasBots] = useState<boolean | null>(null); // Track bot existence
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
     const [bots, setBots] = useState<
     {
       id: number;
@@ -67,102 +68,84 @@ export const Welcome = () => {
   const userPlanId = user?.subscription_plan_id || 1;
   const userPlan = getPlanById(userPlanId);
 
-  // Load subscription plans
-  useEffect(() => {
-  const loadSubscriptionPlans = async () => {
+// Combined data loading effect
+useEffect(() => {
+  const loadAllData = async () => {
     try {
-      setPlansLoading(true);
-      const data = await authApi.fetchPlans();
+      setLoading(true);
+      setIsDataLoaded(false);
       
-      if (Array.isArray(data)) {
-        setPlans(data);
+      // 1. Load subscription plans first
+      const plansData = await authApi.fetchPlans();
+      if (Array.isArray(plansData)) {
+        setPlans(plansData);
         localStorage.setItem('subscriptionPlans', 
           JSON.stringify({ 
-            data, 
+            data: plansData, 
             timestamp: Date.now() 
           }));
       }
+
+      // 2. Only proceed with bot data if we have a user ID
+      if (userId) {
+        const [botResponse, trendsResponse, metrics] = await Promise.all([
+          authApi.getBotSettingsByUserId(userId),
+          authApi.getConversationTrends(userId),
+          authApi.getUsageMetrics()
+        ]);
+
+        // Process bot data
+        const botExists = botResponse.length > 0;
+        setHasBots(botExists);
+
+        const extractedBots = botResponse.map((botObj) => {
+          const botId = Object.keys(botObj)[0];
+          const botData = botObj[botId];
+
+          return {
+            id: Number(botId),
+            name: botData.bot_name,
+            status: botData.status,
+            conversations: botData.conversation_count_today,
+            satisfaction: {
+              likes: botData.satisfaction?.likes || 0,
+              dislikes: botData.satisfaction?.dislikes || 0,
+            },
+          };
+        });
+
+        setBots(extractedBots);
+        setConversationTrends(trendsResponse);
+        setUsageMetrics(metrics);
+      }
     } catch (error) {
-      console.error("Error loading subscription plans:", error);
+      console.error("Error loading data:", error);
+      setHasBots(false);
     } finally {
-      setPlansLoading(false);
+      setLoading(false);
+      setIsDataLoaded(true);
     }
   };
-  loadSubscriptionPlans(); // Call the function here
-}, []);
 
-useEffect(() => {
-  const checkUserBot = async () => {
-    try {
-      console.log("Now", userId);
-      if (userId === undefined) return; // Ensure userId is defined before making API call
-      setLoading(true); // Show loader before API call
+  loadAllData();
+}, [userId, setLoading, setPlans]);
 
-      const response = await authApi.getBotSettingsByUserId(userId);
-      const botExists = response.length > 0; // Check if bot_id is present
-      setHasBots(botExists);
-      // Extract bot data dynamically
-      // Ensure response is treated as an array
-      const extractedBots = response.map((botObj) => {
-        const botId = Object.keys(botObj)[0]; // Extract the bot ID (key)
-        const botData = botObj[botId]; // Extract the corresponding bot details
+if (isPlansLoading || !userPlan) {
+  return <Loader />;
+}
 
-        return {
-          id: Number(botId), // Convert string ID to number
-          name: botData.bot_name,
-          status: botData.status,
-          conversations: botData.conversation_count_today, // Placeholder for conversations
-          satisfaction: {
-            likes: botData.satisfaction?.likes || 0, // Default to 0 if missing
-            dislikes: botData.satisfaction?.dislikes || 0,
-          },
-        };
-      });
+const maxBotsAllowed = userPlan.chatbot_limit;
+const maxWordsAllowed = userPlan.word_count_limit;
+const chatbotlimit = userPlan.chatbot_limit;
+const storagelimit = userPlan.storage_limit;
+const chat_messages_used = userPlan.message_limit;
 
-      console.log("extractedBots", extractedBots);
-
-      setBots(extractedBots);
-      const trendsResponse = await authApi.getConversationTrends(userId);
-      console.log("trendsResponse", trendsResponse);
-      setConversationTrends(trendsResponse);
-
-      const metrics = await authApi.getUsageMetrics(); // 👈 Call your backend API
-      console.log("Usage Metrics", metrics);
-      setUsageMetrics(metrics);
-
-      const storageUsagePercent = Math.min(
-        (usedBytes / limitBytes) * 100,
-        100
-      ).toFixed(2);
-    } catch (error) {
-      console.error("Error checking user bot:", error);
-      setHasBots(false); // Assume no bot in case of error
-    } finally {
-      setLoading(false); // Hide loader after API call
-    }
-  };
-  checkUserBot();
-}, [userId, setLoading]);
-
-  
-  if (isPlansLoading || !userPlan) {
-    return <Loader />;
-  }
-  
-  const maxBotsAllowed = userPlan.chatbot_limit;
-  const maxWordsAllowed = userPlan.word_count_limit;
-  const chatbotlimit = userPlan.chatbot_limit;
-  const storagelimit = userPlan.storage_limit;
-  const chat_messages_used = userPlan.message_limit;
-
-  
-
-  const usedBytes = convertToBytes(usageMetrics.total_storage_used); // e.g., "2.4 GB"
-  const limitBytes = convertToBytes(storagelimit); // e.g., "500 MB"
-  const storageUsagePercent = Math.min(
-    (usedBytes / limitBytes) * 100,
-    100
-  ).toFixed(2);
+const usedBytes = convertToBytes(usageMetrics.total_storage_used);
+const limitBytes = convertToBytes(storagelimit);
+const storageUsagePercent = Math.min(
+  (usedBytes / limitBytes) * 100,
+  100
+).toFixed(2);
 
   function convertToBytes(sizeStr: string): number {
     if (!sizeStr) return 0;
@@ -379,9 +362,9 @@ useEffect(() => {
   //   return last7Days;
   // };
 
-  if (hasBots === null) {
-    return <Loader />; // Show loading state while API call is in progress
-  }
+  // if (hasBots === null) {
+  //   return <Loader />; // Show loading state while API call is in progress
+  // }
 
   // const bots = [
   //   {
@@ -711,7 +694,13 @@ useEffect(() => {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
-      {hasBots ? <ExistingUserDashboard /> : <NewUserWelcome />}
-    </div>
-  );
+      {!isDataLoaded || hasBots === null ? (
+      <Loader /> // Show loader while data is loading
+    ) : hasBots ? (
+      <ExistingUserDashboard />
+    ) : (
+      <NewUserWelcome />
+    )}
+  </div>
+);
 };
