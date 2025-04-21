@@ -534,13 +534,4 @@ export const authApi = {
     }
   },
 
-  getUserMessageCount: async (): Promise<{
-    userMessageCount: number;
-    totalMessagesUsed: number;
-    remainingMessages: number;
-    planLimit: number;
-  }> => {
-    const response = await api.get('/user/msgusage'); return response.data;
-  },
- 
 };

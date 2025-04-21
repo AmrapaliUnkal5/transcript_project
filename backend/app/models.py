@@ -27,7 +27,6 @@ class User(Base):
     phone_no = Column(String, nullable=True)  # Optional phone number
     company_name = Column(String, nullable=True)  # Optional company name
     total_words_used = Column(Integer, default=0)  
-    total_message_count = Column(Integer, default=0) 
     communication_email = Column(String, nullable=True)  # New Field Optional
     
     # Add relationships for team membership
@@ -89,7 +88,6 @@ class Bot(Base):
     external_knowledge = Column(Boolean, nullable=False, server_default='false')
     embedding_model_id = Column(Integer, ForeignKey("embedding_models.id"), nullable=True)
     llm_model_id = Column(Integer, ForeignKey("llm_models.id"), nullable=True)
-    message_count = Column(Integer, default=0)
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")

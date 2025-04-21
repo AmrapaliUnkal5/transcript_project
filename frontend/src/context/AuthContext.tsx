@@ -21,7 +21,6 @@ interface AuthContextType {
   login: (token: string, userData: User) => void;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void; // Add this line
-  
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,18 +41,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       localStorage.setItem("user", JSON.stringify(updatedUser));
     }
   };
-  
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     const userData = localStorage.getItem("user");
-    
+
     if (token && userData) {
       try {
         const parsedUserData = JSON.parse(userData);
         console.log(parsedUserData);
         setIsAuthenticated(true);
         setUser(parsedUserData);
-        //subscription context load
       } catch (error) {
         console.error("Error parsing user data:", error);
         setIsAuthenticated(false);
@@ -98,7 +96,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    localStorage.removeItem("subscriptionPlans");
     setIsAuthenticated(false);
     setUser(null);
     navigate("/login");
