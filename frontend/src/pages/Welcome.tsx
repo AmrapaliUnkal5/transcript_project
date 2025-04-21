@@ -28,6 +28,7 @@ export const Welcome = () => {
   // This would come from your API in a real app
   //const [hasBots] = useState(true);
   const [hasBots, setHasBots] = useState<boolean | null>(null); // Track bot existence
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const { setLoading } = useLoader(); // Get loader state from context
   const [bots, setBots] = useState<
     {
@@ -66,12 +67,87 @@ export const Welcome = () => {
     total_storage_used: "0",
   });
 
-  const usedBytes = convertToBytes(usageMetrics.total_storage_used); // e.g., "2.4 GB"
-  const limitBytes = convertToBytes(storagelimit); // e.g., "500 MB"
-  const storageUsagePercent = Math.min(
-    (usedBytes / limitBytes) * 100,
-    100
-  ).toFixed(2);
+  const userPlanId = user?.subscription_plan_id || 1;
+  const userPlan = getPlanById(userPlanId);
+
+// Combined data loading effect
+useEffect(() => {
+  const loadAllData = async () => {
+    try {
+      setLoading(true);
+      setIsDataLoaded(false);
+      
+      // 1. Load subscription plans first
+      const plansData = await authApi.fetchPlans();
+      if (Array.isArray(plansData)) {
+        setPlans(plansData);
+        localStorage.setItem('subscriptionPlans', 
+          JSON.stringify({ 
+            data: plansData, 
+            timestamp: Date.now() 
+          }));
+      }
+
+      // 2. Only proceed with bot data if we have a user ID
+      if (userId) {
+        const [botResponse, trendsResponse, metrics] = await Promise.all([
+          authApi.getBotSettingsByUserId(userId),
+          authApi.getConversationTrends(userId),
+          authApi.getUsageMetrics()
+        ]);
+
+        // Process bot data
+        const botExists = botResponse.length > 0;
+        setHasBots(botExists);
+
+        const extractedBots = botResponse.map((botObj) => {
+          const botId = Object.keys(botObj)[0];
+          const botData = botObj[botId];
+
+          return {
+            id: Number(botId),
+            name: botData.bot_name,
+            status: botData.status,
+            conversations: botData.conversation_count_today,
+            satisfaction: {
+              likes: botData.satisfaction?.likes || 0,
+              dislikes: botData.satisfaction?.dislikes || 0,
+            },
+          };
+        });
+
+        setBots(extractedBots);
+        setConversationTrends(trendsResponse);
+        setUsageMetrics(metrics);
+      }
+    } catch (error) {
+      console.error("Error loading data:", error);
+      setHasBots(false);
+    } finally {
+      setLoading(false);
+      setIsDataLoaded(true);
+    }
+  };
+
+  loadAllData();
+}, [userId, setLoading, setPlans]);
+
+if (isPlansLoading || !userPlan) {
+  return <Loader />;
+}
+
+const maxBotsAllowed = userPlan.chatbot_limit;
+const maxWordsAllowed = userPlan.word_count_limit;
+const chatbotlimit = userPlan.chatbot_limit;
+const storagelimit = userPlan.storage_limit;
+const chat_messages_used = userPlan.message_limit;
+
+const usedBytes = convertToBytes(usageMetrics.total_storage_used);
+const limitBytes = convertToBytes(storagelimit);
+const storageUsagePercent = Math.min(
+  (usedBytes / limitBytes) * 100,
+  100
+).toFixed(2);
 
   function convertToBytes(sizeStr: string): number {
     if (!sizeStr) return 0;
@@ -340,9 +416,9 @@ export const Welcome = () => {
   //   return last7Days;
   // };
 
-  if (hasBots === null) {
-    return <Loader />; // Show loading state while API call is in progress
-  }
+  // if (hasBots === null) {
+  //   return <Loader />; // Show loading state while API call is in progress
+  // }
 
   // const bots = [
   //   {
@@ -672,7 +748,13 @@ export const Welcome = () => {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
-      {hasBots ? <ExistingUserDashboard /> : <NewUserWelcome />}
-    </div>
-  );
+      {!isDataLoaded || hasBots === null ? (
+      <Loader /> // Show loader while data is loading
+    ) : hasBots ? (
+      <ExistingUserDashboard />
+    ) : (
+      <NewUserWelcome />
+    )}
+  </div>
+);
 };
