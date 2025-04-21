@@ -3,7 +3,7 @@ from chromadb import logger
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Interaction, ChatMessage
+from app.models import Bot, Interaction, ChatMessage, User
 from pydantic import BaseModel
 from app.vector_db import retrieve_similar_docs
 from app.chatbot import generate_response  
@@ -57,6 +57,28 @@ def async_cluster_question(bot_id, message_text,message_id):
         db.rollback()
     finally:
         db.close()
+
+def update_message_counts(bot_id: int, user_id: int):
+    db = next(get_db())
+    try:
+        # Update bot message count
+        db.query(Bot).filter(Bot.bot_id == bot_id).update({
+            Bot.message_count: Bot.message_count + 1
+        })
+       
+        # Update user message count
+        db.query(User).filter(User.user_id == user_id).update({
+            User.total_message_count: User.total_message_count + 1
+        })
+
+        db.commit()
+        print("✅ Message counts updated")
+    except Exception as e:
+        db.rollback()
+        print("⚠️ Failed to update message counts:", e)
+    finally:
+        db.close()
+
 
 @router.post("/send_message")
 def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
@@ -116,6 +138,12 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     )
     db.add(bot_message)
     db.commit()
+
+    # ✅ Update message count in background
+    threading.Thread(
+        target=update_message_counts,
+        args=(interaction.bot_id, interaction.user_id)
+    ).start()
 
     return {"message": bot_reply_text, "message_id": bot_message.message_id}
 

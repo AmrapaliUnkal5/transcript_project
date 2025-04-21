@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bot, ArrowRight, TrendingUp, Settings } from "lucide-react";
@@ -16,21 +17,27 @@ import { authApi } from "../services/api";
 import { useBot } from "../context/BotContext";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
-import { UserUsage } from "../types/index";
-import { getPlanById, SubscriptionPlan } from "../types/index";
-//import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
+// import { UserUsage } from "../types/index";
+// import { getPlanById, SubscriptionPlan } from "../types/index";
+import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 
 export const Welcome = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const userId = user?.user_id;
   const { setSelectedBot } = useBot();
+  const { setLoading } = useLoader();
+  const { 
+    plans, 
+    getPlanById, 
+    isLoading: isPlansLoading, 
+    setPlans, 
+    setLoading: setPlansLoading 
+  } = useSubscriptionPlans();
   // This would come from your API in a real app
   //const [hasBots] = useState(true);
   const [hasBots, setHasBots] = useState<boolean | null>(null); // Track bot existence
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const { setLoading } = useLoader(); // Get loader state from context
-  const [bots, setBots] = useState<
+    const [bots, setBots] = useState<
     {
       id: number;
       name: string;
@@ -51,15 +58,6 @@ export const Welcome = () => {
   >([]); // State to store conversation trends
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
-
-  const userPlanId = user?.subscription_plan_id || 1;
-  const userPlan: SubscriptionPlan = getPlanById(userPlanId);
-  const maxBotsAllowed = userPlan?.chatbot_limit ?? 0;
-  const maxWordsAllowed = userPlan?.wordCountLimit ?? 0;
-  const chatbotlimit = userPlan?.chatbot_limit ?? 0;
-  const storagelimit = userPlan?.storage_limit ?? "0";
-  const chat_messages_used = userPlan?.message_limit ?? 0;
-
   const [usageMetrics, setUsageMetrics] = useState({
     total_words_used: 0,
     chat_messages_used: 0,
@@ -70,84 +68,102 @@ export const Welcome = () => {
   const userPlanId = user?.subscription_plan_id || 1;
   const userPlan = getPlanById(userPlanId);
 
-// Combined data loading effect
-useEffect(() => {
-  const loadAllData = async () => {
+  // Load subscription plans
+  useEffect(() => {
+  const loadSubscriptionPlans = async () => {
     try {
-      setLoading(true);
-      setIsDataLoaded(false);
+      setPlansLoading(true);
+      const data = await authApi.fetchPlans();
       
-      // 1. Load subscription plans first
-      const plansData = await authApi.fetchPlans();
-      if (Array.isArray(plansData)) {
-        setPlans(plansData);
+      if (Array.isArray(data)) {
+        setPlans(data);
         localStorage.setItem('subscriptionPlans', 
           JSON.stringify({ 
-            data: plansData, 
+            data, 
             timestamp: Date.now() 
           }));
       }
-
-      // 2. Only proceed with bot data if we have a user ID
-      if (userId) {
-        const [botResponse, trendsResponse, metrics] = await Promise.all([
-          authApi.getBotSettingsByUserId(userId),
-          authApi.getConversationTrends(userId),
-          authApi.getUsageMetrics()
-        ]);
-
-        // Process bot data
-        const botExists = botResponse.length > 0;
-        setHasBots(botExists);
-
-        const extractedBots = botResponse.map((botObj) => {
-          const botId = Object.keys(botObj)[0];
-          const botData = botObj[botId];
-
-          return {
-            id: Number(botId),
-            name: botData.bot_name,
-            status: botData.status,
-            conversations: botData.conversation_count_today,
-            satisfaction: {
-              likes: botData.satisfaction?.likes || 0,
-              dislikes: botData.satisfaction?.dislikes || 0,
-            },
-          };
-        });
-
-        setBots(extractedBots);
-        setConversationTrends(trendsResponse);
-        setUsageMetrics(metrics);
-      }
     } catch (error) {
-      console.error("Error loading data:", error);
-      setHasBots(false);
+      console.error("Error loading subscription plans:", error);
     } finally {
-      setLoading(false);
-      setIsDataLoaded(true);
+      setPlansLoading(false);
     }
   };
+  loadSubscriptionPlans(); // Call the function here
+}, []);
 
-  loadAllData();
-}, [userId, setLoading, setPlans]);
+useEffect(() => {
+  const checkUserBot = async () => {
+    try {
+      console.log("Now", userId);
+      if (userId === undefined) return; // Ensure userId is defined before making API call
+      setLoading(true); // Show loader before API call
 
-if (isPlansLoading || !userPlan) {
-  return <Loader />;
-}
+      const response = await authApi.getBotSettingsByUserId(userId);
+      const botExists = response.length > 0; // Check if bot_id is present
+      setHasBots(botExists);
+      // Extract bot data dynamically
+      // Ensure response is treated as an array
+      const extractedBots = response.map((botObj) => {
+        const botId = Object.keys(botObj)[0]; // Extract the bot ID (key)
+        const botData = botObj[botId]; // Extract the corresponding bot details
 
-const maxBotsAllowed = userPlan.chatbot_limit;
-const maxWordsAllowed = userPlan.word_count_limit;
-const chatbotlimit = userPlan.chatbot_limit;
-const storagelimit = userPlan.storage_limit;
-const chat_messages_used = userPlan.message_limit;
+        return {
+          id: Number(botId), // Convert string ID to number
+          name: botData.bot_name,
+          status: botData.status,
+          conversations: botData.conversation_count_today, // Placeholder for conversations
+          satisfaction: {
+            likes: botData.satisfaction?.likes || 0, // Default to 0 if missing
+            dislikes: botData.satisfaction?.dislikes || 0,
+          },
+        };
+      });
 
-const usedBytes = convertToBytes(usageMetrics.total_storage_used);
-const limitBytes = convertToBytes(storagelimit);
-const storageUsagePercent = Math.min(
-  (usedBytes / limitBytes) * 100,
-  100
-).toFixed(2);
+      console.log("extractedBots", extractedBots);
+
+      setBots(extractedBots);
+      const trendsResponse = await authApi.getConversationTrends(userId);
+      console.log("trendsResponse", trendsResponse);
+      setConversationTrends(trendsResponse);
+
+      const metrics = await authApi.getUsageMetrics(); // 👈 Call your backend API
+      console.log("Usage Metrics", metrics);
+      setUsageMetrics(metrics);
+
+      const storageUsagePercent = Math.min(
+        (usedBytes / limitBytes) * 100,
+        100
+      ).toFixed(2);
+    } catch (error) {
+      console.error("Error checking user bot:", error);
+      setHasBots(false); // Assume no bot in case of error
+    } finally {
+      setLoading(false); // Hide loader after API call
+    }
+  };
+  checkUserBot();
+}, [userId, setLoading]);
+
+  
+  if (isPlansLoading || !userPlan) {
+    return <Loader />;
+  }
+  
+  const maxBotsAllowed = userPlan.chatbot_limit;
+  const maxWordsAllowed = userPlan.word_count_limit;
+  const chatbotlimit = userPlan.chatbot_limit;
+  const storagelimit = userPlan.storage_limit;
+  const chat_messages_used = userPlan.message_limit;
+
+  
+
+  const usedBytes = convertToBytes(usageMetrics.total_storage_used); // e.g., "2.4 GB"
+  const limitBytes = convertToBytes(storagelimit); // e.g., "500 MB"
+  const storageUsagePercent = Math.min(
+    (usedBytes / limitBytes) * 100,
+    100
+  ).toFixed(2);
 
   function convertToBytes(sizeStr: string): number {
     if (!sizeStr) return 0;
@@ -199,59 +215,7 @@ const storageUsagePercent = Math.min(
     //navigate("/Options");
   };
 
-  useEffect(() => {
-    const checkUserBot = async () => {
-      try {
-        console.log("Now", userId);
-        if (userId === undefined) return; // Ensure userId is defined before making API call
-        setLoading(true); // Show loader before API call
-
-        const response = await authApi.getBotSettingsByUserId(userId);
-        const botExists = response.length > 0; // Check if bot_id is present
-        setHasBots(botExists);
-        // Extract bot data dynamically
-        // Ensure response is treated as an array
-        const extractedBots = response.map((botObj) => {
-          const botId = Object.keys(botObj)[0]; // Extract the bot ID (key)
-          const botData = botObj[botId]; // Extract the corresponding bot details
-
-          return {
-            id: Number(botId), // Convert string ID to number
-            name: botData.bot_name,
-            status: botData.status,
-            conversations: botData.conversation_count_today, // Placeholder for conversations
-            satisfaction: {
-              likes: botData.satisfaction?.likes || 0, // Default to 0 if missing
-              dislikes: botData.satisfaction?.dislikes || 0,
-            },
-          };
-        });
-
-        console.log("extractedBots", extractedBots);
-
-        setBots(extractedBots);
-        const trendsResponse = await authApi.getConversationTrends(userId);
-        console.log("trendsResponse", trendsResponse);
-        setConversationTrends(trendsResponse);
-
-        const metrics = await authApi.getUsageMetrics(); // 👈 Call your backend API
-        console.log("Usage Metrics", metrics);
-        setUsageMetrics(metrics);
-
-        const storageUsagePercent = Math.min(
-          (usedBytes / limitBytes) * 100,
-          100
-        ).toFixed(2);
-      } catch (error) {
-        console.error("Error checking user bot:", error);
-        setHasBots(false); // Assume no bot in case of error
-      } finally {
-        setLoading(false); // Hide loader after API call
-      }
-    };
-    checkUserBot();
-  }, [userId, setLoading]);
-
+  
   // const transformDataForGraph = (trends: any[]) => {
   //   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   //   const today = new Date().getDay(); // Get the current day of the week (0 = Sunday, 1 = Monday, etc.)
@@ -416,9 +380,9 @@ const storageUsagePercent = Math.min(
   //   return last7Days;
   // };
 
-  // if (hasBots === null) {
-  //   return <Loader />; // Show loading state while API call is in progress
-  // }
+  if (hasBots === null) {
+    return <Loader />; // Show loading state while API call is in progress
+  }
 
   // const bots = [
   //   {
@@ -559,7 +523,7 @@ const storageUsagePercent = Math.min(
                 title="Total number of interactions for today"
               >
                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                  Interactions
+                  Sessions
                 </div>
                 <div className="text-xl font-semibold text-gray-900 dark:text-white">
                   {bot.conversations}
@@ -570,7 +534,7 @@ const storageUsagePercent = Math.min(
                 title="How many likes and dislikes did the bot receive."
               >
                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                  Satisfaction
+                  Feedback
                 </div>
                 <div className="text-xl font-semibold text-gray-900 dark:text-white">
                   <span className="text-sm">
@@ -642,7 +606,7 @@ const storageUsagePercent = Math.min(
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600 dark:text-gray-300">
-                Chat messages
+                Chat Messages
               </span>
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 {usageMetrics.chat_messages_used} / {chat_messages_used}
@@ -748,13 +712,7 @@ const storageUsagePercent = Math.min(
 
   return (
     <div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
-      {!isDataLoaded || hasBots === null ? (
-      <Loader /> // Show loader while data is loading
-    ) : hasBots ? (
-      <ExistingUserDashboard />
-    ) : (
-      <NewUserWelcome />
-    )}
-  </div>
-);
+      {hasBots ? <ExistingUserDashboard /> : <NewUserWelcome />}
+    </div>
+  );
 };

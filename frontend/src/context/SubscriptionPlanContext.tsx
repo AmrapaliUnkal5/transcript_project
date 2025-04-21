@@ -22,10 +22,12 @@ interface SubscriptionPlan {
   process_automation: boolean;
   custom_integrations: boolean;
 }
-
 interface SubscriptionPlanContextType {
   plans: SubscriptionPlan[];
   getPlanById: (id: number) => SubscriptionPlan | undefined;
+  isLoading: boolean;
+  setPlans: (plans: SubscriptionPlan[]) => void; // Add this
+  setLoading: (loading: boolean) => void; // Add this
 }
 
 const SubscriptionPlanContext = createContext<
@@ -36,27 +38,29 @@ export const SubscriptionPlanProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [isLoading, setLoading] = useState(false);
 
+  // Initialize with cached data on mount
   useEffect(() => {
-    const loadPlans = async () => {
-      try {
-        console.log("Fetching subscription plans...");
-        const data = await authApi.fetchPlans();
-        console.log("Fetched Plans:", data);
-        if (!Array.isArray(data)) throw new Error("Invalid plan data received");
-        setPlans(data);
-      } catch (error) {
-        console.error("Error fetching plans:", error);
-        setPlans([]); // Ensure state is still set
-      }
-    };
-    loadPlans();
+    const cachedData = localStorage.getItem('subscriptionPlans');
+    if (cachedData) {
+      const { data } = JSON.parse(cachedData);
+      setPlans(data);
+    }
   }, []);
 
   const getPlanById = (id: number) => plans.find((plan) => plan.id === id);
 
   return (
-    <SubscriptionPlanContext.Provider value={{ plans, getPlanById }}>
+    <SubscriptionPlanContext.Provider 
+      value={{ 
+        plans, 
+        getPlanById, 
+        isLoading,
+        setPlans, // Expose setter
+        setLoading // Expose setter
+      }}
+    >
       {children}
     </SubscriptionPlanContext.Provider>
   );

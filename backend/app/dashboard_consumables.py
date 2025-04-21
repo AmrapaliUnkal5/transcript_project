@@ -190,12 +190,7 @@ def get_usage_metrics(
         interaction_ids = [id_[0] for id_ in interaction_ids]
 
         # 4. Chat messages by user
-        chat_messages_used = 0
-        if interaction_ids:
-            chat_messages_used = db.query(ChatMessage)\
-                .filter(ChatMessage.interaction_id.in_(interaction_ids))\
-                .filter(ChatMessage.sender == "user")\
-                .count()
+        chat_messages_used = user.total_message_count or 0
             
 
         # 5. Total storage used (parse file sizes and sum up)
