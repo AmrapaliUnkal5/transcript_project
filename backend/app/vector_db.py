@@ -298,10 +298,17 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
             
         print(f"📚 Found collections for bot {bot_id}: {bot_collections}")
         
-        # Try OpenAI embedding as fallback for query
-        from langchain_openai import OpenAIEmbeddings
-        print("🔄 Using OpenAI embeddings as fallback for query")
-        openai_embedder = OpenAIEmbeddings()
+        # Try Hugging Face embedding as fallback for query
+        from app.embedding_manager import HuggingFaceAPIEmbedder
+        from app.config import settings
+        
+        print("🔄 Using Hugging Face embeddings as fallback for query")
+        huggingface_api_key = settings.HUGGINGFACE_API_KEY
+        if not huggingface_api_key:
+            print("❌ No HuggingFace API key found")
+            return []
+            
+        hf_embedder = HuggingFaceAPIEmbedder("BAAI/bge-large-en-v1.5", huggingface_api_key)
         
         # Try collections one by one until we find one that works
         for collection_name in bot_collections:
@@ -316,8 +323,8 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
                 # Use a safer approach to determine the dimension
                 # Get the embeddings dimensions using a test query with minimal data size
                 try:
-                    # First, try with a reasonable default (1536 for OpenAI)
-                    expected_dimension = 1536
+                    # First, try with a reasonable default (1024 for BAAI/bge-large-en-v1.5)
+                    expected_dimension = 1024
                     
                     # Create a zeros array of the expected dimension
                     zeros_query = [0.0] * expected_dimension
@@ -362,7 +369,7 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
                         continue
                 
                 # Get query embedding with matching dimensions
-                query_embedding = openai_embedder.embed_query(query_text)
+                query_embedding = hf_embedder.embed_query(query_text)
                 
                 # Now, query the collection
                 try:
@@ -429,13 +436,14 @@ def get_bot_config(bot_id: int) -> str:
         
         if not bot:
             print(f"⚠️ Bot with ID {bot_id} not found")
-            return "text-embedding-ada-002"  # Default fallback
+            return "BAAI/bge-large-en-v1.5"  # Default fallback
             
         if not bot.embedding_model:
             print(f"⚠️ Bot {bot_id} has no embedding model assigned, using default")
             # Try to find a default model from the database
             default_model = db.query(EmbeddingModel).filter(
-                EmbeddingModel.provider == "openai",
+                EmbeddingModel.provider == "huggingface",
+                EmbeddingModel.model_name == "BAAI/bge-large-en-v1.5",
                 EmbeddingModel.is_active == True
             ).first()
             
@@ -443,7 +451,10 @@ def get_bot_config(bot_id: int) -> str:
                 print(f"✅ Using default model from database: {default_model.name}")
                 return default_model.name
             else:
-                return "text-embedding-ada-002"  # Hardcoded fallback
+                return db.query(EmbeddingModel).filter(
+                    EmbeddingModel.provider == "huggingface",
+                    EmbeddingModel.is_active == True
+                ).first().name
         
         # Return the model name from the relationship
         model_name = bot.embedding_model.name
@@ -451,6 +462,6 @@ def get_bot_config(bot_id: int) -> str:
         return model_name
     except Exception as e:
         print(f"❌ Error getting bot config: {str(e)}")
-        return "text-embedding-ada-002"  # Default fallback in case of error
+        return "BAAI/bge-large-en-v1.5"  # Default fallback in case of error
     finally:
         db.close()

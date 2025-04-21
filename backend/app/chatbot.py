@@ -52,7 +52,7 @@ def chatbot_response(bot_id: int, user_id: int, user_message: str, db: Session =
     
     # If external knowledge is enabled but no LLM is assigned, default to GPT-4
     if use_external_knowledge and not llm_model_name:
-        llm_model_name = "gpt-4"
+        llm_model_name = "mistralai/Mistral-7B-Instruct-v0.2"
         print(f"⚠️ No LLM assigned but external knowledge enabled. Defaulting to {llm_model_name}")
 
     # ✅ Retrieve relevant documents from ChromaDB
@@ -133,7 +133,7 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
     
     # If external knowledge is enabled but no LLM is assigned, default to GPT-4
     if use_external_knowledge and not llm_model_name:
-        llm_model_name = "gpt-4"
+        llm_model_name = "mistralai/Mistral-7B-Instruct-v0.2"
         print(f"⚠️ No LLM assigned but external knowledge enabled. Defaulting to {llm_model_name}")
 
     # Retrieve relevant context
