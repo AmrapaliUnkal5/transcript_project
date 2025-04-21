@@ -476,10 +476,8 @@ export const authApi = {
   },
 
   fetchPlans: async () => {
-
-    const response = await api.get("/subscriptionplans");
+    const response = await api.get("/subscriptionplans/");
     return response.data;
-
   },
 
   endInteraction: async (interaction_id: number) => {
