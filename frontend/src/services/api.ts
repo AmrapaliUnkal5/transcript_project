@@ -42,6 +42,14 @@ api.interceptors.response.use(
   (response) => {
     activeRequests--;
     updateLoadingState();
+    
+    // Check if the response contains a new token
+    const newToken = response.headers['x-new-token'];
+    if (newToken) {
+      // Update the token in localStorage
+      localStorage.setItem('token', newToken);
+    }
+    
     return response;
   },
   (error) => {
