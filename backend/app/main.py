@@ -75,7 +75,7 @@ app.include_router(fetchsubscriptionplans_router)
 app.include_router(notifications_router)
 app.include_router(message_count_validations_router)
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 120
  
 
 app.add_middleware(
@@ -86,7 +86,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all HTTP headers
 )
 
-app.add_middleware(RoleBasedAccessMiddleware)
+# app.add_middleware(RoleBasedAccessMiddleware)
 templates = Jinja2Templates(directory="app/templates")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -97,9 +97,66 @@ init(app)
 @app.middleware("http")
 async def add_db_session_to_request(request: Request, call_next):
     # Open a new DB session and add it to the request state
-    request.state.db = SessionLocal()
-    response = await call_next(request)
-    return response
+    db = SessionLocal()
+    request.state.db = db
+    try:
+        # Call the next middleware or endpoint handler
+        response = await call_next(request)
+        return response
+    finally:
+        # Close the DB session when done
+        db.close()
+
+@app.middleware("http")
+async def extend_token_expiration(request: Request, call_next):
+    """
+    Middleware to extend the token expiration time whenever a user makes a request.
+    This implements a sliding session timeout that only ends after inactivity.
+    """
+    # Skip token refresh for authentication endpoints
+    if request.url.path in ["/login", "/token", "/register", "/forgot-password", "/reset-password"]:
+        return await call_next(request)
+    
+    # Get the authorization header
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.replace("Bearer ", "")
+        try:
+            # Decode the token without validation to get the payload
+            payload = jwt.decode(
+                token, 
+                settings.SECRET_KEY, 
+                algorithms=[settings.ALGORITHM],
+                options={"verify_exp": False}  # Don't validate expiration yet
+            )
+            
+            # Only refresh if the token is still valid
+            current_time = datetime.utcnow().timestamp()
+            if payload.get("exp") and payload.get("exp") > current_time:
+                # Create a new token with the same payload but extended expiration
+                new_payload = payload.copy()
+                # Remove the exp claim as create_access_token will add it
+                if "exp" in new_payload:
+                    del new_payload["exp"]
+                
+                # Create new token with extended expiration
+                new_token = create_access_token(
+                    data=new_payload, 
+                    expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+                )
+                
+                # Call the next middleware or endpoint handler
+                response = await call_next(request)
+                
+                # Add the new token to the response headers
+                response.headers["X-New-Token"] = new_token
+                return response
+        except Exception as e:
+            # If there's any error decoding the token, just continue without refreshing
+            print(f"Error refreshing token: {e}")
+    
+    # If no token or error, just continue with the request
+    return await call_next(request)
 
 # For OAuth2 Password Bearer (for login)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")

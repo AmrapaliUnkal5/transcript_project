@@ -190,8 +190,16 @@ async def extract_text_from_file(file, filename=None) -> Union[str, None]:
         print(f"❌ Error extracting text from file {filename if filename else 'unknown'}: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Error extracting text: {str(e)}")
 
-def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file) -> None:
-    """Validates extracted text and stores it in ChromaDB."""
+def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file, user_id: int = None) -> None:
+    """
+    Validates extracted text and stores it in ChromaDB.
+    
+    Args:
+        text: The text content to store
+        bot_id: The bot ID
+        file: The file object with metadata
+        user_id: Optional user ID for model selection
+    """
     if not text:
         print(f"⚠️ No extractable text found in the file: {file.filename}")
         raise HTTPException(status_code=400, detail="No extractable text found in the file.")
@@ -205,4 +213,4 @@ def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file) -> None:
     
     # Store extracted text in ChromaDB
     print(f"💾 Storing document in ChromaDB for bot {bot_id}: {metadata['id']}")
-    add_document(bot_id, text, metadata)
+    add_document(bot_id, text, metadata, user_id=user_id)

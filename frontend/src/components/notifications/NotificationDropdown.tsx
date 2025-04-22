@@ -18,30 +18,30 @@ export const NotificationDropdown = () => {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  // useEffect(() => {
+  //   let isMounted = true;
 
-    const loadNotifications = async () => {
-      try {
-        const data = await authApi.fetchNotifications();
-        if (isMounted) {
-          setNotifications(data);
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error("Error fetching notifications", error);
-      }
-    };
+  //   const loadNotifications = async () => {
+  //     try {
+  //       const data = await authApi.fetchNotifications();
+  //       if (isMounted) {
+  //         setNotifications(data);
+  //         setLoading(false);
+  //       }
+  //     } catch (error) {
+  //       console.error("Error fetching notifications", error);
+  //     }
+  //   };
 
-    loadNotifications(); // Initial load
+  //   loadNotifications(); // Initial load
 
-    const intervalId = setInterval(loadNotifications, 10000); // Poll every 30 sec
+  //   const intervalId = setInterval(loadNotifications, 10000); // Poll every 30 sec
 
-    return () => {
-      isMounted = false;
-      clearInterval(intervalId);
-    };
-  }, []);
+  //   return () => {
+  //     isMounted = false;
+  //     clearInterval(intervalId);
+  //   };
+  // }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

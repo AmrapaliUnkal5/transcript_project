@@ -36,16 +36,8 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             "subscription_plan_id": subscription_plan_id
         }
     except JWTError as e:
-        print("JWT Error:", e)  # Debugging  
-    return {
-        "email": email,
-        "role": role,
-        "user_id": user_id,
-        "name": name,  
-        "company_name": company_name, 
-        "phone_no": phone_no,  
-        "subscription_plan_id": subscription_plan_id
-    }
+        print("JWT Error:", e)  # Debugging
+        raise credentials_exception
 
 def require_role(allowed_roles: list[str]):
     """

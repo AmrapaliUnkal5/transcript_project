@@ -298,9 +298,13 @@ class SubscriptionPlanSchema(BaseModel):
     custom_agents: Optional[bool]
     process_automation: Optional[bool]
     custom_integrations: Optional[bool]
-
-    # class Config:
-    #     orm_mode = True  # Enables auto-conversion from SQLAlchemy models
+    default_embedding_model_id: Optional[int] = None
+    default_llm_model_id: Optional[int] = None
+    default_embedding_model: Optional[EmbeddingModelOut] = None
+    default_llm_model: Optional[LLMModelOut] = None
+    
+    class Config:
+        from_attributes = True
 
 class ReactionCreate(BaseModel):
     interaction_id: int
