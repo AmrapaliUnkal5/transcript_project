@@ -318,9 +318,15 @@ class SubscriptionPlan(Base):
     custom_agents = Column(Boolean, nullable=True, default=False)
     process_automation = Column(Boolean, nullable=True, default=False)
     custom_integrations = Column(Boolean, nullable=True, default=False)
+    default_embedding_model_id = Column(Integer, ForeignKey("embedding_models.id"), nullable=True)
+    default_llm_model_id = Column(Integer, ForeignKey("llm_models.id"), nullable=True)
     
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+    
+    # Relationships
+    default_embedding_model = relationship("EmbeddingModel", foreign_keys=[default_embedding_model_id], backref="subscription_plans_embedding")
+    default_llm_model = relationship("LLMModel", foreign_keys=[default_llm_model_id], backref="subscription_plans_llm")
 
 class Addon(Base):
     __tablename__ = "addons"

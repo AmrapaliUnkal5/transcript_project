@@ -284,11 +284,23 @@ class SubscriptionPlanAdmin(ModelView, model=SubscriptionPlan):
         SubscriptionPlan.website_crawl_limit,
         SubscriptionPlan.youtube_grounding,
         SubscriptionPlan.message_limit,
+        "default_embedding_model",
+        "default_llm_model",
         SubscriptionPlan.created_at,
         SubscriptionPlan.updated_at
     ]
     column_searchable_list = [SubscriptionPlan.name]
     column_filters = ["name", "price", "created_at"]
+    
+    # Form configuration for model relationships
+    form_args = {
+        "default_embedding_model": {
+            "label": "Default Embedding Model"
+        },
+        "default_llm_model": {
+            "label": "Default LLM Model"
+        }
+    }
 
 class AddonAdmin(ModelView, model=Addon):
     column_list = [

@@ -18,30 +18,31 @@ if not api_key:
 chroma_client = chromadb.PersistentClient(path="./chromadb_store")
 
 
-def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None):
+def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None, user_id: int = None):
     """Adds a document to a bot-specific vector database in ChromaDB."""
-    print(f"\n🔄 Starting document addition process for bot {bot_id}")
-    print(f"📄 Document metadata: {metadata}")
+    print(f"\n✨ Adding document for bot {bot_id}: {metadata.get('id', 'unknown')}")
     
-    if not text.strip():
-        print(f"⚠️ Skipping empty document for bot {bot_id}: {metadata['id']}")
-        return
-
     try:
         # If force_model is provided, use it (for re-embedding)
         if force_model:
             model_name = force_model
             print(f"🔧 Using forced model name: {model_name}")
+            # Initialize embedding manager with forced model
+            embedder = EmbeddingManager(model_name=model_name)
         else:
-            # Otherwise, get from DB (normal case)
-            print(f"🔍 Getting bot configuration for bot_id: {bot_id}")
-            model_name = get_bot_config(bot_id)
-            
-        print(f"📊 Using embedding model: {model_name}")
-        
-        # Initialize embedding manager first to validate the model
-        print("🤖 Initializing embedding manager")
-        embedder = EmbeddingManager(model_name)
+            # Otherwise, use the model selection utility if user_id is provided
+            if user_id:
+                print(f"🔍 Using model selection with bot_id: {bot_id}, user_id: {user_id}")
+                embedder = EmbeddingManager(bot_id=bot_id, user_id=user_id)
+                model_name = embedder.model_name
+                print(f"📊 Selected embedding model: {model_name}")
+            else:
+                # Otherwise, get from DB (normal case)
+                print(f"🔍 Getting bot configuration for bot_id: {bot_id}")
+                model_name = get_bot_config(bot_id)
+                print(f"📊 Using embedding model: {model_name}")
+                # Initialize embedding manager with model name
+                embedder = EmbeddingManager(model_name=model_name)
         
         # Test the embedder with a small piece of text before proceeding
         try:
@@ -75,7 +76,8 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             # First check if there are timestamped collections for this model
             try:
                 collections = chroma_client.list_collections()
-                collection_names = collections  # Already just names in v0.6.0+
+                # Extract collection names from list of collections
+                collection_names = [collection.name for collection in collections]
 
                 # Find timestamped collections for this model (sorted by timestamp, most recent first)
                 timestamped_collections = [
@@ -101,7 +103,7 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
                                     include=['embeddings']
                                 )
                                 
-                                if result['embeddings'][0]:
+                                if result['embeddings'] and len(result['embeddings']) > 0 and len(result['embeddings'][0]) > 0:
                                     existing_dimension = len(result['embeddings'][0][0])
                                     print(f"📐 Existing collection dimension: {existing_dimension}")
                                     
@@ -161,25 +163,33 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
         raise ValueError(error_msg)
 
 
-def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
+def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = None):
     """Retrieves similar documents for a query from a bot-specific vector database in ChromaDB."""
     print(f"\n🔍 Starting similarity search for bot {bot_id}")
     print(f"🔎 Query: {query_text}")
     
     try:
-        print(f"🔍 Getting bot configuration for bot_id: {bot_id}")
-        model_name = get_bot_config(bot_id)
-        print(f"📊 Using embedding model: {model_name}")
-        
-        # Initialize embedding manager
-        print("🤖 Initializing embedding manager")
-        try:
-            embedder = EmbeddingManager(model_name)
-        except Exception as e:
-            print(f"❌ Error initializing embedder: {str(e)}")
-            # Try to find any previous collection for this bot
-            print("⚠️ Falling back to any available collection for this bot")
-            return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
+        # Use model selection utility if user_id is provided
+        if user_id:
+            print(f"🔍 Using model selection with bot_id: {bot_id}, user_id: {user_id}")
+            embedder = EmbeddingManager(bot_id=bot_id, user_id=user_id)
+            model_name = embedder.model_name
+            print(f"📊 Selected embedding model: {model_name}")
+        else:
+            # Otherwise get from bot config
+            print(f"🔍 Getting bot configuration for bot_id: {bot_id}")
+            model_name = get_bot_config(bot_id)
+            print(f"📊 Using embedding model: {model_name}")
+            
+            # Initialize embedding manager
+            print("🤖 Initializing embedding manager")
+            try:
+                embedder = EmbeddingManager(model_name=model_name)
+            except Exception as e:
+                print(f"❌ Error initializing embedder: {str(e)}")
+                # Try to find any previous collection for this bot
+                print("⚠️ Falling back to any available collection for this bot")
+                return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
         
         # Get embedding for query
         print("🔄 Generating query embedding")
@@ -200,8 +210,8 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
         # List all collections to find the appropriate one
         collections = chroma_client.list_collections()
         
-        # In ChromaDB v0.6.0+, list_collections() returns collection names as strings
-        collection_names = collections  # Already just names in v0.6.0+
+        # Extract collection names from list of collections
+        collection_names = [collection.name for collection in collections]
         
         # First, look for a base collection with this model name
         if base_collection_name in collection_names:
@@ -286,11 +296,9 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
     try:
         # List all collections
         collections = chroma_client.list_collections()
-        # In ChromaDB v0.6.0+, list_collections() returns collection names as strings
-        collection_names = collections  # Already just names in v0.6.0+
         
-        # Find all collections for this bot
-        bot_collections = [name for name in collection_names if f"bot_{bot_id}_" in name]
+        # Extract collection names from list of collections
+        bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
         
         if not bot_collections:
             print(f"⚠️ No collections found for bot {bot_id}")
@@ -429,13 +437,16 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
 
 
 def get_bot_config(bot_id: int) -> str:
-    """Returns the embedding model name for the bot."""
+    """Gets the embedding model name for a specific bot from the database."""
+    print(f"🔍 Getting embedding model config for bot {bot_id}")
+    
     db = SessionLocal()
     try:
+        # Get bot from database
         bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
         
         if not bot:
-            print(f"⚠️ Bot with ID {bot_id} not found")
+            print(f"⚠️ Bot {bot_id} not found in database")
             return "BAAI/bge-large-en-v1.5"  # Default fallback
             
         if not bot.embedding_model:
@@ -443,7 +454,7 @@ def get_bot_config(bot_id: int) -> str:
             # Try to find a default model from the database
             default_model = db.query(EmbeddingModel).filter(
                 EmbeddingModel.provider == "huggingface",
-                EmbeddingModel.model_name == "BAAI/bge-large-en-v1.5",
+                EmbeddingModel.name == "BAAI/bge-large-en-v1.5",
                 EmbeddingModel.is_active == True
             ).first()
             
@@ -475,8 +486,8 @@ def delete_document_from_chroma(bot_id: int, file_id: str):
         # List all collections
         collections = chroma_client.list_collections()
         
-        # Find all collections for this bot
-        bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
+        # Extract collection names from list of collections
+        bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
         
         if not bot_collections:
             print(f"⚠️ No collections found for bot {bot_id}")
@@ -537,8 +548,8 @@ def delete_video_from_chroma(bot_id: int, video_id: str):
         # List all collections
         collections = chroma_client.list_collections()
         
-        # Find all collections for this bot
-        bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
+        # Extract collection names from list of collections
+        bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
         
         if not bot_collections:
             print(f"⚠️ No collections found for bot {bot_id}")
@@ -597,8 +608,8 @@ def delete_url_from_chroma(bot_id: int, url: str):
         # List all collections
         collections = chroma_client.list_collections()
         
-        # Find all collections for this bot
-        bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
+        # Extract collection names from list of collections
+        bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
         
         if not bot_collections:
             print(f"⚠️ No collections found for bot {bot_id}")

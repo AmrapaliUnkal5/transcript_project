@@ -7,6 +7,7 @@ import requests
 from app.database import SessionLocal
 from app.models import LLMModel as LLMModelDB
 from app.config import settings
+from app.utils.model_selection import get_llm_model_for_bot
 
 class HuggingFaceLLM:
     """Class for generating text using HuggingFace Inference API."""
@@ -82,12 +83,78 @@ class HuggingFaceLLM:
             return "I'm sorry, I'm experiencing some technical difficulties at the moment. Please try again later."
 
 class LLMManager:
-    def __init__(self, model_name: str = None):
-        """Initialize the LLM manager with a specific model name."""
-        self.model_name = model_name if model_name else "mistralai/Mistral-7B-Instruct-v0.2"
-        self.model_info = self._get_model_info(self.model_name)
-        self.llm = self._initialize_llm()
+    def __init__(self, model_name: str = None, bot_id: int = None, user_id: int = None):
+        """
+        Initialize the LLM manager with a specific model name or by dynamically selecting a model
+        based on bot and user information.
         
+        Args:
+            model_name: Optional explicit model name to use
+            bot_id: Optional bot ID for model selection
+            user_id: Optional user ID for model selection
+        """
+        db = SessionLocal()
+        try:
+            # If bot_id and user_id are provided, get the model dynamically
+            if bot_id and user_id:
+                llm_model = get_llm_model_for_bot(db, bot_id, user_id)
+                if llm_model:
+                    self.model_name = llm_model.name
+                    self.model_info = {
+                        "name": llm_model.name,
+                        "provider": llm_model.provider,
+                        "model_type": llm_model.model_type,
+                        "endpoint": llm_model.endpoint
+                    }
+                else:
+                    # Fallback to default model
+                    default_model = db.query(LLMModelDB).filter(LLMModelDB.is_active == True).first()
+                    if default_model:
+                        self.model_name = default_model.name
+                        self.model_info = {
+                            "name": default_model.name,
+                            "provider": default_model.provider,
+                            "model_type": default_model.model_type,
+                            "endpoint": default_model.endpoint
+                        }
+                    else:
+                        # Ultimate fallback to Mistral if no models in DB
+                        self.model_name = "mistralai/Mistral-7B-Instruct-v0.2"
+                        self.model_info = {
+                            "name": "mistralai/Mistral-7B-Instruct-v0.2",
+                            "provider": "huggingface",
+                            "model_type": "chat",
+                            "endpoint": None
+                        }
+            # Otherwise use the specified model name or default
+            elif model_name:
+                self.model_name = model_name
+                self.model_info = self._get_model_info(self.model_name)
+            else:
+                # If no parameters are provided, use the first active model
+                default_model = db.query(LLMModelDB).filter(LLMModelDB.is_active == True).first()
+                if default_model:
+                    self.model_name = default_model.name
+                    self.model_info = {
+                        "name": default_model.name,
+                        "provider": default_model.provider,
+                        "model_type": default_model.model_type,
+                        "endpoint": default_model.endpoint
+                    }
+                else:
+                    # Ultimate fallback to Mistral
+                    self.model_name = "mistralai/Mistral-7B-Instruct-v0.2"
+                    self.model_info = {
+                        "name": "mistralai/Mistral-7B-Instruct-v0.2",
+                        "provider": "huggingface",
+                        "model_type": "chat",
+                        "endpoint": None
+                    }
+        finally:
+            db.close()
+            
+        self.llm = self._initialize_llm()
+    
     def _get_model_info(self, model_name):
         """Get model information from the database."""
         db = SessionLocal()

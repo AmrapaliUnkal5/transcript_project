@@ -7,6 +7,7 @@ from app.models import EmbeddingModel as EmbeddingModelDB
 from app.config import settings
 import requests
 import numpy as np
+from app.utils.model_selection import get_embedding_model_for_bot
 
 class HuggingFaceAPIEmbedder:
     """Custom HuggingFace API embedder that uses the Inference API"""
@@ -71,9 +72,59 @@ class HuggingFaceAPIEmbedder:
             raise e
 
 class EmbeddingManager:
-    def __init__(self, model_name: str):
-        self.model_name = model_name.lower()
-        self.model_info = self._get_model_info(self.model_name)
+    def __init__(self, model_name: str = None, bot_id: int = None, user_id: int = None):
+        """
+        Initialize the embedding manager with a model name or by dynamically selecting a model
+        based on bot and user information.
+        
+        Args:
+            model_name: Optional explicit model name to use
+            bot_id: Optional bot ID for model selection
+            user_id: Optional user ID for model selection
+        """
+        db = SessionLocal()
+        try:
+            # If bot_id and user_id are provided, get the model dynamically
+            if bot_id and user_id:
+                embedding_model = get_embedding_model_for_bot(db, bot_id, user_id)
+                if embedding_model:
+                    self.model_name = embedding_model.name.lower()
+                    self.model_info = {
+                        "name": embedding_model.name,
+                        "provider": embedding_model.provider,
+                        "dimension": embedding_model.dimension
+                    }
+                else:
+                    # Fallback to default model
+                    default_model = db.query(EmbeddingModelDB).filter(EmbeddingModelDB.is_active == True).first()
+                    if default_model:
+                        self.model_name = default_model.name.lower()
+                        self.model_info = {
+                            "name": default_model.name,
+                            "provider": default_model.provider,
+                            "dimension": default_model.dimension
+                        }
+                    else:
+                        raise ValueError("No active embedding models found in the database")
+            # Otherwise use the specified model name
+            elif model_name:
+                self.model_name = model_name.lower()
+                self.model_info = self._get_model_info(self.model_name)
+            else:
+                # If no parameters are provided, use the first active model
+                default_model = db.query(EmbeddingModelDB).filter(EmbeddingModelDB.is_active == True).first()
+                if default_model:
+                    self.model_name = default_model.name.lower()
+                    self.model_info = {
+                        "name": default_model.name,
+                        "provider": default_model.provider,
+                        "dimension": default_model.dimension
+                    }
+                else:
+                    raise ValueError("No active embedding models found in the database")
+        finally:
+            db.close()
+            
         self.embedder = self._initialize_embedder()
         
     def _get_model_info(self, model_name):

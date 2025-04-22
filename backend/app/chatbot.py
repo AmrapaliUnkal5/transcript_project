@@ -44,19 +44,13 @@ def chatbot_response(bot_id: int, user_id: int, user_message: str, db: Session =
     if not bot:
         raise HTTPException(status_code=404, detail=f"Bot with ID {bot_id} not found")
     
-    llm_model_name = bot.llm_model.name if bot and bot.llm_model else None
     use_external_knowledge = bot.external_knowledge if bot else False
     temperature = bot.temperature if bot and bot.temperature is not None else 0.7
     
-    print(f"📝 Bot settings - External knowledge: {use_external_knowledge}, LLM: {llm_model_name}, Temperature: {temperature}")
+    print(f"📝 Bot settings - External knowledge: {use_external_knowledge}, Temperature: {temperature}")
     
-    # If external knowledge is enabled but no LLM is assigned, default to GPT-4
-    if use_external_knowledge and not llm_model_name:
-        llm_model_name = "mistralai/Mistral-7B-Instruct-v0.2"
-        print(f"⚠️ No LLM assigned but external knowledge enabled. Defaulting to {llm_model_name}")
-
     # ✅ Retrieve relevant documents from ChromaDB
-    similar_docs = retrieve_similar_docs(bot_id, user_message)
+    similar_docs = retrieve_similar_docs(bot_id, user_message, user_id=user_id)
     print(f"🔍 Retrieved {len(similar_docs) if similar_docs else 0} documents for Bot {bot_id}")
 
     # ✅ If no relevant documents are found, use appropriate response
@@ -79,8 +73,8 @@ def chatbot_response(bot_id: int, user_id: int, user_message: str, db: Session =
         context = " ".join([doc.get("content", "") for doc in similar_docs])
     
     try:
-        # Use the LLMManager to generate response with the appropriate model and knowledge settings
-        llm = LLMManager(llm_model_name)
+        # Use the LLMManager to generate response using the appropriate model based on user's subscription and bot settings
+        llm = LLMManager(bot_id=bot_id, user_id=user_id)
         bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, temperature=temperature)
     except Exception as e:
         print(f"❌ Error generating response: {str(e)}")
@@ -98,6 +92,7 @@ def chatbot_response(bot_id: int, user_id: int, user_message: str, db: Session =
 @router.post("/upload_knowledge")
 async def upload_knowledge(
     bot_id: int,
+    user_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
@@ -105,7 +100,7 @@ async def upload_knowledge(
     text = await extract_text_from_file(file)
 
     # Step 2: Validate and store the text in ChromaDB
-    validate_and_store_text_in_ChromaDB(text, bot_id, file)
+    validate_and_store_text_in_ChromaDB(text, bot_id, file, user_id=user_id)
 
     return {"message": f"Knowledge uploaded successfully for Bot {bot_id}!"}
 
@@ -125,19 +120,13 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
     if not bot:
         raise HTTPException(status_code=404, detail=f"Bot with ID {bot_id} not found")
     
-    llm_model_name = bot.llm_model.name if bot and bot.llm_model else None
     use_external_knowledge = bot.external_knowledge if bot else False
     temperature = bot.temperature if bot and bot.temperature is not None else 0.7
     
-    print(f"📝 Bot settings - External knowledge: {use_external_knowledge}, LLM: {llm_model_name}, Temperature: {temperature}")
+    print(f"📝 Bot settings - External knowledge: {use_external_knowledge}, Temperature: {temperature}")
     
-    # If external knowledge is enabled but no LLM is assigned, default to GPT-4
-    if use_external_knowledge and not llm_model_name:
-        llm_model_name = "mistralai/Mistral-7B-Instruct-v0.2"
-        print(f"⚠️ No LLM assigned but external knowledge enabled. Defaulting to {llm_model_name}")
-
     # Retrieve relevant context
-    similar_docs = retrieve_similar_docs(bot_id, user_message)
+    similar_docs = retrieve_similar_docs(bot_id, user_message, user_id=user_id)
     print(f"🔍 Retrieved {len(similar_docs) if similar_docs else 0} documents for Bot {bot_id}")
     
     # Handle cases with no relevant documents
@@ -147,21 +136,13 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
             print("⚠️ No relevant documents found, will use external knowledge if enabled")
         else:
             bot_reply = "I can only answer based on uploaded documents, but I don't have information on that topic."
-            
-            # Store conversation
-            # db.add_all([
-            #     ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message),
-            #     ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=bot_reply)
-            # ])
-            # db.commit()
-            
             return {"bot_reply": bot_reply}
     else:
         # Note: vector_db.py returns documents with a "content" field
         context = " ".join([doc.get("content", "") for doc in similar_docs])
 
-    # Generate response using appropriate LLM and knowledge settings
-    llm = LLMManager(llm_model_name)
+    # Generate response using appropriate LLM and knowledge settings based on user's subscription and bot settings
+    llm = LLMManager(bot_id=bot_id, user_id=user_id)
     bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, temperature=temperature)
 
     # Store conversation
