@@ -27,6 +27,7 @@ from app.utils.file_size_validations_utils import (
 from app.subscription_config import get_plan_limits
 from .crud import update_user_word_count
 from app.notifications import add_notification
+from app.vector_db import delete_document_from_chroma
 
 router = APIRouter()
 
@@ -208,6 +209,13 @@ async def delete_file(
     # Delete the file from the filesystem
     if os.path.exists(file.file_path):
         os.remove(file.file_path)
+    
+    # Delete the document from ChromaDB
+    try:
+        delete_document_from_chroma(bot.bot_id, str(file.file_id))
+    except Exception as e:
+        print(f"Error deleting from ChromaDB: {str(e)}")
+        # Continue with deletion even if ChromaDB deletion fails
 
     # Delete the file record from the database
     db.delete(file)

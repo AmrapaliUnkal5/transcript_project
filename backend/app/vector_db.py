@@ -465,3 +465,185 @@ def get_bot_config(bot_id: int) -> str:
         return "BAAI/bge-large-en-v1.5"  # Default fallback in case of error
     finally:
         db.close()
+
+
+def delete_document_from_chroma(bot_id: int, file_id: str):
+    """Deletes documents related to a specific file from ChromaDB."""
+    print(f"\n🗑️ Starting document deletion process for bot {bot_id}, file_id {file_id}")
+    
+    try:
+        # List all collections
+        collections = chroma_client.list_collections()
+        
+        # Find all collections for this bot
+        bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
+        
+        if not bot_collections:
+            print(f"⚠️ No collections found for bot {bot_id}")
+            return
+            
+        print(f"📚 Found collections for bot {bot_id}: {bot_collections}")
+        
+        file_id_str = str(file_id)
+        
+        # Try each collection and delete documents with matching file_id
+        for collection_name in bot_collections:
+            try:
+                print(f"🔍 Checking collection: {collection_name}")
+                collection = chroma_client.get_collection(name=collection_name)
+                
+                if collection.count() == 0:
+                    print(f"⚠️ Collection {collection_name} is empty, skipping")
+                    continue
+                
+                # Query to find document IDs with the given file ID in metadata
+                try:
+                    # First, get all documents and their metadata
+                    results = collection.get(
+                        where={"file_id": file_id_str},
+                        include=["metadatas", "documents"]
+                    )
+                    
+                    if results["ids"] and len(results["ids"]) > 0:
+                        print(f"✅ Found {len(results['ids'])} documents to delete in {collection_name}")
+                        
+                        # Delete the documents
+                        collection.delete(ids=results["ids"])
+                        print(f"✅ Successfully deleted {len(results['ids'])} documents from {collection_name}")
+                    else:
+                        print(f"ℹ️ No documents found with file_id {file_id} in {collection_name}")
+                        
+                except Exception as e:
+                    print(f"⚠️ Error querying collection {collection_name}: {str(e)}")
+                    continue
+                    
+            except Exception as e:
+                print(f"⚠️ Error with collection {collection_name}: {str(e)}")
+                continue
+        
+        print(f"✅ Document deletion process completed for bot {bot_id}, file_id {file_id}\n")
+        return True
+    except Exception as e:
+        error_msg = f"Error deleting documents from ChromaDB for bot {bot_id}, file_id {file_id}: {str(e)}"
+        print(f"❌ {error_msg}")
+        return False
+
+
+def delete_video_from_chroma(bot_id: int, video_id: str):
+    """Deletes documents related to a specific YouTube video from ChromaDB."""
+    print(f"\n🗑️ Starting video document deletion process for bot {bot_id}, video_id {video_id}")
+    
+    try:
+        # List all collections
+        collections = chroma_client.list_collections()
+        
+        # Find all collections for this bot
+        bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
+        
+        if not bot_collections:
+            print(f"⚠️ No collections found for bot {bot_id}")
+            return
+            
+        print(f"📚 Found collections for bot {bot_id}: {bot_collections}")
+        
+        # Try each collection and delete documents with matching video_id
+        for collection_name in bot_collections:
+            try:
+                print(f"🔍 Checking collection: {collection_name}")
+                collection = chroma_client.get_collection(name=collection_name)
+                
+                if collection.count() == 0:
+                    print(f"⚠️ Collection {collection_name} is empty, skipping")
+                    continue
+                
+                # Query to find document IDs with the given video ID in metadata
+                try:
+                    # First, get all documents and their metadata
+                    results = collection.get(
+                        where={"video_id": video_id},
+                        include=["metadatas", "documents"]
+                    )
+                    
+                    if results["ids"] and len(results["ids"]) > 0:
+                        print(f"✅ Found {len(results['ids'])} documents to delete in {collection_name}")
+                        
+                        # Delete the documents
+                        collection.delete(ids=results["ids"])
+                        print(f"✅ Successfully deleted {len(results['ids'])} documents from {collection_name}")
+                    else:
+                        print(f"ℹ️ No documents found with video_id {video_id} in {collection_name}")
+                        
+                except Exception as e:
+                    print(f"⚠️ Error querying collection {collection_name}: {str(e)}")
+                    continue
+                    
+            except Exception as e:
+                print(f"⚠️ Error with collection {collection_name}: {str(e)}")
+                continue
+        
+        print(f"✅ Video document deletion process completed for bot {bot_id}, video_id {video_id}\n")
+        return True
+    except Exception as e:
+        error_msg = f"Error deleting video documents from ChromaDB for bot {bot_id}, video_id {video_id}: {str(e)}"
+        print(f"❌ {error_msg}")
+        return False
+
+
+def delete_url_from_chroma(bot_id: int, url: str):
+    """Deletes documents related to a specific scraped URL from ChromaDB."""
+    print(f"\n🗑️ Starting URL document deletion process for bot {bot_id}, url {url}")
+    
+    try:
+        # List all collections
+        collections = chroma_client.list_collections()
+        
+        # Find all collections for this bot
+        bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
+        
+        if not bot_collections:
+            print(f"⚠️ No collections found for bot {bot_id}")
+            return
+            
+        print(f"📚 Found collections for bot {bot_id}: {bot_collections}")
+        
+        # Try each collection and delete documents with matching URL
+        for collection_name in bot_collections:
+            try:
+                print(f"🔍 Checking collection: {collection_name}")
+                collection = chroma_client.get_collection(name=collection_name)
+                
+                if collection.count() == 0:
+                    print(f"⚠️ Collection {collection_name} is empty, skipping")
+                    continue
+                
+                # Query to find document IDs with the given URL in metadata
+                try:
+                    # First, get all documents and their metadata
+                    results = collection.get(
+                        where={"url": url},
+                        include=["metadatas", "documents"]
+                    )
+                    
+                    if results["ids"] and len(results["ids"]) > 0:
+                        print(f"✅ Found {len(results['ids'])} documents to delete in {collection_name}")
+                        
+                        # Delete the documents
+                        collection.delete(ids=results["ids"])
+                        print(f"✅ Successfully deleted {len(results['ids'])} documents from {collection_name}")
+                    else:
+                        print(f"ℹ️ No documents found with url {url} in {collection_name}")
+                        
+                except Exception as e:
+                    print(f"⚠️ Error querying collection {collection_name}: {str(e)}")
+                    continue
+                    
+            except Exception as e:
+                print(f"⚠️ Error with collection {collection_name}: {str(e)}")
+                continue
+        
+        print(f"✅ URL document deletion process completed for bot {bot_id}, url {url}\n")
+        return True
+    except Exception as e:
+        error_msg = f"Error deleting URL documents from ChromaDB for bot {bot_id}, url {url}: {str(e)}"
+        print(f"❌ {error_msg}")
+        return False

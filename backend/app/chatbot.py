@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Interaction, ChatMessage,YouTubeVideo, ScrapedNode, WebsiteDB,User, Bot
-from app.vector_db import retrieve_similar_docs, add_document
+from app.vector_db import retrieve_similar_docs, add_document, delete_video_from_chroma, delete_url_from_chroma
 import openai
 import os
 import pdfplumber
@@ -244,6 +244,13 @@ def soft_delete_video(bot_id: int, video_id: str = Query(...), db: Session = Dep
         if user:
             user.total_words_used = max(0, user.total_words_used - transcript_word_count)
 
+    # Delete from ChromaDB before marking as deleted
+    try:
+        delete_video_from_chroma(bot_id, video_id)
+    except Exception as e:
+        print(f"Error deleting video from ChromaDB: {str(e)}")
+        # Continue with soft delete even if ChromaDB deletion fails
+
     video.is_deleted = True  # Soft delete by marking is_deleted=True
     db.commit()
     event_type="VIDEO_DELETED",
@@ -269,6 +276,13 @@ def soft_delete_scraped_url(bot_id: int, url: str = Query(...), db: Session = De
 
     if not scraped_url:
         raise HTTPException(status_code=404, detail="Scraped URL not found.")
+
+    # Delete from ChromaDB before marking as deleted
+    try:
+        delete_url_from_chroma(bot_id, url)
+    except Exception as e:
+        print(f"Error deleting URL from ChromaDB: {str(e)}")
+        # Continue with soft delete even if ChromaDB deletion fails
 
     scraped_url.is_deleted = True  # Soft delete by updating the flag
     word_count = scraped_url.nodes_text_count or 0
