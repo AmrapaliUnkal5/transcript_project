@@ -103,6 +103,9 @@ export interface BotSettingsData {
   is_active: boolean;
   appearance: string;
   temperature: number;
+  window_bg_color: string;
+  welcome_message: string;
+  input_bg_color: string;
 }
 
 export interface uploadAvatar {

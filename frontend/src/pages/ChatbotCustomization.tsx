@@ -33,6 +33,9 @@ const saveBotSettings = async (
     is_active: true,
     appearance: settings.appearance,
     temperature: settings.temperature,
+    window_bg_color: settings.windowBgColor,
+    welcome_message: settings.welcomeMessage,
+    input_bg_color: settings.inputBgColor,
   };
 
   try {
@@ -69,6 +72,9 @@ const updateBotSettings = async (
     is_active: true,
     appearance: settings.appearance,
     temperature: settings.temperature,
+    window_bg_color: settings.windowBgColor,
+    welcome_message: settings.welcomeMessage,
+    input_bg_color: settings.inputBgColor,
   };
 
   try {
@@ -141,6 +147,9 @@ export const ChatbotCustomization = () => {
     userColor: "#F3E5F5",
     appearance: "Popup",
     temperature: 0,
+    windowBgColor: "#F9FAFB",
+    welcomeMessage: "Hi there! How can I help you today?",
+    inputBgColor: "#FFFFFF",
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
@@ -240,6 +249,9 @@ export const ChatbotCustomization = () => {
             userColor: response.user_color,
             appearance: response.appearance,
             temperature: response.temperature,
+            windowBgColor: response.window_bg_color || "#F9FAFB",
+            welcomeMessage: response.welcome_message || "Hi there! How can I help you today?",
+            inputBgColor: response.input_bg_color || "#FFFFFF",
           });
         }
       } catch (error) {
@@ -613,7 +625,7 @@ export const ChatbotCustomization = () => {
           type: "select",
           value: settings.position,
           options: ["top-left", "top-right", "bottom-left", "bottom-right"],
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("position", e.target.value),
         },
       ],
@@ -648,6 +660,33 @@ export const ChatbotCustomization = () => {
       ],
     },
     {
+      title: "Window Appearance",
+      icon: Palette,
+      fields: [
+        {
+          label: "Window Background Color",
+          type: "color",
+          value: settings.windowBgColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("windowBgColor", e.target.value),
+        },
+        {
+          label: "Welcome Message",
+          type: "text",
+          value: settings.welcomeMessage,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("welcomeMessage", e.target.value),
+        },
+        {
+          label: "Input Box Background Color",
+          type: "color",
+          value: settings.inputBgColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("inputBgColor", e.target.value),
+        },
+      ],
+    },
+    {
       title: "Appearance & Behavior",
       icon: Sliders,
       fields: [
@@ -656,7 +695,7 @@ export const ChatbotCustomization = () => {
           type: "select",
           value: settings.appearance,
           options: ["Popup", "Full Screen"],
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("appearance", e.target.value),
         },
         {
@@ -827,6 +866,9 @@ export const ChatbotCustomization = () => {
           <div
             ref={chatContainerRef}
             className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 h-[950px] overflow-y-auto flex flex-col"
+            style={{
+              backgroundColor: settings.windowBgColor,
+            }}
           >
             <div className="flex-1"></div>
             {messages.length > 0 ? (
@@ -875,9 +917,16 @@ export const ChatbotCustomization = () => {
                 </div>
               ))
             ) : (
-              <p className="text-white text-center mt-auto">
-                Start chatting with the bot!
-              </p>
+              <div 
+                className="mr-auto p-3 rounded-lg max-w-[80%] bg-gray-300 text-gray-900"
+                style={{
+                  backgroundColor: settings.botColor,
+                  fontSize: settings.fontSize,
+                  fontFamily: settings.fontStyle,
+                }}
+              >
+                {settings.welcomeMessage}
+              </div>
             )}
             {previewLoading && !isBotTyping && (
               <div className="mr-auto bg-gray-300 text-gray-900 p-3 rounded-lg max-w-[80%]">
@@ -917,6 +966,9 @@ export const ChatbotCustomization = () => {
             <input
               type="text"
               className="flex-grow p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
+              style={{
+                backgroundColor: settings.inputBgColor,
+              }}
               placeholder={
                 !canSendMessage() 
                   ? "We are facing technical issue. Kindly reach out to website admin for assistance" 

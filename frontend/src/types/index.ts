@@ -80,8 +80,11 @@ export interface BotSettings {
   maxMessageLength: number;
   botColor: string;
   userColor: string;
-  appearance:string;
-  temperature:number;
+  appearance: string;
+  temperature: number;
+  windowBgColor: string;
+  welcomeMessage: string;
+  inputBgColor: string;
 }
 
 export interface ApiFile {

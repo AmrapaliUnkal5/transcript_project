@@ -90,6 +90,9 @@ class Bot(Base):
     embedding_model_id = Column(Integer, ForeignKey("embedding_models.id"), nullable=True)
     llm_model_id = Column(Integer, ForeignKey("llm_models.id"), nullable=True)
     message_count = Column(Integer, default=0)
+    window_bg_color = Column(String, nullable=True, default="#F9FAFB")
+    welcome_message = Column(Text, nullable=True, default="Hi there! How can I help you today?")
+    input_bg_color = Column(String, nullable=True, default="#FFFFFF")
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")

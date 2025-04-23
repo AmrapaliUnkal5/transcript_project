@@ -112,6 +112,9 @@ class BotBase(BaseModel):
     status: Optional[str]=None
     embedding_model_id: Optional[int] = None
     llm_model_id: Optional[int] = None
+    window_bg_color: Optional[str] = "#F9FAFB"
+    welcome_message: Optional[str] = "Hi there! How can I help you today?"
+    input_bg_color: Optional[str] = "#FFFFFF"
 
 class BotCreate(BotBase):
     pass  
