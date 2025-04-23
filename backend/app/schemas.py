@@ -269,6 +269,8 @@ class LLMModelBase(BaseModel):
     pricing_per_1k_tokens: Optional[float] = None
     description: Optional[str] = None
     is_active: Optional[bool] = True
+    max_input_tokens: Optional[int] = 4096  # Max context window size
+    max_output_tokens: Optional[int] = 1024  # Max tokens to generate
 
 class LLMModelCreate(LLMModelBase):
     pass

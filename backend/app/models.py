@@ -384,6 +384,8 @@ class LLMModel(Base):
     pricing_per_1k_tokens = Column(Numeric(10, 4), nullable=True)
     description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
+    max_input_tokens = Column(Integer, nullable=True, default=4096)  # Max context window tokens 
+    max_output_tokens = Column(Integer, nullable=True, default=1024)  # Max response tokens
 
     # Add relationship
     bots = relationship("Bot", back_populates="llm_model")

@@ -268,6 +268,8 @@ class LLMModelAdmin(ModelView, model=LLMModel):
         LLMModel.name,
         LLMModel.provider,
         LLMModel.model_type,
+        LLMModel.max_input_tokens,
+        LLMModel.max_output_tokens,
         LLMModel.is_active,
         LLMModel.description
     ]

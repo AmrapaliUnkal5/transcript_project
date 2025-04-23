@@ -125,7 +125,7 @@ class EmbeddingManager:
         finally:
             db.close()
             
-        self.embedder = self._initialize_embedder()
+        self.embedder = self._initialize_embedder(test_embedder=False)
         
     def _get_model_info(self, model_name):
         """Get model information from the database"""
@@ -149,7 +149,7 @@ class EmbeddingManager:
         finally:
             db.close()
     
-    def _initialize_embedder(self):
+    def _initialize_embedder(self, test_embedder=False):
         """Initialize the appropriate embedder based on model info"""
         try:
             provider = self.model_info.get("provider", "").lower()
@@ -174,15 +174,17 @@ class EmbeddingManager:
                     # Create the embedder first
                     embedder = HuggingFaceAPIEmbedder(model_name, huggingface_api_key)
                     
-                    # Test the embedder with a simple query - this will validate the model works
-                    print(f"🔄 Testing HuggingFace model with a simple query")
-                    test_result = embedder.embed_query("test")
-                    
-                    if not test_result:
-                        print("❌ Got empty embedding from HuggingFace API")
-                        raise ValueError("Failed to get valid embedding from HuggingFace API")
+                    # Test the embedder only if requested
+                    if test_embedder:
+                        print(f"🔄 Testing HuggingFace model with a simple query")
+                        test_result = embedder.embed_query("test")
                         
-                    print(f"✅ HuggingFace model test successful. Embedding length: {len(test_result)}")
+                        if not test_result:
+                            print("❌ Got empty embedding from HuggingFace API")
+                            raise ValueError("Failed to get valid embedding from HuggingFace API")
+                            
+                        print(f"✅ HuggingFace model test successful. Embedding length: {len(test_result)}")
+                    
                     return embedder
                 except Exception as e:
                     print(f"❌ Error initializing HuggingFace embedder: {str(e)}")
@@ -196,10 +198,13 @@ class EmbeddingManager:
                                 alt_model_name = model_name.replace("BAAI/", "FlagEmbedding/")
                                 print(f"🔄 Trying alternate model name: {alt_model_name}")
                                 embedder = HuggingFaceAPIEmbedder(alt_model_name, huggingface_api_key)
-                                test_result = embedder.embed_query("test")
-                                if test_result:
-                                    print(f"✅ Alternative model name worked: {alt_model_name}")
-                                    return embedder
+                                
+                                if test_embedder:
+                                    test_result = embedder.embed_query("test")
+                                    if test_result:
+                                        print(f"✅ Alternative model name worked: {alt_model_name}")
+                                
+                                return embedder
                         except Exception as alt_e:
                             print(f"❌ Alternative model name also failed: {str(alt_e)}")
                             
