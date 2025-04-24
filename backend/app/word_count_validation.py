@@ -1,3 +1,4 @@
+import re
 import fitz 
 import pytesseract
 from PIL import Image
@@ -12,11 +13,12 @@ import pandas as pd
 from sqlalchemy import func
 from app.dependency import get_current_user
 from fastapi import Depends
-from app.subscription_config import get_plan_limits
+from app.fetchsubscripitonplans import get_subscription_plan_by_id
 from app.schemas import UserOut
 from app.database import get_db
 from app.models import Bot, User
 from sqlalchemy.orm import Session
+from app.utils.file_size_validations_utils import get_current_usage
 
 router = APIRouter()
  
@@ -24,14 +26,20 @@ SUPPORTED_FILE_TYPES = {
     "pdf", "txt", "doc", "docx", "csv", "png", "jpg", "jpeg"
 }
 
-async def validate_word_count(text: str, current_user):
-    plan_limits = get_plan_limits(current_user["subscription_plan_id"])
-    word_count, _ = count_words_and_chars(text)
-    
-    if word_count > plan_limits["word_count_limit"]:
+async def validate_word_count(text: str, current_user, db: Session):
+    plan = await get_subscription_plan_by_id(current_user["subscription_plan_id"], db)
+    if not plan:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File exceeds {plan_limits['word_count_limit']} word limit for your {plan_limits['name']} plan"
+            detail="Subscription plan not found"
+        )
+    
+    word_count, _ = count_words_and_chars(text)
+    
+    if word_count > plan["word_count_limit"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File exceeds {plan['word_count_limit']} word limit for your {plan['name']} plan"
         )
     return word_count
 
@@ -184,7 +192,8 @@ async def extract_text(file: UploadFile) -> str:
 @router.post("/word_count/", response_model=List[Dict[str, Any]])
 async def word_count_endpoint(
     files: List[UploadFile] = File(...),
-    current_user: dict  = Depends(get_current_user)  
+    current_user: dict  = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ) -> List[Dict[str, Any]]:
 
     """
@@ -197,7 +206,9 @@ async def word_count_endpoint(
         )
     
     # Get the user's plan limits first
-    plan_limits = get_plan_limits(current_user["subscription_plan_id"])
+    plan_limits = await get_subscription_plan_by_id(current_user["subscription_plan_id"], db)
+    if not plan_limits:
+        raise HTTPException(status_code=404, detail="Subscription plan not found")
     user_word_limit = plan_limits["word_count_limit"]
     total_words = 0 
 
@@ -268,25 +279,54 @@ async def get_user_usage(
         user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
         user_total = user.total_words_used if user else 0
 
-        # If there's a discrepancy, update the user record
+         # If there's a discrepancy, update the user record
         if user and total_used != user_total:
             user.total_words_used = total_used
             db.commit()
 
+        # Get the user's total storage used (sum of all their bots' word counts exclude delete bots)
+        total_storage = db.query(func.sum(Bot.file_size)).filter(
+            Bot.user_id == current_user["user_id"],
+            Bot.status != "Deleted",  
+            Bot.is_active == True
+        ).scalar() or 0
+
+        # Also get from user table for verification
+        user_file_size = db.query(User).filter(User.user_id == current_user["user_id"]).first()
+        user_file_size_total = user_file_size.total_file_size if user else 0
+
+        # If there's a discrepancy, update the user record
+        if user_file_size and total_storage != user_file_size_total:
+            user_file_size.total_file_size = total_storage
+            db.commit()
+
+
         # Get plan limits
-        plan_limits = get_plan_limits(current_user["subscription_plan_id"])
-        print("plan_limits=>",plan_limits)
+        plan = await get_subscription_plan_by_id(current_user["subscription_plan_id"], db)
+        if not plan:
+            raise HTTPException(status_code=404, detail="Subscription plan not found")
         
         return {
             "totalWordsUsed": total_used,
-            "remainingWords": plan_limits["word_count_limit"] - total_used,
-            "planLimit": plan_limits["word_count_limit"],
+            "remainingWords": plan["word_count_limit"] - total_used,
+            "planLimit": plan["word_count_limit"],
             "botWords": total_used,
-            "userWords": user_total
+            "userWords": user_total,
+            # New storage fields
+            "totalStorageUsed": total_storage,
+            "storageLimit": parse_storage_limit(plan["storage_limit"]),
+            "storageLimitDisplay": plan["storage_limit"]
         }
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    
+def parse_storage_limit(limit_str: str) -> int:
+    units = {"KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
+    match = re.match(r"^(\d+)\s*(KB|MB|GB|TB)$", limit_str.upper())
+    if not match:
+        return 20 * 1024**2  # Default 20MB if parsing fails
+    return int(match.group(1)) * units[match.group(2)]
 
 @router.post("/bot/update_word_count")
 async def update_bot_word_count(
@@ -304,7 +344,7 @@ async def update_bot_word_count(
     ).first()
     
     if not bot:
-        #print("Bot not found or doesn't belong to user")  
+        print("Bot not found or doesn't belong to user")  
         raise HTTPException(status_code=404, detail="Bot not found")
         
     
@@ -318,13 +358,24 @@ async def update_bot_word_count(
         #print("calculation we will do",bot.word_count," added to ",bot_data["word_count"])
         bot.word_count = bot.word_count+bot_data["word_count"]
         #print("updated in db bot count=>",bot.word_count)
+
+        # Update file size if provided
+        #print(f"Current bot file_size: {bot.file_size}") 
+        if "file_size" in bot_data:
+            file_size_diff = bot_data["file_size"] - (bot.file_size or 0)
+            #print("calculation we will do",bot.file_size," added to ",bot_data["file_size"])
+            bot.file_size = bot.file_size + bot_data["file_size"]
         
         # Update user's total
         user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
         if user:
             #print(f"Current user total_words_used: {user.total_words_used}")  
             user.total_words_used = (user.total_words_used or 0) + bot_data["word_count"]
+        if "file_size" in bot_data:
+            #print(f"Current user total_file_size: {user.total_file_size}")  
+            user.total_file_size = (user.total_file_size or 0) + bot_data["file_size"]
             #print(f"New user total_words_used: {user.total_words_used}")
+            #print(f"New user total_file_size: {user.total_file_size}")
         
         db.commit()
         print("Update successful!") 
@@ -334,3 +385,26 @@ async def update_bot_word_count(
         db.rollback()
         #print(f"Error during update: {str(e)}")  
         raise HTTPException(status_code=500, detail=str(e))
+    
+async def validate_cumulative_word_count(
+    new_word_count: int, 
+    current_user: dict, 
+    db: Session
+):
+    """Validate that adding new words won't exceed plan limit"""
+    plan_limits = await get_subscription_plan_by_id(current_user["subscription_plan_id"], db)
+    if not plan_limits:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Subscription plan not found"
+        )
+    
+    # Get current usage
+    current_usage = await get_current_usage(current_user["user_id"], db)
+    
+    # Validate cumulative word count
+    if current_usage["word_count"] + new_word_count > plan_limits["word_count_limit"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Upload would exceed your word count limit of {plan_limits['word_count_limit']}"
+        )

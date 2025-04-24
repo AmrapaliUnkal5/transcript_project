@@ -2,7 +2,7 @@ import os
 import time
 import json
 import uuid
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form, HTTPException, status
 from typing import List
 from pathlib import Path
 from datetime import datetime
@@ -12,7 +12,7 @@ from app.models import File as FileModel, Bot, User
 from app.dependency import get_current_user
 from app.schemas import UserOut
 from app.utils.file_size_validations_utils import (
-    UPLOAD_FOLDER,MAX_FILE_SIZE_MB,MAX_FILE_SIZE_BYTES,
+    UPLOAD_FOLDER,
     convert_size,
     validate_file_size,
     generate_file_id,
@@ -22,9 +22,12 @@ from app.utils.file_size_validations_utils import (
     process_file_for_knowledge,
     get_hierarchical_file_path,
     save_extracted_text,
-    archive_original_file
+    archive_original_file,
+    parse_storage_to_bytes,
+    get_current_usage
 )
-from app.subscription_config import get_plan_limits
+from app.fetchsubscripitonplans import get_subscription_plan_by_id
+from app.word_count_validation import validate_cumulative_word_count
 from .crud import update_user_word_count
 from app.notifications import add_notification
 from app.vector_db import delete_document_from_chroma
@@ -34,17 +37,37 @@ router = APIRouter()
 # Ensure the upload folder exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-def validate_file_size(files: List[UploadFile], current_user: dict):
+async def validate_file_size(files: List[UploadFile], current_user: dict, db: Session):
     """Validate file sizes against user's subscription limits"""
-    plan_limits = get_plan_limits(current_user["subscription_plan_id"])
+    plan_limits = await get_subscription_plan_by_id(current_user["subscription_plan_id"], db)
+    if not plan_limits:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Subscription plan not found"
+        )
+    storage_limit_bytes = parse_storage_to_bytes(plan_limits["storage_limit"])
     max_size_bytes = plan_limits["file_size_limit_mb"] * 1024 * 1024
     
+    # Get current usage
+    current_usage = await get_current_usage(current_user["user_id"], db)
+
+    # Validate per-file size
+    total_new_size = 0
     for file in files:
         if file.size > max_size_bytes:
             raise HTTPException(
                 status_code=400,
                 detail=f"File {file.filename} exceeds {plan_limits['file_size_limit_mb']}MB limit for your {plan_limits['name']} plan"
             )
+        total_new_size += file.size
+    
+    # Validate cumulative storage
+    if current_usage["storage_bytes"] + total_new_size > storage_limit_bytes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Upload would exceed your storage limit of {plan_limits['storage_limit']}"
+        )
+    
     return plan_limits
 
 @router.post("/upload")
@@ -58,7 +81,7 @@ async def validate_and_upload_files(
 ):
     """Validates total file size, extracts text, stores in ChromaDB, and uploads files only if successful."""
     # Validate total file size and get plan limits
-    plan_limits = validate_file_size(files, current_user)
+    plan_limits = await validate_file_size(files, current_user,db)
 
     if not bot_id:
         raise HTTPException(status_code=400, detail="Bot ID is required")
@@ -82,11 +105,18 @@ async def validate_and_upload_files(
     total_word_count = sum(word_counts_list)
     total_char_count = sum(char_counts_list)
 
+    # Validate file sizes and get plan limits
+    plan_limits = await validate_file_size(files, current_user, db)
+    
+    # Validate cumulative word count
+    await validate_cumulative_word_count(total_word_count, current_user, db)
+
     uploaded_files = []
     knowledge_upload_messages = []
     
     for i, file in enumerate(files):
         original_filename = file.filename
+        original_size_bytes = file.size  # Get original file size
 
         try:
             # Process file for knowledge extraction and ChromaDB storage
@@ -115,7 +145,8 @@ async def validate_and_upload_files(
                 text_file_path=text_file_path,
                 file_id=file_id,
                 word_count=word_counts_list[i],
-                char_count=char_counts_list[i]
+                char_count=char_counts_list[i],
+                original_size_bytes=original_size_bytes  # Add original size
             )
             
             db_file = insert_file_metadata(db, file_metadata)
@@ -125,6 +156,7 @@ async def validate_and_upload_files(
                 "filename": original_filename,
                 "filetype": file.content_type,
                 "size": file_metadata["file_size"],
+                "original_size": file_metadata["original_file_size"],
                 "file_path": str(text_file_path),
                 "size_limit": plan_limits["file_size_limit_mb"] * 1024 * 1024,
                 "upload_date": datetime.now().isoformat(),

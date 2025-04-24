@@ -286,7 +286,7 @@ const storageUsagePercent = Math.min(
           <YAxis
             stroke="#888888"
             label={{
-              value: "Number of Interactions",
+              value: "Number of Sessions",
               angle: -90,
               position: "insideLeft",
               dy: 30,
@@ -324,6 +324,12 @@ const storageUsagePercent = Math.min(
         </LineChart>
       </ResponsiveContainer>
     );
+  };
+
+  const formatNumberWithCommas = (num: number | string): string => {
+    // Convert to number if it's a string
+    const number = typeof num === 'string' ? parseFloat(num) : num;
+    return number.toLocaleString('en-US');
   };
 
   const transformDataForGraph = (conversationTrends: ConversationTrend[]) => {
@@ -568,7 +574,8 @@ const storageUsagePercent = Math.min(
                 Word Count
               </span>
               <span className="text-sm font-medium text-gray-900 dark:text-white">
-                {usageMetrics.total_words_used} / {maxWordsAllowed}
+                {/* {usageMetrics.total_words_used} / {maxWordsAllowed} */}
+                {formatNumberWithCommas(usageMetrics.total_words_used)} / {formatNumberWithCommas(maxWordsAllowed)}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
@@ -591,7 +598,8 @@ const storageUsagePercent = Math.min(
                 Chat Messages
               </span>
               <span className="text-sm font-medium text-gray-900 dark:text-white">
-                {usageMetrics.chat_messages_used} / {chat_messages_used}
+                {/* {usageMetrics.chat_messages_used} / {chat_messages_used} */}
+                {formatNumberWithCommas(usageMetrics.chat_messages_used)} / {formatNumberWithCommas(chat_messages_used)}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
@@ -612,7 +620,7 @@ const storageUsagePercent = Math.min(
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600 dark:text-gray-300">
-                Total Chatbots
+                Total Bots
               </span>
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 {usageMetrics.total_bots}/ {chatbotlimit}
@@ -633,13 +641,13 @@ const storageUsagePercent = Math.min(
         </div>
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           {/* <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-            This graph displays the number of interactions users had with the
-            chatbot. An interaction is counted each time a user sends a message.
+            This graph displays the number of session users had with the
+            chatbot. An session is counted each time a user sends a message.
             The session ends when the user becomes inactive or leaves the chat.
           </p> */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Bot Session Trends
+            Bot Session Trend – Last 7 Days
             </h2>
             {/* Info Tooltip */}
             <div className="relative group">

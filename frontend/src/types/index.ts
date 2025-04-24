@@ -88,6 +88,7 @@ export interface BotSettings {
 }
 
 export interface ApiFile {
+  original_file_size_bytes: number;
   file_id: number;
   file_path: string;
   file_size: string;
@@ -196,12 +197,19 @@ export interface GetWeeklyConversationsParams {
     globalWordsUsed: number;
     currentSessionWords: number;
     planLimit: number;
-    remainingWords:number;
+    remainingWords?:number;
+    globalStorageUsed: number;  // Add this
+    currentSessionStorage: number;  // Add this
+    storageLimit: number;
   }
   
   export interface UserUsageResponse {
+    totalStorageUsed: number;
     totalWordsUsed: number;  
     planLimit: number;
-    botWords?: number;      
+    botWords?: number;  
+    globalStorageUsed: number;  // Add this
+    currentSessionStorage: number;  // Add this
+    storageLimit: number;    
   }
   

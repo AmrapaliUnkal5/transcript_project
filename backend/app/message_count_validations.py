@@ -15,11 +15,11 @@ async def get_user_msgusage(
     db: Session = Depends(get_db)
 ):
     try:
-        # Get the total message count from all bots (excluding deleted/inactive ones)
+        # Get the total message count from all bots (including deleted/inactive ones)
         total_msg_used = db.query(func.sum(Bot.message_count)).filter(
             Bot.user_id == current_user["user_id"],
-            Bot.status != "Deleted",
-            Bot.is_active == True
+            #Bot.status != "Deleted",
+            #Bot.is_active == True
         ).scalar() or 0
 
         # Get user record
