@@ -54,9 +54,16 @@ from app.notifications import router as notifications_router
 from app.message_count_validations import router as message_count_validations_router
 from app.zoho_subscription_router import router as zoho_subscription_router
 from app.zoho_sync_scheduler import initialize_scheduler
+from app.admin_routes import router as admin_routes_router
 
 
 app = FastAPI(debug=True)
+
+# Check required environment variables
+zoho_product_id = os.getenv('ZOHO_DEFAULT_PRODUCT_ID')
+if not zoho_product_id:
+    print("\n⚠️ WARNING: ZOHO_DEFAULT_PRODUCT_ID environment variable is not set!")
+    print("This is required for addon synchronization with Zoho.\n")
 
 # Initialize Zoho sync scheduler
 initialize_scheduler()
@@ -84,6 +91,7 @@ app.include_router(fetchsubscriptionaddons_router)
 app.include_router(notifications_router)
 app.include_router(message_count_validations_router)
 app.include_router(zoho_subscription_router)
+app.include_router(admin_routes_router)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 120
  

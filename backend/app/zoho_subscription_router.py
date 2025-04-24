@@ -133,7 +133,28 @@ async def create_subscription_checkout(
         addon_codes = []
         if request.addon_ids and len(request.addon_ids) > 0:
             logger.info(f"Finding addon codes for addon IDs: {request.addon_ids}")
+            print(f"\n==== DEBUG: Processing Addon IDs ====")
+            print(f"Received addon IDs from frontend: {request.addon_ids}")
+            
+            # Query all addons first to check which ones exist
+            all_addons = db.query(Addon).all()
+            all_addon_ids = [a.id for a in all_addons]
+            print(f"All available addon IDs in database: {all_addon_ids}")
+            
+            # Check which addon IDs don't exist in the database
+            missing_ids = set(request.addon_ids) - set(all_addon_ids)
+            if missing_ids:
+                print(f"WARNING: These addon IDs don't exist in database: {missing_ids}")
+            
+            # Query the requested addons
             addons = db.query(Addon).filter(Addon.id.in_(request.addon_ids)).all()
+            print(f"Found {len(addons)} addons out of {len(request.addon_ids)} requested")
+            
+            # Log the details of each addon found
+            for addon in addons:
+                print(f"Addon ID {addon.id}: name='{addon.name}', zoho_addon_code='{addon.zoho_addon_code}', zoho_addon_id='{addon.zoho_addon_id}'")
+                if not addon.zoho_addon_code:
+                    print(f"WARNING: Addon ID {addon.id} '{addon.name}' has no zoho_addon_code")
             
             if not addons or len(addons) != len(request.addon_ids):
                 found_ids = [addon.id for addon in addons] if addons else []
@@ -141,6 +162,8 @@ async def create_subscription_checkout(
                 logger.warning(f"Some addon IDs were not found: {missing_ids}")
             
             addon_codes = [addon.zoho_addon_code for addon in addons if addon.zoho_addon_code]
+            print(f"Final addon_codes to be used: {addon_codes}")
+            print(f"==== END Processing Addon IDs ====\n")
             logger.info(f"Using addon codes: {addon_codes}")
 
         # Create a new transaction for the temporary subscription

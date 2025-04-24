@@ -617,19 +617,26 @@ export const subscriptionApi = {
   
   createSubscriptionCheckout: async (planId: number, addonIds?: number[]) => {
     try {
-      console.log(`Creating checkout for plan ${planId}`);
-      const response = await api.post("/zoho/checkout", {
+      console.log(`DEBUG - API - Creating checkout for plan ${planId}`);
+      console.log(`DEBUG - API - Addon IDs being sent to backend:`, addonIds || []);
+      
+      // Log the exact payload being sent
+      const payload = {
         plan_id: planId,
         addon_ids: addonIds || []
-      });
+      };
+      console.log(`DEBUG - API - Exact payload being sent to backend:`, JSON.stringify(payload));
       
-      console.log("Checkout API response:", response.data);
+      const response = await api.post("/zoho/checkout", payload);
+      
+      console.log("DEBUG - API - Checkout API response status:", response.status);
+      console.log("DEBUG - API - Checkout API response data:", response.data);
       
       if (response?.data?.checkout_url) {
-        console.log("Checkout URL received:", response.data.checkout_url);
+        console.log("DEBUG - API - Checkout URL received:", response.data.checkout_url);
         return response.data.checkout_url;
       } else {
-        console.error("No checkout URL in response:", response.data);
+        console.error("DEBUG - API - No checkout URL in response:", response.data);
         throw new Error('No checkout URL returned from the server');
       }
     } catch (error: any) {

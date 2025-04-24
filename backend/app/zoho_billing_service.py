@@ -5,6 +5,7 @@ from typing import Dict, List, Any, Optional, Union
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from app.models import SubscriptionPlan, Addon, UserSubscription
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class ZohoBillingService:
                 'client_secret': self.config['client_secret'],
                 'refresh_token': self.config['refresh_token'],
                 'grant_type': 'refresh_token',
-                'scope': 'ZohoSubscriptions.hostedpages.CREATE ZohoSubscriptions.subscriptions.ALL ZohoSubscriptions.plans.ALL'
+                'scope': 'ZohoSubscriptions.hostedpages.CREATE ZohoSubscriptions.subscriptions.ALL ZohoSubscriptions.plans.ALL ZohoSubscriptions.addons.ALL'
             }
             print(f"Token refresh URL: {url}")
             print(f"Token refresh data: {data}")
@@ -236,13 +237,64 @@ class ZohoBillingService:
             return None
 
     def create_addon(self, addon_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new addon in Zoho Billing"""
+        """Create a new addon in Zoho Billing as per API documentation"""
         try:
             url = f"{self.base_url}/addons"
-            response = requests.post(url, headers=self._get_headers(), json=addon_data)
+            headers = self._get_headers()
+
+            # Construct payload as per Zoho Billing API docs
+            # Reference: https://www.zoho.com/billing/api/v1/addons/#create-an-addon
+            payload = {
+                "name": addon_data["name"],                           # Required
+                "addon_code": addon_data["addon_code"],               # Required
+                "unit_name": addon_data.get("unit_name", "Unit"),     # Required
+                "price_brackets": addon_data["price_brackets"],       # Required
+                "description": addon_data.get("description", f"Addon for {addon_data['name']}"),  # Optional
+                "product_id": addon_data.get("product_id"),           # Required
+                "applicable_to_all_plans": addon_data.get("applicable_to_all_plans", True),  # Optional
+            }
+
+            # Log the exact payload to be sent
+            print(f"Creating addon with payload: {json.dumps(payload, indent=2)}")
+            
+            # Make the API request
+            response = requests.post(url, headers=headers, json=payload)
+            
+            # Log the response
+            print(f"Zoho create addon response status: {response.status_code}")
+            
+            try:
+                response_json = response.json()
+                print(f"Zoho create addon response: {json.dumps(response_json, indent=2)}")
+            except:
+                print(f"Raw response: {response.text}")
+            
+            # Check for HTTP errors
             response.raise_for_status()
             
-            return response.json().get('addon', {})
+            # Parse the response
+            response_data = response.json()
+            logger.info(f"Addon created successfully: {response_data}")
+
+            if response_data.get('code') == 0 and response_data.get('addon'):
+                return response_data.get('addon', {})
+            else:
+                error_msg = response_data.get('message', 'Unknown error from Zoho API')
+                logger.error(f"Zoho API error while creating addon: {error_msg}")
+                raise Exception(error_msg)
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request error creating addon in Zoho: {str(e)}")
+            if hasattr(e, 'response') and e.response:
+                try:
+                    error_data = e.response.json()
+                    print(f"Zoho API error details: {error_data}")
+                    logger.error(f"Zoho API error details: {error_data}")
+                except:
+                    print(f"Raw error response: {e.response.text}")
+                    logger.error(f"Raw error response: {e.response.text}")
+            raise
+
         except Exception as e:
             logger.error(f"Error creating addon in Zoho: {str(e)}")
             raise
@@ -265,6 +317,14 @@ class ZohoBillingService:
             print(f"\n=== Creating Zoho Hosted Page ===")
             print(f"Input subscription data: {subscription_data}")
             
+            # Check if addons exist in the payload
+            has_addons = "addons" in subscription_data and subscription_data["addons"]
+            print(f"Payload contains addons: {has_addons}")
+            if has_addons:
+                print(f"Number of addons in payload: {len(subscription_data['addons'])}")
+                for i, addon in enumerate(subscription_data["addons"]):
+                    print(f"  Addon {i+1}: {addon}")
+            
             logger.info(f"Creating hosted page with data: {subscription_data}")
             url = f"{self.base_url}/hostedpages/newsubscription"
             print(f"API URL: {url}")
@@ -275,6 +335,11 @@ class ZohoBillingService:
             
             # Make the API request
             print("Sending request to Zoho API...")
+            
+            # Convert to JSON string for logging exact payload sent
+            payload_json = json.dumps(subscription_data)
+            print(f"Exact JSON payload being sent:\n{payload_json}")
+            
             response = requests.post(url, headers=headers, json=subscription_data)
             
             # Log the full response
@@ -298,8 +363,24 @@ class ZohoBillingService:
                 response_json = response.json()
                 print(f"Zoho API JSON response: {response_json}")
                 logger.info(f"Zoho API response body: {response_json}")
+                
+                # Deeply inspect the response for addon-related information
+                if "hostedpage" in response_json:
+                    hostedpage = response_json["hostedpage"]
+                    if "page_context" in hostedpage:
+                        page_context = hostedpage["page_context"]
+                        print(f"Page context from response: {page_context}")
+                        
+                        if "subscription" in page_context:
+                            sub_context = page_context["subscription"]
+                            print(f"Subscription context: {sub_context}")
+                            
+                            if "addons" in sub_context:
+                                print(f"Addons in response context: {sub_context['addons']}")
+                            else:
+                                print("WARNING: No addons found in subscription context")
             except Exception as e:
-                print(f"Error parsing JSON response: {str(e)}")
+                print(f"Error parsing or inspecting JSON response: {str(e)}")
                 logger.info(f"Zoho API response text: {response_text}")
             
             # Check for HTTP errors
@@ -419,76 +500,105 @@ class ZohoBillingService:
         try:
             # Retrieve all local addons
             local_addons = db.query(Addon).all()
+            print(f"\n==== Starting Addon Sync - Found {len(local_addons)} addons ====")
 
             for addon in local_addons:
                 try:
+                    print(f"Processing addon: {addon.id} - {addon.name}")
+                    # Verify required fields
+                    if not addon.zoho_product_id:
+                        addon.zoho_product_id = os.getenv('ZOHO_DEFAULT_PRODUCT_ID', '2482582000000054001')
+                        print(f"  - Set default product_id: {addon.zoho_product_id}")
+                    
+                    if not addon.addon_type:
+                        addon.addon_type = "one_time"
+                        print(f"  - Set default addon_type: {addon.addon_type}")
+                    
+                    # Always ensure the addon has a code
+                    if not addon.zoho_addon_code:
+                        addon.zoho_addon_code = f"ADDON_{addon.id}_{int(addon.price * 100)}"
+                        print(f"  - Generated new addon_code: {addon.zoho_addon_code}")
+                    
                     # Construct the addon data payload as per Zoho Billing API
                     addon_data = {
-                        "addon_code": addon.zoho_addon_code or f"ADDON_{addon.id}",
+                        "addon_code": addon.zoho_addon_code,
                         "name": addon.name,
-                        "pricing_scheme": "flat_fee",
+                        "pricing_scheme": "flat",
                         "price_brackets": [
                             {
                                 "start_quantity": 1,
                                 "end_quantity": 1,
-                                "price": float(addon.price) if addon.price is not None else 0
+                                "price": float(addon.price)  # Important: Send as float, not int
                             }
                         ],
                         "type": getattr(addon, 'addon_type', "one_time") or "one_time",
                         "product_id": addon.zoho_product_id,
                         "description": getattr(addon, 'description', f"Addon: {addon.name}") or f"Addon: {addon.name}",
                         "applicable_to_all_plans": True,
-                        "status": "active"
+                        "status": "active",
+                        "unit_name": "Unit"  # Default unit name
                     }
                     
-                    # Add unit_name if it exists
-                    if hasattr(addon, 'unit_name') and addon.unit_name:
-                        addon_data["unit_name"] = addon.unit_name
-                    else:
-                        addon_data["unit_name"] = "Unit"  # Default unit name
+                    print(f"  - Addon data prepared: {json.dumps(addon_data, indent=2)}")
 
                     # Check if the addon already exists in Zoho
                     if addon.zoho_addon_code:
                         zoho_addon = self.get_addon_by_code(addon.zoho_addon_code)
+                        print(f"  - Zoho lookup result: {'Found' if zoho_addon else 'Not found'}")
 
                         if zoho_addon:
                             # Compare and update if necessary
                             existing_price = zoho_addon.get('price_brackets', [{}])[0].get('price', 0)
                             if float(addon.price or 0) != float(existing_price):
+                                print(f"  - Price difference: {addon.price} vs {existing_price}, updating")
                                 zoho_addon_id = zoho_addon.get('addon_id')
                                 updated_addon = self.update_addon(zoho_addon_id, {
                                     "price_brackets": [
                                         {
                                             "start_quantity": 1,
                                             "end_quantity": 1,
-                                            "price": float(addon.price) if addon.price is not None else 0
+                                            "price": float(addon.price)
                                         }
                                     ]
                                 })
                                 addon.zoho_addon_id = updated_addon.get('addon_id')
                                 result["updated"] += 1
+                                print(f"  - Updated addon in Zoho with ID: {addon.zoho_addon_id}")
                             else:
                                 addon.zoho_addon_id = zoho_addon.get('addon_id')
                                 result["synced"] += 1
+                                print(f"  - Addon already in sync with Zoho ID: {addon.zoho_addon_id}")
                         else:
                             # Addon code exists locally but not in Zoho; create it
+                            print(f"  - Creating new addon in Zoho")
                             created_addon = self.create_addon(addon_data)
                             addon.zoho_addon_id = created_addon.get('addon_id')
                             addon.zoho_addon_code = created_addon.get('addon_code')
                             result["created"] += 1
+                            print(f"  - Created addon in Zoho with ID: {addon.zoho_addon_id}")
                     else:
                         # Addon does not exist in Zoho; create it
+                        print(f"  - No addon code, creating new addon in Zoho")
                         created_addon = self.create_addon(addon_data)
                         addon.zoho_addon_id = created_addon.get('addon_id')
                         addon.zoho_addon_code = created_addon.get('addon_code')
                         result["created"] += 1
+                        print(f"  - Created addon in Zoho with ID: {addon.zoho_addon_id}")
                 except Exception as e:
                     error_msg = f"Error syncing addon {addon.id} - {addon.name}: {str(e)}"
-                    print(error_msg)
+                    print(f"ERROR: {error_msg}")
                     logger.error(error_msg)
                     result["errors"].append(error_msg)
 
             db.commit()
+            print(f"==== Addon Sync Complete ====")
+            print(f"Created: {result['created']}, Updated: {result['updated']}, Synced: {result['synced']}")
+            print(f"Errors: {len(result['errors'])}")
+            if result['errors']:
+                print("First few errors:")
+                for error in result['errors'][:3]:
+                    print(f"  - {error}")
+            print("============================\n")
 
         except Exception as e:
             db.rollback()
@@ -509,6 +619,18 @@ def format_subscription_data_for_hosted_page(
     
     # Get the frontend URL from environment variables or use default
     frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+    
+    # Enhanced debugging logs
+    print(f"\n==== DEBUG: Creating Zoho Checkout Payload ====")
+    print(f"User ID: {user_id}")
+    print(f"User Data: {user_data}")
+    print(f"Plan Code: {plan_code}")
+    print(f"Addon Codes (received): {addon_codes}")
+    
+    if not addon_codes:
+        print("WARNING: No addon codes were provided")
+    elif len(addon_codes) == 0:
+        print("WARNING: Empty addon_codes list was provided")
     
     # Create the basic subscription data structure according to Zoho API docs
     subscription_data = {
@@ -533,6 +655,17 @@ def format_subscription_data_for_hosted_page(
     
     # Add addons if provided
     if addon_codes and len(addon_codes) > 0:
+        print(f"Adding {len(addon_codes)} addons to the checkout payload")
         subscription_data["addons"] = [{"addon_code": code, "quantity": 1} for code in addon_codes]
+        
+        # Log each addon being added
+        for i, code in enumerate(addon_codes):
+            print(f"Addon {i+1}: addon_code={code}, quantity=1")
+    else:
+        print("No addons added to checkout payload")
+    
+    # Print the final payload for debugging
+    print(f"Final subscription payload: {json.dumps(subscription_data, indent=2)}")
+    print("==== END Checkout Payload ====\n")
     
     return subscription_data

@@ -119,27 +119,35 @@ export const Subscription = () => {
 
   // Get selected addon IDs with quantities
   const getSelectedAddonIds = () => {
+    console.log("DEBUG - Starting getSelectedAddonIds");
+    console.log("DEBUG - Current addonSelection state:", selectedAddons);
+    
     const result: number[] = [];
     
-    console.log("DEBUG - Getting selected addon IDs from:", selectedAddons);
+    // Log all addon selection state for debugging
+    Object.keys(selectedAddons).forEach(addonIdStr => {
+      const addonId = Number(addonIdStr);
+      const addon = selectedAddons[addonId];
+      console.log(`DEBUG - Addon ID ${addonId}: selected=${addon.selected}, quantity=${addon.quantity}`);
+    });
     
-    Object.entries(selectedAddons).forEach(([addonId, data]) => {
-      if (data.selected) {
-        const id = parseInt(addonId);
-        const addon = addons.find(a => a.id === id);
-        console.log(`DEBUG - Selected addon: ${addon?.name} (ID: ${id}), Quantity: ${data.quantity}`);
-        
-        if (addon && allowsMultiple(addon.name)) {
-          // Add the addon ID multiple times based on quantity
-          console.log(`DEBUG - Adding multiple instances of addon ID ${id} (${data.quantity} times)`);
-          for (let i = 0; i < data.quantity; i++) {
-            result.push(id);
+    Object.keys(selectedAddons).forEach(addonIdStr => {
+      const addonId = Number(addonIdStr);
+      const addon = selectedAddons[addonId];
+      
+      if (addon.selected) {
+        // For add-ons that allow multiple, add them based on quantity
+        if (addon.quantity > 1 && allowsMultiple(addons.find(a => a.id === addonId)?.name || '')) {
+          console.log(`DEBUG - Adding ${addon.quantity} instances of addon ID ${addonId}`);
+          for (let i = 0; i < addon.quantity; i++) {
+            result.push(addonId);
           }
         } else {
-          // For regular addons, just add once
-          console.log(`DEBUG - Adding single instance of addon ID ${id}`);
-          result.push(id);
+          console.log(`DEBUG - Adding single instance of addon ID ${addonId}`);
+          result.push(addonId);
         }
+      } else {
+        console.log(`DEBUG - Skipping addon ID ${addonId} (not selected)`);
       }
     });
     

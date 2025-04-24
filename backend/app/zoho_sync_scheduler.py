@@ -37,7 +37,7 @@ def start_scheduler():
     schedule.every().day.at("01:00").do(sync_plans_job)
     
     # Also run once at startup (after 2 minutes to ensure app is fully loaded)
-    schedule.every(2).minutes.do(sync_plans_job).tag('startup-sync')
+    schedule.every(1).minutes.do(sync_plans_job).tag('startup-sync')
     
     def run_scheduler():
         while True:
