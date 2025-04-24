@@ -21,7 +21,7 @@ def send_issue_email(
     user_email: str,
     user_company: str,
     user_phone: str,
-    bot_name: str,
+    issue_type: str,
     description: str,
     attachments: list = None,
 ):
@@ -33,7 +33,7 @@ def send_issue_email(
     Email: {user_email}
     Company: {user_company}
     Phone: {user_phone or "Not provided"}
-    Bot Name: {bot_name or "Not provided"}
+    Issue Type: {issue_type or "Not provided"}
     Description: {description}
     """
 
@@ -47,7 +47,7 @@ def send_issue_email(
 
 @router.post("/submit-issue-request")
 async def submit_issue_request(
-    bot_name: str = Form(None),
+    issue_type: str = Form(...),
     description: str = Form(...),
     files: list[UploadFile] = File(default=None),  # Accept multiple files
     background_tasks: BackgroundTasks = BackgroundTasks(),
@@ -85,7 +85,7 @@ async def submit_issue_request(
             user_email=user_email,
             user_company=user_company,
             user_phone=user_phone,
-            bot_name=bot_name,
+            issue_type=issue_type,
             description=description,
             attachments=attachments,
         )
