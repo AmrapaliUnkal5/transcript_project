@@ -339,3 +339,10 @@ class FAQResponse(BaseModel):
     similar_questions: List[str]
     count: int
     cluster_id: str
+
+class ZohoCheckoutRequest(BaseModel):
+    plan_id: int
+    addon_ids: Optional[List[int]] = None
+
+class ZohoCheckoutResponse(BaseModel):
+    checkout_url: str

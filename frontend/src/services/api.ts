@@ -30,11 +30,21 @@ const updateLoadingState = () => {
 
 // Add request interceptor to add auth token
 api.interceptors.request.use((config) => {
+  activeRequests++;
+  updateLoadingState();
+  
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
+  console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
   return config;
+}, (error) => {
+  activeRequests--;
+  updateLoadingState();
+  console.error("API Request error:", error);
+  return Promise.reject(error);
 });
 
 // Add response interceptor to handle auth errors
@@ -42,6 +52,11 @@ api.interceptors.response.use(
   (response) => {
     activeRequests--;
     updateLoadingState();
+    
+    // Log successful responses (but not file downloads which could be large)
+    if (!response.config.responseType || response.config.responseType !== 'blob') {
+      console.log(`API Response: ${response.config.method?.toUpperCase()} ${response.config.url} (${response.status})`);
+    }
     
     // Check if the response contains a new token
     const newToken = response.headers['x-new-token'];
@@ -55,12 +70,22 @@ api.interceptors.response.use(
   (error) => {
     activeRequests--;
     updateLoadingState();
+    
+    console.error("API Response error:", error);
+    console.error("Request that failed:", error.config);
+    
+    if (error.response) {
+      console.error("Error response status:", error.response.status);
+      console.error("Error response data:", error.response.data);
+    }
+    
     if (error.response?.status === 401) {
       // Clear auth data and redirect to login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+    
     return Promise.reject(error);
   }
 );
@@ -171,6 +196,10 @@ export const authApi = {
   },
   logout: async () => {
     const response = await api.post('/auth/logout');
+    return response.data;
+  },
+  getAccountInfo: async (email: string) => {
+    const response = await api.get(`/account?email=${email}`);
     return response.data;
   },
   socialLogin: async (provider: string, token: string) => {
@@ -552,4 +581,76 @@ export const authApi = {
     const response = await api.get('/user/msgusage'); return response.data;
   },
  
+};
+
+export const subscriptionApi = {
+  getPlans: async () => {
+    const response = await api.get("/subscriptionplans/");
+    return response.data;
+  },
+  
+  getAddons: async () => {
+    try {
+      console.log("Calling GET /subscriptionaddons/ API endpoint");
+      const response = await api.get("/subscriptionaddons/");
+      console.log("Addons API response:", response.status, response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error fetching addons:", error);
+      if (error.response) {
+        console.error("Error details:", error.response.status, error.response.data);
+      }
+      return []; // Return empty array on error instead of throwing
+    }
+  },
+  
+  // New endpoints for Zoho subscription
+  syncPlansWithZoho: async () => {
+    const response = await api.post("/zoho/sync/plans");
+    return response.data;
+  },
+  
+  syncAddonsWithZoho: async () => {
+    const response = await api.post("/zoho/sync/addons");
+    return response.data;
+  },
+  
+  createSubscriptionCheckout: async (planId: number, addonIds?: number[]) => {
+    try {
+      console.log(`Creating checkout for plan ${planId}`);
+      const response = await api.post("/zoho/checkout", {
+        plan_id: planId,
+        addon_ids: addonIds || []
+      });
+      
+      console.log("Checkout API response:", response.data);
+      
+      if (response?.data?.checkout_url) {
+        console.log("Checkout URL received:", response.data.checkout_url);
+        return response.data.checkout_url;
+      } else {
+        console.error("No checkout URL in response:", response.data);
+        throw new Error('No checkout URL returned from the server');
+      }
+    } catch (error: any) {
+      console.error("DEBUG - API - Error in subscription checkout API:", error);
+      console.error("DEBUG - API - Error message:", error.message);
+      
+      if (error.response) {
+        console.error("DEBUG - API - Error response status:", error.response.status);
+        console.error("DEBUG - API - Error response data:", error.response.data);
+      }
+      
+      if (error.request) {
+        console.error("DEBUG - API - Error request:", error.request);
+      }
+      
+      if (error.response?.data?.detail) {
+        // Extract the error message from the API response if available
+        throw new Error(error.response.data.detail);
+      }
+      
+      throw error;
+    }
+  }
 };

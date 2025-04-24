@@ -323,6 +323,10 @@ class SubscriptionPlan(Base):
     custom_integrations = Column(Boolean, nullable=True, default=False)
     default_embedding_model_id = Column(Integer, ForeignKey("embedding_models.id"), nullable=True)
     default_llm_model_id = Column(Integer, ForeignKey("llm_models.id"), nullable=True)
+    zoho_plan_id = Column(String(100), nullable=True)
+    zoho_plan_code = Column(String(100), nullable=True)
+    billing_period = Column(String(20), nullable=True, default="monthly")  # monthly, yearly, etc.
+    zoho_product_id = Column(String, nullable=True)
     
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
@@ -340,6 +344,10 @@ class Addon(Base):
     description = Column(Text, nullable=False)
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+    zoho_addon_id = Column(String(100), nullable=True)
+    zoho_addon_code = Column(String(100), nullable=True)
+    addon_type = Column(String(50), nullable=True)
+    zoho_product_id = Column(String, nullable=True)
 
 class UserSubscription(Base):
     __tablename__ = "user_subscriptions"
@@ -356,6 +364,12 @@ class UserSubscription(Base):
     auto_renew = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+    zoho_subscription_id = Column(String(100), nullable=True)
+    zoho_customer_id = Column(String(100), nullable=True)
+    zoho_invoice_id = Column(String(100), nullable=True)
+    cancellation_reason = Column(Text, nullable=True)
+    payment_method = Column(String(50), nullable=True)
+
     
 class EmbeddingModel(Base):
     __tablename__ = "embedding_models"

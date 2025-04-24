@@ -26,6 +26,7 @@ python-docx
 pandas
 sentence-transformers
 numpy
+schedule
 
 # For LLM Part
 chromadb

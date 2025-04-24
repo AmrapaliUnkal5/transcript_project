@@ -11,6 +11,7 @@ import { ChatbotCustomization } from "./pages/ChatbotCustomization";
 import { FileUpload } from "./pages/FileUpload";
 import { Performance } from "./pages/Performance";
 import { Subscription } from "./pages/Subscription";
+import { SubscriptionSuccess } from "./pages/SubscriptionSuccess.tsx";
 import { Settings } from "./pages/Settings";
 import { Login } from "./pages/Auth/Login";
 import { SignUp } from "./pages/Auth/SignUp";
@@ -68,6 +69,7 @@ function App() {
                   <Route path="upload" element={<FileUpload />} />
                   <Route path="performance" element={<Performance />} />
                   <Route path="subscription" element={<Subscription />} />
+                  <Route path="subscription/success" element={<SubscriptionSuccess />} />
                   <Route path="myaccount" element={<Settings />} />
                   <Route path="options" element={<PlanSelection />} />
                   {/* <Route path="report-issue" element={<ReportIssue />} /> */}
