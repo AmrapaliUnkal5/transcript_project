@@ -225,6 +225,8 @@ def delete_bot(db: Session, bot_id: int):
             user.total_words_used = max(0, (user.total_words_used or 0) - bot.word_count)
         if bot.file_size:
             user.total_file_size=max(0,(user.total_file_size or 0)- bot.file_size)
+        if bot.message_count:
+            user.total_message_count=max(0,( user.total_message_count or 0)- bot.message_count)
     
     if not bot:
         return None  # Return None if bot not found
