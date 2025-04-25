@@ -1,10 +1,10 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends,Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
 from app.dependency import get_current_user
-from app.models import Bot, User, SubscriptionPlan
+from app.models import Bot, User, SubscriptionPlan, UserSubscription
 
 router = APIRouter()
 
@@ -54,3 +54,39 @@ async def get_user_msgusage(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error fetching message usage: {str(e)}")
+    
+@router.get("/api/usage/messages/check")
+def check_message_limit(
+    user_id: int = Query(..., description="User ID from frontend"),
+    db: Session = Depends(get_db),
+):
+    # Step 1: Get the user
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+        # Step 2: Get user's subscription
+    user_sub = db.query(UserSubscription).filter_by(user_id=user.user_id).first()
+
+    # If no subscription is found, default to subscription_plan_id = 1
+    subscription_plan_id = user_sub.subscription_plan_id if user_sub else 1
+
+    # Step 3: Get subscription plan
+    subscription = db.query(SubscriptionPlan).filter_by(id=subscription_plan_id).first()
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscription plan not found")
+
+    # Step 4: Compare usage
+    message_limit = subscription.message_limit or 0
+    total_used = user.total_message_count or 0
+
+    if total_used >= message_limit:
+        return {
+            "canSendMessage": False,
+            "message": "Message limit reached for your current plan. Please contact support or upgrade."
+        }
+
+    return {
+        "canSendMessage": True,
+        "message": ""
+    }

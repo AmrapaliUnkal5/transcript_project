@@ -29,6 +29,7 @@ import { TermsOfService } from "./pages/Legal/TermsOfService.tsx";
 import { ReportIssue } from "./pages/ReportIssue.tsx";
 import { CustomerSupportRequest } from "./pages/CustomerSupport.tsx";
 import { SubscriptionPlanProvider } from "./context/SubscriptionPlanContext";
+import { ScriptGeneratePage } from "./pages/ScriptGeneratePage";
 
 function App() {
   return (
@@ -68,8 +69,15 @@ function App() {
                   <Route path="chatbot" element={<ChatbotCustomization />} />
                   <Route path="upload" element={<FileUpload />} />
                   <Route path="performance" element={<Performance />} />
+                  <Route
+                    path="/script-generate"
+                    element={<ScriptGeneratePage />}
+                  />
                   <Route path="subscription" element={<Subscription />} />
-                  <Route path="subscription/success" element={<SubscriptionSuccess />} />
+                  <Route
+                    path="subscription/success"
+                    element={<SubscriptionSuccess />}
+                  />
                   <Route path="myaccount" element={<Settings />} />
                   <Route path="options" element={<PlanSelection />} />
                   {/* <Route path="report-issue" element={<ReportIssue />} /> */}

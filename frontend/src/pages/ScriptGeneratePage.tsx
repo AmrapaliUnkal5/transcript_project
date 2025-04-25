@@ -1,0 +1,150 @@
+// ScriptGeneratePage.tsx
+import { useState, useEffect } from "react";
+import { useBot } from "../context/BotContext";
+
+import { useLoader } from "../context/LoaderContext";
+import { authApi } from "../services/api";
+import type { BotSettings } from "../types";
+
+export const ScriptGeneratePage = () => {
+  const { selectedBot } = useBot();
+  const [token, setToken] = useState("");
+  const [copySuccess, setCopySuccess] = useState("");
+  const { setLoading } = useLoader();
+  const [botId, setBotId] = useState<number | null>(null);
+  const VITE_WIDGET_API_URL =
+    import.meta.env.VITE_WIDGET_API_URL || "http://localhost:3000";
+  const VITE_API_URL = import.meta.env.VITE_API_URL;
+  const [settings, setSettings] = useState<BotSettings>({
+    name: "Support Bot",
+    icon: "https://images.unsplash.com/photo-1531379410502-63bfe8cdaf6f?w=200&h=200&fit=crop&crop=faces",
+    fontSize: "16px",
+    fontStyle: "Inter",
+    position: "top-left",
+    maxMessageLength: 500,
+    botColor: "#E3F2FD",
+    userColor: "#F3E5F5",
+    appearance: "Popup",
+    temperature: 0,
+    windowBgColor: "#F9FAFB",
+    welcomeMessage: "Hi there! How can I help you today?",
+    inputBgColor: "#FFFFFF",
+  });
+
+  useEffect(() => {
+    const fetchToken = async () => {
+      if (selectedBot?.id) {
+        try {
+          const response = await authApi.getBotToken(selectedBot.id); // Create this API method
+          setToken(response.token);
+        } catch (err) {
+          console.error("Token fetch failed:", err);
+        }
+      }
+    };
+    fetchToken();
+  }, [selectedBot]);
+
+  useEffect(() => {
+    const fetchBotSettings = async () => {
+      setLoading(true);
+      try {
+        if (!selectedBot?.id) {
+          console.error("Bot ID is missing.");
+          return;
+        }
+        const response = await authApi.getBotSettingsBotId(selectedBot.id);
+
+        if (response) {
+          setBotId(selectedBot.id);
+          console.log("botId from scriptGeneratepage", botId);
+
+          setSettings({
+            name: response.bot_name,
+            icon: response.bot_icon,
+            fontSize: `${response.font_size}px`,
+            fontStyle: response.font_style,
+            position: response.position,
+            maxMessageLength: response.max_words_per_message,
+            botColor: response.bot_color,
+            userColor: response.user_color,
+            appearance: response.appearance,
+            temperature: response.temperature,
+            windowBgColor: response.window_bg_color || "#F9FAFB",
+            welcomeMessage:
+              response.welcome_message || "Hi there! How can I help you today?",
+            inputBgColor: response.input_bg_color || "#FFFFFF",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch bot settings:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (selectedBot?.id) {
+      fetchBotSettings();
+    }
+  }, [selectedBot, setLoading]);
+
+  // Generate the script with dynamic bot ID and settings
+  const generateScript = () => {
+    if (!selectedBot?.id) {
+      console.error("Bot ID is missing.");
+      return "";
+    }
+
+    // const botId = selectedBot.id;
+
+    return `<script
+  src="${VITE_WIDGET_API_URL}/dist/chatbot-widget.iife.js"
+  data-token="${token}"
+  data-avatar-url="${settings.icon || ""}"
+  data-position="${settings.position || ""}"
+  data-welcome-message="${settings.welcomeMessage}"
+  basedomain="${VITE_API_URL}"
+
+></script>`;
+  };
+
+  const scriptContent = generateScript();
+
+  const handleCopy = () => {
+    if (scriptContent) {
+      navigator.clipboard.writeText(scriptContent).then(() => {
+        setCopySuccess("Copied!");
+        setTimeout(() => setCopySuccess(""), 2000);
+      });
+    }
+  };
+
+  return (
+    <div className="p-4">
+      <h2 className="text-xl font-bold mb-4">Copy Script</h2>
+      <textarea
+        value={scriptContent}
+        readOnly
+        rows={6}
+        className="w-full p-2 border border-gray-300 rounded-lg bg-gray-100 text-sm"
+      />
+      <div className="flex items-center gap-2 mt-2">
+        <button
+          onClick={handleCopy}
+          className="px-4 py-2 rounded-lg transition-colors bg-blue-500 hover:bg-blue-600 text-white"
+        >
+          Copy to Clipboard
+        </button>
+        {copySuccess && <span className="text-green-600">{copySuccess}</span>}
+      </div>
+      {/* <button
+        onClick={() => navigate("/")}
+        className="mt-4 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+      >
+        Go Back
+      </button> */}
+    </div>
+  );
+};
+
+export default ScriptGeneratePage;
