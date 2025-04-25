@@ -360,7 +360,7 @@ class UserSubscription(Base):
     currency = Column(String(10), nullable=False, default="USD")
     payment_date = Column(TIMESTAMP, nullable=False)
     expiry_date = Column(TIMESTAMP, nullable=False)
-    status = Column(String(50), nullable=False, default="active")  # active, expired, canceled
+    status = Column(String(50), nullable=False, default="active")  # active, expired, canceled, failed
     auto_renew = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
@@ -369,6 +369,7 @@ class UserSubscription(Base):
     zoho_invoice_id = Column(String(100), nullable=True)
     cancellation_reason = Column(Text, nullable=True)
     payment_method = Column(String(50), nullable=True)
+    notes = Column(Text, nullable=True)  # For storing payment failure reasons and other subscription notes
 
     
 class EmbeddingModel(Base):

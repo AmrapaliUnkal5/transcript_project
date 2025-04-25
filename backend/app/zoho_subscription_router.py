@@ -271,6 +271,8 @@ async def zoho_webhook_handler(request: Request, db: Session = Depends(get_db)):
             await handle_subscription_cancelled(payload, db)
         elif event_type == "subscription_renewed":
             await handle_subscription_renewed(payload, db)
+        elif event_type == "payment_failed" or event_type == "subscription_payment_failed" or event_type == "hostedpage_payment_failed":
+            await handle_payment_failed(payload, db)
         else:
             print(f"Unhandled webhook event type: {event_type}")
         
@@ -472,4 +474,95 @@ async def handle_subscription_renewed(payload: Dict[str, Any], db: Session):
     
     except Exception as e:
         db.rollback()
-        logger.error(f"Error handling subscription_renewed event: {str(e)}") 
+        logger.error(f"Error handling subscription_renewed event: {str(e)}")
+
+# Add a new handler for payment failures
+async def handle_payment_failed(payload: Dict[str, Any], db: Session):
+    """Handle payment failure events from Zoho"""
+    try:
+        print(f"==== Payment Failed Webhook Received ====")
+        print(f"Payload: {payload}")
+        
+        # Extract relevant information from the payload
+        subscription_data = payload.get("subscription", {})
+        customer_data = payload.get("customer", {})
+        hostedpage_data = payload.get("hostedpage", {})
+        invoice_data = payload.get("invoice", {})
+        payment_data = payload.get("payment", {})
+        
+        # Try to extract user_id using the same methods as in subscription_created
+        user_id = None
+        
+        # First try from custom fields if present
+        custom_fields = subscription_data.get("custom_fields", {})
+        if custom_fields and isinstance(custom_fields, dict):
+            user_id_str = custom_fields.get("user_id")
+            if user_id_str and user_id_str.isdigit():
+                user_id = int(user_id_str)
+                print(f"Found user_id {user_id} in custom fields")
+        
+        # If not found, try to find by customer email
+        if not user_id:
+            customer_email = customer_data.get("email") or hostedpage_data.get("customer", {}).get("email")
+            if customer_email:
+                user = db.query(User).filter(User.email == customer_email).first()
+                if user:
+                    user_id = user.user_id
+                    print(f"Found user_id {user_id} by email {customer_email}")
+        
+        # If still not found, check for pending subscriptions
+        if not user_id:
+            # Look for the most recent pending subscription
+            pending_sub = db.query(UserSubscription).filter(
+                UserSubscription.status == "pending"
+            ).order_by(UserSubscription.updated_at.desc()).first()
+            
+            if pending_sub:
+                user_id = pending_sub.user_id
+                print(f"Using most recent pending subscription user_id: {user_id}")
+        
+        if not user_id:
+            print("User ID not found in webhook data for payment failure")
+            logger.error("User ID not found in webhook data for payment failure")
+            return
+        
+        # Get the subscription ID if available
+        zoho_subscription_id = subscription_data.get("subscription_id")
+        if zoho_subscription_id:
+            # Check if there's an existing subscription with this Zoho ID
+            subscription = db.query(UserSubscription).filter(
+                UserSubscription.zoho_subscription_id == zoho_subscription_id
+            ).first()
+            
+            if subscription:
+                # Update the existing subscription to failed status
+                subscription.status = "failed"
+                subscription.updated_at = datetime.now()
+                subscription.notes = f"Payment failed: {payment_data.get('failure_reason') or 'Unknown reason'}"
+                
+                db.commit()
+                print(f"Updated subscription {zoho_subscription_id} to failed status")
+                return
+        
+        # If no subscription ID or no matching subscription found, 
+        # update the most recent pending subscription for this user
+        pending_subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "pending"
+        ).order_by(UserSubscription.updated_at.desc()).first()
+        
+        if pending_subscription:
+            # Update the pending subscription to failed status
+            pending_subscription.status = "failed"
+            pending_subscription.updated_at = datetime.now()
+            pending_subscription.notes = f"Payment failed: {payment_data.get('failure_reason') or 'Unknown reason'}"
+            
+            db.commit()
+            print(f"Updated pending subscription for user {user_id} to failed status")
+        else:
+            print(f"No pending subscription found for user {user_id} to mark as failed")
+            
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error handling payment_failed event: {str(e)}")
+        print(f"ERROR handling payment failure: {str(e)}") 
