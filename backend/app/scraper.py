@@ -10,7 +10,6 @@ from fastapi import Depends
 from app.database import get_db
 from urllib.parse import urlparse
 from app.vector_db import add_document
-from app.subscription_config import get_plan_limits
 from app.notifications import add_notification
 
 # Function to detect if JavaScript is needed

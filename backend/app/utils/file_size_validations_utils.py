@@ -1,10 +1,12 @@
-from fastapi import HTTPException,UploadFile
+import re
+from fastapi import HTTPException,UploadFile,HTTPException, status
 from typing import List
 from pathlib import Path
 import os
 import uuid
 import shutil
 from datetime import datetime
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.database import get_db, SessionLocal
 from app.models import File as FileModel, Bot, User
@@ -12,7 +14,7 @@ from app.schemas import UserOut
 from app.utils.upload_knowledge_utils import extract_text_from_file
 from app.vector_db import add_document
 from app.utils.upload_knowledge_utils import extract_text_from_file,validate_and_store_text_in_ChromaDB
-from app.subscription_config import get_plan_limits
+from app.fetchsubscripitonplans import get_subscription_plan_by_id
 
 # Update other constants to be dynamic
 UPLOAD_FOLDER = "uploads"  
@@ -32,8 +34,14 @@ def convert_size(size_bytes):
     else:
         return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
-def validate_file_size(files: List[UploadFile], current_user: dict):
-    plan_limits = get_plan_limits(current_user["subscription_plan_id"])
+async def validate_file_size(files: List[UploadFile], current_user: dict, db: Session):
+    """Validate file sizes against user's subscription limits"""
+    plan_limits = await get_subscription_plan_by_id(current_user["subscription_plan_id"], db)
+    if not plan_limits:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Subscription plan not found"
+        )
     max_size_bytes = plan_limits["file_size_limit_mb"] * 1024 * 1024
     
     for file in files:
@@ -118,10 +126,11 @@ async def archive_original_file(file: UploadFile, bot_id: int, file_id: str):
     
     return archive_path
 
-def prepare_file_metadata(original_filename: str, file_type: str, bot_id: int, text_file_path: str, file_id: str, word_count: int = 0, char_count: int = 0):
+def prepare_file_metadata(original_filename: str, file_type: str, bot_id: int, text_file_path: str, file_id: str, word_count: int = 0, char_count: int = 0, original_size_bytes: int = 0 ):
     """Prepares file metadata for database insertion."""
     file_size = os.path.getsize(text_file_path)
     file_size_readable = convert_size(file_size)
+    original_size_readable = convert_size(original_size_bytes)
     
     return {
         "bot_id": bot_id,
@@ -131,7 +140,10 @@ def prepare_file_metadata(original_filename: str, file_type: str, bot_id: int, t
         "file_size": file_size_readable,
         "unique_file_name": file_id,
         "word_count": word_count,
-        "character_count": char_count
+        "character_count": char_count,
+        "original_file_size": original_size_readable,  # Original file size (human-readable)
+        "original_file_size_bytes": original_size_bytes,  # Original size in bytes
+
     }
 
 def insert_file_metadata(db: Session, file_metadata: dict):
@@ -182,3 +194,32 @@ async def process_file_for_knowledge(file: UploadFile, bot_id: int):
     except Exception as e:
         print(f"❌ Error processing file for knowledge: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Error processing file: {str(e)}")
+    
+def parse_storage_to_bytes(storage_str: str) -> int:
+    """Convert storage string (like '20 MB', '1 GB') to bytes"""
+    units = {"KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
+    match = re.match(r"^(\d+\.?\d*)\s*(KB|MB|GB|TB)$", storage_str.upper())
+    if not match:
+        return 0
+    return int(float(match.group(1)) * units[match.group(2)])
+
+async def get_current_usage(user_id: int, db: Session):
+    """Get current word count and storage usage for a user"""
+    # Get total words used (from files)
+    total_words = db.query(func.sum(FileModel.word_count)).filter(
+        FileModel.bot_id.in_(
+            db.query(Bot.bot_id).filter(Bot.user_id == user_id)
+        )
+    ).scalar() or 0
+    
+    # Get total storage used (from files)
+    total_storage_bytes = db.query(func.sum(FileModel.original_file_size_bytes)).filter(
+        FileModel.bot_id.in_(
+            db.query(Bot.bot_id).filter(Bot.user_id == user_id)
+        )
+    ).scalar() or 0
+    
+    return {
+        "word_count": total_words,
+        "storage_bytes": total_storage_bytes
+    }

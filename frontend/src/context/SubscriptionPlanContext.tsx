@@ -21,6 +21,7 @@ interface SubscriptionPlan {
   custom_agents: boolean;
   process_automation: boolean;
   custom_integrations: boolean;
+  per_file_size_limit: number;
 }
 interface SubscriptionPlanContextType {
   plans: SubscriptionPlan[];

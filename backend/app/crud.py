@@ -223,6 +223,8 @@ def delete_bot(db: Session, bot_id: int):
         # Subtract the bot's word count from the user's total (if bot has word count)
         if bot.word_count:
             user.total_words_used = max(0, (user.total_words_used or 0) - bot.word_count)
+        if bot.file_size:
+            user.total_file_size=max(0,(user.total_file_size or 0)- bot.file_size)
         if bot.message_count:
             user.total_message_count=max(0,( user.total_message_count or 0)- bot.message_count)
     

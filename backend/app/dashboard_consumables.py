@@ -198,7 +198,7 @@ def get_usage_metrics(
         if bot_ids:
             files = db.query(File).filter(File.bot_id.in_(bot_ids)).all()
             for file in files:
-                total_bytes_used += convert_to_bytes(file.file_size)
+                total_bytes_used += convert_to_bytes(file.original_file_size)
 
         # Convert total_bytes_used to readable format
         def format_bytes(size):

@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useMemo } from "react";
 import { useDropzone } from "react-dropzone";
 import {
   Upload,
@@ -20,8 +20,8 @@ import { useLoader } from "../context/LoaderContext";
 import Loader from "../components/Loader";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import SubscriptionScrape from "./SubscriptionScrape";
-import { getPlanById } from "../types/index";
 import { UserUsageResponse } from "../types/index";
+import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 
 const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
   return (
@@ -70,11 +70,6 @@ export const FileUpload = () => {
   const [processingMessage, setProcessingMessage] = useState(
     "Getting things ready for you..."
   );
-  const [userUsage, setUserUsage] = useState({
-    globalWordsUsed: 0,
-    currentSessionWords: 0,
-    planLimit: 0,
-  });
 
   type Video1 = {
     video_url: string;
@@ -83,21 +78,48 @@ export const FileUpload = () => {
 
   const userData = localStorage.getItem("user");
   const user = userData ? JSON.parse(userData) : null;
+  const { getPlanById } = useSubscriptionPlans();
   const userPlan = getPlanById(user?.subscription_plan_id);
-  const MAX_FILE_SIZE = userPlan.fileSizeLimitMB * 1024 * 1024;
-  const MAX_WORD_COUNT = userPlan.wordCountLimit;
+  console.log("userPlan====>",userPlan)
+  const parseStorageLimit = (limitStr: string): number => {
+    const units: Record<string, number> = {
+      KB: 1024,
+      MB: 1024 ** 2,
+      GB: 1024 ** 3,
+      TB: 1024 ** 4
+    };
+    
+    const match = limitStr.match(/^(\d+)\s*(KB|MB|GB|TB)$/i);
+    if (!match) return 20 * 1024 ** 2; // Default 20MB if parsing fails
+    
+    const unit = match[2].toUpperCase();
+    return parseInt(match[1]) * units[unit];
+  };
+
+  const [userUsage, setUserUsage] = useState({
+    globalWordsUsed: 0,
+    currentSessionWords: 0,
+    planLimit: userPlan?.word_count_limit || 50000,
+    globalStorageUsed: 0,
+    currentSessionStorage: 0,
+    storageLimit: parseStorageLimit(userPlan?.storage_limit || "20 MB"),
+  });
+
+  const MAX_FILE_SIZE = (userPlan?.per_file_size_limit ?? 20) * 1024 * 1024;
+  const MAX_WORD_COUNT = userPlan?.word_count_limit;
 
   // Calculate usage metrics
-  const totalWordsUsed =
-    userUsage.globalWordsUsed + userUsage.currentSessionWords;
+  const totalWordsUsed = userUsage.globalWordsUsed + userUsage.currentSessionWords;
   console.log("userUsage.globalWordsUsed=>", userUsage.globalWordsUsed);
   console.log("userUsage.currentSessionWords=>", userUsage.currentSessionWords);
   console.log("TotalWordsUsed=>", totalWordsUsed);
   const remainingWords = Math.max(0, userUsage.planLimit - totalWordsUsed);
-  const usagePercentage = Math.min(
-    100,
-    (totalWordsUsed / userUsage.planLimit) * 100
-  );
+  const usagePercentage = Math.min( 100,(totalWordsUsed / userUsage.planLimit) * 100);
+  const totalStorageUsed = userUsage.globalStorageUsed + userUsage.currentSessionStorage;
+  
+  console.log("totalStorageUsed=>", totalStorageUsed);
+  const remainingStorage = Math.max(0, userUsage.storageLimit - totalStorageUsed);
+  const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.storageLimit) * 100);
 
   // Calculate total pages
   const totalPages = Math.ceil(youtubeVideos.length / videosPerPage);
@@ -113,6 +135,7 @@ export const FileUpload = () => {
   // Generate page numbers
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
 
+  
   // Fetch user usage on component mount
   useEffect(() => {
     const fetchUsage = async () => {
@@ -122,6 +145,9 @@ export const FileUpload = () => {
           globalWordsUsed: apiUsage.totalWordsUsed,
           currentSessionWords: 0,
           planLimit: apiUsage.planLimit,
+          globalStorageUsed: apiUsage.totalStorageUsed || 0,
+          currentSessionStorage: 0,
+          storageLimit: parseStorageLimit(userPlan?.storage_limit || "20 MB")
         });
       } catch (error) {
         console.error("Failed to fetch user usage", error);
@@ -129,7 +155,7 @@ export const FileUpload = () => {
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        fetchUsage(); // 👈 Re-fetch usage when tab becomes active
+        fetchUsage(); //  Re-fetch usage when tab becomes active
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -350,8 +376,8 @@ export const FileUpload = () => {
           id: file.file_id.toString(),
           name: file.file_name,
           type: file.file_type,
-          size: fileSizeBytes,
-          displaySize: file.file_size,
+          size: file.original_file_size_bytes || parseFileSizeToBytes(file.file_size), // Fallback to extracted size if original not available
+          displaySize: String(file.original_file_size_bytes) || file.file_size, 
           uploadDate: new Date(file.upload_date),
           url: file.file_path,
           wordCount: file.word_count,
@@ -416,15 +442,14 @@ export const FileUpload = () => {
     }
   };
 
-  const formatBytesToHumanReadable = (bytes: number): string => {
-    if (bytes === 0) return "0 B";
-
+  const formatBytesToHumanReadable = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-  };
+    const size = (bytes / Math.pow(k, i)).toFixed(2);
+    return size + " " + sizes[i];
+};
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
@@ -434,6 +459,13 @@ export const FileUpload = () => {
         );
         return;
       }
+
+      // Check storage limit
+    const newFilesTotalSize = acceptedFiles.reduce((sum, file) => sum + file.size, 0);
+    if (totalStorageUsed + newFilesTotalSize > userUsage.storageLimit) {
+      toast.error(`Uploading these files would exceed your storage limit of ${formatBytesToHumanReadable(userUsage.storageLimit)}`);
+      return;
+    }
   
       // Check for duplicate file names (case-insensitive)
       const allFileNames = [
@@ -462,7 +494,7 @@ export const FileUpload = () => {
       if (oversizedFiles.length > 0) {
         toast.error(
           `Files exceed the ${
-            userPlan.fileSizeLimitMB
+            userPlan?.per_file_size_limit
           }MB limit: ${oversizedFiles.map((f) => f.name).join(", ")}`
         );
         return;
@@ -475,6 +507,7 @@ export const FileUpload = () => {
         const counts = await processWordCounts(acceptedFiles);
 
         let newWords = 0;
+        let newStorage = 0;
         const validFiles: FileUploadInterface[] = [];
         let hasExceededLimit = false;
   
@@ -489,9 +522,14 @@ export const FileUpload = () => {
           }
   
           const fileWords = countData.word_count || 0;
+          const fileSize = file.size;
 
           if (totalWordsUsed + fileWords > userUsage.planLimit) {
             toast.error(`Skipped "${file.name}" - would exceed word limit`);
+            continue;
+          }
+          if (totalStorageUsed + newStorage + fileSize > userUsage.storageLimit) {
+            toast.error(`Skipped "${file.name}" - would exceed storage limit`);
             continue;
           }
 
@@ -509,52 +547,27 @@ export const FileUpload = () => {
           });
 
           newWords += fileWords;
+          newStorage += fileSize;
         }
-  
-  //       // Update state
-  //       setNewFiles((prev) => [...prev, ...validFiles]);
-  //       setTotalSize(
-  //         (prev) => prev + validFiles.reduce((acc, file) => acc + file.size, 0)
-  //       );
-  //       setUserUsage((prev) => ({
-  //         ...prev,
-  //         currentSessionWords: prev.currentSessionWords + newWords,
-  //       }));
-
-  //       toast.success("Files added successfully");
-  //     } catch (error) {
-  //       console.error("Error processing files:", error);
-  //     } finally {
-  //       setIsProcessingFiles(false);
-  //     }
-  //   },
-  //   [totalWordsUsed, userUsage.planLimit, MAX_FILE_SIZE, existingFiles, newFiles, remainingWords]
-  // );
         // Only show success message if files were actually added
-      if (validFiles.length > 0) {
-        // Update state
         setNewFiles((prev) => [...prev, ...validFiles]);
-        setTotalSize(
-          (prev) => prev + validFiles.reduce((acc, file) => acc + file.size, 0)
-        );
+        setTotalSize((prev) => prev + newStorage);
         setUserUsage((prev) => ({
           ...prev,
           currentSessionWords: prev.currentSessionWords + newWords,
+          currentSessionStorage: prev.currentSessionStorage + newStorage
         }));
-
-        toast.success("Files added successfully");
-      } else if (!hasExceededLimit) {
-        // Only show info message if no files were added but not due to word limit
-        //toast.info("No valid files were added");
+  
+        if (validFiles.length > 0) {
+          toast.success("Files added successfully");
+        }
+      } catch (error) {
+        console.error("Error processing files:", error);
+      } finally {
+        setIsProcessingFiles(false);
       }
-    } catch (error) {
-      console.error("Error processing files:", error);
-    } finally {
-      setIsProcessingFiles(false);
-    }
-  },
-  [totalWordsUsed, userUsage.planLimit, MAX_FILE_SIZE, existingFiles, newFiles, remainingWords]
-);
+    }, [totalWordsUsed, totalStorageUsed, userUsage.planLimit, userUsage.storageLimit]);
+
   // Handle file deletion
   const handleDelete = async (id: string) => {
     if (!selectedBot || !selectedBot.id) {
@@ -575,23 +588,23 @@ export const FileUpload = () => {
         await authApi.updateBotWordCount({
           bot_id: selectedBot.id,
           word_count: -fileToDelete.wordCount,
+          file_size: -fileToDelete.size
         });
 
         // Update global words used
         const apiUsage: UserUsageResponse = await authApi.getUserUsage();
-        setUserUsage((prev) => ({
+        setUserUsage(prev => ({
           ...prev,
           globalWordsUsed: apiUsage.totalWordsUsed,
+          globalStorageUsed: apiUsage.totalStorageUsed,
         }));
       } else {
-        // File is in user state - just remove from newFiles
+        // File is in newFiles - just remove from state
         setNewFiles((prev) => prev.filter((file) => file.id !== id));
-
-        // Update current session words (only for files not yet saved)
         setUserUsage((prev) => ({
           ...prev,
-          currentSessionWords:
-            prev.currentSessionWords - (fileToDelete.wordCount || 0),
+          currentSessionWords: prev.currentSessionWords - (fileToDelete.wordCount || 0),
+          currentSessionStorage: prev.currentSessionStorage - (fileToDelete.size || 0)
         }));
       }
 
@@ -609,7 +622,7 @@ export const FileUpload = () => {
       toast.error("No bot selected.");
       return;
     }
-    setIsSaving(true); 
+    //setIsSaving(true); 
 
     if (totalWordsUsed > userUsage.planLimit) {
       toast.error(
@@ -618,6 +631,12 @@ export const FileUpload = () => {
       setIsSaving(false); 
       return;
     }
+    if (totalStorageUsed > userUsage.storageLimit) {
+      toast.error(`Total file size exceeds storage limit of ${formatBytesToHumanReadable(userUsage.storageLimit)}`);
+      return;
+    }
+
+    setIsSaving(true);
 
     try {
       if (newFiles.length > 0) {
@@ -643,16 +662,21 @@ export const FileUpload = () => {
           (acc, file) => acc + (file.wordCount || 0),
           0
         );
+        const newStorage = newFiles.reduce((acc, file) => acc + (file.size || 0), 0);
         await authApi.updateBotWordCount({
           bot_id: selectedBot.id,
           word_count: newWords,
+          file_size:newStorage,
         });
 
         const apiUsage = await authApi.getUserUsage();
         setUserUsage({
           globalWordsUsed: apiUsage.totalWordsUsed,
-          currentSessionWords: 0, // Reset session words
+          currentSessionWords: 0,
           planLimit: apiUsage.planLimit,
+          globalStorageUsed: apiUsage.totalStorageUsed || 0,
+          currentSessionStorage: 0,
+          storageLimit: parseStorageLimit(userPlan?.storage_limit || "20 MB")
         });
 
         setNewFiles([]);
@@ -779,7 +803,7 @@ export const FileUpload = () => {
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
               Maximum {userUsage.planLimit.toLocaleString()} words total,{" "}
-              {userPlan.fileSizeLimitMB}MB per file (PDF and TXT only)
+              {userPlan?.per_file_size_limit}MB per file (PDF, TXT, Doc, Docx, .png, .jpg, .jpeg, .gif files only)
             </p>
           </div>
 
@@ -787,7 +811,7 @@ export const FileUpload = () => {
           <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Your Word Usage
+                Word Count
               </span>
               <span
                 className={`text-sm font-medium ${
@@ -835,6 +859,54 @@ export const FileUpload = () => {
               </div>
             ) : null}
           </div>
+
+            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Storage Usage
+            </span>
+            <span className={`text-sm font-medium ${
+              remainingStorage <= 0
+              ? "text-red-500"
+              : remainingStorage < userUsage.storageLimit * 0.2
+              ? "text-yellow-500"
+              : "text-green-500"
+             }`}>
+                {formatBytesToHumanReadable(totalStorageUsed)}/{formatBytesToHumanReadable(userUsage.storageLimit)}
+                {userUsage.currentSessionStorage > 0 && (
+              <span className="text-gray-500 ml-2">
+                  (This session: {formatBytesToHumanReadable(userUsage.currentSessionStorage)})
+                </span>
+              )}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600">
+          <div
+              className="h-2.5 rounded-full"
+              style={{
+              width: `${storageUsagePercentage}%`,
+              backgroundColor:
+              remainingStorage <= 0
+              ? "#ef4444"
+              : remainingStorage < userUsage.storageLimit * 0.2
+              ? "#f59e0b"
+              : "#10b981",
+            }}
+          ></div>
+        </div>
+            {remainingStorage <= 0 ? (
+        <div className="mt-2 text-xs text-red-500 dark:text-red-400">
+            <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
+             You've reached your storage limit! Remove files or upgrade your plan.
+            </div>
+          ) : remainingStorage < userUsage.storageLimit * 0.2 ? (
+            <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
+              <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
+                Approaching storage limit ({Math.round(storageUsagePercentage)}% used)
+            </div>
+            ) : null}
+          </div>
+
 
           {/* Files Table */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
@@ -1070,7 +1142,7 @@ export const FileUpload = () => {
           user.subscription_plan_id === 4) && (
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
-              Website Scraping
+            Enter the Website URL
             </h1>
             <SubscriptionScrape />
           </div>
