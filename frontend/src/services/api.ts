@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ApiFile, DemoRequestData, GetWeeklyConversationsParams, TeamMember, TeamInvitation, TeamMemberRole } from '../types';
+import { ApiFile, DemoRequestData, GetWeeklyConversationsParams, TeamMember, TeamInvitation, TeamMemberRole, UserUsageResponse } from '../types';
 
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -524,20 +524,18 @@ export const authApi = {
     const response = await api.put(`/chat/interactions/${interaction_id}/end`);
     return response.data; // API response format: { message: "Session ended successfully", end_time: "timestamp" }
   },
-  getUserUsage: async (): Promise<{
-    totalWordsUsed: number;
-    remainingWords: number;
-    planLimit: number;
-  }> => {
-    const response = await api.get('/user/usage'); return response.data;
+
+  getUserUsage: async (): Promise<UserUsageResponse> => {
+    const response = await api.get('/user/usage');
+    return response.data;
   },
 
-  updateBotWordCount: async (data: { bot_id: number; word_count: number }):
+  updateBotWordCount: async (data: { bot_id: number; word_count: number;file_size?:number }):
     Promise<{ success: boolean }> => {
     const response = await api.post('/bot/update_word_count', data);
     return response.data;
   },
-
+  
   getUsageMetrics: async () => {
     const response = await api.get('/usage-metrics');
     return response.data;

@@ -29,6 +29,7 @@ class User(Base):
     total_words_used = Column(Integer, default=0)  
     total_message_count = Column(Integer, default=0) 
     communication_email = Column(String, nullable=True)  # New Field Optional
+    total_file_size=Column(BigInteger, default=0)
     
     # Add relationships for team membership
     owned_teams = relationship("TeamMember", foreign_keys="TeamMember.owner_id", back_populates="owner", cascade="all, delete-orphan")
@@ -93,6 +94,7 @@ class Bot(Base):
     window_bg_color = Column(String, nullable=True, default="#F9FAFB")
     welcome_message = Column(Text, nullable=True, default="Hi there! How can I help you today?")
     input_bg_color = Column(String, nullable=True, default="#FFFFFF")
+    file_size = Column(BigInteger, default=0)
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")
@@ -115,6 +117,8 @@ class File(Base):
     embedding_model_id = Column(Integer, ForeignKey("embedding_models.id"), nullable=True)
     embedding_status = Column(String(50), default="pending", nullable=True)  # pending, completed, failed
     last_embedded = Column(TIMESTAMP, nullable=True)
+    original_file_size = Column(String(50), nullable=True)  # Human-readable size
+    original_file_size_bytes = Column(BigInteger, nullable=True)  # Size in bytes
 
     # Relationships
     bot = relationship("Bot", back_populates="files")
@@ -327,6 +331,8 @@ class SubscriptionPlan(Base):
     zoho_plan_code = Column(String(100), nullable=True)
     billing_period = Column(String(20), nullable=True, default="monthly")  # monthly, yearly, etc.
     zoho_product_id = Column(String, nullable=True)
+    per_file_size_limit = Column(Integer, nullable=True, default=0)
+
     
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp())
     updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())

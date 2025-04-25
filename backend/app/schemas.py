@@ -167,6 +167,8 @@ class FileBase(BaseModel):
     embedding_model_id: Optional[int] = None
     embedding_status: Optional[str] = "pending"
     last_embedded: Optional[datetime] = None
+    original_file_size: str
+    original_file_size_bytes: int 
 
 class FileCreate(FileBase):
     pass
@@ -305,11 +307,17 @@ class SubscriptionPlanSchema(BaseModel):
     custom_integrations: Optional[bool]
     default_embedding_model_id: Optional[int] = None
     default_llm_model_id: Optional[int] = None
+    per_file_size_limit: Optional[int]
     default_embedding_model: Optional[EmbeddingModelOut] = None
     default_llm_model: Optional[LLMModelOut] = None
     
     class Config:
         from_attributes = True
+    per_file_size_limit: Optional[int]
+
+
+    # class Config:
+    #     orm_mode = True  # Enables auto-conversion from SQLAlchemy models
 
 class ReactionCreate(BaseModel):
     interaction_id: int

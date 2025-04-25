@@ -11,7 +11,7 @@ import { authApi } from "../../services/api";
 import { AxiosError } from "axios";
 import { useAuth } from "../../context/AuthContext";
 //import axios from "axios";
-import { Box, styled, TextField, Typography,IconButton, InputAdornment } from "@mui/material";
+import { Box, styled, TextField, Typography,IconButton, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions, Button } from "@mui/material";
 import Grid from "@mui/material/Grid2";
 import { RefreshCcw } from "lucide-react"; // Import Lucide icon
 import { useLoader } from "../../context/LoaderContext";
@@ -36,9 +36,108 @@ export const Login = () => {
   );
   const [showPassword, setShowPassword] = React.useState(false); // State to manage password visibility
 
-  useEffect(() => {
+  // Math CAPTCHA states
+  const [openCaptchaModal, setOpenCaptchaModal] = useState(false);
+  const [targetLink, setTargetLink] = useState("");
+  const [mathCaptcha, setMathCaptcha] = useState({ 
+      question: '', 
+      answer: 0,
+      imageUrl: '' 
+    });
+  const [userAnswer, setUserAnswer] = useState('');
+
+
+   useEffect(() => {
     fetchCaptcha();
   }, []);
+
+  // Generate math question and create an image representation
+  const generateMathQuestion = () => {
+    const num1 = Math.floor(Math.random() * 10) + 1; // 1-10
+    const num2 = Math.floor(Math.random() * 10) + 1; // 1-10
+    const operators = ['+', '-', '*'];
+    const operator = operators[Math.floor(Math.random() * operators.length)];
+    
+    let answer;
+    switch(operator) {
+      case '+': answer = num1 + num2; break;
+      case '-': answer = num1 - num2; break;
+      case '*': answer = num1 * num2; break;
+      default: answer = num1 + num2;
+    }
+    
+    // Create a canvas image for the math question
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 80;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      // Background
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Random noise
+      for (let i = 0; i < 100; i++) {
+        ctx.fillStyle = `rgba(${Math.random() * 100}, ${Math.random() * 100}, ${Math.random() * 100}, 0.05)`;
+        ctx.fillRect(
+          Math.random() * canvas.width,
+          Math.random() * canvas.height,
+          Math.random() * 10,
+          Math.random() * 10
+        );
+      }
+      
+      // Text styling
+      ctx.font = 'bold 36px Arial';
+      ctx.fillStyle = '#333';
+      ctx.textAlign = 'center';
+      
+      // Draw the equation
+      const equation = `${num1} ${operator} ${num2} = ?`;
+      ctx.fillText(equation, canvas.width / 2, canvas.height / 2 + 10);
+      
+      // Add some distortion
+      ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+        ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
+        ctx.stroke();
+      }
+    }
+    
+    const imageUrl = canvas.toDataURL();
+    
+    setMathCaptcha({
+      question: `${num1} ${operator} ${num2}`,
+      answer,
+      imageUrl
+    });
+  };
+
+  // Handle CAPTCHA verification
+  const verifyCaptcha = () => {
+    if (parseInt(userAnswer) === mathCaptcha.answer) {
+      setOpenCaptchaModal(false);
+      window.open(targetLink, '_blank');
+      setCaptchaError('');
+    } else {
+      setCaptchaError('Incorrect answer. Please try again.');
+      generateMathQuestion();
+      setUserAnswer('');
+    }
+  };
+
+  // Open CAPTCHA modal when clicking protected links
+  const handleProtectedLinkClick = (link: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    setTargetLink(link);
+    generateMathQuestion();
+    setOpenCaptchaModal(true);
+    setUserAnswer('');
+    setCaptchaError('');
+  };
 
   const fetchCaptcha = async () => {
     try {
@@ -77,7 +176,7 @@ export const Login = () => {
     }
   };
 
-  useEffect(() => {
+   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
@@ -321,6 +420,8 @@ export const Login = () => {
                       <div className="text-sm">
                         <Link
                           to="/forgot-password"
+                          target="_blank"  
+                          rel="noopener noreferrer" 
                           className="font-medium text-blue-600 hover:text-blue-500"
                         >
                           Forgot your password?
@@ -378,6 +479,8 @@ export const Login = () => {
                       <div className="text-center">
                         <Link
                           to="/signup"
+                          target="_blank"  
+                          rel="noopener noreferrer" 
                           className="font-medium text-blue-600 hover:text-blue-500"
                         >
                           Don't have an account? Sign up
@@ -400,6 +503,8 @@ export const Login = () => {
                   <Typography variant="body2">
                     <Link
                       to="/faq"
+                      target="_blank"  
+                      rel="noopener noreferrer" 
                       className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       {" "}
@@ -419,7 +524,10 @@ export const Login = () => {
                   <Typography variant="body2">0123-456789 or else</Typography>
                   <Typography variant="body2">
                     <Link
-                      to="/customersupport"
+                      to="#"
+                      onClick={handleProtectedLinkClick("/customersupport")}
+                      target="_blank"  
+                      rel="noopener noreferrer"  
                       className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       {" "}
@@ -440,7 +548,10 @@ export const Login = () => {
                   <Typography variant="body2">Request a demo</Typography>
                   <Typography variant="body2">
                     <Link
-                      to="/demo"
+                      to="#"
+                      onClick={handleProtectedLinkClick("/demo")}
+                      target="_blank"  
+                      rel="noopener noreferrer" 
                       className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       {" "}
@@ -453,7 +564,59 @@ export const Login = () => {
           </LightGBox>
         </Box>
       </Box>
-    </DarkGBox>
+      {/* Math CAPTCHA Modal */}
+      <Dialog open={openCaptchaModal} onClose={() => setOpenCaptchaModal(false)}>
+        <DialogTitle>Verify you're human</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" gutterBottom>
+            Please solve the math problem below to continue:
+          </Typography>
+          
+          <Box display="flex" justifyContent="center" my={3}>
+            <img 
+              src={mathCaptcha.imageUrl} 
+              alt="Math CAPTCHA" 
+              style={{ 
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                padding: '10px',
+                background: '#f9f9f9'
+              }}
+            />
+          </Box>
+          
+          <TextField
+            value={userAnswer}
+            onChange={(e) => setUserAnswer(e.target.value)}
+            type="number"
+            fullWidth
+            variant="outlined"
+            label="Enter the answer"
+            autoFocus
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                verifyCaptcha();
+              }
+            }}
+          />
+          {captchaError && (
+            <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+              {captchaError}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenCaptchaModal(false)}>Cancel</Button>
+          <Button 
+            onClick={verifyCaptcha}
+            color="primary"
+            variant="contained"
+          >
+            Verify & Continue
+          </Button>
+        </DialogActions>
+      </Dialog>
+      </DarkGBox>
   );
 };
 
@@ -471,3 +634,6 @@ const DarkGBox = styled(Box)(() => ({
 }));
 
 export default Login;
+
+
+

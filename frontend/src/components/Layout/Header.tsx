@@ -1,14 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  Bell,
-  Sun,
-  Moon,
-  Home,
-  CreditCard,
-  Settings,
-  LogOut,
-  HelpCircle,
-} from "lucide-react";
+import { Bell, Sun, Moon, Home, CreditCard, Settings, LogOut,HelpCircle,Contact,Headset } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { NotificationDropdown } from "../notifications/NotificationDropdown";
@@ -126,7 +117,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
         {/*<button
           onClick={() => navigate("/report-issue")}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-          title="Have doubts? Ask here!"
+          title="Contact Support"
         >
           <HelpCircle color={isDark ? "white" : "black"} className="w-5 h-5" />
         </button>*/}

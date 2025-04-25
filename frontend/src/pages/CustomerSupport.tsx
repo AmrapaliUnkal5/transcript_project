@@ -21,9 +21,17 @@ export const CustomerSupportRequest = () => {
 
   const MAX_FILE_SIZE = 2 * 1024 * 1024; 
   const MAX_TOTAL_SIZE = 2 * 1024 * 1024;
+  const MAX_DESCRIPTION_LENGTH = 50000; 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+
+    // Handle character limit for description
+    if (name === "description" && value.length > MAX_DESCRIPTION_LENGTH) {
+      toast.error(`Description cannot exceed ${MAX_DESCRIPTION_LENGTH} characters`);
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -149,13 +157,13 @@ export const CustomerSupportRequest = () => {
         </div>
       ) : (
         <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
-          <button
+          {/* <button
             onClick={handleGoBack}
             className="flex items-center text-blue-600 hover:text-blue-700 mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             <span className="text-sm">Back</span>
-          </button>
+          </button> */}
 
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Request Customer Support</h2>
 
@@ -229,9 +237,13 @@ export const CustomerSupportRequest = () => {
                 required
                 value={formData.description}
                 onChange={handleChange}
+                maxLength={MAX_DESCRIPTION_LENGTH}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                rows={3}
+                rows={5}
               />
+            <div className="text-right text-xs text-gray-500 mt-1">
+                {formData.description.length}/{MAX_DESCRIPTION_LENGTH} characters
+              </div>
             </div>
 
             <div>

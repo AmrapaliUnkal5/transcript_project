@@ -24,6 +24,7 @@ interface SubscriptionPlan {
   zoho_plan_id?: string;
   zoho_plan_code?: string;
   billing_period?: string;
+  per_file_size_limit: number;
 }
 
 interface Addon {
