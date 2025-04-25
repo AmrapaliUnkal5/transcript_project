@@ -49,11 +49,24 @@ from app.word_count_validation import router as word_count_validation
 from app.total_conversations_analytics import router as weekly_Conversation
 from app.team_management import router as team_management_router
 from app.fetchsubscripitonplans import router as fetchsubscriptionplans_router
+from app.fetchsubscriptionaddons import router as fetchsubscriptionaddons_router
 from app.notifications import router as notifications_router
 from app.message_count_validations import router as message_count_validations_router
+from app.zoho_subscription_router import router as zoho_subscription_router
+from app.zoho_sync_scheduler import initialize_scheduler
+from app.admin_routes import router as admin_routes_router
 
 
 app = FastAPI(debug=True)
+
+# Check required environment variables
+zoho_product_id = os.getenv('ZOHO_DEFAULT_PRODUCT_ID')
+if not zoho_product_id:
+    print("\n⚠️ WARNING: ZOHO_DEFAULT_PRODUCT_ID environment variable is not set!")
+    print("This is required for addon synchronization with Zoho.\n")
+
+# Initialize Zoho sync scheduler
+initialize_scheduler()
 
 app.mount("/uploads_bot", StaticFiles(directory="uploads_bot"), name="uploads_bot")
 app.include_router(botsettings_router)
@@ -72,18 +85,25 @@ app.include_router(word_count_validation)
 app.include_router(weekly_Conversation)
 app.include_router(team_management_router)
 app.include_router(fetchsubscriptionplans_router)
+# Add addon router with explicit logger
+print("Registering subscription addons router...")
+app.include_router(fetchsubscriptionaddons_router)
 app.include_router(notifications_router)
 app.include_router(message_count_validations_router)
+app.include_router(zoho_subscription_router)
+app.include_router(admin_routes_router)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 120
  
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],  # Allow all origins for development
+    allow_origin_regex="http://localhost.*",  # Allow all localhost origins
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
     allow_headers=["*"],  # Allow all HTTP headers
+    expose_headers=["X-New-Token"],  # Expose custom headers
 )
 
 # app.add_middleware(RoleBasedAccessMiddleware)

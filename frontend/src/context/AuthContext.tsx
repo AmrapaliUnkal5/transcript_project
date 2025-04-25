@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { authApi } from "../services/api";
 
 // Define a specific user type
 interface User {
@@ -20,8 +21,8 @@ interface AuthContextType {
   getBotId: (id: number | null) => void;
   login: (token: string, userData: User) => void;
   logout: () => void;
-  updateUser: (userData: Partial<User>) => void; // Add this line
-  
+  updateUser: (userData: Partial<User>) => void;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,11 +36,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const navigate = useNavigate();
   const location = useLocation();
   console.log("isAuthenticated", isAuthenticated);
+  
   const updateUser = (userData: Partial<User>) => {
     if (user) {
       const updatedUser = { ...user, ...userData };
       setUser(updatedUser);
       localStorage.setItem("user", JSON.stringify(updatedUser));
+    }
+  };
+
+  const refreshUserData = async () => {
+    try {
+      if (user && user.email) {
+        const response = await authApi.getAccountInfo(user.email);
+        if (response && response.user) {
+          const updatedUserData = response.user;
+          setUser(updatedUserData);
+          localStorage.setItem("user", JSON.stringify(updatedUserData));
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing user data:", error);
+      throw error;
     }
   };
   
@@ -114,6 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         login,
         logout,
         updateUser,
+        refreshUserData,
       }}
     >
       {children}
