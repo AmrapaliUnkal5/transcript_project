@@ -655,12 +655,22 @@ def format_subscription_data_for_hosted_page(
     
     # Add addons if provided
     if addon_codes and len(addon_codes) > 0:
-        print(f"Adding {len(addon_codes)} addons to the checkout payload")
-        subscription_data["addons"] = [{"addon_code": code, "quantity": 1} for code in addon_codes]
+        print(f"Adding addons to the checkout payload")
         
-        # Log each addon being added
-        for i, code in enumerate(addon_codes):
-            print(f"Addon {i+1}: addon_code={code}, quantity=1")
+        # Count occurrences of each addon code to handle multiple selections of the same addon
+        addon_counts = {}
+        for code in addon_codes:
+            addon_counts[code] = addon_counts.get(code, 0) + 1
+        
+        # Create the addons array with correct quantities
+        subscription_data["addons"] = [
+            {"addon_code": code, "quantity": count} 
+            for code, count in addon_counts.items()
+        ]
+        
+        # Log each addon being added with its quantity
+        for i, (code, count) in enumerate(addon_counts.items()):
+            print(f"Addon {i+1}: addon_code={code}, quantity={count}")
     else:
         print("No addons added to checkout payload")
     

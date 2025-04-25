@@ -146,22 +146,29 @@ async def create_subscription_checkout(
             if missing_ids:
                 print(f"WARNING: These addon IDs don't exist in database: {missing_ids}")
             
-            # Query the requested addons
-            addons = db.query(Addon).filter(Addon.id.in_(request.addon_ids)).all()
-            print(f"Found {len(addons)} addons out of {len(request.addon_ids)} requested")
-            
-            # Log the details of each addon found
+            # Create a mapping of addon IDs to codes to maintain duplicates
+            addon_id_to_code = {}
+            addons = db.query(Addon).filter(Addon.id.in_(set(request.addon_ids))).all()
             for addon in addons:
-                print(f"Addon ID {addon.id}: name='{addon.name}', zoho_addon_code='{addon.zoho_addon_code}', zoho_addon_id='{addon.zoho_addon_id}'")
-                if not addon.zoho_addon_code:
+                if addon.zoho_addon_code:
+                    addon_id_to_code[addon.id] = addon.zoho_addon_code
+                    print(f"Addon ID {addon.id}: name='{addon.name}', zoho_addon_code='{addon.zoho_addon_code}', zoho_addon_id='{addon.zoho_addon_id}'")
+                else:
                     print(f"WARNING: Addon ID {addon.id} '{addon.name}' has no zoho_addon_code")
             
-            if not addons or len(addons) != len(request.addon_ids):
+            # Preserve duplicates by iterating through the original request list
+            for addon_id in request.addon_ids:
+                if addon_id in addon_id_to_code:
+                    addon_codes.append(addon_id_to_code[addon_id])
+                    
+            print(f"Found {len(addons)} unique addons out of {len(request.addon_ids)} requested")
+            
+            if not addons or len(set(request.addon_ids)) != len(addons):
                 found_ids = [addon.id for addon in addons] if addons else []
                 missing_ids = set(request.addon_ids) - set(found_ids)
-                logger.warning(f"Some addon IDs were not found: {missing_ids}")
+                if missing_ids:
+                    logger.warning(f"Some addon IDs were not found: {missing_ids}")
             
-            addon_codes = [addon.zoho_addon_code for addon in addons if addon.zoho_addon_code]
             print(f"Final addon_codes to be used: {addon_codes}")
             print(f"==== END Processing Addon IDs ====\n")
             logger.info(f"Using addon codes: {addon_codes}")
