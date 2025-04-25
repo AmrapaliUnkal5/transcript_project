@@ -102,6 +102,7 @@ export interface ApiFile {
 }
 
 export interface IssueRequestData {
+  issueType: string;
   botName?: string;
   description: string;
   files: FileUploadInterface[];
