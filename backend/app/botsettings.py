@@ -20,8 +20,6 @@ router = APIRouter(prefix="/botsettings", tags=["Bot Settings"])
 UPLOAD_DIR = "uploads_bot"  # Directory to save uploaded images
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-
-
 @router.get("/bot/{bot_id}", response_model=schemas.BotResponse)
 def get_bot_settings(bot_id: int, db: Session = Depends(get_db)):
     """Fetch bot settings by bot_id"""
@@ -79,47 +77,6 @@ def update_bot_status(bot_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Bot not found")
 
     return updated_bot  # Return updated bot object
-
-
-@router.put("/del/{bot_id}", response_model=schemas.BotResponse)
-def update_bot_status(
-    bot_id: int, 
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Soft delete a bot and update word counts"""
-    try:
-        with db.begin():
-            # Get the bot with lock
-            bot = db.query(Bot).filter(
-                Bot.bot_id == bot_id,
-                Bot.user_id == current_user["user_id"]  # Ownership check
-            ).with_for_update().first()
-            
-            if not bot:
-                raise HTTPException(status_code=404, detail="Bot not found")
-            
-            # Store word count before deletion
-            deleted_word_count = bot.word_count or 0
-            
-            # Perform soft delete
-            bot.status = "Deleted"
-            bot.is_active = False
-            
-            # Update user's word count
-            user = db.query(User).filter(
-                User.user_id == current_user["user_id"]
-            ).with_for_update().first()
-            
-            if user:
-                user.total_words_used = max(0, (user.total_words_used or 0) - deleted_word_count)
-            
-            db.refresh(bot)
-            return bot
-            
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
 
 # Endpoint to update bot status and is_active
 @router.put("/bots/{bot_id}")
