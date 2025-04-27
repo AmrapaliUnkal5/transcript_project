@@ -8,6 +8,7 @@ import {
   CreditCard,
   Settings,
   LogOut,
+  Code,
 } from "lucide-react";
 import { authApi } from "../../services/api";
 
@@ -15,6 +16,7 @@ const navItems = [
   { path: "/chatbot", icon: MessageSquare, label: "Chatbot Customization" },
   { path: "/upload", icon: Upload, label: "Knowledge Base" },
   { path: "/performance", icon: BarChart2, label: "Analytics" },
+  { path: "/script-generate", icon: Code, label: "Script Generate" }, // New item here
 ];
 
 export const Sidebar = () => {
@@ -47,9 +49,7 @@ export const Sidebar = () => {
         className="flex items-center justify-center mb-8 cursor-pointer hover:opacity-80 transition-opacity"
         onClick={() => navigate("/")}
       >
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-          
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white"></h1>
       </div>
       <nav className="space-y-2">
         {navItems.map((item) => (

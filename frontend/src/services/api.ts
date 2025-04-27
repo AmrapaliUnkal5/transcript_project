@@ -578,6 +578,11 @@ export const authApi = {
   }> => {
     const response = await api.get('/user/msgusage'); return response.data;
   },
+
+  getBotToken: async (botId: number): Promise<{ token: string }> => {
+    const response = await api.get(`/widget/bot/${botId}/token`);
+    return response.data;
+  },
  
 };
 

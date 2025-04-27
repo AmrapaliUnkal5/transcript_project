@@ -132,7 +132,7 @@ export const ChatbotCustomization = () => {
   const [messageUsage, setMessageUsage] = useState({
     used: 0,
     remaining: 0,
-    limit: 0
+    limit: 0,
   });
   const [planLimit, setPlanLimit] = useState(0);
 
@@ -155,7 +155,21 @@ export const ChatbotCustomization = () => {
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
   const [botId, setBotId] = useState<number | null>(null);
   const [waitingForBotResponse, setWaitingForBotResponse] = useState(false);
-  
+  const headerStyle: React.CSSProperties = {
+    backgroundColor: settings.botColor || "#007bff",
+    color: "#fff",
+    padding: "10px",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+  };
+
+  const iconStyle: React.CSSProperties = {
+    width: "32px",
+    height: "32px",
+    borderRadius: "50%",
+    objectFit: "cover",
+  };
 
   useEffect(() => {
     interactionIdRef.current = interactionId;
@@ -181,7 +195,8 @@ export const ChatbotCustomization = () => {
 
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
     }
   }, [messages, isBotTyping]);
 
@@ -202,23 +217,23 @@ export const ChatbotCustomization = () => {
         const response = await authApi.getUserMessageCount();
         const userPlan = getPlanById(user?.subscription_plan_id!);
         const messageLimit = userPlan?.message_limit || 0;
-        console.log("response=>",response)
-        console.log("userPlan=>",userPlan)
-        console.log("messageLimit=>",messageLimit)
-        
+        console.log("response=>", response);
+        console.log("userPlan=>", userPlan);
+        console.log("messageLimit=>", messageLimit);
+
         setMessageUsage({
           used: response.totalMessagesUsed,
           remaining: Math.max(0, messageLimit - response.totalMessagesUsed),
-          limit: messageLimit
+          limit: messageLimit,
         });
-        
+
         setPlanLimit(messageLimit);
       } catch (error) {
         console.error("Failed to fetch message data:", error);
         toast.error("Failed to load message usage data");
       }
     };
-    
+
     if (user?.user_id) {
       fetchMessageData();
     }
@@ -233,7 +248,7 @@ export const ChatbotCustomization = () => {
           return;
         }
         const response = await authApi.getBotSettingsBotId(selectedBot.id);
-        
+
         if (response) {
           setBotId(selectedBot.id);
           setIsBotExisting(true);
@@ -250,7 +265,8 @@ export const ChatbotCustomization = () => {
             appearance: response.appearance,
             temperature: response.temperature,
             windowBgColor: response.window_bg_color || "#F9FAFB",
-            welcomeMessage: response.welcome_message || "Hi there! How can I help you today?",
+            welcomeMessage:
+              response.welcome_message || "Hi there! How can I help you today?",
             inputBgColor: response.input_bg_color || "#FFFFFF",
           });
         }
@@ -267,10 +283,10 @@ export const ChatbotCustomization = () => {
   }, [selectedBot, setLoading]);
 
   const updateMessageCount = () => {
-    setMessageUsage(prev => ({
+    setMessageUsage((prev) => ({
       ...prev,
       used: prev.used + 1,
-      remaining: Math.max(0, prev.limit - (prev.used + 1))
+      remaining: Math.max(0, prev.limit - (prev.used + 1)),
     }));
   };
 
@@ -301,10 +317,10 @@ export const ChatbotCustomization = () => {
         message_id: messageId,
       });
 
-      setMessages(prev =>
+      setMessages((prev) =>
         prev.map((msg, i) => {
           if (i !== index) return msg;
-          return msg.reaction === type 
+          return msg.reaction === type
             ? { ...msg, reaction: undefined }
             : { ...msg, reaction: type };
         })
@@ -366,12 +382,14 @@ export const ChatbotCustomization = () => {
 
   const sendMessage = async () => {
     if (!canSendMessage()) {
-      toast.error("You have reached your message limit, please upgrade your plan.");
+      toast.error(
+        "You have reached your message limit, please upgrade your plan."
+      );
       return;
     }
     if (!inputMessage.trim()) return;
     setWaitingForBotResponse(true);
-    
+
     let sessionId: number | null = interactionId ?? null;
     if (!sessionId) {
       sessionId = await startChatSession();
@@ -403,13 +421,24 @@ export const ChatbotCustomization = () => {
         const baseTypingSpeed = 25;
         const typingInterval = setInterval(() => {
           if (charIndex < data.message.length) {
-            setCurrentBotMessage(prev => prev + data.message.charAt(charIndex));
+            setCurrentBotMessage(
+              (prev) => prev + data.message.charAt(charIndex)
+            );
             charIndex++;
 
-            if ([".", "!", "?", ",", ":"].includes(data.message.charAt(charIndex - 1))) {
+            if (
+              [".", "!", "?", ",", ":"].includes(
+                data.message.charAt(charIndex - 1)
+              )
+            ) {
               clearInterval(typingInterval);
               setTimeout(() => {
-                startTypingAnimation(charIndex, data.message, data.message_id, newMessages);
+                startTypingAnimation(
+                  charIndex,
+                  data.message,
+                  data.message_id,
+                  newMessages
+                );
               }, 200 + Math.random() * 200);
             }
           } else {
@@ -417,7 +446,11 @@ export const ChatbotCustomization = () => {
             setIsBotTyping(false);
             setMessages([
               ...newMessages,
-              { sender: "bot", text: data.message, message_id: data.message_id },
+              {
+                sender: "bot",
+                text: data.message,
+                message_id: data.message_id,
+              },
             ]);
           }
         }, baseTypingSpeed);
@@ -442,13 +475,20 @@ export const ChatbotCustomization = () => {
 
     const typingInterval = setInterval(() => {
       if (charIndex < fullMessage.length) {
-        setCurrentBotMessage(prev => prev + fullMessage.charAt(charIndex));
+        setCurrentBotMessage((prev) => prev + fullMessage.charAt(charIndex));
         charIndex++;
 
-        if ([".", "!", "?", ",", ":"].includes(fullMessage.charAt(charIndex - 1))) {
+        if (
+          [".", "!", "?", ",", ":"].includes(fullMessage.charAt(charIndex - 1))
+        ) {
           clearInterval(typingInterval);
           setTimeout(() => {
-            startTypingAnimation(charIndex, fullMessage, message_id, newMessages);
+            startTypingAnimation(
+              charIndex,
+              fullMessage,
+              message_id,
+              newMessages
+            );
           }, 200 + Math.random() * 200);
         }
       } else {
@@ -532,10 +572,12 @@ export const ChatbotCustomization = () => {
           canvas.toBlob(
             (blob) => {
               if (blob) {
-                resolve(new File([blob], file.name, {
-                  type: "image/jpeg",
-                  lastModified: Date.now(),
-                }));
+                resolve(
+                  new File([blob], file.name, {
+                    type: "image/jpeg",
+                    lastModified: Date.now(),
+                  })
+                );
               } else {
                 reject(new Error("Failed to compress image"));
               }
@@ -571,7 +613,7 @@ export const ChatbotCustomization = () => {
     field: K,
     value: BotSettings[K]
   ) => {
-    setSettings(prev => ({ ...prev, [field]: value }));
+    setSettings((prev) => ({ ...prev, [field]: value }));
   };
 
   const sections = [
@@ -624,7 +666,8 @@ export const ChatbotCustomization = () => {
           label: "Chatbot Position",
           type: "select",
           value: settings.position,
-          options: ["top-left", "top-right", "bottom-left", "bottom-right"],
+          //options: ["top-left", "top-right", "bottom-left", "bottom-right"],
+          options: ["bottom-left", "bottom-right", "top-right"],
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("position", e.target.value),
         },
@@ -664,18 +707,18 @@ export const ChatbotCustomization = () => {
       icon: Palette,
       fields: [
         {
-          label: "Window Background Color",
-          type: "color",
-          value: settings.windowBgColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("windowBgColor", e.target.value),
-        },
-        {
           label: "Welcome Message",
           type: "text",
           value: settings.welcomeMessage,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
             handleChange("welcomeMessage", e.target.value),
+        },
+        {
+          label: "Window Background Color",
+          type: "color",
+          value: settings.windowBgColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("windowBgColor", e.target.value),
         },
         {
           label: "Input Box Background Color",
@@ -714,7 +757,11 @@ export const ChatbotCustomization = () => {
   ];
 
   if (!selectedBot) {
-    return <div className="text-center text-gray-500 dark:text-white">No bot selected.</div>;
+    return (
+      <div className="text-center text-gray-500 dark:text-white">
+        No bot selected.
+      </div>
+    );
   }
 
   return (
@@ -870,28 +917,39 @@ export const ChatbotCustomization = () => {
               backgroundColor: settings.windowBgColor,
             }}
           >
+            {/* Bot Header */}
+            <div style={headerStyle}>
+              {settings.icon && (
+                <img src={settings.icon} alt="Bot Icon" style={iconStyle} />
+              )}
+              <strong>{settings.name}</strong>
+            </div>
             <div className="flex-1"></div>
             {messages.length > 0 ? (
               messages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`p-3 rounded-lg max-w-[80%] mb-2 ${
-                    msg.sender === "user"
-                      ? "ml-auto bg-blue-500 text-white"
-                      : "mr-auto bg-gray-300 text-gray-900"
-                  }`}
-                  style={{
-                    backgroundColor:
+                <div key={index} className="mb-4">
+                  {/* Message Bubble */}
+                  <div
+                    className={`p-3 rounded-lg max-w-[80%] ${
                       msg.sender === "user"
-                        ? settings.userColor
-                        : settings.botColor,
-                    fontSize: settings.fontSize,
-                    fontFamily: settings.fontStyle,
-                  }}
-                >
-                  <div>{msg.text}</div>
+                        ? "ml-auto bg-blue-500 text-white"
+                        : "mr-auto bg-gray-300 text-gray-900"
+                    }`}
+                    style={{
+                      backgroundColor:
+                        msg.sender === "user"
+                          ? settings.userColor
+                          : settings.botColor,
+                      fontSize: settings.fontSize,
+                      fontFamily: settings.fontStyle,
+                    }}
+                  >
+                    <div>{msg.text}</div>
+                  </div>
+
+                  {/* Reaction Buttons BELOW the bubble, only for bot */}
                   {msg.sender === "bot" && (
-                    <div className="flex gap-2 mt-2">
+                    <div className="flex gap-2 mt-1 ml-2">
                       <button
                         onClick={() => handleReaction("like", index)}
                         className={`p-1 rounded-full transition-colors ${
@@ -917,7 +975,7 @@ export const ChatbotCustomization = () => {
                 </div>
               ))
             ) : (
-              <div 
+              <div
                 className="mr-auto p-3 rounded-lg max-w-[80%] bg-gray-300 text-gray-900"
                 style={{
                   backgroundColor: settings.botColor,
@@ -965,28 +1023,27 @@ export const ChatbotCustomization = () => {
           <div className="mt-4 flex items-center">
             <input
               type="text"
-              className="flex-grow p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
+              className="flex-grow p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-black"
               style={{
                 backgroundColor: settings.inputBgColor,
               }}
               placeholder={
-                !canSendMessage() 
-                  ? "We are facing technical issue. Kindly reach out to website admin for assistance" 
+                !canSendMessage()
+                  ? "We are facing technical issue. Kindly reach out to website admin for assistance"
                   : "Type a message..."
               }
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={(e) => {
                 if (
-                  e.key === "Enter" && 
-                  inputMessage.trim() && 
-                  canSendMessage() && 
-                  !waitingForBotResponse && 
-                  !isBotTyping && 
+                  e.key === "Enter" &&
+                  inputMessage.trim() &&
+                  canSendMessage() &&
+                  !waitingForBotResponse &&
+                  !isBotTyping &&
                   !previewLoading
                 ) {
                   sendMessage();
-              
                 }
               }}
               disabled={!canSendMessage()}
@@ -995,10 +1052,10 @@ export const ChatbotCustomization = () => {
               className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed"
               onClick={sendMessage}
               disabled={
-                !inputMessage.trim() || 
-                !canSendMessage() || 
-                waitingForBotResponse || 
-                isBotTyping || 
+                !inputMessage.trim() ||
+                !canSendMessage() ||
+                waitingForBotResponse ||
+                isBotTyping ||
                 previewLoading
               }
             >
