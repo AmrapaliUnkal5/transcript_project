@@ -383,6 +383,11 @@ const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.stora
 
     });
   };
+
+  const getFileExtension = (fileName: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    return extension ? extension.toUpperCase() : 'UNKNOWN';
+  };
   
 
   const fetchNodes = async (websiteUrl: string) => {
@@ -927,7 +932,7 @@ const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.stora
                 Drag and drop files here, or click to select files
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Maximum {userUsage.planLimit.toLocaleString()} words total, {userPlan?.per_file_size_limit}MB per file (PDF and TXT only)
+                Maximum {userUsage.planLimit.toLocaleString()} words total, {userPlan?.per_file_size_limit}MB per file ((PDF, TXT, Doc, Docx, .png, .jpg, .jpeg, .gif files only))
               </p>
             </div>
       
@@ -947,7 +952,7 @@ const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.stora
                   {totalWordsUsed.toLocaleString()}/{userUsage.planLimit.toLocaleString()} words
                   {userUsage.currentSessionWords > 0 && (
                     <span className="text-gray-500 ml-2">
-                      (This bot: {userUsage.currentSessionWords.toLocaleString()})
+                      (Current Bot: {userUsage.currentSessionWords.toLocaleString()})
                     </span>
                   )}
                 </span>
@@ -1086,8 +1091,7 @@ const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.stora
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {file.type?.split("/")[1]?.toUpperCase() ||
-                                "UNKNOWN"}
+                            {getFileExtension(file.name)}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">

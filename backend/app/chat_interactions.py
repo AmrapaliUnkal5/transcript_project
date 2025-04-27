@@ -190,7 +190,7 @@ def get_frequently_asked_questions(bot_id: int, db: Session = Depends(get_db), l
 
         if not faqs:
             example_questions = db.query(ChatMessage.message_text)\
-                .filter(ChatMessage.interaction.has(bot_id=bot_id))\
+                .filter(ChatMessage.interaction_id.has(bot_id=bot_id))\
                 .filter(ChatMessage.sender == "user")\
                 .order_by(ChatMessage.timestamp.desc())\
                 .limit(5)\

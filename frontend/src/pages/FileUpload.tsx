@@ -55,7 +55,9 @@ export const FileUpload = () => {
   const [newFiles, setNewFiles] = useState<FileUploadInterface[]>([]);
   const [totalSize, setTotalSize] = useState<number>(0);
   const [totalWordCount, setTotalWordCount] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState("files");
+  // const [activeTab, setActiveTab] = useState(user.subscription_plan_id === 1 || user.subscription_plan_id === 2 
+  //   ? "websitescraping" 
+  //   : "websiteSub");
   const [youtubeVideos, setYoutubeVideos] = useState([]);
   const { loading, setLoading } = useLoader();
   const [currentPage, setCurrentPage] = useState(1);
@@ -134,7 +136,9 @@ export const FileUpload = () => {
 
   // Generate page numbers
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
-
+  const [activeTab, setActiveTab] = useState(user.subscription_plan_id === 1 || user.subscription_plan_id === 2 
+    ? "websitescraping" 
+    : "websiteSub");
   
   // Fetch user usage on component mount
   useEffect(() => {
@@ -717,6 +721,11 @@ export const FileUpload = () => {
     },
   });
 
+  const getFileExtension = (fileName: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    return extension ? extension.toUpperCase() : 'UNKNOWN';
+  };
+
   const handleTabClick = (tab: string) => {
     if (tab === "websitescraping" || tab === "websiteSub") {
       // Determine the tab based on the user's subscription_plan_id
@@ -736,39 +745,62 @@ export const FileUpload = () => {
       {loading && <Loader />}
 
       {/* Tabs Section */}
-      <div className="flex border-b border-gray-300 dark:border-gray-700">
-        <button
-          onClick={() => setActiveTab("files")}
-          className={`px-4 py-2 ${
+      
+        <div className="flex border-b border-gray-300 dark:border-gray-700">
+          <button
+            onClick={() => handleTabClick("websitescraping")}
+            className={`px-4 py-2 ${
+            activeTab === "websitescraping" || activeTab === "websiteSub"
+            ? "border-b-2 border-blue-500 text-blue-600"
+            : "text-gray-500"
+        }`}
+      >
+          Website
+        </button>
+          <button
+            onClick={() => setActiveTab("files")}
+            className={`px-4 py-2 ${
             activeTab === "files"
-              ? "border-b-2 border-blue-500 text-blue-600"
-              : "text-gray-500"
+            ? "border-b-2 border-blue-500 text-blue-600"
+        : "text-gray-500"
           }`}
         >
           Files
         </button>
         <button
-          onClick={() => setActiveTab("youtube")}
-          className={`px-4 py-2 ${
+            onClick={() => setActiveTab("youtube")}
+            className={`px-4 py-2 ${
             activeTab === "youtube"
-              ? "border-b-2 border-blue-500 text-blue-600"
-              : "text-gray-500"
-          }`}
-        >
+            ? "border-b-2 border-blue-500 text-blue-600"
+            : "text-gray-500"
+            }`}
+          >
           YouTube Videos
-        </button>
-        <button
-          onClick={() => handleTabClick("websitescraping")}
-          className={`px-4 py-2 ${
-            activeTab === "websitescraping"
-              ? "border-b-2 border-blue-500 text-blue-600"
-              : "text-gray-500"
-          }`}
-        >
-          Web site
         </button>
       </div>
 
+     
+      {activeTab === "websitescraping" &&
+        (user.subscription_plan_id === 1 ||
+          user.subscription_plan_id === 2) && (
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
+              Website Scraping
+            </h1>
+            <WebScrapingTab />
+          </div>
+        )}
+
+      {activeTab === "websiteSub" &&
+        (user.subscription_plan_id === 3 ||
+          user.subscription_plan_id === 4) && (
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
+            Enter the Website URL
+            </h1>
+            <SubscriptionScrape />
+          </div>
+        )}
       {/* Files Tab Content */}
       {activeTab === "files" && (
         <>
@@ -826,7 +858,7 @@ export const FileUpload = () => {
                 {userUsage.planLimit.toLocaleString()}
                 {userUsage.currentSessionWords > 0 && (
                   <span className="text-gray-500 ml-2">
-                    (This session:{" "}
+                    (Current Bot:{" "}
                     {userUsage.currentSessionWords.toLocaleString()})
                   </span>
                 )}
@@ -958,7 +990,7 @@ export const FileUpload = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {file.type?.split("/")[1]?.toUpperCase() || "UNKNOWN"}
+                        {getFileExtension(file.name)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -1125,7 +1157,7 @@ export const FileUpload = () => {
         </div>
       )}
 
-      {/* Website Scraping Tab Content */}
+      {/* Website Scraping Tab Content
       {activeTab === "websitescraping" &&
         (user.subscription_plan_id === 1 ||
           user.subscription_plan_id === 2) && (
@@ -1146,7 +1178,7 @@ export const FileUpload = () => {
             </h1>
             <SubscriptionScrape />
           </div>
-        )}
+        )} */}
 
       {/* Delete Confirmation Modal */}
       {confirmDelete && (

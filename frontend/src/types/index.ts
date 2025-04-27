@@ -137,70 +137,13 @@ export interface GetWeeklyConversationsParams {
     
   }
   
-  export const SUBSCRIPTION_PLANS: Record<number, SubscriptionPlan> = {
-    1: { // Explorer Plan (Free)
-      id: 1,
-      name: "Explorer",
-      wordCountLimit: 50000,
-      fileSizeLimitMB: 20,
-      maxFiles: 10,
-      maxWebPages: 1,
-      analytics: "None",
-      chatbot_limit:1,
-      storage_limit:"20 MB",
-      message_limit:100
-    },
-    2: { // Starter Plan
-      id: 2,
-      name: "Starter",
-      wordCountLimit: 1000000,
-      fileSizeLimitMB: 500,
-      maxFiles: 50,
-      maxWebPages: 1,
-      analytics: "Standard",
-      chatbot_limit:1,
-      storage_limit:"500 MB",
-      message_limit:1000
-    },
-    3: { // Growth Plan
-      id: 3,
-      name: "Growth",
-      wordCountLimit: 2000000,
-      fileSizeLimitMB: 1024,
-      maxFiles: 100,
-      maxWebPages: 5,
-      analytics: "Standard",
-      chatbot_limit:2,
-      storage_limit:"1 GB",
-      message_limit:2500
-    },
-    4: { // Professional Plan
-      id: 4,
-      name: "Professional",
-      wordCountLimit: 3000000,
-      fileSizeLimitMB: 2048,
-      maxFiles: 200,
-      maxWebPages: 10,
-      analytics: "Advanced",
-      chatbot_limit:5,
-      storage_limit:"5 GB",
-      message_limit:6000
-    }
-  };
-  
-  export const DEFAULT_PLAN_ID = 1;
-  
-  export const getPlanById = (planId: number): SubscriptionPlan => {
-    return SUBSCRIPTION_PLANS[planId] || SUBSCRIPTION_PLANS[DEFAULT_PLAN_ID];
-  };
-
   export interface UserUsage {
     globalWordsUsed: number;
     currentSessionWords: number;
     planLimit: number;
     remainingWords?:number;
-    globalStorageUsed: number;  // Add this
-    currentSessionStorage: number;  // Add this
+    globalStorageUsed: number; 
+    currentSessionStorage: number;  
     storageLimit: number;
   }
   
@@ -209,8 +152,18 @@ export interface GetWeeklyConversationsParams {
     totalWordsUsed: number;  
     planLimit: number;
     botWords?: number;  
-    globalStorageUsed: number;  // Add this
-    currentSessionStorage: number;  // Add this
+    globalStorageUsed: number;  
+    currentSessionStorage: number;  
     storageLimit: number;    
+  }
+
+  export interface BillingMetricsResponse {
+    total_sessions: number;
+    total_user_messages: number;
+    total_likes: number;
+    total_dislikes: number;
+    total_chat_duration: string;
+    billing_cycle_start: string;
+    billing_cycle_end: string;
   }
   
