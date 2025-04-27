@@ -81,6 +81,7 @@ logger = get_module_logger(__name__)
 from app.addon_router import router as addon_router
 from app.addon_scheduler import start_addon_scheduler
 from app.features_router import router as features_router
+from app.current_billing_metrics import router as billing_metrics_router
 
 
 app = FastAPI(debug=True)
@@ -137,6 +138,7 @@ app.include_router(features_router)
 
 # Start the add-on expiry scheduler
 start_addon_scheduler()
+app.include_router(billing_metrics_router)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 120
  
