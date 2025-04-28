@@ -35,6 +35,7 @@ export const Login = () => {
     location.state?.message || null
   );
   const [showPassword, setShowPassword] = React.useState(false); // State to manage password visibility
+  const [logoLoaded, setLogoLoaded] = React.useState(true);
 
   // Math CAPTCHA states
   const [openCaptchaModal, setOpenCaptchaModal] = useState(false);
@@ -267,32 +268,81 @@ export const Login = () => {
     <DarkGBox bgcolor="#f2f1ef" minHeight={"100vh"} >
       <Box bgcolor={"#000"}>
         <Box maxWidth={1180} mx={"auto"} borderRadius={4} py={2} px={3}>
-          <Box display={'flex'} gap={1}>
-             <SmartToyOutlinedIcon sx={{color: '#6a4cff'}} /> 
-             <Typography variant="body1" fontFamily={'monospace'} color="#4dc4ff">ChatBot</Typography>
-           </Box>  
-        </Box>
+        <Box display={'flex'} gap={1} alignItems="center">
+          {/* Logo with fallback */}
+          <Box
+            component="img"
+            src="/images/dummy/Evolra-AI-Logo_Transparent.png" 
+            alt="Evolra AI Logo"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none'; // Hide broken image
+              console.error('Failed to load logo:', target.src);
+            }}
+            sx={{ 
+              height: 40,
+              width: 'auto',
+              maxWidth: 150 // 
+            }}
+          />
+          {/* Fallback text if image fails */}
+          {!logoLoaded && (
+            <Typography variant="h6" color="#4dc4ff">
+              Evolra AI
+            </Typography>
+          )}
+        </Box>  
       </Box>
+    </Box>
       <Box maxWidth={1180} mx={"auto"} borderRadius={4} py={2} px={3}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 7 }}>
             <LightGBox p={'1px'} borderRadius={4}>
-              <Box px={5} py={2} borderRadius={4}
-                sx={{background:'url(/images/dummy/chatbot-blue.jpeg)', backgroundSize:'cover', backgroundRepeat:'no-repeat', backgroundPosition:'center', minHeight: '74vh'}}
+            <Box 
+                px={5} 
+                py={2} 
+                borderRadius={4}
+                sx={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  minHeight: '74vh',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}
               >
-                <Typography variant="h6" mb={3} color="#FFF">
-                  Check me
+                <Typography variant="h6" mb={3} color="#FFF" sx={{ position: 'relative', zIndex: 2 }}>
+                  {/* Check me */}
                 </Typography>
-                <Box textAlign={"center"}>
-                  {/* <StyledImage
-                    src="/images/dummy/chatbot-blue.jpeg"
-                    sx={{ margin: "auto", borderRadius: "16px", maxWidth: 525 }}
-                  /> */}
+                <Box 
+                  textAlign={"center"}
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 1
+                  }}
+                >
+                  <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  >
+                    <source src="/images/dummy/gif.mp4" type="video/mp4" />
+                  </video>
                 </Box>
               </Box>
             </LightGBox>
           </Grid>
           <Grid size={{ xs: 12, md: 5 }}>
+            {/* Rest of your login form code remains exactly the same */}
             <LightGBox
               minHeight={"100%"}
               px={5}
