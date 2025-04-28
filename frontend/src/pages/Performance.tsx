@@ -21,6 +21,7 @@ import { useLoader } from "../context/LoaderContext";
 import Loader from "../components/Loader";
 import { authApi } from "../services/api";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
+import { useNavigate } from "react-router-dom";
 
 interface ConversationData {
   day: string;
@@ -78,6 +79,7 @@ export const Performance = () => {
   );
   const [faqData, setFaqData] = useState<FAQData[]>([]);
   const [totalTimeSpent, setTotalTimeSpent] = useState<number>(0);
+  const navigate = useNavigate();
 
   const userData = localStorage.getItem("user");
   const user = userData ? JSON.parse(userData) : null;
@@ -272,6 +274,22 @@ export const Performance = () => {
 
   if (loading) {
     return <Loader />;
+  }
+
+  if (!selectedBot) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center p-8 space-y-4">
+        <div className="text-gray-500 dark:text-white text-lg">
+          No bot selected.
+        </div>
+        <button 
+          onClick={() => navigate('/')}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          Go to Home
+        </button>
+      </div>
+    );
   }
 
   return (

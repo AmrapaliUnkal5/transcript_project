@@ -22,6 +22,7 @@ import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import SubscriptionScrape from "./SubscriptionScrape";
 import { UserUsageResponse } from "../types/index";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
+import { useNavigate } from "react-router-dom";
 
 const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
   return (
@@ -73,6 +74,7 @@ export const FileUpload = () => {
     "Getting things ready for you..."
   );
   const [isVideoProcessing, setIsVideoProcessing] = useState(false);
+  const navigate = useNavigate();
 
   type Video1 = {
     video_url: string;
@@ -765,6 +767,22 @@ export const FileUpload = () => {
       setActiveTab(tab);
     }
   };
+
+  if (!selectedBot) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center p-8 space-y-4">
+        <div className="text-gray-500 dark:text-white text-lg">
+          No bot selected.
+        </div>
+        <button 
+          onClick={() => navigate('/')}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          Go to Home
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

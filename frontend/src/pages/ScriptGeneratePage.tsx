@@ -1,7 +1,7 @@
 // ScriptGeneratePage.tsx
 import { useState, useEffect } from "react";
 import { useBot } from "../context/BotContext";
-
+import { useNavigate } from "react-router-dom";
 import { useLoader } from "../context/LoaderContext";
 import { authApi } from "../services/api";
 import type { BotSettings } from "../types";
@@ -30,6 +30,7 @@ export const ScriptGeneratePage = () => {
     welcomeMessage: "Hi there! How can I help you today?",
     inputBgColor: "#FFFFFF",
   });
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchToken = async () => {
@@ -118,6 +119,22 @@ export const ScriptGeneratePage = () => {
       });
     }
   };
+
+  if (!selectedBot) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center p-8 space-y-4">
+        <div className="text-gray-500 dark:text-white text-lg">
+          No bot selected.
+        </div>
+        <button 
+          onClick={() => navigate('/')}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          Go to Home
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4">

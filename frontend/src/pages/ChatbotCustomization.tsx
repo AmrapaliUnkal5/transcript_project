@@ -354,8 +354,16 @@ export const ChatbotCustomization = () => {
 
   if (!selectedBot) {
     return (
-      <div className="text-center text-gray-500 dark:text-white">
-        No bot selected.
+      <div className="flex flex-col items-center justify-center text-center p-8 space-y-4">
+        <div className="text-gray-500 dark:text-white text-lg">
+          No bot selected.
+        </div>
+        <button 
+          onClick={() => navigate('/')}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          Go to Home
+        </button>
       </div>
     );
   }
@@ -758,8 +766,16 @@ export const ChatbotCustomization = () => {
 
   if (!selectedBot) {
     return (
-      <div className="text-center text-gray-500 dark:text-white">
-        No bot selected.
+      <div className="flex flex-col items-center justify-center text-center p-8 space-y-4">
+        <div className="text-gray-500 dark:text-white text-lg">
+          No bot selected.
+        </div>
+        <button 
+          onClick={() => navigate('/')}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          Go to Home
+        </button>
       </div>
     );
   }
