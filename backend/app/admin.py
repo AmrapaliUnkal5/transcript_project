@@ -6,9 +6,10 @@ from app.config import settings
 from app.database import engine
 from app.models import (
     User, Bot, File, Interaction, Language, 
-     UserAuthProvider, ChatMessage, 
+    UserAuthProvider, ChatMessage, 
     DemoRequest, EmbeddingModel, LLMModel, SubscriptionPlan,
-    Addon, UserSubscription #Sunscription PerformanceLog, Rating,
+    Addon, UserSubscription, TeamMember, InteractionReaction, ScrapedNode, 
+    WebsiteDB, YouTubeVideo, Notification, Cluster, ClusteredQuestion
 )
 from sqlalchemy.orm import Session
 import jwt
@@ -332,6 +333,220 @@ class UserSubscriptionAdmin(ModelView, model=UserSubscription):
     ]
     column_searchable_list = [UserSubscription.user_id, UserSubscription.status]
     column_filters = ["user_id", "subscription_plan_id", "status", "payment_date", "expiry_date"]
+    
+    # Add form columns to include all fields
+    form_columns = [
+        UserSubscription.id,
+        UserSubscription.user_id,
+        UserSubscription.subscription_plan_id,
+        UserSubscription.amount,
+        UserSubscription.currency,
+        UserSubscription.payment_date,
+        UserSubscription.expiry_date,
+        UserSubscription.status,
+        UserSubscription.auto_renew,
+        UserSubscription.zoho_subscription_id,
+        UserSubscription.zoho_customer_id,
+        UserSubscription.zoho_invoice_id,
+        UserSubscription.cancellation_reason,
+        UserSubscription.payment_method,
+        UserSubscription.notes,
+        UserSubscription.created_at,
+        UserSubscription.updated_at
+    ]
+
+class TeamMemberAdmin(ModelView, model=TeamMember):
+    column_list = [
+        TeamMember.id,
+        TeamMember.owner_id,
+        TeamMember.member_id,
+        TeamMember.role,
+        TeamMember.invitation_status,
+        TeamMember.invitation_sent_at,
+        TeamMember.updated_at
+    ]
+    column_searchable_list = [TeamMember.owner_id, TeamMember.member_id, TeamMember.invitation_status]
+    column_filters = ["owner_id", "member_id", "role", "invitation_status"]
+    
+    # Add form columns to include all fields
+    form_columns = [
+        TeamMember.id,
+        TeamMember.owner_id,
+        TeamMember.member_id,
+        TeamMember.role,
+        TeamMember.invitation_status,
+        TeamMember.invitation_token,
+        TeamMember.invitation_sent_at,
+        TeamMember.updated_at
+    ]
+
+class InteractionReactionAdmin(ModelView, model=InteractionReaction):
+    column_list = [
+        InteractionReaction.id,
+        InteractionReaction.bot_id,
+        InteractionReaction.interaction_id,
+        InteractionReaction.session_id,
+        InteractionReaction.reaction,
+        InteractionReaction.reaction_time,
+        InteractionReaction.message_id
+    ]
+    column_searchable_list = [InteractionReaction.bot_id, InteractionReaction.interaction_id]
+    column_filters = ["bot_id", "reaction", "reaction_time"]
+    
+    # Add form columns to include all fields
+    form_columns = [
+        InteractionReaction.id,
+        InteractionReaction.bot_id,
+        InteractionReaction.interaction_id,
+        InteractionReaction.session_id,
+        InteractionReaction.reaction,
+        InteractionReaction.reaction_time,
+        InteractionReaction.message_id
+    ]
+
+class ScrapedNodeAdmin(ModelView, model=ScrapedNode):
+    column_list = [
+        ScrapedNode.id,
+        ScrapedNode.url,
+        ScrapedNode.bot_id,
+        ScrapedNode.created_at,
+        ScrapedNode.title,
+        ScrapedNode.website_id,
+        ScrapedNode.is_deleted,
+        ScrapedNode.nodes_text_count
+    ]
+    column_searchable_list = [ScrapedNode.url, ScrapedNode.title]
+    column_filters = ["bot_id", "website_id", "is_deleted", "created_at"]
+    
+    # Add form columns to include all fields
+    form_columns = [
+        ScrapedNode.id,
+        ScrapedNode.url,
+        ScrapedNode.bot_id,
+        ScrapedNode.created_at,
+        ScrapedNode.title,
+        ScrapedNode.is_deleted,
+        ScrapedNode.website_id,
+        ScrapedNode.nodes_text_count
+    ]
+
+class WebsiteDBAdmin(ModelView, model=WebsiteDB):
+    column_list = [
+        WebsiteDB.id,
+        WebsiteDB.domain,
+        WebsiteDB.bot_id,
+        WebsiteDB.created_at,
+        WebsiteDB.is_deleted
+    ]
+    column_searchable_list = [WebsiteDB.domain]
+    column_filters = ["bot_id", "is_deleted", "created_at"]
+    
+    # Add form columns to include all fields
+    form_columns = [
+        WebsiteDB.id,
+        WebsiteDB.domain,
+        WebsiteDB.bot_id,
+        WebsiteDB.created_at,
+        WebsiteDB.is_deleted
+    ]
+
+class YouTubeVideoAdmin(ModelView, model=YouTubeVideo):
+    column_list = [
+        YouTubeVideo.id,
+        YouTubeVideo.video_id,
+        YouTubeVideo.video_title,
+        YouTubeVideo.video_url,
+        YouTubeVideo.channel_name,
+        YouTubeVideo.bot_id,
+        YouTubeVideo.is_deleted,
+        YouTubeVideo.created_at
+    ]
+    column_searchable_list = [YouTubeVideo.video_title, YouTubeVideo.channel_name, YouTubeVideo.video_id]
+    column_filters = ["bot_id", "is_deleted", "is_playlist", "created_at"]
+    
+    # Add form columns to include all fields
+    form_columns = [
+        YouTubeVideo.id,
+        YouTubeVideo.video_source,
+        YouTubeVideo.video_id,
+        YouTubeVideo.video_title,
+        YouTubeVideo.video_url,
+        YouTubeVideo.channel_id,
+        YouTubeVideo.channel_name,
+        YouTubeVideo.duration,
+        YouTubeVideo.upload_date,
+        YouTubeVideo.is_playlist,
+        YouTubeVideo.playlist_id,
+        YouTubeVideo.playlist_name,
+        YouTubeVideo.view_count,
+        YouTubeVideo.likes,
+        YouTubeVideo.description,
+        YouTubeVideo.thumbnail_url,
+        YouTubeVideo.bot_id,
+        YouTubeVideo.transcript_count,
+        YouTubeVideo.created_at,
+        YouTubeVideo.is_deleted
+    ]
+
+class NotificationAdmin(ModelView, model=Notification):
+    column_list = [
+        Notification.id,
+        Notification.user_id,
+        Notification.bot_id,
+        Notification.event_type,
+        Notification.event_data,
+        Notification.is_read,
+        Notification.created_at
+    ]
+    column_searchable_list = [Notification.user_id, Notification.event_type]
+    column_filters = ["user_id", "bot_id", "event_type", "is_read", "created_at"]
+    
+    # Add form columns to include all fields
+    form_columns = [
+        Notification.id,
+        Notification.user_id,
+        Notification.bot_id,
+        Notification.event_type,
+        Notification.event_data,
+        Notification.is_read,
+        Notification.created_at
+    ]
+
+class ClusterAdmin(ModelView, model=Cluster):
+    column_list = [
+        Cluster.cluster_id,
+        Cluster.bot_id,
+        Cluster.cluster_number,
+        Cluster.count
+    ]
+    column_searchable_list = [Cluster.bot_id, Cluster.cluster_number]
+    column_filters = ["bot_id", "cluster_number", "count"]
+    
+    # Add form columns to include all fields
+    form_columns = [
+        Cluster.cluster_id,
+        Cluster.bot_id,
+        Cluster.cluster_number,
+        Cluster.centroid,
+        Cluster.count
+    ]
+
+class ClusteredQuestionAdmin(ModelView, model=ClusteredQuestion):
+    column_list = [
+        ClusteredQuestion.id,
+        ClusteredQuestion.cluster_id,
+        ClusteredQuestion.question_text
+    ]
+    column_searchable_list = [ClusteredQuestion.cluster_id, ClusteredQuestion.question_text]
+    column_filters = ["cluster_id"]
+    
+    # Add form columns to include all fields
+    form_columns = [
+        ClusteredQuestion.id,
+        ClusteredQuestion.cluster_id,
+        ClusteredQuestion.question_text,
+        ClusteredQuestion.embedding
+    ]
 
 def init(app: FastAPI):
     admin = Admin(app=app, engine=engine, authentication_backend=authentication_backend)
@@ -353,3 +568,11 @@ def init(app: FastAPI):
     admin.add_view(SubscriptionPlanAdmin)
     admin.add_view(AddonAdmin)
     admin.add_view(UserSubscriptionAdmin)
+    admin.add_view(TeamMemberAdmin)
+    admin.add_view(InteractionReactionAdmin)
+    admin.add_view(ScrapedNodeAdmin)
+    admin.add_view(WebsiteDBAdmin)
+    admin.add_view(YouTubeVideoAdmin)
+    admin.add_view(NotificationAdmin)
+    admin.add_view(ClusterAdmin)
+    admin.add_view(ClusteredQuestionAdmin)

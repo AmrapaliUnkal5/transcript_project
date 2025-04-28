@@ -282,6 +282,16 @@ export const authApi = {
     return response.data;
   },
 
+  scrapeYoutubeVideos: async (selectedVideos: string[], botId: number) => {
+    const response = await api.post(`/scrape-youtube`, {
+      selected_videos: selectedVideos, 
+      bot_id: botId
+    }, {
+      headers: { "Content-Type": "application/json" }
+    });
+    return response.data;
+  },
+
   validatecaptcha: async (data: string) => {
     const response = await api.post('/validate-captcha', { user_input: data });
     return response.data;

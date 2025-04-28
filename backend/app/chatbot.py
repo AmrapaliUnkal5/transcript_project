@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Interaction, ChatMessage,YouTubeVideo, ScrapedNode, WebsiteDB,User, Bot
@@ -7,8 +7,8 @@ import openai
 import os
 import pdfplumber
 from app.utils.upload_knowledge_utils import extract_text_from_file,validate_and_store_text_in_ChromaDB
-from app.youtube import store_videos_in_chroma
-from app.schemas import YouTubeRequest,VideoProcessingRequest
+from app.youtube import store_videos_in_chroma, process_videos_in_background
+from app.schemas import YouTubeRequest,VideoProcessingRequest, YouTubeScrapingRequest
 from app.youtube import store_videos_in_chroma,get_video_urls
 from typing import List
 from urllib.parse import unquote
@@ -181,11 +181,29 @@ async def fetch_videos(request: YouTubeRequest):
     return {"video_urls": urls}
 
 @router.post("/process-videos")
-async def process_selected_videos(request: VideoProcessingRequest,db: Session = Depends(get_db)):
+async def process_selected_videos(
+    request: VideoProcessingRequest, 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     """API to process selected YouTube video transcripts and store them in ChromaDB."""
     try:
-        result = store_videos_in_chroma(request.bot_id, request.video_urls,db)
-        return result
+        # Queue the video processing in the background
+        # Note: We're using a background task, so this endpoint returns immediately
+        background_tasks.add_task(
+            process_videos_in_background,
+            request.bot_id,
+            request.video_urls,
+            db
+        )
+        
+        # Return immediately with a message that processing has started
+        # This response will not wait for the background task to complete
+        return {
+            "message": f"Processing {len(request.video_urls)} YouTube videos in the background. You will be notified when complete.",
+            "status": "processing",
+            "video_count": len(request.video_urls)
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
@@ -305,3 +323,13 @@ def soft_delete_scraped_url(bot_id: int, url: str = Query(...), db: Session = De
             print(f"Website {website_entry.id} marked as deleted.")
 
     return {"message": "Scraped URL soft deleted successfully."}
+
+# Adding a new endpoint for YouTube scraping
+@router.post("/scrape-youtube")
+def scrape_youtube_endpoint(request: YouTubeScrapingRequest, db: Session = Depends(get_db)):
+    """
+    Processes the selected YouTube videos and stores them in the database and vector store.
+    Similar to web scraping endpoint, but for YouTube videos.
+    """
+    result = store_videos_in_chroma(request.bot_id, request.selected_videos, db)
+    return {"message": "YouTube scraping completed", "data": result}
