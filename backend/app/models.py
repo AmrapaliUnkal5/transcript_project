@@ -354,6 +354,7 @@ class Addon(Base):
     zoho_addon_code = Column(String(100), nullable=True)
     addon_type = Column(String(50), nullable=True)
     zoho_product_id = Column(String, nullable=True)
+    is_recurring = Column(Boolean, default=False)
 
 class UserSubscription(Base):
     __tablename__ = "user_subscriptions"
@@ -449,3 +450,31 @@ class ClusteredQuestion(Base):
     embedding = Column(JSON)
 
     cluster = relationship("Cluster", back_populates="questions")
+
+class UserAddon(Base):
+    __tablename__ = "user_addons"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    addon_id = Column(Integer, ForeignKey("addons.id", ondelete="CASCADE"), nullable=False)
+    subscription_id = Column(Integer, ForeignKey("user_subscriptions.id", ondelete="CASCADE"), nullable=False)
+    purchase_date = Column(TIMESTAMP, default=func.current_timestamp(), nullable=False)
+    expiry_date = Column(TIMESTAMP, nullable=False)
+    is_active = Column(Boolean, default=True)
+    auto_renew = Column(Boolean, default=False)
+    status = Column(String(50), default="active", nullable=False)
+    zoho_addon_instance_id = Column(String(100), nullable=True)
+    created_at = Column(TIMESTAMP, default=func.current_timestamp())
+    updated_at = Column(TIMESTAMP, default=func.current_timestamp(), onupdate=func.current_timestamp())
+    
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint('id', 'user_id', name='user_addons_user_id_idx'),
+        UniqueConstraint('id', 'addon_id', name='user_addons_addon_id_idx'),
+        UniqueConstraint('id', 'subscription_id', name='user_addons_subscription_id_idx'),
+    )
+
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    addon = relationship("Addon", foreign_keys=[addon_id])
+    subscription = relationship("UserSubscription", foreign_keys=[subscription_id])

@@ -369,3 +369,48 @@ class TeamMemberOut(BaseModel):
 
     class Config:
         orm_mode = True
+class AddonSchema(BaseModel):
+    id: int
+    name: str
+    price: float
+    description: str
+    addon_type: Optional[str] = None
+    is_recurring: Optional[bool] = False
+    
+    class Config:
+        from_attributes = True
+
+class UserAddonBase(BaseModel):
+    user_id: int
+    addon_id: int
+    subscription_id: int
+    expiry_date: datetime
+    is_active: bool = True
+    auto_renew: bool = False
+    status: str = "active"
+
+class UserAddonCreate(UserAddonBase):
+    pass
+
+class UserAddonUpdate(BaseModel):
+    is_active: Optional[bool] = None
+    auto_renew: Optional[bool] = None
+    status: Optional[str] = None
+    expiry_date: Optional[datetime] = None
+
+class UserAddonOut(UserAddonBase):
+    id: int
+    purchase_date: datetime
+    created_at: datetime
+    updated_at: datetime
+    zoho_addon_instance_id: Optional[str] = None
+    addon: Optional[AddonSchema] = None
+    
+    class Config:
+        from_attributes = True
+
+class PurchaseAddonRequest(BaseModel):
+    addon_id: int
+    
+class CancelAddonRequest(BaseModel):
+    user_addon_id: int
