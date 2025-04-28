@@ -16,7 +16,7 @@ const WebScrapingTab: React.FC = () => {
   const { loading, setLoading } = useLoader();
   //const { selectedBot, setSelectedBot } = useBot(); // Use BotContext
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
   const { selectedBot } = useBot(); // Use BotContext
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [urlToDelete, setUrlToDelete] = useState<string | null>(null);
@@ -274,43 +274,62 @@ const WebScrapingTab: React.FC = () => {
         </p>
       </div>
 
-      {/* {nodes.length < 1 && (
-        <p className="text-sm text-gray-500">
-          This will help your chatbot understand your business context better.
-        </p>
-      )}
-      {nodes.length > 0 && (
-        <p className="text-sm text-gray-500">
-          You can select up to <strong>10 pages</strong> for free. Want to add
-          more?{" "}
-          <a href="/subscription" className="text-blue-500 underline">
-            Upgrade your subscription
-          </a>
-          .
-        </p>
-      )} */}
-
-      {nodes.length > 0 && (
+        {nodes.length > 0 && (
         <div className="mt-4">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Select Pages to Scrape:
-          </h4>
-          <div className="space-y-2">
-            {getPaginatedNodes().map((node, index) => (
-              <label key={index} className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  value={node}
-                  checked={selectedNodes.includes(node)}
-                  onChange={() => handleCheckboxChange(node)}
-                  className="h-5 w-5 text-blue-600 border-gray-400 rounded shrink-0"
-                />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {node}
-                </span>
-              </label>
-            ))}
+        <div className="flex justify-between mb-2">
+        <div className="flex space-x-2">
+          <button
+            onClick={() => {
+              // Select all nodes on the current page
+              const currentPageNodes = getPaginatedNodes();
+              setSelectedNodes(prev => [
+                ...new Set([...prev, ...currentPageNodes])
+              ]);
+              }}
+                className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+              >
+                Select Page
+          </button>
+          <button
+            onClick={() => {
+              // Select all nodes across all pages
+              setSelectedNodes(nodes);
+            }}
+              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+            >
+              Select All ({nodes.length})
+          </button>
+          <button
+              onClick={() => setSelectedNodes([])}
+              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+            >
+              Clear All
+          </button>
           </div>
+          <div className="text-sm text-gray-600">
+            Selected: {selectedNodes.length}
+          </div>
+          </div>
+
+        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Select Pages to Scrape:
+        </h4>
+          <div className="space-y-2">
+          {getPaginatedNodes().map((node, index) => (
+          <label key={index} className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              value={node}
+              checked={selectedNodes.includes(node)}
+              onChange={() => handleCheckboxChange(node)}
+              className="h-5 w-5 text-blue-600 border-gray-400 rounded shrink-0"
+            />
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              {node}
+            </span>
+          </label>
+          ))}
+        </div>
           <div className="flex justify-center mt-4">
             {renderPaginationButtons()}
           </div>

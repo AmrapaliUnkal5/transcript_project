@@ -20,7 +20,7 @@ import { useBot } from "../context/BotContext";
 import { useLoader } from "../context/LoaderContext";
 import Loader from "../components/Loader";
 import { authApi } from "../services/api";
-import { getPlanById, SubscriptionPlan } from "../types/index";
+import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 
 interface ConversationData {
   day: string;
@@ -81,9 +81,13 @@ export const Performance = () => {
 
   const userData = localStorage.getItem("user");
   const user = userData ? JSON.parse(userData) : null;
-  const userPlan: SubscriptionPlan = getPlanById(user?.subscription_plan_id);
-  const hasNoAnalyticsAccess = user?.subscription_plan_id === 1;
-  const hasAdvancedAnalytics = user?.subscription_plan_id === 4;
+  // const userPlan: SubscriptionPlan = getPlanById(user?.subscription_plan_id);
+  // const hasNoAnalyticsAccess = user?.subscription_plan_id === 1;
+  // const hasAdvancedAnalytics = user?.subscription_plan_id === 4;
+  const { getPlanById } = useSubscriptionPlans();
+  const userPlan = getPlanById(user?.subscription_plan_id);
+  const hasNoAnalyticsAccess = userPlan?.id === 1; // Free plan
+  const hasAdvancedAnalytics = userPlan?.id === 4; // Professional plan
   const [totalConversations, setTotalConversations] = useState(0);
 
   const getLast7DaysFormatted = () => {
@@ -195,6 +199,36 @@ export const Performance = () => {
     }
   };
 
+  const [billingCycleMetrics, setBillingCycleMetrics] = useState({
+    totalSessions: 0,
+    totalUserMessages: 0,
+    totalLikes: 0,
+    totalDislikes: 0,
+    totalChatDuration: "0h 0m 0s",
+  });
+
+  const fetchBillingCycleMetrics = async () => {
+    if (!selectedBot?.id) return;
+  
+    try {
+      setLoading(true);
+      const response = await authApi.getCurrentBillingMetrics({
+        bot_id: selectedBot.id,
+      });
+      setBillingCycleMetrics({
+        totalSessions: response.total_sessions,
+        totalUserMessages: response.total_user_messages,
+        totalLikes: response.total_likes,
+        totalDislikes: response.total_dislikes,
+        totalChatDuration: response.total_chat_duration,
+      });
+    } catch (error) {
+      console.error("Error fetching billing cycle metrics:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchFaqData = async () => {
     if (!selectedBot?.id) return;
 
@@ -233,6 +267,7 @@ export const Performance = () => {
     fetchConversationData();
     fetchSatisfactionData();
     fetchFaqData();
+    fetchBillingCycleMetrics();
   }, [selectedBot?.id]);
 
   if (loading) {
@@ -256,7 +291,7 @@ export const Performance = () => {
           {/* Weekly Conversations Chart */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Last Seven Days Conversation
+           User Messages Trend – Last 7 Days
             </h2>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -284,7 +319,7 @@ export const Performance = () => {
           {/* Average Time Spent Chart */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Last Seven days: Daily Average Time Spent on Bot
+            Daily Average Chat Duration – Last 7 Days
             </h2>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -319,7 +354,7 @@ export const Performance = () => {
           {/* User Satisfaction Chart */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              User Satisfaction
+            User Feedback – Last 7 Days
             </h2>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -353,7 +388,7 @@ export const Performance = () => {
           {/* Detailed Metrics Table */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
-              Detailed Metrics
+            Current Billing Cycle Metrics
             </h2>
             <div
               className={`overflow-x-auto ${
@@ -377,17 +412,26 @@ export const Performance = () => {
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {[
                     {
-                      metric: "Total Conversation Last 7 days",
-                      value: totalConversations.toLocaleString(),
-                      change: "+12%",
-                      positive: true,
+                      metric: "Total Sessions",
+                      value: billingCycleMetrics.totalSessions.toLocaleString(),
                     },
                     {
-                      metric: "Avg. Session Duration Last 7 days",
-                      value: totalTimeSpent.toLocaleString(),
-                      change: "+8%",
-                      positive: true,
+                      metric: "Total User Messages",
+                      value: billingCycleMetrics.totalUserMessages.toLocaleString(),
                     },
+                    {
+                      metric: "Total Likes",
+                      value: billingCycleMetrics.totalLikes.toLocaleString(),
+                    },
+                    {
+                      metric: "Total Dislikes",
+                      value: billingCycleMetrics.totalDislikes.toLocaleString(),
+                    },
+                    {
+                      metric: "Total Chat Duration",
+                      value: billingCycleMetrics.totalChatDuration,
+                    },
+                    
                   ].map((item) => (
                     <tr
                       key={item.metric}
@@ -426,7 +470,7 @@ export const Performance = () => {
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 h-[420px]">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Frequently Asked Questions
+            Frequently Asked Questions by Users
             </h2>
             <div
               className={`h-[calc(100%-40px)] overflow-y-auto ${

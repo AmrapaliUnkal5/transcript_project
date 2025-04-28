@@ -594,6 +594,15 @@ export const authApi = {
     return response.data;
   },
  
+  getCurrentBillingMetrics: async (params: { bot_id: number }) => {
+    const response = await api.get('/current-billing-metrics', {
+      params: {
+        bot_id: params.bot_id,
+      },
+    });
+    return response.data;
+  },
+ 
 };
 
 export const subscriptionApi = {
@@ -672,5 +681,7 @@ export const subscriptionApi = {
       
       throw error;
     }
-  }
+  },
+
+  
 };

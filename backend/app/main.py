@@ -56,6 +56,7 @@ from app.zoho_subscription_router import router as zoho_subscription_router
 from app.zoho_sync_scheduler import initialize_scheduler
 from app.admin_routes import router as admin_routes_router
 from app.widget_botsettings import router as widget_botsettings_router
+from app.current_billing_metrics import router as billing_metrics_router
 
 
 app = FastAPI(debug=True)
@@ -94,6 +95,7 @@ app.include_router(message_count_validations_router)
 app.include_router(zoho_subscription_router)
 app.include_router(admin_routes_router)
 app.include_router(widget_botsettings_router)
+app.include_router(billing_metrics_router)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 120
  
