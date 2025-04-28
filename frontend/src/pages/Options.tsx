@@ -1,11 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, Crown, Star, Gem } from "lucide-react";
+import { CheckCircle, Gem } from "lucide-react";
 
 export const PlanSelection = () => {
   const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-
 
   const handleSelect = (plan: string) => {
     setSelectedPlan(plan);
@@ -15,39 +14,55 @@ export const PlanSelection = () => {
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#f8fafc] dark:bg-gray-900 p-6">
       {/* Header */}
       <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-12">
-        Choose Your Option
+        Choose Your Plan
       </h1>
 
       {/* Plans Container */}
       <div className="w-full max-w-7xl flex gap-12">
-        {/* Free Plan */}
+        {/* Explorer Plan (Free Trial) */}
         <div
           className={`flex flex-col justify-between p-10 w-1/2 h-[450px] bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-2xl shadow-xl cursor-pointer transition-all duration-300 transform hover:scale-105 border-4 ${
-            selectedPlan === "free"
+            selectedPlan === "explorer"
               ? "border-blue-600"
               : "border-gray-300 dark:border-gray-600 hover:border-blue-500"
           }`}
           onClick={() => {
-            handleSelect("free");
+            handleSelect("explorer");
             navigate("/create-bot");
           }}
         >
           <div className="flex items-center mb-6">
             <CheckCircle className="w-14 h-14 text-blue-600 mr-4" />
-            <h2 className="text-4xl font-semibold">Go For Free Trial</h2>
+            <h2 className="text-4xl font-semibold">Start with Explorer (Free)</h2>
           </div>
           <p className="text-lg text-gray-600 dark:text-gray-400 leading-relaxed">
-            🚀 Get started for free! Ideal for beginners and small projects.
+            🚀 Kickstart your journey with a free trial! Best suited for individuals and small teams.
           </p>
           <ul className="text-lg text-gray-600 dark:text-gray-400">
-            <li>✅ Supports up to <strong>10 Root Nodes</strong></li>
-            <li>✅ Upload file size limit: <strong>50 MB</strong></li>
-            <li>🔹 <strong>No credit card required</strong></li>
-            <li>🔹 <strong>Instant setup, start building now!</strong></li>
+            <li className="flex items-start">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-2 mt-1 flex-shrink-0" />
+              <span><strong>50,000 words</strong> processing limit</span>
+            </li>
+            <li className="flex items-start">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-2 mt-1 flex-shrink-0" />
+              <span><strong>20 MB</strong> storage</span>
+            </li>
+            <li className="flex items-start">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-2 mt-1 flex-shrink-0" />
+              <span><strong>1 chatbot</strong> with basic customization</span>
+            </li>
+            <li className="flex items-start">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-2 mt-1 flex-shrink-0" />
+              <span>Crawl <strong>1 website</strong></span>
+            </li>
+            <li className="flex items-start">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-2 mt-1 flex-shrink-0" />
+              <span><strong>100 messages</strong> per month</span>
+            </li> 
           </ul>
         </div>
 
-        {/* Subscription Plan */}
+        {/* Paid Subscription Plans */}
         <div
           className={`flex flex-col justify-between p-10 w-1/2 h-[450px] bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-2xl shadow-xl cursor-pointer transition-all duration-300 transform hover:scale-105 border-4 ${
             selectedPlan === "subscription"
@@ -64,20 +79,17 @@ export const PlanSelection = () => {
             <h2 className="text-4xl font-semibold">View Subscription Plans</h2>
           </div>
           <p className="text-lg text-gray-600 dark:text-gray-400 leading-relaxed">
-            🏆 Unlock premium features for advanced users and businesses.
+            ✨ Unlock powerful features designed for growing teams and enterprises.
           </p>
           <ul className="text-lg text-gray-600 dark:text-gray-400">
-            <li>🔹 <strong>Basic</strong> – Ideal for individuals</li>
-            <li>🔹 <strong>Professional</strong> – Perfect for growing teams</li>
-            <li>🔹 <strong>Enterprise</strong> – Full-scale solutions</li>
-            <li>🔹 Includes <strong>priority support & analytics</strong></li>
+            <li>🔹 <strong>Starter</strong> – For individuals</li>
+            <li>🔹 <strong>Growth</strong> – For scaling teams</li>
+            <li>🔹 <strong>Professional</strong> – For established businesses</li>
+            <li>🔹 <strong>Enterprise</strong> – For large-scale custom needs</li>
+            <li>🔹 Includes <strong>Analytics, Priority Support, Multi-Website Deployment</strong></li>
           </ul>
         </div>
       </div>
     </div>
   );
 };
-
-
-
-
