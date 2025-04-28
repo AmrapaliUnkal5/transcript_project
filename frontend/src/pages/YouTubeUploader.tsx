@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { authApi } from "../services/api";
 import { useBot } from "../context/BotContext";
 
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
+import { toast } from "react-toastify";
+
 interface YouTubeUploaderProps {
   maxVideos?: number;
   refreshKey?: number; // Add refreshKey prop
@@ -23,6 +25,9 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+  const { setLoading: setGlobalLoading } = useLoader();
+  const [refreshKeyState, setRefreshKeyState] = useState<number>(0);
+  const [scrapeSuccess, setScrapeSuccess] = useState(false);
 
   // ✅ Reload video URLs when refreshKey changes
   useEffect(() => {
@@ -132,54 +137,52 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
     }
   };
 
-  //   const handleSelectVideo = (videoId: string) => {
-  //     setSelectedVideos((prev) =>
-  //       prev.includes(videoId)
-  //         ? prev.filter((id) => id !== videoId)
-  //         : [...prev, videoId]
-  //     );
-  //   };
-  // const handleSelectVideo = (videoId: string) => {
-  //   setSelectedVideos((prev) => {
-  //     if (prev.includes(videoId)) {
-  //       // If already selected, remove from the list
-  //       return prev.filter((id) => id !== videoId);
-  //     } else {
-  //       if (prev.length >= maxVideos) {
-  //         toast.error(`You can only select ${maxVideos} videos.`);
-  //         return prev; // Do not add more than 5
-  //       }
-  //       setIsVideoSelected(true); // At least one video is selecte
-  //       return [...prev, videoId];
-  //     }
-  //   });
-  // };
+  const handleSelectVideo = (videoUrl: string) => {
+    if (selectedVideos.includes(videoUrl)) {
+      setSelectedVideos(selectedVideos.filter((url) => url !== videoUrl));
+    } else {
+      setSelectedVideos([...selectedVideos, videoUrl]);
+      setIsVideoSelected(true);
+    }
+  };
 
-  const handleSelectVideo = (videoId: string) => {
-    setSelectedVideos((prev) => {
-      const test = localStorage.getItem("selected_videos");
-      console.log("handleSelectVideo", test);
-      let newSelection;
+  const handleScrape = async () => {
+    if (selectedVideos.length === 0) {
+      toast.error("Please select at least one video to process.");
+      return;
+    }
 
-      if (prev.includes(videoId)) {
-        // If the video is already selected, remove it
-        newSelection = prev.filter((id) => id !== videoId);
-      } else {
-        console.log("maxVideos", maxVideos);
-        console.log("prev.length", prev.length);
-        // if (prev.length >= maxVideos) {
-        //   toast.error(`You can only select ${maxVideos} videos.`);
-        //   return prev;
-        // }
-        // Add the new video
-        newSelection = [...prev, videoId];
+    setGlobalLoading(true);
+    try {
+      if (!selectedBot?.id) {
+        console.error("Bot ID is missing.");
+        return;
       }
+      const data = await authApi.scrapeYoutubeVideos(selectedVideos, selectedBot?.id);
+      console.log("YouTube scraping result:", data);
 
-      // Check if at least one video is selected
-      //setIsVideoSelected(newSelection.length > 0);
-
-      return newSelection;
-    });
+      if (data.message === "YouTube scraping completed") {
+        toast.success("YouTube videos processed successfully!");
+        setScrapeSuccess(true);
+        setRefreshKeyState(prev => prev + 1); // Trigger a refresh
+        setSelectedVideos([]);
+        setVideoUrls([]);
+        setYoutubeUrl("");
+        if (selectedBot?.status === "In Progress") {
+          await authApi.updateBotStatusActive(selectedBot.id, {
+            status: "Active",
+            is_active: true,
+          });
+        }
+      } else {
+        toast.error("Failed to process YouTube videos. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error processing YouTube videos:", error);
+      toast.error("An error occurred while processing videos. Please try again.");
+    } finally {
+      setGlobalLoading(false);
+    }
   };
 
   useEffect(() => {

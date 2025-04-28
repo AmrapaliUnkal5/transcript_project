@@ -189,12 +189,15 @@ class ConversationTrendResponse(BaseModel):
 
 
 class YouTubeRequest(BaseModel):
-    url: str  # Can be a channel or playlist URL
-
+    url: str
 
 class VideoProcessingRequest(BaseModel):
     bot_id: int
     video_urls: List[str]
+
+class YouTubeScrapingRequest(BaseModel):
+    bot_id: int
+    selected_videos: List[str]
 
 class BotUpdateStatus(BaseModel):
     

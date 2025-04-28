@@ -82,12 +82,21 @@ def get_video_transcript(video_url):
 
 from app.vector_db import add_document
 
+def send_failure_notification(db: Session, bot_id: int, video_url: str, reason: str):
+    """Sends a notification when a YouTube video fails to process."""
+    message = f"Failed to process YouTube video '{video_url}'. Reason: {reason}"
+    add_notification(
+        db=db,
+        event_type="YOUTUBE_VIDEO_FAILED",
+        event_data=message,
+        bot_id=bot_id,
+        user_id=None
+    )
 
-def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
+def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
 
     stored_videos = []
     failed_videos = []
-
 
     for video_url in video_urls:
         transcript = get_video_transcript(video_url)
@@ -96,7 +105,7 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
             reason = "Transcript retrieval failed"
             print(f"⚠️ {reason} for {video_url}")
             failed_videos.append({"video_url": video_url, "reason": reason})
-            send_failure_notification(db, bot_id,  video_url, reason)
+            send_failure_notification(db, bot_id, video_url, reason)
             continue
 
         try:
@@ -127,7 +136,7 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
                 reason = f"Video {info.get('id')} already exists. Skipping."
                 print(f"⚠️ {reason}")
                 failed_videos.append({"video_url": video_url, "reason": reason})
-                send_failure_notification(db, bot_id,  video_url, reason)
+                send_failure_notification(db, bot_id, video_url, reason)
                 continue
 
             # Enforce word limit
@@ -140,40 +149,38 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
                 send_failure_notification(db, bot_id, video_url, reason)
                 continue
 
-            # Construct video data
+            # Save video to database
             video_data = {
                 "video_id": info.get("id"),
-                "video_title": info.get("title", "Unknown Title"),
+                "video_title": info.get("title", "Untitled Video"),
                 "video_url": video_url,
                 "channel_id": info.get("channel_id", None),
-                "channel_name": info.get("channel", "Unknown Channel"),
+                "channel_name": info.get("uploader", "Unknown Channel"),
                 "duration": info.get("duration", 0),
-                "upload_date": datetime.strptime(info.get("upload_date", "19700101"), "%Y%m%d"),
+                "upload_date": datetime.strptime(info.get("upload_date", "19700101"), "%Y%m%d") if info.get("upload_date") else None,
                 "is_playlist": "playlist" in info.get("_type", ""),
                 "playlist_id": info.get("playlist_id", None),
                 "playlist_name": info.get("playlist_title", None),
                 "view_count": info.get("view_count", 0),
                 "likes": info.get("like_count", 0),
                 "description": info.get("description", None),
-                "thumbnail_url": info.get("thumbnail", None),
+                "thumbnail_url": info.get("thumbnail", None) if isinstance(info.get("thumbnail"), str) else None,
                 "bot_id": bot_id,
-                "transcript_count": word_count_transcript,
-                "created_at": datetime.now(timezone.utc),
+                "transcript_count": word_count_transcript
             }
 
-            # Save to DB
-            db_video = YouTubeVideo(**video_data)
-            db.add(db_video)
+            new_video = YouTubeVideo(**video_data)
+            db.add(new_video)
             db.commit()
-
             stored_videos.append(video_data)
 
-            # Send success notification
-            message = f"Video '{video_data['video_title']}' for bot added successfully. {word_count_transcript} words extracted."
+            # Add notification for successful video processing
+            event_type = "YOUTUBE_VIDEO_PROCESSED"
+            event_data = f"YouTube video '{video_data['video_title']}' processed successfully. {word_count_transcript} words extracted."
             add_notification(
                 db=db,
-                event_type="YOUTUBE_VIDEO_SAVED",
-                event_data=message,
+                event_type=event_type,
+                event_data=event_data,
                 bot_id=bot_id,
                 user_id=None
             )
@@ -191,19 +198,6 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str],db: Session):
         "stored_videos": stored_videos,
         "failed_videos": failed_videos
     }
-
-def send_failure_notification(db, bot_id, video_url, reason):
-    message = f"Failed to add video '{video_url}' for bot. Reason: {reason}"
-    add_notification(
-        db=db,
-        event_type="YOUTUBE_VIDEO_FAILED",
-        event_data=message,
-        bot_id=bot_id,
-        user_id=None
-    )
-
-
-
 
 def update_word_count_for_bot(transcript: str, bot_id: int, db: Session) -> dict:
     """Checks word count against the user's subscription limit and updates the total word count."""
@@ -236,3 +230,57 @@ def update_word_count_for_bot(transcript: str, bot_id: int, db: Session) -> dict
     bot.word_count = new_total_words_of_bot
     db.commit()
     return {"status": "success", "message": "✅ Word count updated successfully."}
+
+# Async version for background processing
+async def process_videos_in_background(bot_id: int, video_urls: list[str], db: Session):
+    """
+    Background task to process YouTube videos and send notification when complete.
+    This function is meant to be run as a background task.
+    """
+    print(f"🎬 Starting background processing of {len(video_urls)} YouTube videos for bot {bot_id}")
+    
+    try:
+        result = store_videos_in_chroma(bot_id, video_urls, db)
+        
+        # Prepare notification data
+        success_count = len(result.get("stored_videos", []))
+        failed_count = len(result.get("failed_videos", []))
+        
+        # Create notification for success
+        event_type = "YOUTUBE_PROCESSING_COMPLETE"
+        
+        if success_count > 0 and failed_count == 0:
+            event_data = f"✅ All {success_count} YouTube videos were processed successfully!"
+        elif success_count > 0 and failed_count > 0:
+            event_data = f"⚠️ {success_count} videos processed successfully, but {failed_count} videos failed."
+        else:
+            event_data = f"❌ All {failed_count} videos failed to process."
+        
+        # Get bot to find user_id
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        user_id = bot.user_id if bot else None
+        
+        # Add the completion notification
+        add_notification(
+            db=db,
+            event_type=event_type,
+            event_data=event_data,
+            bot_id=bot_id,
+            user_id=user_id
+        )
+        
+        print(f"🏁 Finished background processing of YouTube videos for bot {bot_id}: {success_count} success, {failed_count} failed")
+    
+    except Exception as e:
+        print(f"❌ Error in background processing of YouTube videos: {str(e)}")
+        # Send error notification
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        user_id = bot.user_id if bot else None
+        
+        add_notification(
+            db=db,
+            event_type="YOUTUBE_PROCESSING_ERROR",
+            event_data=f"❌ Error processing YouTube videos: {str(e)}",
+            bot_id=bot_id,
+            user_id=user_id
+        )

@@ -72,6 +72,7 @@ export const FileUpload = () => {
   const [processingMessage, setProcessingMessage] = useState(
     "Getting things ready for you..."
   );
+  const [isVideoProcessing, setIsVideoProcessing] = useState(false);
 
   type Video1 = {
     video_url: string;
@@ -213,15 +214,39 @@ export const FileUpload = () => {
       console.log("allvideosconst", allvideosconst);
 
       if (selectedBot?.id && parsedSelectedVideos.length > 0) {
-        setLoading(true);
+        // Set button state to loading instead of global loading
+        setIsVideoProcessing(true);
+        
         try {
           const responseyoutube = await authApi.storeSelectedYouTubeTranscripts(
             parsedSelectedVideos,
             selectedBot.id
           );
-          console.log("responseyoutube", responseyoutube);
-          console.log("Type of responseyoutube:", typeof responseyoutube);
-          console.log("Keys:", Object.keys(responseyoutube || {}));
+          console.log("responseyoutube----", responseyoutube);
+          console.log("Type of responseyoutube:-----", typeof responseyoutube);
+          console.log("Keys:--------------", Object.keys(responseyoutube || {}));
+          
+          // Check if the response is from background processing
+          if (responseyoutube.status === "processing") {
+            toast.info(
+              `${responseyoutube.video_count} YouTube videos are being processed in the background. You will be notified when complete.`
+            );
+            
+            // Clear selected videos since they're being processed
+            localStorage.removeItem("selected_videos");
+            setRefreshKey((prev) => prev + 1);
+            
+            if (selectedBot?.status === "In Progress") {
+              await authApi.updateBotStatusActive(selectedBot.id, {
+                status: "Active",
+                is_active: true,
+              });
+            }
+            
+            return; // Exit early since videos are being processed in background
+          }
+          
+          // Handle traditional synchronous response (for backward compatibility)
           if (responseyoutube && Object.keys(responseyoutube).length > 0) {
             const successCount = responseyoutube.stored_videos?.length || 0;
             console.log("successCount", successCount);
@@ -256,7 +281,8 @@ export const FileUpload = () => {
                 `All ${failedCount} video(s) failed to upload:\n\n${failedDetails}`
               );
             }
-          } // ✅ Remove processed videos from local storage
+          } 
+          // ✅ Remove processed videos from local storage
           console.log(
             "responseyoutube.stored_videos",
             responseyoutube.stored_videos
@@ -292,7 +318,8 @@ export const FileUpload = () => {
           console.error("Error processing YouTube videos:", error);
           toast.error("Failed to process YouTube videos.");
         } finally {
-          setLoading(false);
+          // Reset button state
+          setIsVideoProcessing(false);
         }
       }
     } catch (error) {
@@ -1148,9 +1175,16 @@ export const FileUpload = () => {
               <button
                 onClick={handleFinish}
                 className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                disabled={!isVideoSelected}
+                disabled={!isVideoSelected || isVideoProcessing}
               >
-                SAVE
+                {isVideoProcessing ? (
+                  <span className="flex items-center">
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </span>
+                ) : (
+                  "SAVE"
+                )}
               </button>
             </div>
           </div>
