@@ -58,17 +58,50 @@ from app.admin_routes import router as admin_routes_router
 from app.widget_botsettings import router as widget_botsettings_router
 from app.current_billing_metrics import router as billing_metrics_router
 
+# Import our custom logging components
+from app.utils.logging_config import setup_logging
+from app.utils.logger import get_module_logger
+from app.utils.logging_middleware import LoggingMiddleware
+
+# Import custom exceptions and handlers
+from app.utils.exceptions import (
+    AuthenticationError, 
+    AuthorizationError,
+    ValidationError,
+    ResourceNotFoundError,
+    DatabaseError,
+    ExternalServiceError,
+    RateLimitExceededError,
+    http_exception_handler
+)
+
+# Set up logging
+setup_logging(log_level=logging.INFO)
+logger = get_module_logger(__name__)
+
 
 app = FastAPI(debug=True)
+
+# Register exception handlers
+app.add_exception_handler(AuthenticationError, http_exception_handler)
+app.add_exception_handler(AuthorizationError, http_exception_handler)
+app.add_exception_handler(ValidationError, http_exception_handler)
+app.add_exception_handler(ResourceNotFoundError, http_exception_handler)
+app.add_exception_handler(DatabaseError, http_exception_handler)
+app.add_exception_handler(ExternalServiceError, http_exception_handler)
+app.add_exception_handler(RateLimitExceededError, http_exception_handler)
 
 # Check required environment variables
 zoho_product_id = os.getenv('ZOHO_DEFAULT_PRODUCT_ID')
 if not zoho_product_id:
-    print("\n⚠️ WARNING: ZOHO_DEFAULT_PRODUCT_ID environment variable is not set!")
-    print("This is required for addon synchronization with Zoho.\n")
+    logger.warning("ZOHO_DEFAULT_PRODUCT_ID environment variable is not set! This is required for addon synchronization with Zoho.")
 
 # Initialize Zoho sync scheduler
+logger.info("Initializing Zoho sync scheduler")
 initialize_scheduler()
+
+# Add the logging middleware
+app.add_middleware(LoggingMiddleware)
 
 app.mount("/uploads_bot", StaticFiles(directory="uploads_bot"), name="uploads_bot")
 app.include_router(botsettings_router)
@@ -88,7 +121,7 @@ app.include_router(weekly_Conversation)
 app.include_router(team_management_router)
 app.include_router(fetchsubscriptionplans_router)
 # Add addon router with explicit logger
-print("Registering subscription addons router...")
+logger.info("Registering subscription addons router...")
 app.include_router(fetchsubscriptionaddons_router)
 app.include_router(notifications_router)
 app.include_router(message_count_validations_router)
@@ -115,6 +148,7 @@ templates = Jinja2Templates(directory="app/templates")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Initialize Admin Panel
+logger.info("Initializing admin panel")
 init(app)
 
 #middleware configuration
@@ -177,7 +211,7 @@ async def extend_token_expiration(request: Request, call_next):
                 return response
         except Exception as e:
             # If there's any error decoding the token, just continue without refreshing
-            print(f"Error refreshing token: {e}")
+            logger.error(f"Error refreshing token: {str(e)}")
     
     # If no token or error, just continue with the request
     return await call_next(request)
@@ -188,10 +222,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 # Register API
 @app.post("/register", response_model=RegisterResponse)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
+    logger.info(f"Registering new user with email: {user.email}")
     db_user = get_user_by_email(db, user.email)
     if db_user:
+        logger.warning(f"Registration failed: Email already registered: {user.email}")
         raise HTTPException(status_code=400, detail="Emailid already registered")
     new_user = create_user(db, user)
+    logger.info(f"User registered successfully: {user.email}")
 
     # ✅ Generate JWT token for the registered user
     token_data = {
