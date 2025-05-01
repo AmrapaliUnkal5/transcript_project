@@ -27,7 +27,9 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         company_name: str = payload.get("company_name")  
         phone_no: str = payload.get("phone_no")
         subscription_plan_id: int = payload.get("subscription_plan_id", 1)
-        
+        is_team_member:bool = payload.get("is_team_member")
+        member_id:int = payload.get("member_id")
+
         if email is None or role is None:
             logger.warning("Token missing required fields", extra={"email_present": email is not None, "role_present": role is not None})
             raise credentials_exception
@@ -40,7 +42,9 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             "name": name,  
             "company_name": company_name, 
             "phone_no": phone_no,  
-            "subscription_plan_id": subscription_plan_id
+            "subscription_plan_id": subscription_plan_id,
+            "is_team_member": is_team_member,
+            "member_id" : member_id,
         }
     except JWTError as e:
         logger.error(f"JWT validation error: {str(e)}")

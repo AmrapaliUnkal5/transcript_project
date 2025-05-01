@@ -171,7 +171,12 @@ async def validate_and_upload_files(
             # Success message
             knowledge_upload_messages.append(f"Knowledge uploaded successfully for file: {original_filename}")
             event_type = "DOCUMENT UPLOADED"
-            event_data = f'"{original_filename}" uploaded to bot. {word_counts_list[i]} words extracted successfully.'
+            if current_user["is_team_member"] == True:
+                logged_in_team_member = current_user["member_id"]
+                event_data = f'"{original_filename}" uploaded to bot. {word_counts_list[i]} words extracted successfully by Team Member :{logged_in_team_member}' 
+            else:
+                event_data = f'"{original_filename}" uploaded to bot. {word_counts_list[i]} words extracted successfully.'
+                             
             add_notification(
                     
                     db=db,
@@ -254,9 +259,14 @@ async def delete_file(
     db.commit()
     print("DOCUMENT DELETED")
     event_type = "DOCUMENT DELETED"
-    message = f"Document '{file.file_name}' deleted successfully."
+    
     print("Bot.bot_id",Bot.bot_id)
     print("current",current_user["user_id"])
+    if current_user["is_team_member"] == True:
+        logged_in_team_member = current_user["member_id"]
+        message = f"Document '{file.file_name}' deleted successfully by Team Member :{logged_in_team_member}"
+    else:
+        message = f"Document '{file.file_name}' deleted successfully."
     add_notification(
                     
                     db=db,

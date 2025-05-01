@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, Upl
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .models import Base, User, UserSubscription
+from .models import Base, User, UserSubscription, TeamMember
 from .schemas import *
 from .crud import create_user,get_user_by_email, update_user_password,update_avatar
 from fastapi.security import OAuth2PasswordBearer
@@ -278,10 +278,18 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     if not db_user.is_verified:
         raise HTTPException(status_code=400, detail="Email not verified. Please activate your email-id.")
     
+    # Check if user is a team member
+    team_member_entry = db.query(TeamMember).filter(TeamMember.member_id == db_user.user_id).first()
+    is_team_member = team_member_entry is not None
+    owner_id = team_member_entry.owner_id if team_member_entry else None
+
+    subscription_user_id = owner_id if is_team_member else db_user.user_id
+    member_id = db_user.user_id if is_team_member else None
+    
     
      # Fetch the user's active subscription
     user_subscription = db.query(UserSubscription).filter(
-        UserSubscription.user_id == db_user.user_id,
+        UserSubscription.user_id == subscription_user_id,
         UserSubscription.status == "active"
     ).order_by(UserSubscription.payment_date.desc()).first()
 
@@ -291,12 +299,14 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     # Create a token for the user
     token_data = {"sub": db_user.email,
                   "role":db_user.role, 
-                  "user_id": db_user.user_id,
+                  "user_id": subscription_user_id,
                   "name": db_user.name,  
                   "company_name": db_user.company_name,  
                   "phone_no": db_user.phone_no,
                   "subscription_plan_id": subscription_plan_id,
-                  "total_words_used":db_user.total_words_used
+                  "total_words_used":db_user.total_words_used,
+                  "is_team_member": is_team_member,
+                   "member_id": member_id
                   }
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     
@@ -309,11 +319,13 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
             "name": db_user.name,
             "role": db_user.role,
             "company_name": db_user.company_name,
-            "user_id":db_user.user_id,
+            "user_id":subscription_user_id,
             "avatar_url":db_user.avatar_url,
             "phone_no":db_user.phone_no,
             "subscription_plan_id":subscription_plan_id,
-            "total_words_used":db_user.total_words_used
+            "total_words_used":db_user.total_words_used,
+            "is_team_member": is_team_member,
+            "member_id": member_id
         }
     }
 

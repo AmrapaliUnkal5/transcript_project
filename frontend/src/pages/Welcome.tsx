@@ -19,6 +19,7 @@ import Loader from "../components/Loader";
 // import { UserUsage } from "../types/index";
 // import { getPlanById, SubscriptionPlan } from "../types/index";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
+import { ThumbsUp, ThumbsDown } from "lucide-react";
 
 export const Welcome = () => {
   const { user } = useAuth();
@@ -26,18 +27,18 @@ export const Welcome = () => {
   const userId = user?.user_id;
   const { setSelectedBot } = useBot();
   const { setLoading } = useLoader();
-  const { 
-    plans, 
-    getPlanById, 
-    isLoading: isPlansLoading, 
-    setPlans, 
-    setLoading: setPlansLoading 
+  const {
+    plans,
+    getPlanById,
+    isLoading: isPlansLoading,
+    setPlans,
+    setLoading: setPlansLoading,
   } = useSubscriptionPlans();
   // This would come from your API in a real app
   //const [hasBots] = useState(true);
   const [hasBots, setHasBots] = useState<boolean | null>(null); // Track bot existence
   const [isDataLoaded, setIsDataLoaded] = useState(false);
-    const [bots, setBots] = useState<
+  const [bots, setBots] = useState<
     {
       id: number;
       name: string;
@@ -68,84 +69,91 @@ export const Welcome = () => {
   const userPlanId = user?.subscription_plan_id || 1;
   const userPlan = getPlanById(userPlanId);
 
-// Combined data loading effect
-useEffect(() => {
-  const loadAllData = async () => {
-    try {
-      setLoading(true);
-      setIsDataLoaded(false);
-      
-      // 1. Load subscription plans first
-      const plansData = await authApi.fetchPlans();
-      if (Array.isArray(plansData)) {
-        setPlans(plansData);
-        localStorage.setItem('subscriptionPlans', 
-          JSON.stringify({ 
-            data: plansData, 
-            timestamp: Date.now() 
-          }));
+  // Combined data loading effect
+  useEffect(() => {
+    const loadAllData = async () => {
+      try {
+        setLoading(true);
+        setIsDataLoaded(false);
+
+        // 1. Load subscription plans first
+        const plansData = await authApi.fetchPlans();
+        if (Array.isArray(plansData)) {
+          setPlans(plansData);
+          localStorage.setItem(
+            "subscriptionPlans",
+            JSON.stringify({
+              data: plansData,
+              timestamp: Date.now(),
+            })
+          );
+        }
+
+        // 2. Only proceed with bot data if we have a user ID
+        if (userId) {
+          let effectiveId = userId;
+
+          if (user?.is_team_member && user?.owner_id) {
+            effectiveId = user?.owner_id;
+          }
+          const [botResponse, trendsResponse, metrics] = await Promise.all([
+            authApi.getBotSettingsByUserId(effectiveId),
+            authApi.getConversationTrends(effectiveId),
+            authApi.getUsageMetrics(),
+          ]);
+
+          // Process bot data
+          const botExists = botResponse.length > 0;
+          setHasBots(botExists);
+
+          const extractedBots = botResponse.map((botObj) => {
+            const botId = Object.keys(botObj)[0];
+            const botData = botObj[botId];
+
+            return {
+              id: Number(botId),
+              name: botData.bot_name,
+              status: botData.status,
+              conversations: botData.conversation_count_today,
+              satisfaction: {
+                likes: botData.satisfaction?.likes || 0,
+                dislikes: botData.satisfaction?.dislikes || 0,
+              },
+            };
+          });
+
+          setBots(extractedBots);
+          setConversationTrends(trendsResponse);
+          setUsageMetrics(metrics);
+        }
+      } catch (error) {
+        console.error("Error loading data:", error);
+        setHasBots(false);
+      } finally {
+        setLoading(false);
+        setIsDataLoaded(true);
       }
+    };
 
-      // 2. Only proceed with bot data if we have a user ID
-      if (userId) {
-        const [botResponse, trendsResponse, metrics] = await Promise.all([
-          authApi.getBotSettingsByUserId(userId),
-          authApi.getConversationTrends(userId),
-          authApi.getUsageMetrics()
-        ]);
+    loadAllData();
+  }, [userId, setLoading, setPlans]);
 
-        // Process bot data
-        const botExists = botResponse.length > 0;
-        setHasBots(botExists);
+  if (isPlansLoading || !userPlan) {
+    return <Loader />;
+  }
 
-        const extractedBots = botResponse.map((botObj) => {
-          const botId = Object.keys(botObj)[0];
-          const botData = botObj[botId];
+  const maxBotsAllowed = userPlan.chatbot_limit;
+  const maxWordsAllowed = userPlan.word_count_limit;
+  const chatbotlimit = userPlan.chatbot_limit;
+  const storagelimit = userPlan.storage_limit;
+  const chat_messages_used = userPlan.message_limit;
 
-          return {
-            id: Number(botId),
-            name: botData.bot_name,
-            status: botData.status,
-            conversations: botData.conversation_count_today,
-            satisfaction: {
-              likes: botData.satisfaction?.likes || 0,
-              dislikes: botData.satisfaction?.dislikes || 0,
-            },
-          };
-        });
-
-        setBots(extractedBots);
-        setConversationTrends(trendsResponse);
-        setUsageMetrics(metrics);
-      }
-    } catch (error) {
-      console.error("Error loading data:", error);
-      setHasBots(false);
-    } finally {
-      setLoading(false);
-      setIsDataLoaded(true);
-    }
-  };
-
-  loadAllData();
-}, [userId, setLoading, setPlans]);
-
-if (isPlansLoading || !userPlan) {
-  return <Loader />;
-}
-
-const maxBotsAllowed = userPlan.chatbot_limit;
-const maxWordsAllowed = userPlan.word_count_limit;
-const chatbotlimit = userPlan.chatbot_limit;
-const storagelimit = userPlan.storage_limit;
-const chat_messages_used = userPlan.message_limit;
-
-const usedBytes = convertToBytes(usageMetrics.total_storage_used);
-const limitBytes = convertToBytes(storagelimit);
-const storageUsagePercent = Math.min(
-  (usedBytes / limitBytes) * 100,
-  100
-).toFixed(2);
+  const usedBytes = convertToBytes(usageMetrics.total_storage_used);
+  const limitBytes = convertToBytes(storagelimit);
+  const storageUsagePercent = Math.min(
+    (usedBytes / limitBytes) * 100,
+    100
+  ).toFixed(2);
 
   function convertToBytes(sizeStr: string): number {
     if (!sizeStr) return 0;
@@ -197,7 +205,6 @@ const storageUsagePercent = Math.min(
     //navigate("/Options");
   };
 
-  
   // const transformDataForGraph = (trends: any[]) => {
   //   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   //   const today = new Date().getDay(); // Get the current day of the week (0 = Sunday, 1 = Monday, etc.)
@@ -328,8 +335,8 @@ const storageUsagePercent = Math.min(
 
   const formatNumberWithCommas = (num: number | string): string => {
     // Convert to number if it's a string
-    const number = typeof num === 'string' ? parseFloat(num) : num;
-    return number.toLocaleString('en-US');
+    const number = typeof num === "string" ? parseFloat(num) : num;
+    return number.toLocaleString("en-US");
   };
 
   const transformDataForGraph = (conversationTrends: ConversationTrend[]) => {
@@ -525,15 +532,15 @@ const storageUsagePercent = Math.min(
                   Feedback
                 </div>
                 <div className="text-xl font-semibold text-gray-900 dark:text-white">
-                  <span className="text-sm">
-                    <span className="text-green-500">
-                      👍 {bot.satisfaction.likes}
+                  <span className="text-sm flex items-center space-x-2">
+                    <span className="flex items-center text-green-500 space-x-1">
+                      <ThumbsUp size={14} />
+                      <span>{bot.satisfaction.likes}</span>
                     </span>
-                    <span className="mx-1 text-gray-300 dark:text-gray-500">
-                      |
-                    </span>
-                    <span className="text-red-500">
-                      👎 {bot.satisfaction.dislikes}
+                    <span className="text-gray-300 dark:text-gray-500">|</span>
+                    <span className="flex items-center text-red-500 space-x-1">
+                      <ThumbsDown size={14} />
+                      <span>{bot.satisfaction.dislikes}</span>
                     </span>
                   </span>
                 </div>
@@ -575,7 +582,8 @@ const storageUsagePercent = Math.min(
               </span>
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 {/* {usageMetrics.total_words_used} / {maxWordsAllowed} */}
-                {formatNumberWithCommas(usageMetrics.total_words_used)} / {formatNumberWithCommas(maxWordsAllowed)}
+                {formatNumberWithCommas(usageMetrics.total_words_used)} /{" "}
+                {formatNumberWithCommas(maxWordsAllowed)}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
@@ -599,7 +607,8 @@ const storageUsagePercent = Math.min(
               </span>
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 {/* {usageMetrics.chat_messages_used} / {chat_messages_used} */}
-                {formatNumberWithCommas(usageMetrics.chat_messages_used)} / {formatNumberWithCommas(chat_messages_used)}
+                {formatNumberWithCommas(usageMetrics.chat_messages_used)} /{" "}
+                {formatNumberWithCommas(chat_messages_used)}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
@@ -647,7 +656,7 @@ const storageUsagePercent = Math.min(
           </p> */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Bot Session Trend – Last 7 Days
+              Bot Session Trend – Last 7 Days
             </h2>
             {/* Info Tooltip */}
             <div className="relative group">
@@ -703,12 +712,12 @@ const storageUsagePercent = Math.min(
   return (
     <div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
       {!isDataLoaded || hasBots === null ? (
-      <Loader /> // Show loader while data is loading
-    ) : hasBots ? (
-      <ExistingUserDashboard />
-    ) : (
-      <NewUserWelcome />
-    )}
-  </div>
-);
+        <Loader /> // Show loader while data is loading
+      ) : hasBots ? (
+        <ExistingUserDashboard />
+      ) : (
+        <NewUserWelcome />
+      )}
+    </div>
+  );
 };

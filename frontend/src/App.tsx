@@ -30,6 +30,7 @@ import { ReportIssue } from "./pages/ReportIssue.tsx";
 import { CustomerSupportRequest } from "./pages/CustomerSupport.tsx";
 import { SubscriptionPlanProvider } from "./context/SubscriptionPlanContext";
 import { ScriptGeneratePage } from "./pages/ScriptGeneratePage";
+import { TeamInvitation } from "./pages/TeamInvitation.tsx";
 
 function App() {
   return (
@@ -49,6 +50,10 @@ function App() {
                 <Route path="/demo" element={<Demo />} />
                 <Route path="/faq" element={<FAQ />} />
                 <Route path="/privacy_policy" element={<PrivacyPolicy />} />
+                <Route
+                  path="/team/invitation/:invitation_token"
+                  element={<TeamInvitation />}
+                />
                 <Route path="/terms" element={<TermsOfService />} />
                 <Route path="report-issue" element={<ReportIssue />} />
                 <Route

@@ -358,8 +358,8 @@ export const ChatbotCustomization = () => {
         <div className="text-gray-500 dark:text-white text-lg">
           No bot selected.
         </div>
-        <button 
-          onClick={() => navigate('/')}
+        <button
+          onClick={() => navigate("/")}
           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
         >
           Go to Home
@@ -637,7 +637,7 @@ export const ChatbotCustomization = () => {
             handleChange("name", e.target.value),
         },
         {
-          label: "Bot Icon",
+          label: "Bot Avatar",
           type: "file",
           accept: "image/*",
           onChange: handleFileChange,
@@ -686,7 +686,7 @@ export const ChatbotCustomization = () => {
       icon: Palette,
       fields: [
         {
-          label: "Max Message Length",
+          label: "Maximum User Message Length",
           type: "number",
           min: 100,
           max: 1000,
@@ -750,7 +750,7 @@ export const ChatbotCustomization = () => {
             handleChange("appearance", e.target.value),
         },
         {
-          label: "Temperature",
+          label: "Model Temperature",
           type: "slider",
           min: 0,
           max: 1,
@@ -770,8 +770,8 @@ export const ChatbotCustomization = () => {
         <div className="text-gray-500 dark:text-white text-lg">
           No bot selected.
         </div>
-        <button 
-          onClick={() => navigate('/')}
+        <button
+          onClick={() => navigate("/")}
           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
         >
           Go to Home
@@ -854,7 +854,11 @@ export const ChatbotCustomization = () => {
               <div className="space-y-4">
                 {section.fields.map((field) => (
                   <div key={field.label}>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label
+                      className={`block text-sm font-medium text-gray-700 dark:text-gray-300 ${
+                        field.type === "slider" ? "mb-5" : "mb-1"
+                      }`}
+                    >
                       {field.label}
                     </label>
                     {field.type === "select" ? (
@@ -928,7 +932,7 @@ export const ChatbotCustomization = () => {
           {/* Chat Window */}
           <div
             ref={chatContainerRef}
-            className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 h-[950px] overflow-y-auto flex flex-col"
+            className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 h-[1250px] overflow-y-auto flex flex-col"
             style={{
               backgroundColor: settings.windowBgColor,
             }}
@@ -1049,7 +1053,12 @@ export const ChatbotCustomization = () => {
                   : "Type a message..."
               }
               value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value.length <= settings.maxMessageLength) {
+                  setInputMessage(value);
+                }
+              }}
               onKeyDown={(e) => {
                 if (
                   e.key === "Enter" &&
@@ -1072,12 +1081,19 @@ export const ChatbotCustomization = () => {
                 !canSendMessage() ||
                 waitingForBotResponse ||
                 isBotTyping ||
-                previewLoading
+                previewLoading ||
+                inputMessage.length > settings.maxMessageLength
               }
             >
               Send
             </button>
           </div>
+          {/* Show warning if max length reached */}
+          {inputMessage.length === settings.maxMessageLength && (
+            <div className="text-xs text-red-500 mt-1">
+              You have reached the maximum allowed characters.
+            </div>
+          )}
         </div>
       </div>
     </div>

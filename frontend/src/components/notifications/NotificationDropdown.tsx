@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Check } from "lucide-react";
+//import { Check } from "lucide-react";
 import { authApi } from "../../services/api";
+import { Trash } from "lucide-react";
 
 type Notification = {
   id: number;
@@ -96,7 +97,7 @@ export const NotificationDropdown = () => {
             <span>Notifications</span>
             {notifications.length > 0 && (
               <button onClick={handleMarkAllAsRead} title="Mark all as read">
-                <Check className="w-5 h-5 hover:text-green-500" />
+                <Trash className="w-4 h-4 text-red-500 hover:text-red-700" />
               </button>
             )}
           </div>
@@ -127,7 +128,7 @@ export const NotificationDropdown = () => {
                     title="Mark as read"
                     className="ml-2"
                   >
-                    <Check className="w-4 h-4 text-green-500 hover:text-green-700" />
+                    <Trash className="w-3 h-3 text-red-500 hover:text-red-700" />
                   </button>
                 </li>
               ))
