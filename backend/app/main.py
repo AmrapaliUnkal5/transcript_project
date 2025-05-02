@@ -89,13 +89,6 @@ from app.cron import init_scheduler
 
 
 app = FastAPI(debug=True)
-# Initialize the scheduler
-scheduler = init_scheduler()
-
-# Add shutdown handler
-@app.on_event("shutdown")
-def shutdown_event():
-    scheduler.shutdown()
 
 # Register exception handlers
 app.add_exception_handler(AuthenticationError, http_exception_handler)
@@ -105,6 +98,14 @@ app.add_exception_handler(ResourceNotFoundError, http_exception_handler)
 app.add_exception_handler(DatabaseError, http_exception_handler)
 app.add_exception_handler(ExternalServiceError, http_exception_handler)
 app.add_exception_handler(RateLimitExceededError, http_exception_handler)
+
+# Initialize the scheduler
+scheduler = init_scheduler()
+
+# Add shutdown handler
+@app.on_event("shutdown")
+def shutdown_event():
+    scheduler.shutdown()
 
 # Check required environment variables
 zoho_product_id = os.getenv('ZOHO_DEFAULT_PRODUCT_ID')
@@ -116,7 +117,7 @@ logger.info("Initializing Zoho sync scheduler")
 initialize_scheduler()
 
 # Add the logging middleware
-app.add_middleware(LoggingMiddleware)
+#app.add_middleware(LoggingMiddleware)
 
 app.mount("/uploads_bot", StaticFiles(directory="uploads_bot"), name="uploads_bot")
 app.include_router(botsettings_router)
@@ -199,7 +200,9 @@ async def extend_token_expiration(request: Request, call_next):
     """
     # Skip token refresh for authentication endpoints
     if request.url.path in ["/login", "/token", "/register", "/forgot-password", "/reset-password"]:
-        return await call_next(request)
+        response = await call_next(request)
+        return response
+        
     
     # Get the authorization header
     auth_header = request.headers.get("Authorization")
@@ -240,7 +243,8 @@ async def extend_token_expiration(request: Request, call_next):
             logger.error(f"Error refreshing token: {str(e)}")
     
     # If no token or error, just continue with the request
-    return await call_next(request)
+    response = await call_next(request)
+    return response
 
 # For OAuth2 Password Bearer (for login)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -313,11 +317,14 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     member_id = db_user.user_id if is_team_member else None
     
     
-     # Fetch the user's active subscription
+    
     user_subscription = db.query(UserSubscription).filter(
     UserSubscription.user_id == db_user.user_id,
     UserSubscription.status != "pending"
     ).order_by(UserSubscription.payment_date.desc()).first()
+
+    print("If user subscription", user_subscription)
+    print("user sub id=>", user_subscription.subscription_plan_id)
 
 # Get message addon (ID 5) details if exists
     message_addon = db.query(UserAddon).filter(
@@ -328,6 +335,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
 
     # If no active subscription exists, set default subscription ID to 1
     subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
+    print("")
 
     user_addons = db.query(UserAddon).filter(
         UserAddon.user_id == db_user.user_id,
@@ -335,9 +343,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     ).all()
     
     addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
-
-    
-    
+   
     # Create a token for the user
     token_data = {"sub": db_user.email,
                   "role":db_user.role, 
@@ -498,6 +504,9 @@ def login_for_access_token(
         UserSubscription.user_id == user.user_id,
         UserSubscription.status != "pending"
     ).order_by(UserSubscription.payment_date.desc()).first()
+
+    print("If user subscription", user_subscription)
+    print("user sub id=>", user_subscription.subscription_plan_id)
     
     subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
 

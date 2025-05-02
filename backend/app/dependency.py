@@ -1,3 +1,4 @@
+from requests import Session
 from app.middleware import get_db
 from app.models import User
 from fastapi import Depends, HTTPException, status, Request
@@ -8,21 +9,16 @@ from app.utils.logger import get_module_logger
 
 # Initialize logger
 logger = get_module_logger(__name__)
-from sqlalchemy.orm import Session
-from app.addon_service import AddonService
-from app.crud import get_user_by_email
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """
-    Get the current user based on their authentication token.
-    """
+def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         logger.debug("Decoded token payload", extra={"payload": payload})
@@ -30,11 +26,13 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         email: str = payload.get("sub")
         role: str = payload.get("role")
         user_id: int = payload.get("user_id")
-        name: str = payload.get("name")
-        company_name: str = payload.get("company_name")
+        name: str = payload.get("name")  
+        company_name: str = payload.get("company_name")  
         phone_no: str = payload.get("phone_no")
         subscription_plan_id: int = payload.get("subscription_plan_id", 1)
-         
+        is_team_member:bool = payload.get("is_team_member")
+        member_id:int = payload.get("member_id")
+
         if email is None or role is None:
             logger.warning("Token missing required fields", extra={"email_present": email is not None, "role_present": role is not None})
             raise credentials_exception
@@ -79,7 +77,7 @@ def require_role(allowed_roles: list[str]):
         return user_data
 
     return role_checker
-
+    
 from app.addon_service import AddonService
 
 def require_addon(addon_type: str):
