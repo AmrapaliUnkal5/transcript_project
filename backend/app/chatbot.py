@@ -17,6 +17,7 @@ from app.llm_manager import LLMManager
 from app.models import Bot
 from app.notifications import add_notification
 from app.utils.logger import get_module_logger
+from app.celery_tasks import process_youtube_videos
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -234,7 +235,7 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
 
 @router.post("/process_youtube")
 def process_youtube(request: Request, bot_id: int, channel_url: str, db: Session = Depends(get_db)):
-    """Extracts video transcripts from a YouTube channel and stores them in ChromaDB for the bot."""
+    """Extracts video transcripts from a YouTube channel and stores them in ChromaDB for the bot using Celery."""
     request_id = getattr(request.state, "request_id", "unknown")
     
     logger.info(f"Processing YouTube channel/video", 
@@ -252,10 +253,25 @@ def process_youtube(request: Request, bot_id: int, channel_url: str, db: Session
         raise HTTPException(status_code=400, detail="Invalid YouTube channel or playlist URL.")
     
     try:
-        result = store_videos_in_chroma(bot_id, channel_url)
-        logger.info(f"YouTube processing completed", 
-                   extra={"request_id": request_id, "bot_id": bot_id, "result": result})
-        return result
+        # Fetch video URLs
+        urls = get_video_urls(channel_url)
+        if not urls:
+            logger.warning(f"No videos found at URL", 
+                         extra={"request_id": request_id, "bot_id": bot_id, "url": channel_url})
+            raise HTTPException(status_code=404, detail="No videos found at the specified URL.")
+        
+        # Launch Celery task to process videos
+        task = process_youtube_videos.delay(bot_id, urls)
+        
+        logger.info(f"YouTube processing started with Celery task ID: {task.id}", 
+                   extra={"request_id": request_id, "bot_id": bot_id, "task_id": task.id, 
+                         "video_count": len(urls)})
+        
+        return {
+            "message": f"Processing {len(urls)} videos in the background",
+            "video_count": len(urls),
+            "task_id": task.id
+        }
     except Exception as e:
         logger.exception(f"Error processing YouTube content", 
                         extra={"request_id": request_id, "bot_id": bot_id, 
@@ -291,10 +307,9 @@ async def fetch_videos(request: Request, video_request: YouTubeRequest):
 async def process_selected_videos(
     request: Request,
     video_request: VideoProcessingRequest, 
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    """API to process selected YouTube video transcripts and store them in ChromaDB."""
+    """API to process selected YouTube video transcripts and store them in ChromaDB using Celery."""
     request_id = getattr(request.state, "request_id", "unknown")
     
     logger.info(f"Processing selected videos", 
@@ -302,20 +317,20 @@ async def process_selected_videos(
                      "video_count": len(video_request.video_urls) if video_request.video_urls else 0})
     
     try:
-        # Queue the video processing in the background
-        # Note: We're using a background task, so this endpoint returns immediately
-        background_tasks.add_task(
-            process_videos_in_background,
+        # Launch Celery task
+        task = process_youtube_videos.delay(
             video_request.bot_id,
-            video_request.video_urls,
-            db
+            video_request.video_urls
         )
         
-        logger.info(f"Video processing started in background", 
-                   extra={"request_id": request_id, "bot_id": video_request.bot_id})
+        logger.info(f"Video processing started with Celery task ID: {task.id}", 
+                   extra={"request_id": request_id, "bot_id": video_request.bot_id, "task_id": task.id})
                    
         # Return immediately with a message that processing has started
-        return {"message": "Video processing started in the background"}
+        return {
+            "message": "Video processing started in the background",
+            "task_id": task.id
+        }
     except Exception as e:
         logger.exception(f"Error starting video processing", 
                         extra={"request_id": request_id, "bot_id": video_request.bot_id, 
@@ -445,7 +460,7 @@ def soft_delete_scraped_url(request: Request, bot_id: int, url: str = Query(...)
 
 @router.post("/scrape-youtube")
 def scrape_youtube_endpoint(request: Request, youtube_request: YouTubeScrapingRequest, db: Session = Depends(get_db)):
-    """Processes selected YouTube video transcripts and stores them in ChromaDB."""
+    """Processes selected YouTube video transcripts and stores them in ChromaDB using Celery."""
     request_id = getattr(request.state, "request_id", "unknown")
     
     logger.info(f"Scraping YouTube content", 
@@ -453,13 +468,19 @@ def scrape_youtube_endpoint(request: Request, youtube_request: YouTubeScrapingRe
                      "video_urls": youtube_request.video_urls})
     
     try:
-        # Logic for processing YouTube videos and storing in ChromaDB
-        process_videos_in_background(youtube_request.bot_id, youtube_request.video_urls, db)
+        # Launch Celery task for processing YouTube videos
+        task = process_youtube_videos.delay(
+            youtube_request.bot_id,
+            youtube_request.video_urls
+        )
         
-        logger.info(f"YouTube scraping completed", 
-                   extra={"request_id": request_id, "bot_id": youtube_request.bot_id})
+        logger.info(f"YouTube scraping started with Celery task ID: {task.id}", 
+                   extra={"request_id": request_id, "bot_id": youtube_request.bot_id, "task_id": task.id})
         
-        return {"message": "YouTube content processed successfully"}
+        return {
+            "message": "YouTube content processing started",
+            "task_id": task.id
+        }
     except Exception as e:
         logger.exception(f"Error scraping YouTube content", 
                         extra={"request_id": request_id, "bot_id": youtube_request.bot_id, 

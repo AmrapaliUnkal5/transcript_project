@@ -57,6 +57,7 @@ from app.zoho_sync_scheduler import initialize_scheduler
 from app.admin_routes import router as admin_routes_router
 from app.widget_botsettings import router as widget_botsettings_router
 from app.current_billing_metrics import router as billing_metrics_router
+from app.celery_app import celery_app
 
 # Import our custom logging components
 from app.utils.logging_config import setup_logging
@@ -548,3 +549,30 @@ async def validate_captcha(data: CaptchaRequest):
     print("capta",captcha_store.get("captcha", ""))
     is_valid = data.user_input == captcha_store.get("captcha", "")
     return {"valid": is_valid, "message": "Captcha validated", "user_input": data.user_input}
+
+@app.get("/task/{task_id}", response_model=dict)
+def check_task_status(task_id: str):
+    """API endpoint to check the status of a Celery task."""
+    logger.info(f"Checking status of task {task_id}")
+    
+    try:
+        task = celery_app.AsyncResult(task_id)
+        
+        result = {
+            "task_id": task_id,
+            "status": task.status,
+            "done": task.ready()
+        }
+        
+        # If task is complete, add the result
+        if task.ready():
+            if task.successful():
+                result["result"] = task.result
+            else:
+                result["error"] = str(task.result)
+        
+        logger.info(f"Task {task_id} status: {task.status}")
+        return result
+    except Exception as e:
+        logger.exception(f"Error checking task status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error checking task status: {str(e)}")
