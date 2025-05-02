@@ -354,6 +354,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       window_bg_color,
       appearance,
       input_bg_color,
+      max_words_per_message,
     } = botSettings;
 
     const [vertical, horizontal] = (position || "bottom-right").split("-");
@@ -806,7 +807,15 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             }}
             placeholder="Type a message..."
             value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (
+                !max_words_per_message ||
+                value.length <= max_words_per_message
+              ) {
+                setInputMessage(value);
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && inputMessage.trim()) {
                 sendMessage();
@@ -840,6 +849,12 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             Send
           </button>
         </div>
+        {/* Show warning if max length reached */}
+        {inputMessage.length === max_words_per_message && (
+          <div className="text-xs text-red-500 mt-1">
+            You have reached the maximum allowed characters.
+          </div>
+        )}
       </div>
     );
   }

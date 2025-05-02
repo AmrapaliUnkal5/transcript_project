@@ -41,9 +41,9 @@ class TokenPayload(BaseModel):
 
 # Define permission levels for team members
 class TeamMemberRole(enum.Enum):
-    ADMIN = "admin"       # Can manage team members and all bots
-    EDITOR = "editor"     # Can edit bot settings, training data, etc.
-    VIEWER = "viewer"     # Can only view bots and analytics
+    admin = "admin"    # Lowercase to match PostgreSQL exactly
+    editor = "editor"
+    viewer = "viewer"     # Can only view bots and analytics
 
 # Team member model to track user relationships
 class TeamMember(Base):
@@ -52,7 +52,7 @@ class TeamMember(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     owner_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
     member_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
-    role = Column(Enum(TeamMemberRole), nullable=False, default=TeamMemberRole.VIEWER)
+    role = Column(Enum(TeamMemberRole), nullable=False, default=TeamMemberRole.viewer)
     invitation_status = Column(String(20), nullable=False, default="pending")  # pending, accepted, declined
     invitation_token = Column(String(255), nullable=True)
     invitation_sent_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)

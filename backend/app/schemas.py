@@ -48,9 +48,9 @@ class RegisterResponse(BaseModel):
 
 # Team member schemas
 class TeamMemberRole(str, Enum):
-    ADMIN = "admin"
-    EDITOR = "editor"
-    VIEWER = "viewer"
+    admin = "admin"
+    editor = "editor"
+    viewer = "viewer"
 
 class TeamMemberInviteRequest(BaseModel):
     email: EmailStr
@@ -357,3 +357,15 @@ class ZohoCheckoutRequest(BaseModel):
 
 class ZohoCheckoutResponse(BaseModel):
     checkout_url: str
+
+class TeamMemberOut(BaseModel):
+    id: int
+    owner_id: int
+    member_id: int
+    role: TeamMemberRole
+    invitation_status: str
+    invitation_sent_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True

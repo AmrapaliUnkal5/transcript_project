@@ -24,6 +24,7 @@ export const Settings = () => {
     new_password: "",
     confirm_password: "",
   });
+  const [isTeamMember, setIsTeamMember] = useState(false);
   const [showPassword, setShowPassword] = useState({
     current: false,
     new: false,
@@ -90,6 +91,27 @@ export const Settings = () => {
 
     fetchUserDetails();
   }, []);
+
+  useEffect(() => {
+    const checkUserRole = async () => {
+      if (!user?.user_id) return;
+
+      try {
+        // const userTeam = await authApi.getUserTeam(user.user_id);
+        // console.log("userTeam?.owner_id ", userTeam?.owner_id);
+        // if (userTeam?.owner_id && userTeam.owner_id !== user.id)
+        if (user?.is_team_member == true) {
+          setIsTeamMember(true); // ✅ Mark as a team member
+        }
+      } catch (error) {
+        console.error("Error fetching Team Details:", error);
+        // If no team found, this is likely an individual user or team owner
+        setIsTeamMember(false);
+      }
+    };
+
+    checkUserRole();
+  }, [user?.user_id]);
 
   if (!settings) {
     return <p>Loading...</p>;
@@ -345,19 +367,21 @@ export const Settings = () => {
           Profile
         </div>
       </button>
-      <button
-        className={`px-4 py-2 ${
-          activeTab === "team"
-            ? "border-b-2 border-blue-500 text-blue-600"
-            : "text-gray-500 hover:text-gray-700"
-        }`}
-        onClick={() => setActiveTab("team")}
-      >
-        <div className="flex items-center">
-          <Users className="w-4 h-4 mr-2" />
-          Team
-        </div>
-      </button>
+      {!isTeamMember && (
+        <button
+          className={`px-4 py-2 ${
+            activeTab === "team"
+              ? "border-b-2 border-blue-500 text-blue-600"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+          onClick={() => setActiveTab("team")}
+        >
+          <div className="flex items-center">
+            <Users className="w-4 h-4 mr-2" />
+            Team
+          </div>
+        </button>
+      )}
     </div>
   );
 
@@ -425,7 +449,9 @@ export const Settings = () => {
 
       <div className="md:col-span-2">
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4 text-white">Profile Information</h2>
+          <h2 className="text-lg font-semibold mb-4 text-white">
+            Profile Information
+          </h2>
           <div className="space-y-4">
             <div>
               <label
@@ -547,7 +573,9 @@ export const Settings = () => {
         </div>
         <div className="md:col-span-2 mt-6">
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4 text-white">Subscription Details</h2>
+            <h2 className="text-lg font-semibold mb-4 text-white">
+              Subscription Details
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -634,7 +662,9 @@ export const Settings = () => {
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mt-6">
           <div className="flex items-center mb-4">
             <Key className="w-5 h-5 mr-2 text-gray-500" />
-            <h2 className="text-lg font-semibold mb-4 text-white">Change Password</h2>
+            <h2 className="text-lg font-semibold mb-4 text-white">
+              Change Password
+            </h2>
           </div>
           <div className="space-y-4">
             <div>

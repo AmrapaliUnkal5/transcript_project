@@ -8,9 +8,9 @@ from .schemas import (
     TeamMemberUpdate, 
     TeamMemberResponse, 
     TeamMemberListItem,
-    TeamMemberInviteRequest
+    TeamMemberInviteRequest,TeamMemberOut
 )
-from .models import User
+from .models import User, TeamMember
 from typing import List, Dict, Any
 from .utils.email_helper import send_email
 from fastapi.responses import JSONResponse
@@ -28,7 +28,7 @@ def send_invitation_email(
 ):
     """Send email invitation to team member"""
     subject = f"Invitation to join {owner_name}'s team"
-    
+    print("Sending email",member_email)
     # Create invitation accept link
     invitation_url = f"{settings.BASE_URL}/team/invitation/{invitation_token}"
     
@@ -48,6 +48,37 @@ def send_invitation_email(
     
     send_email(member_email, subject, body)
 
+# Helper function to send invitation email
+def send_password_email(db: Session, member_id: int):
+    """Send account confirmation email with login credentials"""
+    user = db.query(User).filter(User.user_id == member_id).first()
+
+    if not user:
+        print(f"User with id {member_id} not found.")
+        return
+
+    subject = "You have been added to a team – Login Credentials"
+
+    body = f"""
+    Hello {user.email},
+
+    You have been successfully added as a team member.
+
+    Please use the following credentials to log in:
+
+    Username: {user.email}
+    Password: evolrai123
+
+    Login here: {settings.BASE_URL}/login
+
+    ⚠️ This is a temporary password. Please change it after logging in.
+
+    Best regards,
+    The Team
+    """
+
+    send_email(user.email, subject, body)
+
 @router.post("/invite", response_model=dict)
 async def invite_team_member(
     background_tasks: BackgroundTasks,
@@ -58,14 +89,24 @@ async def invite_team_member(
     """Invite a user to join current user's team"""
     owner_id = current_user["user_id"]
     
+    
     # Convert from request schema to create schema
     team_member_create = TeamMemberCreate(
         member_email=invite_data.email,
         role=invite_data.role
     )
+
+    # ✅ Check if user with email already exists
+    existing_member = db.query(User).filter(User.email == invite_data.email).first()
+    if existing_member:
+        raise HTTPException(
+            status_code=400,
+            detail="This user already exists. Please provide another email address."
+        )
     
     # Invite the team member
     invite_result, error_message = crud.invite_team_member(db, owner_id, team_member_create)
+    
     
     if error_message:
         raise HTTPException(
@@ -135,6 +176,7 @@ async def respond_to_invitation(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_message
         )
+    send_password_email(db,team_member.member_id)
     
     return {
         "message": f"Invitation {response} successfully"
@@ -149,7 +191,7 @@ async def update_team_member_role(
 ):
     """Update a team member's role"""
     owner_id = current_user["user_id"]
-    
+    print("owner_id",owner_id)
     # Check if the team member exists and belongs to the current user
     team_member = db.query(User).filter(
         crud.TeamMember.owner_id == owner_id,
@@ -167,7 +209,7 @@ async def update_team_member_role(
     return {
         "message": "Team member updated successfully",
         "member_id": member_id,
-        "role": updated_member.role.value
+        "role": updated_member.role
     }
 
 @router.delete("/members/{member_id}")

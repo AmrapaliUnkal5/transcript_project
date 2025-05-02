@@ -12,6 +12,8 @@ interface User {
   avatar_url?: string;
   phone_no?: string;
   subscription_plan_id?: number;
+  is_team_member?: boolean;
+  member_id?: number;
 }
 
 interface AuthContextType {
@@ -36,7 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const navigate = useNavigate();
   const location = useLocation();
   console.log("isAuthenticated", isAuthenticated);
-  
+
   const updateUser = (userData: Partial<User>) => {
     if (user) {
       const updatedUser = { ...user, ...userData };
@@ -60,11 +62,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       throw error;
     }
   };
-  
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     const userData = localStorage.getItem("user");
-    
+
     if (token && userData) {
       try {
         const parsedUserData = JSON.parse(userData);
@@ -82,21 +84,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(null);
 
       // Only redirect if the user is not already on the signup or login page
-      if (
-        ![
-          "/signup",
-          "/login",
-          "/forgot-password",
-          "/reset-password",
-          "/home",
-          "/verify-email",
-          "/demo",
-          "/faq",
-          "/privacy_policy",
-          "/terms",
-          "/customersupport",
-        ].includes(location.pathname)
-      ) {
+      const allowedPaths = [
+        "/signup",
+        "/login",
+        "/forgot-password",
+        "/reset-password",
+        "/home",
+        "/verify-email",
+        "/demo",
+        "/faq",
+        "/privacy_policy",
+        "/terms",
+        "/customersupport",
+      ];
+
+      const isAllowed =
+        allowedPaths.includes(location.pathname) ||
+        location.pathname.startsWith("/team/invitation/");
+
+      if (!isAllowed) {
         navigate("/login");
       }
     }

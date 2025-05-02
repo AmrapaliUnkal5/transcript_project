@@ -18,8 +18,15 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 @router.get("/user/me")
 def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     # Fetch user details from the database using user_id
-    user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
-   
+    if current_user["is_team_member"] == True:
+        print("logged in as team member")
+        logged_in_id = current_user["member_id"]
+    else:
+        logged_in_id = current_user["user_id"]
+        print("logged_in_id",logged_in_id)
+        
+    user = db.query(User).filter(User.user_id == logged_in_id).first()
+    
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -28,7 +35,7 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
     subscription = (
         db.query(UserSubscription)
         .filter(
-            UserSubscription.user_id == user.user_id,
+            UserSubscription.user_id == current_user["user_id"],
             UserSubscription.status == "active"
         )
         .order_by(UserSubscription.payment_date.desc())
@@ -83,7 +90,13 @@ def update_user_me(
     db: Session = Depends(get_db), 
     current_user: dict = Depends(get_current_user)  # `current_user` is a dictionary
 ):
-    user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
+    if current_user["is_team_member"] == True:
+        print("logged in as team member")
+        logged_in_id = current_user["member_id"]
+    else:
+        logged_in_id = current_user["user_id"]
+        print("logged_in_id",logged_in_id)
+    user = db.query(User).filter(User.user_id == logged_in_id).first()
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -104,9 +117,16 @@ def change_password(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
+    if current_user["is_team_member"] == True:
+        print("logged in as team member")
+        logged_in_id = current_user["member_id"]
+    else:
+        logged_in_id = current_user["user_id"]
+        print("logged_in_id",logged_in_id)
+    
     
     # Get the user from DB using user_id from JWT payload
-    db_user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
+    db_user = db.query(User).filter(User.user_id == logged_in_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
     # Verify current password
@@ -122,7 +142,14 @@ def change_password(
     db.add(db_user)
     db.commit()
     event_type = "PASSWORD_CHANGED"
-    event_data = f"Your password was updated on {datetime.now(timezone.utc).strftime('%d %b %Y at %H:%M UTC')}."
+    if current_user["is_team_member"] == True:
+        logged_in_id = current_user["member_id"]
+        event_data = f"Team Member{logged_in_id} password was updated on {datetime.now(timezone.utc).strftime('%d %b %Y at %H:%M UTC')}."
+        
+    else:
+        logged_in_id = current_user["user_id"]
+        event_data = f"Your password was updated on {datetime.now(timezone.utc).strftime('%d %b %Y at %H:%M UTC')}."
+    
     add_notification(
         
         db=db,
