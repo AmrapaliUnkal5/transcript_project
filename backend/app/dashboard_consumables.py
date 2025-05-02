@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import User, Bot, Interaction,  ChatMessage, File #Rating,
+from app.models import Addon, User, Bot, Interaction,  ChatMessage, File, UserAddon #Rating,
 from app.database import get_db
 from app.dependency import get_current_user
 from datetime import datetime, timedelta, timezone
@@ -190,7 +190,14 @@ def get_usage_metrics(
         interaction_ids = [id_[0] for id_ in interaction_ids]
 
         # 4. Chat messages by user
-        chat_messages_used = user.total_message_count or 0
+
+        total_initial_count = db.query(func.sum(UserAddon.initial_count)).join(Addon).filter(
+            UserAddon.user_id == user_id,
+            UserAddon.is_active == True,
+            Addon.id == 5,  # Additional Messages addon
+        ).scalar() or 0
+
+        chat_messages_used = (user.total_message_count + total_initial_count) or 0
             
 
         # 5. Total storage used (parse file sizes and sum up)

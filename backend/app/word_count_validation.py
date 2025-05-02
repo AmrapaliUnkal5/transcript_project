@@ -35,8 +35,9 @@ async def validate_word_count(text: str, current_user, db: Session):
         )
     
     word_count, _ = count_words_and_chars(text)
-    
-    if word_count > plan["word_count_limit"]:
+    print("effective_word_limit=>",plan["effective_word_limit"])
+
+    if word_count > plan["effective_word_limit"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File exceeds {plan['word_count_limit']} word limit for your {plan['name']} plan"
@@ -302,20 +303,30 @@ async def get_user_usage(
 
 
         # Get plan limits
-        plan = await get_subscription_plan_by_id(current_user["subscription_plan_id"], db)
+        plan = await get_subscription_plan_by_id(current_user["subscription_plan_id"], db,current_user["user_id"])
         if not plan:
             raise HTTPException(status_code=404, detail="Subscription plan not found")
+        
         
         return {
             "totalWordsUsed": total_used,
             "remainingWords": plan["word_count_limit"] - total_used,
-            "planLimit": plan["word_count_limit"],
+            "planLimit":plan.get("effective_word_limit"),
             "botWords": total_used,
             "userWords": user_total,
-            # New storage fields
             "totalStorageUsed": total_storage,
             "storageLimit": parse_storage_limit(plan["storage_limit"]),
-            "storageLimitDisplay": plan["storage_limit"]
+            "storageLimitDisplay": plan["storage_limit"],
+            "wordBoost": plan.get("addon_additional_words", 0),
+            "messageBoost": plan.get("addon_additional_messages", 0),
+            
+            # Effective limits (plan + addons)
+            "effectiveWordLimit": plan.get("effective_word_limit", plan["word_count_limit"]),
+            "remainingWords": plan.get("effective_word_limit", plan["word_count_limit"]) - total_used,
+            
+            # Addon details
+            "activeAddons": plan.get("active_addons", []),
+
         }
     except Exception as e:
         db.rollback()

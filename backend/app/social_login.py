@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from app.database import get_db
 from app.utils.create_access_token import create_access_token
-from .models import Base, User, UserAuthProvider, UserSubscription
+from .models import Base, User, UserAddon, UserAuthProvider, UserSubscription
 from datetime import datetime, timedelta, timezone
 import time
 from app.utils.logger import get_module_logger
@@ -101,9 +101,16 @@ async def google_auth(request: Request, payload: TokenPayload, db: Session = Dep
                        extra={"request_id": request_id, "user_id": user.user_id})
 
         user_subscription = db.query(UserSubscription).filter(
-            UserSubscription.user_id == user.user_id,
-            UserSubscription.status == "active"
+        UserSubscription.user_id == user.user_id,
+        UserSubscription.status != "pending"
         ).order_by(UserSubscription.payment_date.desc()).first()
+
+        # Get message addon (ID 5) details if exists
+        message_addon = db.query(UserAddon).filter(
+        UserAddon.user_id == user.user_id,
+        UserAddon.addon_id == 5,
+        UserAddon.is_active == True
+        ).order_by(UserAddon.expiry_date.desc()).first()
         
         subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
         
@@ -111,14 +118,25 @@ async def google_auth(request: Request, payload: TokenPayload, db: Session = Dep
                     extra={"request_id": request_id, "user_id": user.user_id, 
                            "subscription_plan_id": subscription_plan_id})
 
+        # Fetch user's active addons
+        user_addons = db.query(UserAddon).filter(
+            UserAddon.user_id == user.user_id,
+            UserAddon.status == "active"  # Assuming you have a status field
+            ).all()
+    
+        addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
+
         # Generate access token
         token_data = {"sub": user.email, 
                       "role":"client",
                        "user_id": user.user_id,
                        "name": user.name,
                        "avatar_url": user.avatar_url,
-                        "subscription_plan_id": subscription_plan_id,  # Added this line
-                        "total_words_used": user.total_words_used or 0 }
+                        "subscription_plan_id": subscription_plan_id,
+                        "addon_plan_ids": addon_plan_ids,  # Added this line
+                        "total_words_used": user.total_words_used or 0,
+                        "subscription_status": user_subscription.status if user_subscription else "expired",
+                        "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',}
         access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=45))
         
         logger.info(f"User authenticated successfully with Google", 
