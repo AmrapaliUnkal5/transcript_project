@@ -31,6 +31,7 @@ from app.word_count_validation import validate_cumulative_word_count
 from .crud import update_user_word_count
 from app.notifications import add_notification
 from app.vector_db import delete_document_from_chroma
+from app.celery_tasks import process_file_upload
 
 router = APIRouter()
 
@@ -119,9 +120,8 @@ async def validate_and_upload_files(
         original_size_bytes = file.size  # Get original file size
 
         try:
-            # Process file for knowledge extraction and ChromaDB storage
-            # This extracts text and adds to ChromaDB
-            extracted_text, file_id = await process_file_for_knowledge(file, bot_id)
+            # Generate a file ID for tracking
+            file_id = generate_file_id(bot_id, original_filename)
             
             # Create text file name with txt extension
             text_filename = f"{file_id}.txt"
@@ -129,15 +129,14 @@ async def validate_and_upload_files(
             # Create path for the text file
             text_file_path = get_hierarchical_file_path(bot_id, text_filename)
             
-            # Save extracted text to a text file
-            await save_extracted_text(extracted_text, text_file_path)
-            print(f"✅ Saved extracted text to {text_file_path}")
-            
-            # Archive the original file (optional)
+            # Archive the original file to preserve it
             archive_path = await archive_original_file(file, bot_id, file_id)
             print(f"📦 Archived original file to {archive_path}")
 
-            # Prepare and insert file metadata into the database
+            # Create an initial empty text file to reserve the path
+            await save_extracted_text("Processing file...", text_file_path)
+            
+            # Create initial file record in pending state
             file_metadata = prepare_file_metadata(
                 original_filename=original_filename,
                 file_type=file.content_type,
@@ -146,10 +145,39 @@ async def validate_and_upload_files(
                 file_id=file_id,
                 word_count=word_counts_list[i],
                 char_count=char_counts_list[i],
-                original_size_bytes=original_size_bytes  # Add original size
+                original_size_bytes=original_size_bytes
             )
             
+            # Set initial embedding status to pending
+            file_metadata["embedding_status"] = "pending"
+            
+            # Insert initial file metadata into database
             db_file = insert_file_metadata(db, file_metadata)
+            
+            # Prepare data for async processing
+            file_data = {
+                "file_id": file_id,
+                "original_filename": original_filename,
+                "file_type": file.content_type, 
+                "file_path": text_file_path,
+                "word_count": word_counts_list[i],
+                "char_count": char_counts_list[i],
+                "original_size_bytes": original_size_bytes
+            }
+            
+            # Submit file for background processing
+            process_file_upload.delay(bot_id, file_data)
+            
+            # Add initial notification about file upload
+            event_type = "DOCUMENT_UPLOAD_STARTED"
+            event_data = f'"{original_filename}" uploaded to bot. Processing started - you will be notified when complete.'
+            add_notification(
+                db=db,
+                event_type=event_type,
+                event_data=event_data,
+                bot_id=bot_id,
+                user_id=current_user["user_id"]
+            )
 
             # Append file details to response
             uploaded_files.append({
@@ -165,35 +193,25 @@ async def validate_and_upload_files(
                 "char_count": char_counts_list[i], 
                 "total_word_count": total_word_count,  
                 "total_char_count": total_char_count,
-                "plan_name": plan_limits["name"] 
+                "plan_name": plan_limits["name"],
+                "status": "processing"
             })
 
             # Success message
-            knowledge_upload_messages.append(f"Knowledge uploaded successfully for file: {original_filename}")
-            event_type = "DOCUMENT UPLOADED"
-            event_data = f'"{original_filename}" uploaded to bot. {word_counts_list[i]} words extracted successfully.'
-            add_notification(
-                    
-                    db=db,
-                    event_type=event_type,
-                    event_data=event_data,
-                    bot_id=bot_id,
-                    user_id=current_user["user_id"]
-                    )
-                   
+            knowledge_upload_messages.append(f"File upload initiated for: {original_filename}. Processing in background.")
 
         except HTTPException as e:
-            knowledge_upload_messages.append(f"Failed to upload knowledge for file: {original_filename}. Error: {e.detail}")
+            knowledge_upload_messages.append(f"Failed to upload file: {original_filename}. Error: {e.detail}")
         except Exception as e:
-            knowledge_upload_messages.append(f"Failed to upload knowledge for file: {original_filename}. Error: {str(e)}")
+            knowledge_upload_messages.append(f"Failed to upload file: {original_filename}. Error: {str(e)}")
 
     # If no files were successfully uploaded, return an error
     if not uploaded_files:
-        raise HTTPException(status_code=400, detail="Files can't be uploaded as they were not saved in ChromaDB.")
+        raise HTTPException(status_code=400, detail="No files could be uploaded for processing.")
 
     return {
         "success": True,
-        "message": "Files uploaded successfully",
+        "message": "Files uploaded and queued for processing. You will be notified when processing is complete.",
         "files": uploaded_files,
         "knowledge_upload": knowledge_upload_messages,
         "total_word_count": total_word_count,  

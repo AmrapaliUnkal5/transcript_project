@@ -152,3 +152,39 @@ Chatbot/
 * Use Node.js 16+
 * Regularly update dependencies
 * Run `playwright install` for web scraping features
+
+## Asynchronous File Processing
+
+The chatbot application uses Celery for background processing of resource-intensive tasks like file uploads. This approach provides immediate feedback to users while handling potentially time-consuming operations in the background.
+
+### Key Features
+
+1. **Immediate Response**: Users receive instant confirmation when files are uploaded.
+2. **Background Processing**: Files are processed asynchronously without blocking the user interface.
+3. **Status Notifications**: Users are notified when:
+   - File upload is initiated
+   - Processing is completed successfully
+   - Processing has failed (with error details)
+4. **Consistent Interface**: The API maintains the same contract for both synchronous and asynchronous operations.
+
+### Implementation Details
+
+- **Celery Tasks**: Defined in `backend/app/celery_tasks.py` to handle file processing.
+- **File Status Tracking**: The `files` table includes an `embedding_status` field to track file processing state.
+- **Notification System**: Uses the existing notification infrastructure to keep users informed.
+
+### Similar Implementations
+
+The same pattern is used for:
+- YouTube video processing
+- File uploads processing
+- (Future: any resource-intensive operation)
+
+### Usage Flow
+
+1. User uploads file(s) via the frontend
+2. Backend immediately validates and saves the file
+3. A Celery task is dispatched to process the file in the background
+4. User receives a notification that processing has started
+5. When processing completes or fails, user receives another notification
+6. File status is updated in the database
