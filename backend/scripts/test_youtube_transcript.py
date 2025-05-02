@@ -12,7 +12,13 @@ from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, No
 def get_yt_dlp_options():
     base_opts = {
         "quiet": True,
-        "skip_download": True
+        "skip_download": True,
+        # Add more options to bypass bot detection
+        "nocheckcertificate": True,
+        "ignoreerrors": True,
+        "no_warnings": True,
+        # User-Agent to mimic browser
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     }
     
     # Look for cookies in standard locations
@@ -47,6 +53,27 @@ def check_video_accessibility(video_url):
             return True
     except Exception as e:
         print(f"❌ Video access failed: {str(e)}")
+        
+        # Fallback mechanism for authentication issues
+        if "Sign in to confirm you're not a bot" in str(e):
+            print("\n🔄 Trying fallback method (direct transcript API without authentication)...")
+            # Extract video ID
+            if "youtu.be/" in video_url:
+                video_id = video_url.split("youtu.be/")[-1].split("?")[0]
+            elif "v=" in video_url:
+                video_id = video_url.split("v=")[-1].split("&")[0]
+            else:
+                print("❌ Could not extract video ID from URL")
+                return False
+                
+            # Try direct transcript API
+            try:
+                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+                print("✅ Fallback successful! Video is accessible via transcript API")
+                return True
+            except Exception as transcript_error:
+                print(f"❌ Fallback method also failed: {str(transcript_error)}")
+        
         return False
 
 def test_get_transcript(video_url):
@@ -127,6 +154,10 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: python test_youtube_transcript.py <youtube_url1> [youtube_url2] ...")
         print("Example: python test_youtube_transcript.py https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        print("\nAlternative videos to try:")
+        print("- TED Talk: https://www.youtube.com/watch?v=8jPQjjsBbIc")
+        print("- Khan Academy: https://www.youtube.com/watch?v=EW5PcUzx_kA")
+        print("- MIT OpenCourseWare: https://www.youtube.com/watch?v=HtSuA80QTyo")
         sys.exit(1)
     
     video_urls = sys.argv[1:]
