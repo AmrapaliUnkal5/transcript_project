@@ -142,7 +142,7 @@ export const ChatbotCustomization = () => {
     fontSize: "16px",
     fontStyle: "Inter",
     position: "top-left",
-    maxMessageLength: 500,
+    maxMessageLength: 200,
     botColor: "#E3F2FD",
     userColor: "#F3E5F5",
     appearance: "Popup",
@@ -163,6 +163,7 @@ export const ChatbotCustomization = () => {
     alignItems: "center",
     gap: "10px",
   };
+  const [errors, setErrors] = useState<{ maxMessageLength?: string }>({});
 
   const iconStyle: React.CSSProperties = {
     width: "32px",
@@ -422,7 +423,8 @@ export const ChatbotCustomization = () => {
         //setIsBotTyping(true);
         setIsBotTyping(true);
         setWaitingForBotResponse(false);
-        setCurrentBotMessage("");
+        //setCurrentBotMessage("");
+        setCurrentBotMessage(data.message.charAt(0)); // Start with first char
         setFullBotMessage(data.message);
 
         let charIndex = 0;
@@ -688,11 +690,33 @@ export const ChatbotCustomization = () => {
         {
           label: "Maximum User Message Length",
           type: "number",
-          min: 100,
+          min: 10,
           max: 1000,
-          value: settings.maxMessageLength,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("maxMessageLength", parseInt(e.target.value)),
+          value: settings.maxMessageLength ?? 200, // default to 200 if undefined
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+            const raw = e.target.value;
+            setErrors((prev) => ({
+              ...prev,
+              maxMessageLength: "", // clear the error when deleting input
+            }));
+
+            // Allow deleting to empty string
+            if (raw === "") {
+              setSettings((prev) => ({
+                ...prev,
+                maxMessageLength: "" as any, // temporary empty state
+              }));
+              return;
+            }
+
+            const num = parseInt(raw);
+            if (!isNaN(num) && num <= 1000) {
+              setSettings((prev) => ({
+                ...prev,
+                maxMessageLength: num,
+              }));
+            }
+          },
         },
         {
           label: "Bot Message Color",
@@ -854,13 +878,22 @@ export const ChatbotCustomization = () => {
               <div className="space-y-4">
                 {section.fields.map((field) => (
                   <div key={field.label}>
-                    <label
-                      className={`block text-sm font-medium text-gray-700 dark:text-gray-300 ${
-                        field.type === "slider" ? "mb-5" : "mb-1"
-                      }`}
-                    >
-                      {field.label}
-                    </label>
+                    {field.label === "Maximum User Message Length" ? (
+                      <label className="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <span>Maximum User Message Length</span>
+                        <span className="text-xs italic text-gray-500">
+                          Max limit 1000
+                        </span>
+                      </label>
+                    ) : (
+                      <label
+                        className={`block text-sm font-medium text-gray-700 dark:text-gray-300 ${
+                          field.type === "slider" ? "mb-5" : "mb-1"
+                        }`}
+                      >
+                        {field.label}
+                      </label>
+                    )}
                     {field.type === "select" ? (
                       <select
                         value={field.value}
@@ -901,15 +934,40 @@ export const ChatbotCustomization = () => {
                         </span>
                       </div>
                     ) : (
-                      <input
-                        type={field.type}
-                        value={field.value}
-                        min={field.min}
-                        max={field.max}
-                        accept={field.accept}
-                        onChange={field.onChange}
-                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
-                      />
+                      <div className="relative">
+                        <input
+                          type={field.type}
+                          value={field.value}
+                          min={field.min}
+                          max={field.max}
+                          accept={field.accept}
+                          onChange={field.onChange}
+                          onBlur={() => {
+                            // Check if value is empty when losing focus
+                            if (
+                              field.label === "Maximum User Message Length" &&
+                              !field.value
+                            ) {
+                              setSettings((prev) => ({
+                                ...prev,
+                                maxMessageLength: 200, // default value
+                              }));
+                              setErrors((prev) => ({
+                                ...prev,
+                                maxMessageLength:
+                                  "Maximum User Message Length is required. Defaulting to 200.",
+                              }));
+                            }
+                          }}
+                          className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        {errors?.maxMessageLength &&
+                          field.label === "Maximum User Message Length" && (
+                            <p className="text-red-500 text-sm mt-1">
+                              {errors.maxMessageLength}
+                            </p>
+                          )}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -974,7 +1032,7 @@ export const ChatbotCustomization = () => {
                         onClick={() => handleReaction("like", index)}
                         className={`p-1 rounded-full transition-colors ${
                           msg.reaction === "like"
-                            ? "text-blue-500 fill-blue-500"
+                            ? "text-green-500 fill-green-500"
                             : "text-gray-500 hover:text-gray-700"
                         }`}
                       >

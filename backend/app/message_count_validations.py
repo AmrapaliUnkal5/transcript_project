@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends,Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-
+from datetime import datetime
 from app.database import get_db
 from app.dependency import get_current_user
 from app.models import Bot, User, SubscriptionPlan, UserSubscription
@@ -70,6 +70,12 @@ def check_message_limit(
 
     # If no subscription is found, default to subscription_plan_id = 1
     subscription_plan_id = user_sub.subscription_plan_id if user_sub else 1
+
+    if user_sub and user_sub.expiry_date and user_sub.expiry_date < datetime.utcnow():
+        return {
+            "canSendMessage": False,
+            "message": "Your subscription has expired. Please renew to continue using the chatbot."
+        }
 
     # Step 3: Get subscription plan
     subscription = db.query(SubscriptionPlan).filter_by(id=subscription_plan_id).first()
