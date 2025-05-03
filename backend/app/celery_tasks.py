@@ -32,6 +32,7 @@ import logging
 from app.utils.file_size_validations_utils import process_file_for_knowledge, prepare_file_metadata, insert_file_metadata
 from app.notifications import add_notification
 from datetime import datetime
+from app.scraper import scrape_selected_nodes, send_web_scraping_failure_notification
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -213,5 +214,65 @@ def process_file_upload(self, bot_id: int, file_data: dict):
             "status": "failed",
             "bot_id": bot_id,
             "file_id": file_data.get("file_id"),
+            "error": str(e)
+        } 
+
+@celery_app.task(bind=True, name='process_web_scraping', max_retries=3)
+def process_web_scraping(self, bot_id: int, url_list: list):
+    """
+    Celery task to process web scraping in the background.
+    
+    Args:
+        bot_id: The ID of the chatbot
+        url_list: List of URLs to scrape
+    """
+    try:
+        logger.info(f"🌐 Starting Celery task to process {len(url_list)} web pages for bot {bot_id}")
+        
+        # Get database session
+        db = next(get_db())
+        
+        # Process web pages
+        result = scrape_selected_nodes(url_list, bot_id, db)
+        
+        # Get success/failure counts
+        success_count = len(result) if result else 0
+        
+        # Log completion
+        logger.info(
+            f"✅ Web scraping complete for bot {bot_id}. "
+            f"Scraped {success_count} pages successfully."
+        )
+        
+        # Return results
+        return {
+            "status": "complete",
+            "bot_id": bot_id,
+            "success_count": success_count,
+            "scraped_data": result
+        }
+        
+    except Exception as e:
+        logger.exception(f"❌ Error in Celery task for processing web scraping: {str(e)}")
+        
+        # Retry task if not max retries
+        if self.request.retries < self.max_retries:
+            logger.info(f"Retrying task... Attempt {self.request.retries + 1} of {self.max_retries}")
+            raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))  # Exponential backoff
+        
+        # Report failure if no more retries
+        try:
+            db = next(get_db())
+            send_web_scraping_failure_notification(
+                db=db,
+                bot_id=bot_id,
+                reason=f"Task failed after {self.max_retries} retries: {str(e)}"
+            )
+        except Exception as notify_error:
+            logger.exception(f"Failed to send failure notification: {str(notify_error)}")
+        
+        return {
+            "status": "failed",
+            "bot_id": bot_id,
             "error": str(e)
         } 

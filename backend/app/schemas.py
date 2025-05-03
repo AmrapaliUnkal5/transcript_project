@@ -357,3 +357,7 @@ class ZohoCheckoutRequest(BaseModel):
 
 class ZohoCheckoutResponse(BaseModel):
     checkout_url: str
+
+class WebScrapingRequest(BaseModel):
+    bot_id: int
+    selected_nodes: List[str]

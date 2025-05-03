@@ -251,3 +251,32 @@ def update_word_counts(db: Session, bot_id: int, word_count: int):
         else:
             user.total_words_used = total_words_used
             db.commit()
+
+def send_web_scraping_failure_notification(db: Session, bot_id: int, reason: str):
+    """
+    Sends a notification when web scraping fails.
+    
+    Args:
+        db: Database session
+        bot_id: Bot ID
+        reason: Reason for failure
+    """
+    try:
+        # Get bot information
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        if not bot:
+            print(f"Warning: Bot with ID {bot_id} not found when sending failure notification")
+            return
+            
+        # Create notification
+        add_notification(
+            db=db,
+            event_type="WEB_SCRAPING_FAILED",
+            event_data=f"Web scraping failed. Reason: {reason}",
+            bot_id=bot_id,
+            user_id=bot.user_id
+        )
+        
+        print(f"✅ Web scraping failure notification sent for bot {bot_id}")
+    except Exception as e:
+        print(f"❌ Error sending web scraping failure notification: {str(e)}")

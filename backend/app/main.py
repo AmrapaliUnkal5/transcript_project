@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, Upl
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .models import Base, User, UserSubscription
+from .models import Base, User, UserSubscription, Bot
 from .schemas import *
 from .crud import create_user,get_user_by_email, update_user_password,update_avatar
 from fastapi.security import OAuth2PasswordBearer
@@ -50,7 +50,7 @@ from app.total_conversations_analytics import router as weekly_Conversation
 from app.team_management import router as team_management_router
 from app.fetchsubscripitonplans import router as fetchsubscriptionplans_router
 from app.fetchsubscriptionaddons import router as fetchsubscriptionaddons_router
-from app.notifications import router as notifications_router
+from app.notifications import router as notifications_router, add_notification
 from app.message_count_validations import router as message_count_validations_router
 from app.zoho_subscription_router import router as zoho_subscription_router
 from app.zoho_sync_scheduler import initialize_scheduler
@@ -58,6 +58,7 @@ from app.admin_routes import router as admin_routes_router
 from app.widget_botsettings import router as widget_botsettings_router
 from app.current_billing_metrics import router as billing_metrics_router
 from app.celery_app import celery_app
+from app.celery_tasks import process_youtube_videos, process_file_upload, process_web_scraping
 
 # Import our custom logging components
 from app.utils.logging_config import setup_logging
@@ -576,3 +577,42 @@ def check_task_status(task_id: str):
     except Exception as e:
         logger.exception(f"Error checking task status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error checking task status: {str(e)}")
+
+@app.post("/scrape-async")
+def scrape_async_endpoint(request: WebScrapingRequest, db: Session = Depends(get_db)):
+    """
+    API endpoint to start asynchronous web scraping using Celery.
+    
+    Accepts a list of URLs to scrape and sends a notification when complete.
+    """
+    try:
+        logger.info(f"Received async web scraping request for bot {request.bot_id} with {len(request.selected_nodes)} URLs")
+        
+        # Validate bot exists
+        bot = db.query(Bot).filter(Bot.bot_id == request.bot_id).first()
+        if not bot:
+            raise HTTPException(status_code=404, detail=f"Bot with ID {request.bot_id} not found")
+        
+        # Start Celery task
+        process_web_scraping.delay(request.bot_id, request.selected_nodes)
+        
+        # Create initial notification
+        add_notification(
+            db=db,
+            event_type="WEB_SCRAPING_STARTED",
+            event_data=f"Started scraping {len(request.selected_nodes)} web pages. You will be notified when complete.",
+            bot_id=request.bot_id,
+            user_id=bot.user_id
+        )
+        
+        logger.info(f"Web scraping task started for bot {request.bot_id}")
+        
+        # Return success message
+        return {
+            "message": "Web scraping started in the background. You will be notified when complete.",
+            "status": "processing"
+        }
+        
+    except Exception as e:
+        logger.exception(f"Error starting web scraping task: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error starting web scraping: {str(e)}")
