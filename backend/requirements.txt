@@ -27,6 +27,7 @@ pandas
 sentence-transformers
 numpy
 schedule
+apscheduler
 
 # For LLM Part
 chromadb
