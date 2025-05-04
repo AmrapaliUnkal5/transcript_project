@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { authApi, subscriptionApi } from "../services/api";
+import { authApi,subscriptionApi } from "../services/api";
 
 interface SubscriptionPlan {
   id: number;
@@ -21,13 +21,10 @@ interface SubscriptionPlan {
   custom_agents: boolean;
   process_automation: boolean;
   custom_integrations: boolean;
-  zoho_plan_id?: string;
-  zoho_plan_code?: string;
-  billing_period?: string;
   per_file_size_limit: number;
 }
 
-interface Addon {
+interface AddonPlan {
   id: number;
   name: string;
   price: number;
@@ -35,49 +32,63 @@ interface Addon {
   addon_type: string;
   zoho_addon_id?: string;
   zoho_addon_code?: string;
+  additional_word_limit: number;
+  additional_message_limit: number;
 }
 
 interface SubscriptionPlanContextType {
   plans: SubscriptionPlan[];
-  addons: Addon[];
+  addons: AddonPlan[];
   getPlanById: (id: number) => SubscriptionPlan | undefined;
+  getAddonById: (id: number) => AddonPlan | undefined;
   isLoading: boolean;
   loadPlans: () => Promise<void>;
   setPlans: (plans: SubscriptionPlan[]) => void;
-  setAddons: (addons: Addon[]) => void;
+  setAddons: (addons: AddonPlan[]) => void;
   setLoading: (loading: boolean) => void;
   createCheckout: (planId: number, addonIds?: number[]) => Promise<string>;
 }
 
-const SubscriptionPlanContext = createContext<
-  SubscriptionPlanContextType | undefined
->(undefined);
 
-export const SubscriptionPlanProvider: React.FC<{
-  children: React.ReactNode;
-}> = ({ children }) => {
+
+const SubscriptionPlanContext = createContext<SubscriptionPlanContextType | undefined>(undefined);
+
+export const SubscriptionPlanProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
-  const [addons, setAddons] = useState<Addon[]>([]);
+  const [addons, setAddons] = useState<AddonPlan[]>([]);
   const [isLoading, setLoading] = useState(false);
 
-  // Initialize with cached data on mount
   useEffect(() => {
-    const cachedData = localStorage.getItem('subscriptionPlans');
-    if (cachedData) {
+    const cachedPlans = localStorage.getItem('subscriptionPlans');
+    const cachedAddons = localStorage.getItem('addonPlans');
+  
+    // Handle subscription plans
+    if (cachedPlans) {
       try {
-        const { data } = JSON.parse(cachedData);
+        const { data } = JSON.parse(cachedPlans);
         setPlans(data);
       } catch (error) {
         console.error("Error parsing cached subscription data:", error);
+        loadPlans(); // Fallback to API call
       }
     } else {
       loadPlans();
     }
-    
-    // Load addons as well
-    loadAddons();
+  
+    // Handle addon plans
+    if (cachedAddons) {
+      try {
+        const { data } = JSON.parse(cachedAddons);
+        setAddons(data);
+      } catch (error) {
+        console.error("Error parsing cached addon data:", error);
+        loadAddons(); // Fallback to API call
+      }
+    } else {
+      loadAddons();
+    }
   }, []);
-
+  
   const loadPlans = async () => {
     setLoading(true);
     try {
@@ -108,7 +119,9 @@ export const SubscriptionPlanProvider: React.FC<{
     }
   };
 
+
   const getPlanById = (id: number) => plans.find((plan) => plan.id === id);
+  const getAddonById = (id: number) => addons.find((addon) => addon.id === id);
 
   const createCheckout = async (planId: number, addonIds?: number[]): Promise<string> => {
     try {
@@ -131,7 +144,8 @@ export const SubscriptionPlanProvider: React.FC<{
       value={{ 
         plans, 
         addons,
-        getPlanById, 
+        getPlanById,
+        getAddonById,
         isLoading,
         loadPlans,
         setPlans,
@@ -145,12 +159,10 @@ export const SubscriptionPlanProvider: React.FC<{
   );
 };
 
-export const useSubscriptionPlans = () => {
+export const useSubscriptionPlans = ():SubscriptionPlanContextType  => {
   const context = useContext(SubscriptionPlanContext);
   if (!context) {
-    throw new Error(
-      "useSubscriptionPlans must be used within a SubscriptionPlanProvider"
-    );
+    throw new Error("useSubscriptionPlans must be used within a SubscriptionPlanProvider");
   }
   return context;
 };
