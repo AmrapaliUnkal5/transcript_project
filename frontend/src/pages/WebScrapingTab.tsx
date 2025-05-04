@@ -6,8 +6,15 @@ import { useBot } from "../context/BotContext";
 //import { toast } from "react-toastify";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 
-import { Trash2 } from "lucide-react";
+import { Trash2, Info } from "lucide-react";
 import { toast } from "react-toastify";
+import { useLocation } from 'react-router-dom';
+
+// Fix NodeJS type
+type Timeout = ReturnType<typeof setTimeout>;
+
+// Add a flag to track if we've shown the notification for this session
+let hasShownCreateBotInfoToast = false;
 
 const WebScrapingTab: React.FC = () => {
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -23,6 +30,23 @@ const WebScrapingTab: React.FC = () => {
   const [scrapedWebsiteUrl, setScrapedWebsiteUrl] = useState<string | null>(
     null
   );
+  const [isProcessing, setIsProcessing] = useState(false);
+  const location = useLocation();
+  
+  // Check if we're in create bot flow
+  const isCreateBotFlow = location.pathname.includes('/create-bot');
+  
+  // Reset toast flag when component unmounts or when not in create bot flow
+  useEffect(() => {
+    if (!isCreateBotFlow) {
+      hasShownCreateBotInfoToast = false;
+    }
+    
+    return () => {
+      // Reset flag when component unmounts
+      hasShownCreateBotInfoToast = false;
+    };
+  }, [isCreateBotFlow]);
 
   const [scrapedUrls, setScrapedUrls] = useState<
     { id: number; url: string; title: string }[]
@@ -68,7 +92,9 @@ const WebScrapingTab: React.FC = () => {
 
   // ✅ Call fetchScrapedUrls only when selectedBot changes
   useEffect(() => {
-    fetchScrapedUrls();
+    if (selectedBot?.id) {
+      fetchScrapedUrls();
+    }
   }, [selectedBot?.id]);
 
   // Handle delete confirmation
@@ -133,36 +159,42 @@ const WebScrapingTab: React.FC = () => {
     }
 
     setLoading(true);
+    setIsProcessing(true);
     try {
-      console.log("selectedBot?.id", selectedBot?.id);
+      // Make sure we have a valid bot ID
       if (!selectedBot?.id) {
         console.error("Bot ID is missing.");
+        toast.error("Bot ID is missing. Please select a bot first.");
+        setIsProcessing(false);
+        setLoading(false);
         return;
       }
-      const data = await authApi.scrapeNodes(selectedNodes, selectedBot?.id);
-      console.log("Scraping result:", data);
-
-      if (data.message === "Scraping completed") {
-        toast.success("Scraping successful!");
-        setScrapedWebsiteUrl(new URL(websiteUrl).origin);
-        // if (!scrapedWebsiteUrl) {
-        //   setScrapedWebsiteUrl(new URL(websiteUrl).origin);
-        // }
-        setCurrentPage(1); // Reset pagination
-        setSelectedNodes([]); // Clear selection
-        fetchScrapedUrls();
-        if (selectedBot?.status === "In Progress") {
-          await authApi.updateBotStatusActive(selectedBot.id, {
-            status: "Active",
-            is_active: true,
-          });
-        }
-      } else {
-        toast.error("Failed to scrape data. Please try again.");
+      
+      console.log("Starting async scraping for bot ID:", selectedBot.id);
+      
+      // Use the async version of scrapeNodes
+      const response = await authApi.scrapeNodesAsync(selectedNodes, selectedBot.id);
+      console.log("Scraping response:", response);
+      
+      // Show information about limitations during bot creation if we haven't already
+      if (isCreateBotFlow && !hasShownCreateBotInfoToast) {
+        toast.info("Web scraping has started. During bot creation, you can only scrape one website. You will be notified when processing is complete.");
+        hasShownCreateBotInfoToast = true;
+      } else if (!isCreateBotFlow) {
+        // Regular info message if not in bot creation flow
+        toast.info("Web scraping has started. You will be notified when it's complete.");
       }
+      
+      setScrapedWebsiteUrl(new URL(websiteUrl).origin);
+      setCurrentPage(1); // Reset pagination
+      setSelectedNodes([]); // Clear selection
+      
+      // Store a flag in localStorage to indicate scraping is in progress
+      localStorage.setItem("isScraped", "1");
+      
     } catch (error) {
-      console.error("Error scraping website:", error);
-      toast.error("An error occurred while scraping. Please try again.");
+      console.error("Error starting web scraping:", error);
+      toast.error("An error occurred while starting the scraping process. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -248,196 +280,224 @@ const WebScrapingTab: React.FC = () => {
       </h1> */}
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <div className="flex items-center space-x-2">
-          {" "}
-          {/* Added flex and spacing */}
-          <input
-            type="text"
-            placeholder="Enter website URL"
-            value={websiteUrl}
-            onChange={(e) => setWebsiteUrl(e.target.value)}
-            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-          />
-          <button
-            onClick={handleFetchNodes}
-            className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-          >
-            Submit
-          </button>
-        </div>
-        <p className="text-xs text-gray-500 mt-1 italic">
-          On the free plan, you can scrape only one website.{" "}
-          <a href="/subscription" className="text-blue-500 underline">
-            Upgrade
-          </a>{" "}
-          to unlock unlimited scraping!
-        </p>
-      </div>
-
-        {nodes.length > 0 && (
-        <div className="mt-4">
-        <div className="flex justify-between mb-2">
-        <div className="flex space-x-2">
-          <button
-            onClick={() => {
-              // Select all nodes on the current page
-              const currentPageNodes = getPaginatedNodes();
-              setSelectedNodes(prev => [
-                ...new Set([...prev, ...currentPageNodes])
-              ]);
-              }}
-                className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-              >
-                Select Page
-          </button>
-          <button
-            onClick={() => {
-              // Select all nodes across all pages
-              setSelectedNodes(nodes);
-            }}
-              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-            >
-              Select All ({nodes.length})
-          </button>
-          <button
-              onClick={() => setSelectedNodes([])}
-              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-            >
-              Clear All
-          </button>
-          </div>
-          <div className="text-sm text-gray-600">
-            Selected: {selectedNodes.length}
-          </div>
-          </div>
-
-        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Select Pages to Scrape:
-        </h4>
-          <div className="space-y-2">
-          {getPaginatedNodes().map((node, index) => (
-          <label key={index} className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              value={node}
-              checked={selectedNodes.includes(node)}
-              onChange={() => handleCheckboxChange(node)}
-              className="h-5 w-5 text-blue-600 border-gray-400 rounded shrink-0"
-            />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              {node}
-            </span>
-          </label>
-          ))}
-        </div>
-          <div className="flex justify-center mt-4">
-            {renderPaginationButtons()}
-          </div>
-        </div>
-      )}
-      {/* Scrape Button (Visible Only When Checkboxes Are Displayed) */}
-      {selectedNodes.length > 0 && (
-        <div className="flex justify-start mt-6">
-          <button
-            onClick={handleScrape}
-            className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-          >
-            Scrape Selected Pages
-          </button>
-        </div>
-      )}
-      {loading ? (
-        <p className="text-center text-gray-600">Loading...</p>
-      ) : scrapedUrls.length === 0 ? (
-        <p className="text-center text-gray-500"></p>
-      ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Scraped Website URLs
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 dark:bg-gray-700">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    S.No
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Title
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    URL
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {scrapedUrls.map((item, index) => (
-                  <tr
-                    key={item.id}
-                    className="text-gray-700 dark:text-gray-300"
-                  >
-                    <td className="border border-gray-300 px-4 py-2 text-center">
-                      {index + 1}
-                    </td>
-                    <td className="border border-gray-300 px-4 py-2 text-gray-900 dark:text-gray-200">
-                      {item.title || "No Title"}{" "}
-                      {/* ✅ Display Title with Fallback */}
-                    </td>
-                    <td className="border border-gray-300 px-4 py-2">
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 underline"
-                      >
-                        {item.url}
-                      </a>
-                    </td>
-                    <td className="border border-gray-300 px-4 py-2 text-center">
-                      <button
-                        onClick={() => handleDeleteClick(item.url)}
-                        className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      {/* Delete Confirmation Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg">
-            <p className="text-lg font-semibold">
-              Are you sure you want to delete this URL?
+        <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">Website Scraper</h2>
+        
+        {isCreateBotFlow && !hasShownCreateBotInfoToast && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-start space-x-2">
+            <Info size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-blue-700">
+              During bot creation, you can only scrape one website. To add more websites, please go to bot settings after creation.
             </p>
-            <p className="text-sm text-gray-500">{urlToDelete}</p>
-            <div className="flex justify-end mt-4">
+          </div>
+        )}
+        
+        <div className="mb-6">
+          <label
+            htmlFor="websiteUrl"  
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
+            Website URL
+          </label>
+          <div className="flex space-x-2">
+            <input
+              id="websiteUrl"
+              type="url"
+              placeholder="https://example.com"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              required
+              disabled={loading || isProcessing}
+            />
+            <button
+              onClick={handleFetchNodes}
+              disabled={!websiteUrl || loading || isProcessing}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+            >
+              Fetch Pages
+            </button>
+          </div>
+        </div>
+
+        {isProcessing && (
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-md">
+            <h3 className="text-md font-medium text-blue-800 dark:text-blue-200">
+              Web Scraping in Progress
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Your website is being processed. You will be notified when it's complete.
+            </p>
+          </div>
+        )}
+
+        {nodes.length > 0 && !isProcessing && (
+          <div className="mt-4">
+            <div className="flex justify-between mb-2">
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => {
+                    // Select all nodes on the current page
+                    const currentPageNodes = getPaginatedNodes();
+                    setSelectedNodes(prev => [
+                      ...new Set([...prev, ...currentPageNodes])
+                    ]);
+                  }}
+                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                  disabled={loading || isProcessing}
+                >
+                  Select Page
+                </button>
+                <button
+                  onClick={() => {
+                    // Select all nodes across all pages
+                    setSelectedNodes(nodes);
+                  }}
+                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                  disabled={loading || isProcessing}
+                >
+                  Select All ({nodes.length})
+                </button>
+                <button
+                  onClick={() => setSelectedNodes([])}
+                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                  disabled={loading || isProcessing}
+                >
+                  Clear All
+                </button>
+              </div>
+              <div className="text-sm text-gray-600">
+                Selected: {selectedNodes.length}
+              </div>
+            </div>
+
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Select Pages to Scrape:
+            </h4>
+            <div className="space-y-2 max-h-96 overflow-y-auto border border-gray-200 rounded-md p-4">
+              {getPaginatedNodes().map((node, index) => (
+                <label key={index} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    value={node}
+                    checked={selectedNodes.includes(node)}
+                    onChange={() => handleCheckboxChange(node)}
+                    className="h-5 w-5 text-blue-600 border-gray-400 rounded focus:ring-blue-500 dark:focus:ring-blue-700 dark:border-gray-600"
+                    disabled={loading || isProcessing}
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                    <a
+                      href={node}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      {node}
+                    </a>
+                  </span>
+                </label>
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <div className="mt-4 flex justify-center">
+                <div className="flex">{renderPaginationButtons()}</div>
+              </div>
+            )}
+            <div className="mt-4 flex justify-end">
               <button
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 bg-gray-300 rounded-md mr-2"
+                onClick={handleScrape}
+                disabled={selectedNodes.length === 0 || loading || isProcessing}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-md"
-              >
-                Yes, Delete
+                Start Scraping
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {scrapedUrls.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-2">
+              Scraped Pages ({scrapedUrls.length})
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-gray-700">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Page Title
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      URL
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scrapedUrls.map((item, index) => (
+                    <tr
+                      key={item.id}
+                      className="text-gray-700 dark:text-gray-300"
+                    >
+                      <td className="border border-gray-300 px-4 py-2 text-gray-900 dark:text-gray-200">
+                        {item.title || "No Title"}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 underline"
+                        >
+                          {item.url}
+                        </a>
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2 text-center">
+                        <button
+                          onClick={() => handleDeleteClick(item.url)}
+                          className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
+                          disabled={loading || isProcessing}
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Modal */}
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Confirm Deletion</h3>
+              <p className="text-gray-700 dark:text-gray-300 mb-4">
+                Are you sure you want to delete this URL? This action cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

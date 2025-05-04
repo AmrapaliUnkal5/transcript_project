@@ -282,6 +282,16 @@ export const authApi = {
     return response.data;
   },
 
+  scrapeNodesAsync: async (selectedNodes: string[], botId: number) => {
+    const response = await api.post(`/scrape-async`, {
+      selected_nodes: selectedNodes,
+      bot_id: botId
+    }, {
+      headers: { "Content-Type": "application/json" }
+    });
+    return response.data;
+  },
+
   scrapeYoutubeVideos: async (selectedVideos: string[], botId: number) => {
     const response = await api.post(`/scrape-youtube`, {
       selected_videos: selectedVideos, 

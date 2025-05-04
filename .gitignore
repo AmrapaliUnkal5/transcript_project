@@ -136,3 +136,9 @@ public/assets/
 # Temporary Files
 tmp/
 temp/
+
+# YouTube Authentication Cookies
+backend/cookies/*.json
+backend/cookies/*.txt
+youtube_cookies.json
+youtube_cookies.txt

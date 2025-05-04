@@ -6,7 +6,7 @@ import { useBot } from "../context/BotContext";
 //import { toast } from "react-toastify";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 //import Loader from "../components/Loader";
-import { Trash2 } from "lucide-react";
+import { Trash2, Info } from "lucide-react";
 import { toast } from "react-toastify";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 
@@ -28,6 +28,7 @@ const SubscriptionScrape: React.FC = () => {
   const [scrapedWebsiteOrigins, setScrapedWebsiteOrigins] = useState<string[]>(
     []
   );
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const [scrapedUrls, setScrapedUrls] = useState<
     { id: number; url: string; title: string }[]
@@ -106,7 +107,9 @@ const SubscriptionScrape: React.FC = () => {
 
   // ✅ Call fetchScrapedUrls only when selectedBot changes
   useEffect(() => {
-    fetchScrapedUrls();
+    if (selectedBot?.id) {
+      fetchScrapedUrls();
+    }
   }, [selectedBot?.id]);
 
   // Handle delete confirmation
@@ -141,6 +144,11 @@ const SubscriptionScrape: React.FC = () => {
     );
     console.log("scrapedWebsiteUrl.length", scrapedWebsiteOrigins.length);
 
+    if (!websiteUrl) {
+      toast.error("Please enter a website URL.");
+      return;
+    }
+
     const currentOrigin = new URL(websiteUrl).origin;
 
     const isExistingOrigin = scrapedWebsiteOrigins.includes(currentOrigin);
@@ -152,7 +160,7 @@ const SubscriptionScrape: React.FC = () => {
     ) {
       toast.error(
         user.subscription_plan_id === 3
-          ? `You’ve reached the limit of ${websiteLen} website scrape${
+          ? `You've reached the limit of ${websiteLen} website scrape${
               websiteLen > 1 ? "s" : ""
             } on your current plan. Upgrade to scrape more.`
           : "You cannot scrape more websites on your current plan."
@@ -160,7 +168,6 @@ const SubscriptionScrape: React.FC = () => {
       return;
     }
 
-    if (!websiteUrl) return;
     setLoading(true);
     try {
       const response = await authApi.getWebsiteNodes(websiteUrl);
@@ -173,51 +180,67 @@ const SubscriptionScrape: React.FC = () => {
           "API response does not contain a valid nodes array:",
           response
         );
+        toast.error("No valid pages found for this website.");
       }
     } catch (error) {
       console.error("Error fetching nodes:", error);
+      toast.error("Failed to fetch website pages. Please check the URL and try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
-  //have to change here
+
+  // Updated to use the async version of the scrapeNodes API
   const handleScrape = async () => {
     if (selectedNodes.length === 0) {
       toast.error("Please select at least one page to scrape.");
       return;
     }
-    console.log("websiteurl", websiteUrl);
-
+    
     setLoading(true);
+    setIsProcessing(true);
+    
     try {
-      console.log("selectedBot?.id", selectedBot?.id);
+      // Validate bot ID first
       if (!selectedBot?.id) {
         console.error("Bot ID is missing.");
+        toast.error("Bot ID is missing. Please select a bot first.");
+        setIsProcessing(false);
+        setLoading(false);
         return;
       }
-      const data = await authApi.scrapeNodes(selectedNodes, selectedBot?.id);
-      console.log("Scraping result:", data);
-
-      if (data.message === "Scraping completed") {
-        toast.success(`Successfully scraped nodes from ${websiteUrl}`);
-
-        localStorage.setItem("isScraped", "1"); // added for createbot.tsx page
-        if (websiteUrl) {
-          handleScrapingSuccess(websiteUrl);
-        }
-        setCurrentPage(1); // Reset pagination
-        setWebsiteUrl(""); // Reset the input textbox
-        setSelectedNodes([]); // Clear the checkbox selection
-        handleSaveSuccess(); // Mark save as completed
-        setNodes([]);
-        fetchScrapedUrls();
-      } else {
-        toast.error("Failed to scrape data. Please try again.");
+      
+      console.log("Starting async scraping for bot ID:", selectedBot.id);
+      console.log("Selected nodes:", selectedNodes);
+      
+      // Use the async version of scrapeNodes
+      const response = await authApi.scrapeNodesAsync(selectedNodes, selectedBot.id);
+      console.log("Scraping response:", response);
+      
+      toast.info("Web scraping has started. You will be notified when it's complete.");
+      
+      localStorage.setItem("isScraped", "1"); // added for createbot.tsx page
+      
+      if (websiteUrl) {
+        handleScrapingSuccess(websiteUrl);
       }
+      
+      handleSaveSuccess(); // Mark save as completed
+      setWebsiteUrl(""); // Reset the input textbox
+      setSelectedNodes([]); // Clear the checkbox selection
+      setNodes([]); // Clear the nodes list
+      
+      // We'll fetch scraped URLs after a delay to give the backend time to process
+      setTimeout(() => {
+        fetchScrapedUrls();
+      }, 2000);
+      
     } catch (error) {
-      console.error("Error scraping website:", error);
-      toast.error("An error occurred while scraping. Please try again.");
+      console.error("Error starting web scraping:", error);
+      toast.error("An error occurred while starting the scraping process. Please try again.");
     } finally {
       setLoading(false);
+      // Keep isProcessing true since processing is ongoing in the backend
     }
   };
 
@@ -312,11 +335,21 @@ const SubscriptionScrape: React.FC = () => {
           <div className="mb-2">
             {successMessages.map((msg, index) => (
               <div key={index} className="text-xs text-green-600">
-                ✅ Successfully scraped nodes from {msg}
+                ✅ Successfully initiated scraping for {msg}
               </div>
             ))}
           </div>
         )}
+        
+        {isProcessing && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-start space-x-2">
+            <Info size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-blue-700">
+              Web scraping is in progress. You will be notified when it's complete.
+            </p>
+          </div>
+        )}
+        
         <div className="flex items-center space-x-2">
           {" "}
           <input
@@ -325,25 +358,23 @@ const SubscriptionScrape: React.FC = () => {
             value={websiteUrl}
             onChange={(e) => setWebsiteUrl(e.target.value)}
             className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+            disabled={loading || isProcessing}
           />
           <button
             onClick={handleFetchNodes}
-            className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!websiteUrl || loading || isProcessing}
           >
             Submit
           </button>
         </div>
-        <p className="text-xs text-gray-500 mt-1 italic">
-          {getWebsiteLimit(user.subscription_plan_id) === Infinity
-            ? "You can scrape multiple websites! Enter a URL, click Submit, and repeat to add more!"
-            : `You can scrape up to ${getWebsiteLimit(
-                user.subscription_plan_id
-              )} website${
-                getWebsiteLimit(user.subscription_plan_id) > 1 ? "s" : ""
-              }.Enter a URL and click Submit`}
-        </p>
+        <div className="mt-4 p-4 bg-blue-50 rounded-md dark:bg-gray-800">
+          <p className="text-sm text-blue-800 dark:text-blue-300">
+            {`${user.subscription_plan_id === 1 ? "You can scrape only 1 website with the Free Plan" : getWebsiteLimit(user.subscription_plan_id) === -1 ? "You can scrape unlimited websites with your current plan" : `You can scrape up to ${getWebsiteLimit(user.subscription_plan_id)} websites with your current plan`}.Enter a URL and click Submit`}
+          </p>
+        </div>
       </div>
-      {nodes.length > 0 && (
+      {nodes.length > 0 && !isProcessing && (
         <div className="mt-4">
           <div className="flex justify-between mb-2">
             <div className="flex space-x-2">
@@ -356,6 +387,7 @@ const SubscriptionScrape: React.FC = () => {
                   ]);
                 }}
                 className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                disabled={loading || isProcessing}
               >
                 Select Page
               </button>
@@ -365,12 +397,14 @@ const SubscriptionScrape: React.FC = () => {
                   setSelectedNodes(nodes);
                 }}
                 className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                disabled={loading || isProcessing}
               >
                 Select All ({nodes.length})
               </button>
               <button
                 onClick={() => setSelectedNodes([])}
                 className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                disabled={loading || isProcessing}
               >
                 Clear All
               </button>
@@ -392,6 +426,7 @@ const SubscriptionScrape: React.FC = () => {
                   checked={selectedNodes.includes(node)}
                   onChange={() => handleCheckboxChange(node)}
                   className="h-5 w-5 text-blue-600 border-gray-400 rounded shrink-0"
+                  disabled={loading || isProcessing}
                 />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   {node}
@@ -405,11 +440,12 @@ const SubscriptionScrape: React.FC = () => {
         </div>
       )}
       {/* Scrape Button (Visible Only When Checkboxes Are Displayed) */}
-      {selectedNodes.length > 0 && (
+      {selectedNodes.length > 0 && !isProcessing && (
         <div className="flex justify-start mt-6">
           <button
             onClick={handleScrape}
-            className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading || isProcessing}
           >
             Scrape Selected Pages
           </button>
@@ -471,6 +507,7 @@ const SubscriptionScrape: React.FC = () => {
                       <button
                         onClick={() => handleDeleteClick(item.url)}
                         className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
+                        disabled={loading || isProcessing}
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>

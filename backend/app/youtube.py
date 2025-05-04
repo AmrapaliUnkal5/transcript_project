@@ -10,8 +10,13 @@ from datetime import datetime, timezone
 import os
 from app.dependency import get_current_user
 from app.notifications import add_notification
+from dotenv import load_dotenv
 
-COOKIE_PATH = "~/chatbot/Chatbot/cookies/youtube_cookies.json"
+# Load environment variables
+load_dotenv()
+
+# Get cookie path from environment variable or use default
+COOKIE_PATH = os.getenv("YOUTUBE_COOKIE_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "cookies", "youtube_cookies.json"))
 
 def get_yt_dlp_options(base_opts=None):
     if base_opts is None:
@@ -19,6 +24,7 @@ def get_yt_dlp_options(base_opts=None):
 
     if os.path.exists(COOKIE_PATH):
         base_opts["cookies"] = COOKIE_PATH
+    
     return base_opts
 
 # Regex to allow only YouTube video and playlist URLs
