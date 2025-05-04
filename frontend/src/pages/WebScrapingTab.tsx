@@ -13,6 +13,9 @@ import { useLocation } from 'react-router-dom';
 // Fix NodeJS type
 type Timeout = ReturnType<typeof setTimeout>;
 
+// Add a flag to track if we've shown the notification for this session
+let hasShownCreateBotInfoToast = false;
+
 const WebScrapingTab: React.FC = () => {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [nodes, setNodes] = useState<string[]>([]);
@@ -32,6 +35,18 @@ const WebScrapingTab: React.FC = () => {
   
   // Check if we're in create bot flow
   const isCreateBotFlow = location.pathname.includes('/create-bot');
+  
+  // Reset toast flag when component unmounts or when not in create bot flow
+  useEffect(() => {
+    if (!isCreateBotFlow) {
+      hasShownCreateBotInfoToast = false;
+    }
+    
+    return () => {
+      // Reset flag when component unmounts
+      hasShownCreateBotInfoToast = false;
+    };
+  }, [isCreateBotFlow]);
 
   const [scrapedUrls, setScrapedUrls] = useState<
     { id: number; url: string; title: string }[]
@@ -161,16 +176,21 @@ const WebScrapingTab: React.FC = () => {
       const response = await authApi.scrapeNodesAsync(selectedNodes, selectedBot.id);
       console.log("Scraping response:", response);
       
-      toast.info("Web scraping has started. You will be notified when it's complete.");
-      
-      // Show information about limitations during bot creation
-      if (isCreateBotFlow) {
-        toast.info("During bot creation, you can only scrape one website. To add more websites, please go to bot settings after creation.");
+      // Show information about limitations during bot creation if we haven't already
+      if (isCreateBotFlow && !hasShownCreateBotInfoToast) {
+        toast.info("Web scraping has started. During bot creation, you can only scrape one website. You will be notified when processing is complete.");
+        hasShownCreateBotInfoToast = true;
+      } else if (!isCreateBotFlow) {
+        // Regular info message if not in bot creation flow
+        toast.info("Web scraping has started. You will be notified when it's complete.");
       }
       
       setScrapedWebsiteUrl(new URL(websiteUrl).origin);
       setCurrentPage(1); // Reset pagination
       setSelectedNodes([]); // Clear selection
+      
+      // Store a flag in localStorage to indicate scraping is in progress
+      localStorage.setItem("isScraped", "1");
       
     } catch (error) {
       console.error("Error starting web scraping:", error);
@@ -262,7 +282,7 @@ const WebScrapingTab: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">Website Scraper</h2>
         
-        {isCreateBotFlow && (
+        {isCreateBotFlow && !hasShownCreateBotInfoToast && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-start space-x-2">
             <Info size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-blue-700">
@@ -273,7 +293,7 @@ const WebScrapingTab: React.FC = () => {
         
         <div className="mb-6">
           <label
-            htmlFor="websiteUrl"
+            htmlFor="websiteUrl"  
             className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
           >
             Website URL
@@ -311,62 +331,71 @@ const WebScrapingTab: React.FC = () => {
         )}
 
         {nodes.length > 0 && !isProcessing && (
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                Available Pages ({nodes.length})
-              </h3>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="mt-4">
+            <div className="flex justify-between mb-2">
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => {
+                    // Select all nodes on the current page
+                    const currentPageNodes = getPaginatedNodes();
+                    setSelectedNodes(prev => [
+                      ...new Set([...prev, ...currentPageNodes])
+                    ]);
+                  }}
+                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                  disabled={loading || isProcessing}
+                >
+                  Select Page
+                </button>
+                <button
+                  onClick={() => {
+                    // Select all nodes across all pages
+                    setSelectedNodes(nodes);
+                  }}
+                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                  disabled={loading || isProcessing}
+                >
+                  Select All ({nodes.length})
+                </button>
+                <button
+                  onClick={() => setSelectedNodes([])}
+                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                  disabled={loading || isProcessing}
+                >
+                  Clear All
+                </button>
+              </div>
+              <div className="text-sm text-gray-600">
                 Selected: {selectedNodes.length}
-              </span>
+              </div>
             </div>
-            <div className="border border-gray-200 rounded-md dark:border-gray-700 max-h-96 overflow-y-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
+
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Select Pages to Scrape:
+            </h4>
+            <div className="space-y-2 max-h-96 overflow-y-auto border border-gray-200 rounded-md p-4">
+              {getPaginatedNodes().map((node, index) => (
+                <label key={index} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    value={node}
+                    checked={selectedNodes.includes(node)}
+                    onChange={() => handleCheckboxChange(node)}
+                    className="h-5 w-5 text-blue-600 border-gray-400 rounded focus:ring-blue-500 dark:focus:ring-blue-700 dark:border-gray-600"
+                    disabled={loading || isProcessing}
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                    <a
+                      href={node}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline dark:text-blue-400"
                     >
-                      Select
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
-                    >
-                      URL
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
-                  {getPaginatedNodes().map((url, index) => (
-                    <tr
-                      key={index}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-800"
-                    >
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          checked={selectedNodes.includes(url)}
-                          onChange={() => handleCheckboxChange(url)}
-                          disabled={loading || isProcessing}
-                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-700 dark:border-gray-600"
-                        />
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-300 max-w-0 truncate">
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline dark:text-blue-400"
-                        >
-                          {url}
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      {node}
+                    </a>
+                  </span>
+                </label>
+              ))}
             </div>
             {totalPages > 1 && (
               <div className="mt-4 flex justify-center">
@@ -386,61 +415,51 @@ const WebScrapingTab: React.FC = () => {
         )}
 
         {scrapedUrls.length > 0 && (
-          <div className="mb-6">
+          <div className="mt-6">
             <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-2">
               Scraped Pages ({scrapedUrls.length})
             </h3>
-            <div className="border border-gray-200 rounded-md dark:border-gray-700 max-h-80 overflow-y-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
-                    >
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-gray-700">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Page Title
                     </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
-                    >
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       URL
                     </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
-                    >
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
-                  {scrapedUrls.map((item) => (
+                <tbody>
+                  {scrapedUrls.map((item, index) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                      className="text-gray-700 dark:text-gray-300"
                     >
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-300">
+                      <td className="border border-gray-300 px-4 py-2 text-gray-900 dark:text-gray-200">
                         {item.title || "No Title"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-300 max-w-0 truncate">
+                      <td className="border border-gray-300 px-4 py-2">
                         <a
                           href={item.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline dark:text-blue-400"
+                          className="text-blue-600 underline"
                         >
                           {item.url}
                         </a>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-300 text-center">
+                      <td className="border border-gray-300 px-4 py-2 text-center">
                         <button
                           onClick={() => handleDeleteClick(item.url)}
+                          className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
                           disabled={loading || isProcessing}
-                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Delete URL"
                         >
-                          <Trash2 size={18} />
+                          <Trash2 className="w-5 h-5" />
                         </button>
                       </td>
                     </tr>

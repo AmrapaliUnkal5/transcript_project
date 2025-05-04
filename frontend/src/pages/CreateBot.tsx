@@ -540,8 +540,8 @@ const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.stora
         console.log("Scraping started:", data);
 
         if (data.status === "processing") {
-          toast.info("Web scraping has started. You will be notified when it's complete.");
-          toast.info("During bot creation, you can only scrape one website. To add more websites, go to bot settings after creation.");
+          // toast.info("Web scraping has started. You will be notified when it's complete.");
+          // toast.info("During bot creation, you can only scrape one website. To add more websites, go to bot settings after creation.");
           localStorage.setItem("isScraped", "1");
           setCurrentStep(currentStep + 1);
         } else {
@@ -841,11 +841,12 @@ const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.stora
   );
 
       case 1:
-        if (user.subscription_plan_id === 1) {
-          return <WebScrapingTab />;
-        } else {
-          return <SubscriptionScrape />;
-        }
+        return <WebScrapingTab />;
+        // if (user.subscription_plan_id === 1) {
+        //   return <WebScrapingTab />;
+        // } else {
+        //   return <SubscriptionScrape />;
+        // }
       // return (
       //   <div className="space-y-4">
       //     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
