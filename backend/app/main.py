@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, Upl
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .models import Base, User, UserSubscription, Bot
+from .models import Base, User, UserSubscription, Bot, TeamMember, UserAddon
 from .schemas import *
 from .crud import create_user,get_user_by_email, update_user_password,update_avatar
 from fastapi.security import OAuth2PasswordBearer
@@ -80,6 +80,14 @@ from app.utils.exceptions import (
 # Set up logging
 setup_logging(log_level=logging.INFO)
 logger = get_module_logger(__name__)
+from app.addon_router import router as addon_router
+from app.addon_scheduler import start_addon_scheduler
+from app.features_router import router as features_router
+from app.current_billing_metrics import router as billing_metrics_router
+from app.addon_router import router as addon_router
+from app.addon_scheduler import start_addon_scheduler
+from app.features_router import router as features_router
+from app.cron import init_scheduler
 
 
 app = FastAPI(debug=True)
@@ -93,6 +101,14 @@ app.add_exception_handler(DatabaseError, http_exception_handler)
 app.add_exception_handler(ExternalServiceError, http_exception_handler)
 app.add_exception_handler(RateLimitExceededError, http_exception_handler)
 
+# Initialize the scheduler
+scheduler = init_scheduler()
+
+# Add shutdown handler
+@app.on_event("shutdown")
+def shutdown_event():
+    scheduler.shutdown()
+
 # Check required environment variables
 zoho_product_id = os.getenv('ZOHO_DEFAULT_PRODUCT_ID')
 if not zoho_product_id:
@@ -103,7 +119,7 @@ logger.info("Initializing Zoho sync scheduler")
 initialize_scheduler()
 
 # Add the logging middleware
-app.add_middleware(LoggingMiddleware)
+#app.add_middleware(LoggingMiddleware)
 
 app.mount("/uploads_bot", StaticFiles(directory="uploads_bot"), name="uploads_bot")
 app.include_router(botsettings_router)
@@ -131,6 +147,17 @@ app.include_router(zoho_subscription_router)
 app.include_router(admin_routes_router)
 app.include_router(widget_botsettings_router)
 app.include_router(billing_metrics_router)
+app.include_router(addon_router)
+app.include_router(features_router)
+
+# Start the add-on expiry scheduler
+start_addon_scheduler()
+app.include_router(billing_metrics_router)
+app.include_router(addon_router)
+app.include_router(features_router)
+
+# Start the add-on expiry scheduler
+start_addon_scheduler()
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 120
  
@@ -175,7 +202,9 @@ async def extend_token_expiration(request: Request, call_next):
     """
     # Skip token refresh for authentication endpoints
     if request.url.path in ["/login", "/token", "/register", "/forgot-password", "/reset-password"]:
-        return await call_next(request)
+        response = await call_next(request)
+        return response
+        
     
     # Get the authorization header
     auth_header = request.headers.get("Authorization")
@@ -216,7 +245,8 @@ async def extend_token_expiration(request: Request, call_next):
             logger.error(f"Error refreshing token: {str(e)}")
     
     # If no token or error, just continue with the request
-    return await call_next(request)
+    response = await call_next(request)
+    return response
 
 # For OAuth2 Password Bearer (for login)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -280,25 +310,56 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     if not db_user.is_verified:
         raise HTTPException(status_code=400, detail="Email not verified. Please activate your email-id.")
     
+    # Check if user is a team member
+    team_member_entry = db.query(TeamMember).filter(TeamMember.member_id == db_user.user_id).first()
+    is_team_member = team_member_entry is not None
+    owner_id = team_member_entry.owner_id if team_member_entry else None
+
+    subscription_user_id = owner_id if is_team_member else db_user.user_id
+    member_id = db_user.user_id if is_team_member else None
     
-     # Fetch the user's active subscription
+    
+    
     user_subscription = db.query(UserSubscription).filter(
-        UserSubscription.user_id == db_user.user_id,
-        UserSubscription.status == "active"
+    UserSubscription.user_id == db_user.user_id,
+    UserSubscription.status != "pending"
     ).order_by(UserSubscription.payment_date.desc()).first()
+
+    print("If user subscription", user_subscription)
+    print("user sub id=>", user_subscription.subscription_plan_id)
+
+# Get message addon (ID 5) details if exists
+    message_addon = db.query(UserAddon).filter(
+    UserAddon.user_id == db_user.user_id,
+    UserAddon.addon_id == 5,
+    UserAddon.is_active == True
+    ).order_by(UserAddon.expiry_date.desc()).first()
 
     # If no active subscription exists, set default subscription ID to 1
     subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
+    print("")
+
+    user_addons = db.query(UserAddon).filter(
+        UserAddon.user_id == db_user.user_id,
+        UserAddon.status == "active"  
+    ).all()
     
+    addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
+   
     # Create a token for the user
     token_data = {"sub": db_user.email,
                   "role":db_user.role, 
-                  "user_id": db_user.user_id,
+                  "user_id": subscription_user_id,
                   "name": db_user.name,  
                   "company_name": db_user.company_name,  
                   "phone_no": db_user.phone_no,
                   "subscription_plan_id": subscription_plan_id,
-                  "total_words_used":db_user.total_words_used
+                  "total_words_used":db_user.total_words_used,
+                  "is_team_member": is_team_member,
+                   "member_id": member_id,
+                  "addon_plan_ids": addon_plan_ids,
+                  "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
+                  "subscription_status": user_subscription.status if user_subscription else "expired",
                   }
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     
@@ -311,11 +372,16 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
             "name": db_user.name,
             "role": db_user.role,
             "company_name": db_user.company_name,
-            "user_id":db_user.user_id,
+            "user_id":subscription_user_id,
             "avatar_url":db_user.avatar_url,
             "phone_no":db_user.phone_no,
             "subscription_plan_id":subscription_plan_id,
-            "total_words_used":db_user.total_words_used
+            "total_words_used":db_user.total_words_used,
+            "is_team_member": is_team_member,
+            "member_id": member_id,
+            "addon_plan_ids": addon_plan_ids,
+            "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
+            "subscription_status": user_subscription.status if user_subscription else "expired",
         }
     }
 
@@ -438,10 +504,27 @@ def login_for_access_token(
 
     user_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == user.user_id,
-        UserSubscription.status == "active"
+        UserSubscription.status != "pending"
     ).order_by(UserSubscription.payment_date.desc()).first()
+
+    print("If user subscription", user_subscription)
+    print("user sub id=>", user_subscription.subscription_plan_id)
     
     subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
+
+    user_addons = db.query(UserAddon).filter(
+        UserAddon.user_id == user.user_id,
+        UserAddon.status == "active"  
+    ).all()
+
+# Get message addon (ID 5) details if exists
+    message_addon = db.query(UserAddon).filter(
+    UserAddon.user_id == user.user_id,
+    UserAddon.addon_id == 5,
+    UserAddon.is_active == True
+    ).order_by(UserAddon.expiry_date.desc()).first()
+    
+    addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
 
     access_token = create_access_token(data={
         "sub": user.email,
@@ -451,7 +534,10 @@ def login_for_access_token(
         "company_name": user.company_name, 
         "phone_no": user.phone_no,
         "subscription_plan_id": subscription_plan_id,
-        "total_words_used":user.total_words_used
+        "total_words_used":user.total_words_used,
+        "addon_plan_ids": addon_plan_ids,
+        "subscription_status": user_subscription.status if user_subscription else "expired",
+        "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
     })
     return {"access_token": access_token, "token_type": "bearer"}
 

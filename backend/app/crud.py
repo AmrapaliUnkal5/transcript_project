@@ -12,6 +12,7 @@ import enum
 from sqlalchemy import text  # Add this import at the top of your file
 from sqlalchemy import case
 
+
 # Initialize password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -242,34 +243,55 @@ def delete_bot(db: Session, bot_id: int):
 # Team member CRUD operations
 def invite_team_member(db: Session, owner_id: int, invite_data: TeamMemberCreate):
     """Invite a user to join a team"""
-    # Check if the member email exists
+    
+    # Check if the member already exists (based on communication email or email)
     member = db.query(User).filter(User.email == invite_data.member_email).first()
-    
-    # If member doesn't exist, return None (handled in API endpoint)
-    if not member:
-        return None, "User not found"
-    
-    # Check if the invitation already exists
-    existing_invite = db.query(TeamMember).filter(
-        TeamMember.owner_id == owner_id,
-        TeamMember.member_id == member.user_id
-    ).first()
-    
-    if existing_invite:
-        if existing_invite.invitation_status == "accepted":
-            return None, "User is already a team member"
-        elif existing_invite.invitation_status == "pending":
-            return None, "Invitation is already pending"
-        elif existing_invite.invitation_status == "declined":
-            # Update the declined invitation to pending again
-            existing_invite.invitation_status = "pending"
-            existing_invite.role = invite_data.role
-            existing_invite.invitation_token = generate_invitation_token()
-            db.commit()
-            db.refresh(existing_invite)
-            return existing_invite, None
-    
-    # Create a new invitation
+
+    if member:
+        # Check if an invitation already exists
+        existing_invite = db.query(TeamMember).filter(
+            TeamMember.owner_id == owner_id,
+            TeamMember.member_id == member.user_id
+        ).first()
+
+        if existing_invite:
+            if existing_invite.invitation_status == "accepted":
+                return None, "User is already a team member"
+            elif existing_invite.invitation_status == "pending":
+                return None, "Invitation is already pending"
+            elif existing_invite.invitation_status == "declined":
+                # Update the declined invitation to pending again
+                existing_invite.invitation_status = "pending"
+                existing_invite.role = invite_data.role
+                existing_invite.invitation_token = generate_invitation_token()
+                db.commit()
+                db.refresh(existing_invite)
+                return existing_invite, None
+
+        
+    else:
+        # Member does not exist, so create a new user
+        print("Not an existing team member")
+        raw_password = "evolrai123"
+        hashed_password = pwd_context.hash(raw_password)
+
+        # Generate a username based on email and owner_id
+        # safe_email = invite_data.member_email.replace('@', '_at_').replace('.', '_')
+        # generated_username = f"{safe_email}_{owner_id}"
+
+        member = User(
+            email=invite_data.member_email,  # keeping main email null if desired    
+            password=hashed_password,
+            role=invite_data.role,
+            is_verified=False,
+           
+        )
+        db.add(member)
+        db.commit()
+        db.refresh(member)
+        
+
+    # Create the invitation
     invitation_token = generate_invitation_token()
     new_team_member = TeamMember(
         owner_id=owner_id,
@@ -282,7 +304,7 @@ def invite_team_member(db: Session, owner_id: int, invite_data: TeamMemberCreate
     db.add(new_team_member)
     db.commit()
     db.refresh(new_team_member)
-    
+
     return new_team_member, None
 
 def get_team_member(db: Session, id: int):
@@ -374,6 +396,14 @@ def respond_to_invitation(db: Session, invitation_token: str, response: str):
     
     team_member.invitation_status = response
     team_member.invitation_token = None  # Invalidate the token after response
+
+    if response == "accepted":
+        # ✅ Update the member's role in the User table
+        user = db.query(User).filter(User.user_id == team_member.member_id).first()
+        if user:
+            user.role = team_member.role.value  # Match the role in the team invitation
+            user.is_verified = True       # Mark user as verified
+            db.commit()
     
     db.commit()
     db.refresh(team_member)
@@ -390,6 +420,10 @@ def remove_team_member(db: Session, owner_id: int, member_id: int):
         return None
     
     db.delete(team_member)
+    # Also delete the user from the Users table
+    user_to_delete = db.query(User).filter(User.user_id == member_id).first()
+    if user_to_delete:
+        db.delete(user_to_delete)
     db.commit()
     return True
 

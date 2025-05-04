@@ -169,15 +169,20 @@ async def validate_and_upload_files(
             process_file_upload.delay(bot_id, file_data)
             
             # Add initial notification about file upload
-            event_type = "DOCUMENT_UPLOAD_STARTED"
-            event_data = f'"{original_filename}" uploaded to bot. Processing started - you will be notified when complete.'
+            event_type = "DOCUMENT_UPLOADED"
+            if current_user["is_team_member"] == True:
+                logged_in_team_member = current_user["member_id"]
+                event_data = f'"{original_filename}" uploaded to bot. {word_counts_list[i]} words extracted successfully by Team Member :{logged_in_team_member}'
+            else:
+                event_data = f'"{original_filename}" uploaded to bot. {word_counts_list[i]} words extracted successfully.'
+                              
             add_notification(
-                db=db,
-                event_type=event_type,
-                event_data=event_data,
-                bot_id=bot_id,
-                user_id=current_user["user_id"]
-            )
+                    db=db,
+                    event_type=event_type,
+                    event_data=event_data,
+                    bot_id=bot_id,
+                    user_id=current_user["user_id"]
+                    )
 
             # Append file details to response
             uploaded_files.append({
@@ -272,9 +277,14 @@ async def delete_file(
     db.commit()
     print("DOCUMENT DELETED")
     event_type = "DOCUMENT DELETED"
-    message = f"Document '{file.file_name}' deleted successfully."
+    
     print("Bot.bot_id",Bot.bot_id)
     print("current",current_user["user_id"])
+    if current_user["is_team_member"] == True:
+        logged_in_team_member = current_user["member_id"]
+        message = f"Document '{file.file_name}' deleted successfully by Team Member :{logged_in_team_member}"
+    else:
+        message = f"Document '{file.file_name}' deleted successfully."
     add_notification(
                     
                     db=db,

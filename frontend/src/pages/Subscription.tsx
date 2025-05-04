@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Check, CreditCard, ExternalLink, PlusCircle, MinusCircle, Compass, Rocket, TrendingUp, Briefcase, Building, X } from 'lucide-react';
 import { useSubscriptionPlans } from '../context/SubscriptionPlanContext';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { subscriptionApi } from '../services/api';
 
 // Interface for addon selection state
@@ -207,6 +207,19 @@ export const Subscription = () => {
   const [selectedAddons, setSelectedAddons] = useState<AddonSelectionState>({});
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [currentModalPlan, setCurrentModalPlan] = useState<any>(null);
+  const [showDowngradeWarning, setShowDowngradeWarning] = useState(false);
+  const [selectedPlanForDowngrade, setSelectedPlanForDowngrade] = useState<any>(null);
+  const location = useLocation();
+  const currentPlanIdFromState = location.state?.currentPlanId;
+  const fromExpired = location.state?.fromExpired;
+  const [isExpiredPlan, setIsExpiredPlan] = useState(false);
+
+
+  useEffect(() => {
+    // Check URL params for expired status
+    const params = new URLSearchParams(window.location.search);
+    setIsExpiredPlan(params.get('isExpired') === 'true');
+  }, []);
 
   useEffect(() => {
     // Reload plans when component mounts to ensure fresh data
@@ -348,6 +361,17 @@ export const Subscription = () => {
   };
 
   const handleSubscribe = async (planId: number) => {
+    // Get the current plan ID and the selected plan
+  const currentPlan = plans.find(p => p.id === currentPlanId);
+  const selectedPlan = plans.find(p => p.id === planId);
+
+  // Always prevent downgrades, regardless of expiration status
+  if (currentPlan && selectedPlan && selectedPlan.id < currentPlan.id) {
+    setSelectedPlanForDowngrade(selectedPlan);
+    setShowDowngradeWarning(true);
+    return;
+  }
+  
     try {
       // Set the processing plan to show loading state
       setProcessingPlanId(planId);
@@ -355,6 +379,9 @@ export const Subscription = () => {
       
       // Get selected addon IDs
       const addonIds = getSelectedAddonIds();
+
+      const endpoint = isExpiredPlan ? 'renewSubscription' : 'createCheckout';
+      console.log(`DEBUG - Calling ${endpoint} with planId=${planId}, addonIds=`, addonIds);
       
       console.log("DEBUG - Initiating subscription checkout");
       console.log(`DEBUG - Plan ID: ${planId}`);
@@ -428,6 +455,8 @@ export const Subscription = () => {
     const isCurrent = currentPlanId === plan.id;
     const hasBadge = planBadges[plan.name as keyof typeof planBadges];
     const selectedAddonCount = getSelectedAddonCount();
+    const isExpiredCurrentPlan = isCurrent && isExpiredPlan;
+
 
     return (
       <div
@@ -581,28 +610,70 @@ export const Subscription = () => {
         
         <button
           className={`mt-6 w-full px-4 py-2 rounded-lg transition-all transform hover:scale-105 flex items-center justify-center ${
-            currentPlanId === plan.id
+            isCurrent && !isExpiredPlan // Changed this condition
               ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 cursor-default'
               : processingPlanId === plan.id 
                 ? `bg-${planAccent}-400 text-white cursor-wait`
                 : `bg-${planAccent}-500 hover:bg-${planAccent}-600 text-white shadow-md hover:shadow-lg`
           }`}
-          disabled={currentPlanId === plan.id || processingPlanId !== null}
+          disabled={(isCurrent && !isExpiredPlan) || processingPlanId !== null} // Changed this
           onClick={() => handleSubscribe(plan.id)}
         >
-          {currentPlanId === plan.id ? (
-            'Current Plan'
+          {isCurrent ? (
+            isExpiredPlan ? (
+              'Renew Plan' // Show "Renew" instead of "Current Plan" if expired
+            ) : (
+              'Current Plan'
+            )
           ) : processingPlanId === plan.id ? (
             <>
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
               Processing...
             </>
+          ) : currentPlanId && plan.id < currentPlanId ? (
+            'Subscribe'
           ) : (
             <>
               Subscribe <ExternalLink className="ml-2 h-4 w-4" />
             </>
           )}
         </button>
+      </div>
+    );
+  };
+
+
+  const DowngradeWarningDialog = () => {
+    if (!showDowngradeWarning || !selectedPlanForDowngrade) return null;
+  
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Plan Downgrade Warning
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            If you downgrade your plan, you may lose access to some features, bot count, 
+            or additional usage. 
+          </p>
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={() => setShowDowngradeWarning(false)}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              Cancel
+            </button>
+            {/* <button
+              onClick={() => {
+                setShowDowngradeWarning(false);
+                handleSubscribe(selectedPlanForDowngrade.id);
+              }}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+            >
+              Proceed with Downgrade
+            </button> */}
+          </div>
+        </div>
       </div>
     );
   };
@@ -669,6 +740,7 @@ export const Subscription = () => {
               planAccent={getPlanAccentColor(currentModalPlan.name)}
             />
           )}
+          <DowngradeWarningDialog />
         </>
       )}
 

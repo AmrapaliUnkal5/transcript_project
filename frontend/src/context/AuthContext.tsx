@@ -12,6 +12,11 @@ interface User {
   avatar_url?: string;
   phone_no?: string;
   subscription_plan_id?: number;
+  is_team_member?: boolean;
+  member_id?: number;
+  addon_plan_ids?: number[]; 
+  subscription_status?: string;
+  message_addon_expiry?: string;
 }
 
 interface AuthContextType {
@@ -23,6 +28,7 @@ interface AuthContextType {
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
   refreshUserData: () => Promise<void>;
+  updateUserAddons: (addonIds: number[]) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,12 +40,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [botId, getBotId] = useState<number | null>(null);
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
   console.log("isAuthenticated", isAuthenticated);
-  
+
   const updateUser = (userData: Partial<User>) => {
     if (user) {
       const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+    }
+  };
+
+  const updateUserAddons = (addonIds: number[]) => {
+    if (user) {
+      const updatedUser = { ...user, addon_plan_ids: addonIds };
       setUser(updatedUser);
       localStorage.setItem("user", JSON.stringify(updatedUser));
     }
@@ -60,14 +75,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       throw error;
     }
   };
-  
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     const userData = localStorage.getItem("user");
-    
+
     if (token && userData) {
       try {
         const parsedUserData = JSON.parse(userData);
+        if (!parsedUserData.addon_plan_ids) {
+          parsedUserData.addon_plan_ids = [];
+        }
         console.log(parsedUserData);
         setIsAuthenticated(true);
         setUser(parsedUserData);
@@ -82,21 +100,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(null);
 
       // Only redirect if the user is not already on the signup or login page
-      if (
-        ![
-          "/signup",
-          "/login",
-          "/forgot-password",
-          "/reset-password",
-          "/home",
-          "/verify-email",
-          "/demo",
-          "/faq",
-          "/privacy_policy",
-          "/terms",
-          "/customersupport",
-        ].includes(location.pathname)
-      ) {
+      const allowedPaths = [
+        "/signup",
+        "/login",
+        "/forgot-password",
+        "/reset-password",
+        "/home",
+        "/verify-email",
+        "/demo",
+        "/faq",
+        "/privacy_policy",
+        "/terms",
+        "/customersupport",
+      ];
+
+      const isAllowed =
+        allowedPaths.includes(location.pathname) ||
+        location.pathname.startsWith("/team/invitation/");
+
+      if (!isAllowed) {
         navigate("/login");
       }
     }
@@ -117,6 +139,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("subscriptionPlans");
+    localStorage.removeItem("addonPlans");
+    localStorage.removeItem("userAddons");
     setIsAuthenticated(false);
     setUser(null);
     navigate("/login");
@@ -133,6 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         logout,
         updateUser,
         refreshUserData,
+        updateUserAddons,
       }}
     >
       {children}
@@ -140,7 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
-export const useAuth = () => {
+export const useAuth = ():AuthContextType  => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");

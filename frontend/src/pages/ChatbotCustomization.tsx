@@ -13,6 +13,27 @@ import Loader from "../components/Loader";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 
+interface MessageUsage {
+  totalUsed: number;
+  basePlan: {
+    limit: number;
+    used: number;
+    remaining: number;
+  };
+  addons: {
+    totalLimit: number;
+    used: number;
+    remaining: number;
+    items: Array<{
+      addon_id: number;
+      name: string;
+      limit: number;
+      remaining: number;
+    }>;
+  };
+  effectiveRemaining: number;
+}
+
 const saveBotSettings = async (
   settings: BotSettings,
   userId: number,
@@ -95,7 +116,7 @@ const updateBotSettings = async (
 
 export const ChatbotCustomization = () => {
   const { loading, setLoading } = useLoader();
-  const { user } = useAuth();
+  const { user,refreshUserData } = useAuth();
   //const [botToDelete, setBotToDelete] = useState<string | null>(null);
   const userId = user?.user_id;
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -115,6 +136,7 @@ export const ChatbotCustomization = () => {
       reaction?: "like" | "dislike";
     }[]
   >([]);
+  
   const [inputMessage, setInputMessage] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [isBotTyping, setIsBotTyping] = useState(false);
@@ -128,13 +150,38 @@ export const ChatbotCustomization = () => {
   const [reactionGiven, setReactionGiven] = useState(false);
   const [reaction, setReaction] = useState<"like" | "dislike" | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
-  const { getPlanById } = useSubscriptionPlans();
-  const [messageUsage, setMessageUsage] = useState({
-    used: 0,
-    remaining: 0,
-    limit: 0,
-  });
-  const [planLimit, setPlanLimit] = useState(0);
+  const { plans, addons,getPlanById } = useSubscriptionPlans();
+  //const [planLimit, setPlanLimit] = useState(0);
+  const [pendingAddonMessages, setPendingAddonMessages] = useState(0);
+  const userPlanId = user?.subscription_plan_id || 1;
+  const userPlan = getPlanById(userPlanId);
+  const userAddonIds = user?.addon_plan_ids || [];
+  const userActiveAddons = addons ? addons.filter(addon => userAddonIds.includes(addon.id)) : [];
+
+  // Calculate effective message limits
+  const baseMessageLimit = userPlan?.message_limit || 0;
+  // Count each addon purchase separately
+  const addonMessageLimit = userAddonIds.reduce(
+    (sum, addonId) => {
+      const addon = addons?.find(a => a.id === addonId);
+      return sum + (addon?.additional_message_limit || 0);
+    }, 
+    0
+  );
+  const totalMessageLimit = baseMessageLimit + addonMessageLimit;
+
+// Track usage state
+const [messageUsage, setMessageUsage] = useState({
+  totalUsed: 0,
+  baseUsed: 0,
+  baseRemaining: baseMessageLimit,
+  addonUsed: 0,
+  addonRemaining: addonMessageLimit,
+  effectiveRemaining: baseMessageLimit + addonMessageLimit
+});
+
+// Track which addons are being used
+const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
 
   const [settings, setSettings] = useState<BotSettings>({
     name: "Support Bot",
@@ -142,7 +189,7 @@ export const ChatbotCustomization = () => {
     fontSize: "16px",
     fontStyle: "Inter",
     position: "top-left",
-    maxMessageLength: 500,
+    maxMessageLength: 200,
     botColor: "#E3F2FD",
     userColor: "#F3E5F5",
     appearance: "Popup",
@@ -163,6 +210,7 @@ export const ChatbotCustomization = () => {
     alignItems: "center",
     gap: "10px",
   };
+  const [errors, setErrors] = useState<{ maxMessageLength?: string }>({});
 
   const iconStyle: React.CSSProperties = {
     width: "32px",
@@ -215,25 +263,30 @@ export const ChatbotCustomization = () => {
     const fetchMessageData = async () => {
       try {
         const response = await authApi.getUserMessageCount();
-        const userPlan = getPlanById(user?.subscription_plan_id!);
-        const messageLimit = userPlan?.message_limit || 0;
-        console.log("response=>", response);
-        console.log("userPlan=>", userPlan);
-        console.log("messageLimit=>", messageLimit);
-
+        console.log("Message usage response:", response); // Debug log
+        
+        // Map the backend response to frontend state
         setMessageUsage({
-          used: response.totalMessagesUsed,
-          remaining: Math.max(0, messageLimit - response.totalMessagesUsed),
-          limit: messageLimit,
+          totalUsed: response.total_messages_used,
+          basePlan: {
+            limit: response.base_plan.limit,
+            used: response.base_plan.used,
+            remaining: response.base_plan.remaining
+          },
+          addons: {
+            totalLimit: response.addons.total_limit,
+            used: response.addons.used,
+            remaining: response.addons.remaining,
+            items: response.addons.items || []
+          },
+          effectiveRemaining: response.effective_remaining
         });
-
-        setPlanLimit(messageLimit);
+        
       } catch (error) {
         console.error("Failed to fetch message data:", error);
         toast.error("Failed to load message usage data");
       }
     };
-
     if (user?.user_id) {
       fetchMessageData();
     }
@@ -282,16 +335,97 @@ export const ChatbotCustomization = () => {
     }
   }, [selectedBot, setLoading]);
 
-  const updateMessageCount = () => {
-    setMessageUsage((prev) => ({
-      ...prev,
-      used: prev.used + 1,
-      remaining: Math.max(0, prev.limit - (prev.used + 1)),
-    }));
+  useEffect(() => {
+  const fetchInitialUsage = async () => {
+    try {
+      const response = await authApi.getUserMessageCount();
+      const baseUsed = response.base_plan.used;
+      const addonUsed = response.addons.used;
+      
+      setMessageUsage({
+        totalUsed: baseUsed + addonUsed,
+        baseUsed,
+        baseRemaining: Math.max(0, baseMessageLimit - baseUsed),
+        addonUsed,
+        addonRemaining: Math.max(0, addonMessageLimit - addonUsed),
+        effectiveRemaining: Math.max(0, totalMessageLimit - (baseUsed + addonUsed))
+      });
+
+      // Initialize addon usage tracking
+      if (response.addons.items) {
+        const initialAddonUsage: Record<number, number> = {};
+        response.addons.items.forEach(addon => {
+          initialAddonUsage[addon.addon_id] = addon.used || 0;
+        });
+        setAddonUsage(initialAddonUsage);
+      }
+    } catch (error) {
+      console.error("Failed to fetch message usage:", error);
+    }
   };
 
-  const canSendMessage = () => {
-    return messageUsage.remaining > 0;
+  if (user?.user_id) {
+    fetchInitialUsage();
+  }
+}, [user, baseMessageLimit, addonMessageLimit, totalMessageLimit]);
+
+  const updateMessageCount = async () => {
+    setMessageUsage(prev => {
+      // If base messages available, use those first
+      if (prev.baseRemaining > 0) {
+        return {
+          ...prev,
+          totalUsed: prev.totalUsed + 1,
+          baseUsed: prev.baseUsed + 1,
+          baseRemaining: prev.baseRemaining - 1,
+          effectiveRemaining: prev.effectiveRemaining - 1
+        };
+      }
+      
+      // Otherwise use addon messages
+      if (prev.addonRemaining > 0) {
+        // Find the first addon with remaining messages
+        const addonToUse = userActiveAddons.find(addon => {
+          const used = addonUsage[addon.id] || 0;
+          return used < addon.additional_message_limit;
+        });
+  
+        if (addonToUse) {
+          // Update addon usage tracking
+          const addonId = addonToUse.id;
+          const newAddonUsage = {
+            ...addonUsage,
+            [addonId]: (addonUsage[addonId] || 0) + 1
+          };
+          setAddonUsage(newAddonUsage);
+  
+          // Call API to record addon usage
+          recordAddonUsage(addonId);
+  
+          return {
+            ...prev,
+            totalUsed: prev.totalUsed + 1,
+            addonUsed: prev.addonUsed + 1,
+            addonRemaining: prev.addonRemaining - 1,
+            effectiveRemaining: prev.effectiveRemaining - 1
+          };
+        }
+      }
+      
+      // If we get here, no messages available
+      console.error("No messages available but trying to send");
+      return prev;
+    });
+  };
+  
+  const recordAddonUsage = async (addonId: number) => {
+    try {
+      await authApi.recordAddonUsage(addonId, 1); // Passing 1 message used
+      // Refresh user data to get latest counts
+      await refreshUserData();
+    } catch (error) {
+      console.error("Failed to record addon usage:", error);
+    }
   };
 
   const handleUserActivity = () => {
@@ -358,8 +492,8 @@ export const ChatbotCustomization = () => {
         <div className="text-gray-500 dark:text-white text-lg">
           No bot selected.
         </div>
-        <button 
-          onClick={() => navigate('/')}
+        <button
+          onClick={() => navigate("/")}
           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
         >
           Go to Home
@@ -388,13 +522,27 @@ export const ChatbotCustomization = () => {
     }
   };
 
+  const canSendMessage = () => {
+    return messageUsage.effectiveRemaining > 0;
+  };
+
   const sendMessage = async () => {
+    // First check if we can send (either base or addon messages available)
     if (!canSendMessage()) {
-      toast.error(
-        "You have reached your message limit, please upgrade your plan."
-      );
+      toast.error("You have reached your message limit, please upgrade your plan.");
       return;
     }
+    
+    // Then check if we have any remaining messages (base or addon)
+    if (messageUsage.effectiveRemaining <= 0) {
+      toast.error("You've used all your available messages for this period.");
+      return;
+    }
+
+    // Determine if we're using addon messages
+    const isAddonMessage = messageUsage.baseRemaining <= 0 && messageUsage.addonRemaining > 0
+    console.log("isAddonMessage",isAddonMessage)
+  
     if (!inputMessage.trim()) return;
     setWaitingForBotResponse(true);
 
@@ -414,7 +562,7 @@ export const ChatbotCustomization = () => {
     setPreviewLoading(true);
 
     try {
-      const data = await authApi.sendMessage(sessionId, "user", inputMessage);
+      const data = await authApi.sendMessage(sessionId, "user", inputMessage, isAddonMessage);
       setBotMessageId(data.message_id);
 
       const thinkingDelay = Math.random() * 1000 + 500;
@@ -422,7 +570,8 @@ export const ChatbotCustomization = () => {
         //setIsBotTyping(true);
         setIsBotTyping(true);
         setWaitingForBotResponse(false);
-        setCurrentBotMessage("");
+        //setCurrentBotMessage("");
+        setCurrentBotMessage(data.message.charAt(0)); // Start with first char
         setFullBotMessage(data.message);
 
         let charIndex = 0;
@@ -471,6 +620,35 @@ export const ChatbotCustomization = () => {
       setPreviewLoading(false);
     }
   };
+
+  // const handleMessageReset = () => {
+  //   setMessageUsage(prev => {
+  //     const remainingAddons = prev.addons.items
+  //       .filter(a => a.remaining > 0)
+  //       .reduce((sum, a) => sum + a.remaining, 0);
+      
+  //     setPendingAddonMessages(remainingAddons);
+      
+  //     return {
+  //       totalUsed: 0,
+  //       basePlan: {
+  //         ...prev.basePlan,
+  //         used: 0,
+  //         remaining: prev.basePlan.limit
+  //       },
+  //       addons: {
+  //         ...prev.addons,
+  //         used: 0,
+  //         remaining: prev.addons.totalLimit,
+  //         items: prev.addons.items.map(a => ({
+  //           ...a,
+  //           remaining: a.limit
+  //         }))
+  //       },
+  //       effectiveRemaining: prev.basePlan.limit + prev.addons.totalLimit
+  //     };
+  //   });
+  // };
 
   const startTypingAnimation = (
     startIndex: number,
@@ -637,7 +815,7 @@ export const ChatbotCustomization = () => {
             handleChange("name", e.target.value),
         },
         {
-          label: "Bot Icon",
+          label: "Bot Avatar",
           type: "file",
           accept: "image/*",
           onChange: handleFileChange,
@@ -686,13 +864,35 @@ export const ChatbotCustomization = () => {
       icon: Palette,
       fields: [
         {
-          label: "Max Message Length",
+          label: "Maximum User Message Length",
           type: "number",
-          min: 100,
+          min: 10,
           max: 1000,
-          value: settings.maxMessageLength,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("maxMessageLength", parseInt(e.target.value)),
+          value: settings.maxMessageLength ?? 200, // default to 200 if undefined
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+            const raw = e.target.value;
+            setErrors((prev) => ({
+              ...prev,
+              maxMessageLength: "", // clear the error when deleting input
+            }));
+
+            // Allow deleting to empty string
+            if (raw === "") {
+              setSettings((prev) => ({
+                ...prev,
+                maxMessageLength: "" as any, // temporary empty state
+              }));
+              return;
+            }
+
+            const num = parseInt(raw);
+            if (!isNaN(num) && num <= 1000) {
+              setSettings((prev) => ({
+                ...prev,
+                maxMessageLength: num,
+              }));
+            }
+          },
         },
         {
           label: "Bot Message Color",
@@ -750,7 +950,7 @@ export const ChatbotCustomization = () => {
             handleChange("appearance", e.target.value),
         },
         {
-          label: "Temperature",
+          label: "Model Temperature",
           type: "slider",
           min: 0,
           max: 1,
@@ -770,8 +970,8 @@ export const ChatbotCustomization = () => {
         <div className="text-gray-500 dark:text-white text-lg">
           No bot selected.
         </div>
-        <button 
-          onClick={() => navigate('/')}
+        <button
+          onClick={() => navigate("/")}
           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
         >
           Go to Home
@@ -854,9 +1054,22 @@ export const ChatbotCustomization = () => {
               <div className="space-y-4">
                 {section.fields.map((field) => (
                   <div key={field.label}>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {field.label}
-                    </label>
+                    {field.label === "Maximum User Message Length" ? (
+                      <label className="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <span>Maximum User Message Length</span>
+                        <span className="text-xs italic text-gray-500">
+                          Max limit 1000
+                        </span>
+                      </label>
+                    ) : (
+                      <label
+                        className={`block text-sm font-medium text-gray-700 dark:text-gray-300 ${
+                          field.type === "slider" ? "mb-5" : "mb-1"
+                        }`}
+                      >
+                        {field.label}
+                      </label>
+                    )}
                     {field.type === "select" ? (
                       <select
                         value={field.value}
@@ -897,15 +1110,40 @@ export const ChatbotCustomization = () => {
                         </span>
                       </div>
                     ) : (
-                      <input
-                        type={field.type}
-                        value={field.value}
-                        min={field.min}
-                        max={field.max}
-                        accept={field.accept}
-                        onChange={field.onChange}
-                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
-                      />
+                      <div className="relative">
+                        <input
+                          type={field.type}
+                          value={field.value}
+                          min={field.min}
+                          max={field.max}
+                          accept={field.accept}
+                          onChange={field.onChange}
+                          onBlur={() => {
+                            // Check if value is empty when losing focus
+                            if (
+                              field.label === "Maximum User Message Length" &&
+                              !field.value
+                            ) {
+                              setSettings((prev) => ({
+                                ...prev,
+                                maxMessageLength: 200, // default value
+                              }));
+                              setErrors((prev) => ({
+                                ...prev,
+                                maxMessageLength:
+                                  "Maximum User Message Length is required. Defaulting to 200.",
+                              }));
+                            }
+                          }}
+                          className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        {errors?.maxMessageLength &&
+                          field.label === "Maximum User Message Length" && (
+                            <p className="text-red-500 text-sm mt-1">
+                              {errors.maxMessageLength}
+                            </p>
+                          )}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -920,15 +1158,44 @@ export const ChatbotCustomization = () => {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Preview
             </h2>
-            <div className="text-sm bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-lg">
-              Messages: {messageUsage.used}/{messageUsage.limit}
-            </div>
-          </div>
+            <div className="flex flex-col space-y-1 text-sm bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg">
+  <div className="font-medium flex justify-between">
+    <span>Total Messages:</span>
+    <span>
+      {messageUsage.totalUsed} / {totalMessageLimit}
+    </span>
+  </div>
+  
+  <div className="flex justify-between text-xs">
+    <span>Base Plan:</span>
+    <span className={messageUsage.baseRemaining <= 0 ? "text-red-500" : ""}>
+      {messageUsage.baseUsed}/{baseMessageLimit}
+      {messageUsage.baseRemaining > 0 && (
+        <span className="text-green-500 ml-1">({messageUsage.baseRemaining} left)</span>
+      )}
+    </span>
+  </div>
+  
+  {addonMessageLimit > 0 && (
+    <div className="flex justify-between text-xs">
+      <span>Addon Messages:</span>
+      <span className={messageUsage.addonRemaining <= 0 ? "text-red-500" : ""}>
+        {messageUsage.addonUsed}/{addonMessageLimit}
+        {messageUsage.addonRemaining > 0 && (
+          <span className="text-green-500 ml-1">({messageUsage.addonRemaining} left)</span>
+        )}
+      </span>
+    </div>
+  )}
+</div>
+</div>
+
+
 
           {/* Chat Window */}
           <div
             ref={chatContainerRef}
-            className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 h-[950px] overflow-y-auto flex flex-col"
+            className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 h-[1250px] overflow-y-auto flex flex-col"
             style={{
               backgroundColor: settings.windowBgColor,
             }}
@@ -970,7 +1237,7 @@ export const ChatbotCustomization = () => {
                         onClick={() => handleReaction("like", index)}
                         className={`p-1 rounded-full transition-colors ${
                           msg.reaction === "like"
-                            ? "text-blue-500 fill-blue-500"
+                            ? "text-green-500 fill-green-500"
                             : "text-gray-500 hover:text-gray-700"
                         }`}
                       >
@@ -1049,7 +1316,12 @@ export const ChatbotCustomization = () => {
                   : "Type a message..."
               }
               value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value.length <= settings.maxMessageLength) {
+                  setInputMessage(value);
+                }
+              }}
               onKeyDown={(e) => {
                 if (
                   e.key === "Enter" &&
@@ -1072,12 +1344,19 @@ export const ChatbotCustomization = () => {
                 !canSendMessage() ||
                 waitingForBotResponse ||
                 isBotTyping ||
-                previewLoading
+                previewLoading ||
+                inputMessage.length > settings.maxMessageLength
               }
             >
               Send
             </button>
           </div>
+          {/* Show warning if max length reached */}
+          {inputMessage.length === settings.maxMessageLength && (
+            <div className="text-xs text-red-500 mt-1">
+              You have reached the maximum allowed characters.
+            </div>
+          )}
         </div>
       </div>
     </div>

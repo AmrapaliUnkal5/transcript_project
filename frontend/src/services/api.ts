@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { ApiFile, DemoRequestData, GetWeeklyConversationsParams, TeamMember, TeamInvitation, TeamMemberRole, UserUsageResponse } from '../types';
-
+import { AddonPlan } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -332,8 +332,8 @@ export const authApi = {
     return response.data;
   },
 
-  sendMessage: async (interactionId: number, sender: string, message: string) => {
-    const response = await api.post("/chat/send_message", { interaction_id: interactionId, sender, message_text: message });
+  sendMessage: async (interactionId: number, sender: string, message: string, isAddonMessage: boolean) => {
+    const response = await api.post("/chat/send_message", { interaction_id: interactionId, sender, message_text: message,is_addon_message: isAddonMessage });
     return response.data;
   },
 
@@ -590,13 +590,67 @@ export const authApi = {
     }
   },
 
+  fetchAddons: async (): Promise<AddonPlan[]> => {
+    try {
+      const response = await api.get('/subscriptionaddons/');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching addons:', error);
+      throw error;
+    }
+  },  
+
+  // Fetch user-specific active addons
+  fetchUserAddons: async (userId: number): Promise<AddonPlan[]> => {
+    try {
+      const response = await api.get(`/subscriptionaddons/user/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user addons:', error);
+      throw error;
+    }
+  },
+
+  updateAddonUsage: async (addonId: number, messagesUsed: number) => {
+    return api.post(`/user-addons/update-usage`, {
+      addon_id: addonId,
+      messages_used: messagesUsed
+    });
+  },
+
+  recordAddonUsage: async (addonId: number, messagesUsed: number) => {
+    return api.post(`/subscriptionaddons/record-usage`, {
+      addon_id: addonId,
+      messages_used: messagesUsed,
+    });
+  },
   getUserMessageCount: async (): Promise<{
+    addons: {
+      total_limit: number;
+      used: number;
+      remaining: number;
+      items: Array<{
+        used: number;
+        addon_id: number;
+        name: string;
+        limit: number;
+        remaining: number;
+
+      }>;
+    };
+    effective_remaining: number;
+    base_plan: {
+      limit: number;
+      used: number;
+      remaining: number;
+    };
     userMessageCount: number;
-    totalMessagesUsed: number;
+    total_messages_used: number;
     remainingMessages: number;
     planLimit: number;
   }> => {
-    const response = await api.get('/user/msgusage'); return response.data;
+    const response = await api.get('/user/msgusage');
+    return response.data;
   },
 
   getBotToken: async (botId: number): Promise<{ token: string }> => {
@@ -635,7 +689,22 @@ export const subscriptionApi = {
       return []; // Return empty array on error instead of throwing
     }
   },
+
+  // In your subscriptionApi service
+  getCurrentPlan: async (userId: number) => {
+  const response = await api.get(`/subscription/user/${userId}/current`);
+  return response.data;
+},
+  getUserAddons: async (userId: number) => {
+  const response = await api.get(`/user/${userId}/addons`);
+  return response.data;
+},
   
+createCheckout: async (planId: number, addonIds?: number[]): Promise<string> => {
+  const response = await api.post("/subscription/checkout", { planId, addonIds });
+  return response.data.url;
+},
+
   // New endpoints for Zoho subscription
   syncPlansWithZoho: async () => {
     const response = await api.post("/zoho/sync/plans");
@@ -691,7 +760,5 @@ export const subscriptionApi = {
       
       throw error;
     }
-  },
-
-  
+  },  
 };

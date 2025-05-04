@@ -29,6 +29,8 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("subscriptionPlans");
+    localStorage.removeItem("addonPlans");
+    localStorage.removeItem("userAddons");
     navigate("/login");
   };
 

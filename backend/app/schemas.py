@@ -48,9 +48,9 @@ class RegisterResponse(BaseModel):
 
 # Team member schemas
 class TeamMemberRole(str, Enum):
-    ADMIN = "admin"
-    EDITOR = "editor"
-    VIEWER = "viewer"
+    admin = "admin"
+    editor = "editor"
+    viewer = "viewer"
 
 class TeamMemberInviteRequest(BaseModel):
     email: EmailStr
@@ -112,6 +112,9 @@ class BotBase(BaseModel):
     status: Optional[str]=None
     embedding_model_id: Optional[int] = None
     llm_model_id: Optional[int] = None
+    message_count: Optional[int] = 0
+    last_message_reset: Optional[datetime] = None
+    file_size: Optional[int] = 0
     window_bg_color: Optional[str] = "#F9FAFB"
     welcome_message: Optional[str] = "Hi there! How can I help you today?"
     input_bg_color: Optional[str] = "#FFFFFF"
@@ -361,3 +364,83 @@ class ZohoCheckoutResponse(BaseModel):
 class WebScrapingRequest(BaseModel):
     bot_id: int
     selected_nodes: List[str]
+
+class TeamMemberOut(BaseModel):
+    id: int
+    owner_id: int
+    member_id: int
+    role: TeamMemberRole
+    invitation_status: str
+    invitation_sent_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
+class AddonSchema(BaseModel):
+    id: int
+    name: str
+    price: float
+    description: str
+    addon_type: Optional[str] = None
+    zoho_addon_id: Optional[str] = None
+    zoho_addon_code: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    additional_word_limit: Optional[int] = 0
+    additional_message_limit: Optional[int] = 0
+    additional_admin_users: Optional[int] = 0
+    
+    class Config:
+        from_attributes = True
+
+class UserAddonBase(BaseModel):
+    user_id: int
+    addon_id: int
+    subscription_id: int
+    expiry_date: Optional[datetime] = None  # Changed to Optional
+    is_active: bool = True
+    auto_renew: bool = False
+    status: str = "active"
+    
+
+class UserAddonCreate(UserAddonBase):
+    pass
+
+class UserAddonUpdate(BaseModel):
+    is_active: Optional[bool] = None
+    auto_renew: Optional[bool] = None
+    status: Optional[str] = None
+    expiry_date: Optional[datetime] = None
+
+class UserAddonOut(BaseModel):
+    id: int
+    user_id: int
+    addon_id: int
+    subscription_id: int
+    purchase_date: datetime
+    expiry_date: Optional[datetime] = None
+    is_active: bool
+    auto_renew: bool
+    status: str
+    addon: AddonSchema
+    
+    class Config:
+        from_attributes = True
+
+class PurchaseAddonRequest(BaseModel):
+    addon_id: int
+    
+class CancelAddonRequest(BaseModel):
+    user_addon_id: int
+
+class AddonUsageItem(BaseModel):
+    addon_id: int
+    name: str
+    limit: int
+    remaining: int
+
+class MessageUsageResponse(BaseModel):
+    total_messages_used: int
+    base_plan: dict
+    addons: dict
+    effective_remaining: int

@@ -8,6 +8,7 @@ import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 //import Loader from "../components/Loader";
 import { Trash2, Info } from "lucide-react";
 import { toast } from "react-toastify";
+import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 
 const SubscriptionScrape: React.FC = () => {
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -41,11 +42,25 @@ const SubscriptionScrape: React.FC = () => {
   const handleSaveSuccess = () => {
     setIsSaved(true); // Allow messages to show after saving
   };
+  const { getPlanById } = useSubscriptionPlans();
+
+  // const getWebsiteLimit = (planId: number): number => {
+  //   if (planId === 4) return Infinity; // Unlimited
+  //   if (planId === 3) return 2;
+  //   return 1; // Or 0 for free plans
+  // };
 
   const getWebsiteLimit = (planId: number): number => {
-    if (planId === 4) return Infinity; // Unlimited
-    if (planId === 3) return 2;
-    return 1; // Or 0 for free plans
+    const plan = getPlanById(planId);
+
+    if (!plan || !plan.website_crawl_limit) return 0;
+
+    const limitStr = plan.website_crawl_limit.toLowerCase();
+
+    if (limitStr.includes("multiple")) return Infinity;
+
+    const match = limitStr.match(/\d+/);
+    return match ? parseInt(match[0]) : 0;
   };
 
   // ✅ Move fetchScrapedUrls outside of useEffect so it can be reused
@@ -137,6 +152,7 @@ const SubscriptionScrape: React.FC = () => {
     const currentOrigin = new URL(websiteUrl).origin;
 
     const isExistingOrigin = scrapedWebsiteOrigins.includes(currentOrigin);
+    const websiteLen = getWebsiteLimit(user.subscription_plan_id);
     if (
       scrapedWebsiteOrigins.length >=
         getWebsiteLimit(user.subscription_plan_id) &&
@@ -144,7 +160,9 @@ const SubscriptionScrape: React.FC = () => {
     ) {
       toast.error(
         user.subscription_plan_id === 3
-          ? "You've reached the limit of 2 website scrapes on your current plan. Upgrade to scrape more."
+          ? `You've reached the limit of ${websiteLen} website scrape${
+              websiteLen > 1 ? "s" : ""
+            } on your current plan. Upgrade to scrape more.`
           : "You cannot scrape more websites on your current plan."
       );
       return;
@@ -350,81 +368,77 @@ const SubscriptionScrape: React.FC = () => {
             Submit
           </button>
         </div>
-        <p className="text-xs text-gray-500 mt-1 italic">
-          {getWebsiteLimit(user.subscription_plan_id) === Infinity
-            ? "You can scrape multiple websites! Enter a URL, click Submit, and repeat to add more!"
-            : `You can scrape up to ${getWebsiteLimit(
-                user.subscription_plan_id
-              )} website${
-                getWebsiteLimit(user.subscription_plan_id) > 1 ? "s" : ""
-              }.Enter a URL and click Submit`}
-        </p>
+        <div className="mt-4 p-4 bg-blue-50 rounded-md dark:bg-gray-800">
+          <p className="text-sm text-blue-800 dark:text-blue-300">
+            {`${user.subscription_plan_id === 1 ? "You can scrape only 1 website with the Free Plan" : getWebsiteLimit(user.subscription_plan_id) === -1 ? "You can scrape unlimited websites with your current plan" : `You can scrape up to ${getWebsiteLimit(user.subscription_plan_id)} websites with your current plan`}.Enter a URL and click Submit`}
+          </p>
+        </div>
       </div>
-        {nodes.length > 0 && !isProcessing && (
+      {nodes.length > 0 && !isProcessing && (
         <div className="mt-4">
-        <div className="flex justify-between mb-2">
-        <div className="flex space-x-2">
-          <button
-            onClick={() => {
-              // Select all nodes on the current page
-              const currentPageNodes = getPaginatedNodes();
-              setSelectedNodes(prev => [
-                ...new Set([...prev, ...currentPageNodes])
-              ]);
-            }}
-            className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-            disabled={loading || isProcessing}
-          >
-            Select Page
-          </button>
-          <button
-            onClick={() => {
-              // Select all nodes across all pages
-              setSelectedNodes(nodes);
-            }}
-            className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-            disabled={loading || isProcessing}
-          >
-            Select All ({nodes.length})
-            </button>
-            <button
-              onClick={() => setSelectedNodes([])}
-              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-              disabled={loading || isProcessing}
-            >
-              Clear All
-            </button>
+          <div className="flex justify-between mb-2">
+            <div className="flex space-x-2">
+              <button
+                onClick={() => {
+                  // Select all nodes on the current page
+                  const currentPageNodes = getPaginatedNodes();
+                  setSelectedNodes((prev) => [
+                    ...new Set([...prev, ...currentPageNodes]),
+                  ]);
+                }}
+                className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                disabled={loading || isProcessing}
+              >
+                Select Page
+              </button>
+              <button
+                onClick={() => {
+                  // Select all nodes across all pages
+                  setSelectedNodes(nodes);
+                }}
+                className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                disabled={loading || isProcessing}
+              >
+                Select All ({nodes.length})
+              </button>
+              <button
+                onClick={() => setSelectedNodes([])}
+                className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                disabled={loading || isProcessing}
+              >
+                Clear All
+              </button>
             </div>
             <div className="text-sm text-gray-600">
               Selected: {selectedNodes.length}
             </div>
-            </div>
+          </div>
 
-        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Select Pages to Scrape:
-        </h4>
-        <div className="space-y-2">
-          {getPaginatedNodes().map((node, index) => (
-          <label key={index} className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              value={node}
-              checked={selectedNodes.includes(node)}
-              onChange={() => handleCheckboxChange(node)}
-              className="h-5 w-5 text-blue-600 border-gray-400 rounded shrink-0"
-              disabled={loading || isProcessing}
-            />
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {node}
-              </span>
-            </label>
-          ))}
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Select Pages to Scrape:
+          </h4>
+          <div className="space-y-2">
+            {getPaginatedNodes().map((node, index) => (
+              <label key={index} className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  value={node}
+                  checked={selectedNodes.includes(node)}
+                  onChange={() => handleCheckboxChange(node)}
+                  className="h-5 w-5 text-blue-600 border-gray-400 rounded shrink-0"
+                  disabled={loading || isProcessing}
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {node}
+                </span>
+              </label>
+            ))}
           </div>
           <div className="flex justify-center mt-4">
             {renderPaginationButtons()}
           </div>
-          </div>
-        )}
+        </div>
+      )}
       {/* Scrape Button (Visible Only When Checkboxes Are Displayed) */}
       {selectedNodes.length > 0 && !isProcessing && (
         <div className="flex justify-start mt-6">
