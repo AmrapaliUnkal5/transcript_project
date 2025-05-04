@@ -57,9 +57,9 @@ def process_expired_subscription(db: Session, sub: UserSubscription, now: dateti
         
         print(f"Found {len(active_addons)} active addons to process")
         
-        message_addon_config = db.query(Addon).filter(Addon.id == 5).first()
+        message_addon_config = db.query(Addon).filter(Addon.id == 3).first()
         if not message_addon_config:
-            print("!! Warning: Message Addon (ID 5) config not found")
+            print("!! Warning: Message Addon (ID 3) config not found")
         
         for addon in active_addons:
             print(f"\nProcessing Addon ID: {addon.id} (Type: {addon.addon_id})")
@@ -71,9 +71,9 @@ def process_expired_subscription(db: Session, sub: UserSubscription, now: dateti
             addon.updated_at = now
             print("Addon marked as expired")
             
-            # Special handling for message addon (ID 5)
-            if addon.addon_id == 5 and message_addon_config:
-                print("Detected message addon (ID 5) - special handling")
+            # Special handling for message addon (ID 3)
+            if addon.addon_id == 3 and message_addon_config:
+                print("Detected message addon (ID 3) - special handling")
                 
                 try:
                     initial_count = addon.initial_count or 0

@@ -47,11 +47,11 @@ async def get_user_msgusage(
         addon_used = 0
         addon_items = []
         
-        # Get all active message addons (ID 5) for this user
+        # Get all active message addons (ID 3) for this user
         message_addons = db.query(UserAddon).join(Addon).filter(
             UserAddon.user_id == current_user["user_id"],
             UserAddon.is_active == True,
-            Addon.id == 5,  # Additional Messages addon
+            Addon.id == 3,  # Additional Messages addon
             or_(
                 UserAddon.expiry_date == None,
                 UserAddon.expiry_date >= datetime.utcnow()
@@ -135,7 +135,7 @@ def check_message_limit(
         message_addons = db.query(UserAddon).join(Addon).filter(
             UserAddon.user_id == user_id,
             UserAddon.is_active == True,
-            Addon.id == 5,
+            Addon.id == 3,
             or_(
                 UserAddon.expiry_date == None,
                 UserAddon.expiry_date >= datetime.utcnow()
