@@ -586,33 +586,58 @@ def scrape_async_endpoint(request: WebScrapingRequest, db: Session = Depends(get
     Accepts a list of URLs to scrape and sends a notification when complete.
     """
     try:
-        logger.info(f"Received async web scraping request for bot {request.bot_id} with {len(request.selected_nodes)} URLs")
+        logger.info(f"[SCRAPE-ASYNC] Received request with params: bot_id={request.bot_id}, urls_count={len(request.selected_nodes)}")
+        logger.debug(f"[SCRAPE-ASYNC] Full request data: {request.dict()}")
         
         # Validate bot exists
+        logger.info(f"[SCRAPE-ASYNC] Validating bot with ID {request.bot_id}")
         bot = db.query(Bot).filter(Bot.bot_id == request.bot_id).first()
         if not bot:
+            logger.error(f"[SCRAPE-ASYNC] Bot with ID {request.bot_id} not found in database")
             raise HTTPException(status_code=404, detail=f"Bot with ID {request.bot_id} not found")
         
+        logger.info(f"[SCRAPE-ASYNC] Bot found, user_id={bot.user_id}")
+        
         # Start Celery task
-        process_web_scraping.delay(request.bot_id, request.selected_nodes)
+        logger.info(f"[SCRAPE-ASYNC] Attempting to start Celery task with {len(request.selected_nodes)} URLs")
+        try:
+            task = process_web_scraping.delay(request.bot_id, request.selected_nodes)
+            logger.info(f"[SCRAPE-ASYNC] Celery task started successfully with task_id={task.id}")
+        except Exception as celery_err:
+            logger.exception(f"[SCRAPE-ASYNC] Failed to start Celery task: {str(celery_err)}")
+            raise HTTPException(status_code=500, detail=f"Failed to start Celery task: {str(celery_err)}")
         
         # Create initial notification
-        add_notification(
-            db=db,
-            event_type="WEB_SCRAPING_STARTED",
-            event_data=f"Started scraping {len(request.selected_nodes)} web pages. You will be notified when complete.",
-            bot_id=request.bot_id,
-            user_id=bot.user_id
-        )
+        logger.info(f"[SCRAPE-ASYNC] Creating notification for bot_id={request.bot_id}, user_id={bot.user_id}")
+        try:
+            add_notification(
+                db=db,
+                event_type="WEB_SCRAPING_STARTED",
+                event_data=f"Started scraping {len(request.selected_nodes)} web pages. You will be notified when complete.",
+                bot_id=request.bot_id,
+                user_id=bot.user_id
+            )
+            logger.info(f"[SCRAPE-ASYNC] Notification created successfully")
+        except Exception as notification_err:
+            logger.exception(f"[SCRAPE-ASYNC] Failed to create notification: {str(notification_err)}")
+            # Continue even if notification fails
         
-        logger.info(f"Web scraping task started for bot {request.bot_id}")
+        logger.info(f"[SCRAPE-ASYNC] Request processed successfully for bot {request.bot_id}")
         
         # Return success message
         return {
             "message": "Web scraping started in the background. You will be notified when complete.",
-            "status": "processing"
+            "status": "processing",
+            "task_id": task.id
         }
         
+    except HTTPException as he:
+        # Re-raise HTTP exceptions
+        logger.error(f"[SCRAPE-ASYNC] HTTP error: {str(he)}")
+        raise
     except Exception as e:
-        logger.exception(f"Error starting web scraping task: {str(e)}")
+        logger.exception(f"[SCRAPE-ASYNC] Unhandled exception: {str(e)}")
+        # Log the stack trace
+        import traceback
+        logger.error(f"[SCRAPE-ASYNC] Stack trace: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error starting web scraping: {str(e)}")
