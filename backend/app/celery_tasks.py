@@ -228,11 +228,50 @@ def process_web_scraping(self, bot_id: int, url_list: list):
     """
     try:
         logger.info(f"🌐 Starting Celery task to process {len(url_list)} web pages for bot {bot_id}")
+        logger.info(f"🌐 URLs to process: {url_list}")
         
         # Get database session
         db = next(get_db())
         
+        # Get bot information (for notifications)
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        if not bot:
+            error_msg = f"Bot with ID {bot_id} not found"
+            logger.error(f"❌ {error_msg}")
+            return {
+                "status": "failed",
+                "bot_id": bot_id,
+                "error": error_msg
+            }
+        
+        # Check if URLs list is empty
+        if not url_list:
+            logger.warning(f"🔶 Empty URL list provided for bot {bot_id}")
+            # Send notification about empty URL list
+            add_notification(
+                db=db,
+                event_type="WEB_SCRAPING_COMPLETED",
+                event_data=f"Web scraping completed but no URLs were provided to scrape.",
+                bot_id=bot_id,
+                user_id=bot.user_id
+            )
+            return {
+                "status": "complete",
+                "bot_id": bot_id,
+                "success_count": 0,
+                "scraped_data": None
+            }
+        
+        # Try to import Playwright here to check if it's available
+        try:
+            from playwright.sync_api import sync_playwright
+            logger.info("🌐 Playwright is available")
+        except ImportError as e:
+            logger.error(f"❌ Playwright import error: {str(e)}. This will affect dynamic website scraping.")
+            # Still continue to try static scraping
+        
         # Process web pages
+        logger.info(f"🌐 Starting scraping for bot {bot_id}")
         result = scrape_selected_nodes(url_list, bot_id, db)
         
         # Get success/failure counts
@@ -244,6 +283,29 @@ def process_web_scraping(self, bot_id: int, url_list: list):
             f"Scraped {success_count} pages successfully."
         )
         
+        # Always send a completion notification
+        try:
+            if success_count > 0:
+                add_notification(
+                    db=db,
+                    event_type="WEB_SCRAPING_COMPLETED",
+                    event_data=f"Successfully scraped {success_count} web pages for your bot.",
+                    bot_id=bot_id,
+                    user_id=bot.user_id
+                )
+            else:
+                add_notification(
+                    db=db,
+                    event_type="WEB_SCRAPING_COMPLETED",
+                    event_data=f"Web scraping completed but no content was found on the provided URLs.",
+                    bot_id=bot_id,
+                    user_id=bot.user_id
+                )
+            
+            logger.info(f"✅ Sent completion notification for bot {bot_id}")
+        except Exception as notify_err:
+            logger.exception(f"❌ Failed to send completion notification: {str(notify_err)}")
+        
         # Return results
         return {
             "status": "complete",
@@ -254,6 +316,10 @@ def process_web_scraping(self, bot_id: int, url_list: list):
         
     except Exception as e:
         logger.exception(f"❌ Error in Celery task for processing web scraping: {str(e)}")
+        
+        # Capture full stack trace
+        import traceback
+        logger.error(f"❌ Full stack trace: {traceback.format_exc()}")
         
         # Retry task if not max retries
         if self.request.retries < self.max_retries:

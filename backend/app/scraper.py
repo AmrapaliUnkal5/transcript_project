@@ -18,104 +18,159 @@ def is_js_heavy(url):
     Check if the website is JavaScript-heavy by looking for script tags.
     """
     try:
+        print(f"[DEBUG] Checking if {url} is JS-heavy")
         response = requests.get(url, timeout=5)
         if "<script" in response.text.lower() or "react" in response.text.lower() or "angular" in response.text.lower():
+            print(f"[DEBUG] {url} is JS-heavy")
             return True
-    except:
+    except Exception as e:
+        print(f"[DEBUG] Error checking if {url} is JS-heavy: {str(e)}")
         return True
+    print(f"[DEBUG] {url} is not JS-heavy")
     return False
 
 # Static website scraping (BeautifulSoup)
 def scrape_static_page(url):
   
     try:
-        print("here scrape_static_page ")
+        print(f"[DEBUG] Starting static scraping for {url}")
         
         response = requests.get(url, timeout=5)
         if response.status_code != 200:
+            print(f"[DEBUG] Failed to fetch {url}: Status code {response.status_code}")
             return None
 
         soup = BeautifulSoup(response.text, "html.parser")
         title = soup.title.string if soup.title else "No title"
         text = " ".join([p.get_text() for p in soup.find_all("p")])
+        
+        print(f"[DEBUG] Static scraping results for {url}:")
+        print(f"[DEBUG] - Title: {title}")
+        print(f"[DEBUG] - Text length: {len(text)} characters")
+        
         if not title:
-                title = extract_page_title(text)  
+            title = extract_page_title(text)  
         word_count = len(text.split())
+        print(f"[DEBUG] - Word count: {word_count}")
+        
         return {"url": url, "title": title,"text": text,"word_count":word_count}
 
     except Exception as e:
-        print(f"Error scraping {url}: {e}")
+        print(f"[ERROR] Error scraping {url} with BeautifulSoup: {e}")
+        import traceback
+        print(f"[ERROR] Static scraping traceback: {traceback.format_exc()}")
         return None
 
 # JavaScript-heavy website scraping (Playwright)
 def scrape_dynamic_page(url):
-    print("here scrape_dynamic_page ")
+    print(f"[DEBUG] Starting dynamic (Playwright) scraping for {url}")
    
     try:
         with sync_playwright() as p:
-           
+            print(f"[DEBUG] Playwright initialized for {url}")
             browser = p.chromium.launch(headless=True)
+            print(f"[DEBUG] Browser launched for {url}")
             page = browser.new_page()
+            print(f"[DEBUG] Navigating to {url}")
             page.goto(url, timeout=10000)
+            print(f"[DEBUG] Waiting for page to load {url}")
             page.wait_for_load_state("networkidle")
+            print(f"[DEBUG] Page loaded {url}")
+            
             title = page.title()  # Extract the page title           
             text = page.inner_text("body")
+            
+            print(f"[DEBUG] Dynamic scraping results for {url}:")
+            print(f"[DEBUG] - Title: {title}")
+            print(f"[DEBUG] - Text length: {len(text)} characters")
+            
             if not title:
                 title = extract_page_title(text)            
             word_count = len(text.split())
+            print(f"[DEBUG] - Word count: {word_count}")
+            
             browser.close()
             return {"url": url, "title": title,"text": text,"word_count":word_count}
     except Exception as e:
-        print(f"Error scraping {url} with Playwright: {e}")
+        print(f"[ERROR] Error scraping {url} with Playwright: {e}")
+        import traceback
+        print(f"[ERROR] Playwright scraping traceback: {traceback.format_exc()}")
         return None
 
 # Hybrid scraping function
-def scrape_selected_nodes(url_list,bot_id,db: Session):
-    print("scrape_selected_nodes")
+def scrape_selected_nodes(url_list, bot_id, db: Session):
+    print(f"[INFO] Starting scrape_selected_nodes for bot {bot_id} with {len(url_list)} URLs")
     crawled_data = []
+    failed_urls = []
         
     for url in url_list:
-        print("url",url)
-        if is_js_heavy(url):
-            print(f"🔵 JavaScript detected - Using Playwright for {url}")
-            result = scrape_dynamic_page(url)
-        else:
-            print(f"🟢 Static HTML detected - Using BeautifulSoup for {url}")
-            result = scrape_static_page(url)
-        # print("result",result)
-        # text="Contact Us\nPortfolio\nE-commerce platform development for london based company\n\nThe makers of AI have announced the company will be dedicating 20% of its compute processing power over the next four years\n\nIntroduction\n\nIn today's fast-paced and technologically advanced world, businesses rely heavily on Information Technology (IT) services to remain competitive, innovative, and efficient. From streamlining operations to enhancing customer experience\n\nIT services play a crucial role in transforming businesses across all industries. In this blog, we will explore the significance of IT services, the key benefits they offer, and how they can empower your business to reach new heights.\n\nIT services encompass a wide range of solutions aimed at managing, optimizing, and supporting the technology infrastructure of a business. This includes hardware and software management, network administration, cybersecurity, data backup and recovery, cloud services, and more. Whether you run a small startup or a large enterprise, leveraging the right IT services can have a profound impact on your business's success. One of the primary benefits of adopting IT services is their ability to streamline various business operations. Automated processes, such as enterprise resource planning (ERP) systems, can integrate different departments and make data accessible in real-time.\n\nAs businesses increasingly rely on digital technologies, the risk of cyber threats also grows. A robust IT service provider will implement cutting-edge cybersecurity measures to safeguard your valuable data, sensitive information, and intellectual property. From firewall protection to regular vulnerability assessments, a comprehensive security strategy ensures that your business stays protected against cyberattacks.\n\nIn a dynamic business environment, scalability is crucial. IT services provide the flexibility to scale up or down your resources based on changing business needs. Cloud services, for instance, allow seamless expansion of storage and computational power\n\nSerana Belluci\nProduct Designer\n\nCustomer experience has become a key differentiator in today's competitive landscape. IT services enable businesses to personalize customer interactions, provide efficient support through various channels, and offer seamless online experiences.\n\nIT services facilitate data collection, storage, analysis, and visualization, turning raw information into actionable intelligence. By harnessing the power of data analytics, businesses can identify trends, customer preferences, and areas for improvement, leading to more effective strategies and increased profitability. Disruptions, such as natural disasters or system failures, can severely impact a business's operations. IT services include robust disaster recovery and backup solutions, ensuring that critical data is protected and can be swiftly recovered in case of any unforeseen events. This level of preparedness helps maintain business continuity and minimizes downtime,\n\nWhether it's through chatbots, mobile apps, or responsive websites, IT services empower businesses to exceed customer expectations and build lasting relationships. Data is a goldmine of valuable insights that can help businesses make informed decisions.\n\nEnsuring Business Continuity\n\nDisruptions, such as natural disasters or system failures, can severely impact a business's operations. IT services include robust disaster recovery and backup solutions, ensuring that critical data is protected and can be swiftly recovered in case of any unforeseen events.\n\nThis level of preparedness helps maintain business continuity and minimizes downtime, thus safeguarding your reputation and revenue. This includes"       
-        # word_count = len(text.split())
-        # result = {"url": url, "title": "Portfolio Detail- BytePX Technologies","text": text,"word_count":word_count}
-
-        if result:
-            # title = extract_page_title(result["text"])  # Extract title from page conten
-            # title = result.pop("title", "No Title")  # Extract title but do not return it
-            
-            crawled_data.append(result)
-            print("crawled_data",crawled_data)
-            
-            if result["text"]:
-                
-                update_word_counts(db, bot_id=bot_id, word_count=result["word_count"])
-                
-                print("crawled_data2",crawled_data)
-                website_id = hashlib.md5(result["url"].encode()).hexdigest()  # ✅ Generate unique ID from URL
-                metadata = {
-                "id": website_id,   # ✅ Ensure unique ID is included
-                "source": "website",
-                "website_url": result["url"]
-                }
-                add_document(bot_id, text=result["text"], metadata=metadata)
-                
-        else:
-            print("No text was scraped from the website")
-            return 
-    
-
-    if crawled_data:
-        save_scraped_nodes(crawled_data,bot_id, db)  # Save URLs to DB
+        print(f"[INFO] Processing URL: {url}")
+        result = None
         
-        #update_word_counts(db, bot_id=bot_id, word_count=20)
+        try:
+            if is_js_heavy(url):
+                print(f"🔵 JavaScript detected - Using Playwright for {url}")
+                result = scrape_dynamic_page(url)
+            else:
+                print(f"🟢 Static HTML detected - Using BeautifulSoup for {url}")
+                result = scrape_static_page(url)
+                
+            if result:
+                print(f"[INFO] Successfully scraped {url}")
+                crawled_data.append(result)
+                
+                if result["text"]:
+                    try:
+                        update_word_counts(db, bot_id=bot_id, word_count=result["word_count"])
+                        print(f"[INFO] Updated word count for {url}: {result['word_count']} words")
+                    except Exception as word_count_err:
+                        print(f"[ERROR] Failed to update word count: {str(word_count_err)}")
+                    
+                    try:
+                        website_id = hashlib.md5(result["url"].encode()).hexdigest()
+                        metadata = {
+                            "id": website_id,
+                            "source": "website",
+                            "website_url": result["url"]
+                        }
+                        add_document(bot_id, text=result["text"], metadata=metadata)
+                        print(f"[INFO] Added document to vector DB for {url}")
+                    except Exception as db_err:
+                        print(f"[ERROR] Failed to add document to vector DB: {str(db_err)}")
+            else:
+                print(f"[WARN] No content was scraped from {url}")
+                failed_urls.append(url)
+        except Exception as e:
+            print(f"[ERROR] Unexpected error processing {url}: {str(e)}")
+            import traceback
+            print(f"[ERROR] Processing traceback: {traceback.format_exc()}")
+            failed_urls.append(url)
+    
+    print(f"[INFO] Scraping completed: {len(crawled_data)} successful, {len(failed_urls)} failed")
+    
+    if crawled_data:
+        try:
+            save_scraped_nodes(crawled_data, bot_id, db)
+            print(f"[INFO] Saved {len(crawled_data)} scraped nodes to database")
+        except Exception as save_err:
+            print(f"[ERROR] Failed to save scraped nodes: {str(save_err)}")
+    else:
+        print(f"[WARN] No data was scraped from any URL")
+        
+        # Create completion notification even if no URLs were successfully scraped
+        try:
+            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+            if bot:
+                add_notification(
+                    db=db,
+                    event_type="WEB_SCRAPING_COMPLETED",
+                    event_data=f"Web scraping completed but no content was found on the provided URLs.",
+                    bot_id=bot_id,
+                    user_id=bot.user_id
+                )
+                print(f"[INFO] Sent empty completion notification for bot {bot_id}")
+        except Exception as notify_err:
+            print(f"[ERROR] Failed to send empty completion notification: {str(notify_err)}")
 
     return crawled_data
 
