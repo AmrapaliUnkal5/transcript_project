@@ -247,73 +247,49 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       </div>
       {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
       {videoUrls.length > 0 && (
-  <div className="space-y-2">
-    <div className="flex justify-between items-center">
-      <h3 className="text-md font-semibold text-white">
-        Select Videos to Process
-      </h3>
-      <div className="text-sm text-gray-300">
-        Selected: {selectedVideos.length}
-      </div>
-    </div>
-    
-    <div className="flex gap-2 mb-2">
-      <button
-        onClick={() => {
-          // Select all videos on current page
-          const currentPageVideos = getPaginatedVideos();
-          setSelectedVideos(prev => [
-            ...new Set([...prev, ...currentPageVideos])
-          ]);
-        }}
-        className="px-3 py-1 text-sm bg-gray-700 text-white rounded hover:bg-gray-600"
-      >
-        Select Page
-      </button>
-      <button
-        onClick={() => {
-          // Select all videos across all pages
-          setSelectedVideos(videoUrls);
-        }}
-        className="px-3 py-1 text-sm bg-gray-700 text-white rounded hover:bg-gray-600"
-      >
-        Select All ({videoUrls.length})
-      </button>
-      <button
-        onClick={() => setSelectedVideos([])}
-        className="px-3 py-1 text-sm bg-gray-700 text-white rounded hover:bg-gray-600"
-      >
-        Clear All
-      </button>
-    </div>
-
-    <div className="max-h-90 overflow-y-auto border p-2 rounded-md">
-      {getPaginatedVideos().map((videoUrl, index) => (
-        <div key={index} className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={selectedVideos.includes(videoUrl)}
-            onChange={() => handleSelectVideo(videoUrl)}
-            className="h-5 w-5 text-blue-600 border-gray-400 rounded shrink-0"
-          />
-          <a
-            href={videoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 underline"
+        <div className="space-y-2">
+          <h3 className="text-md font-semibold text-white">
+            Select Videos to Process
+          </h3>
+          <div className="max-h-90 overflow-y-auto border p-2 rounded-md">
+            {getPaginatedVideos().map((videoUrl, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selectedVideos.includes(videoUrl)}
+                  onChange={() => handleSelectVideo(videoUrl)}
+                />
+                <a
+                  href={videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline"
+                >
+                  {videoUrl}
+                </a>
+              </div>
+            ))}
+          </div>
+          {/* Pagination buttons */}
+          <div className="flex justify-center mt-4">
+            {renderPaginationButtons()}
+          </div>
+          {/* <button
+          <button
+            onClick={handleProcessVideos}
+            className={`ml-2 px-4 py-2 text-white rounded-md ${
+              selectedVideos.length === 0
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-500 hover:bg-blue-600"
+            }`}
+            disabled={selectedVideos.length === 0}
           >
-            {videoUrl}
-          </a>
+            Process Selected Videos
+          </button> */}
+          {/* Show Loader when loading is true */}
+          {loading && <Loader />}
         </div>
-      ))}
-    </div>
-    
-    {/* Pagination buttons */}
-    <div className="flex justify-center mt-4">
-      {renderPaginationButtons()}
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 };

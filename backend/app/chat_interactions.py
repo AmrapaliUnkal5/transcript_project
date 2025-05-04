@@ -38,6 +38,7 @@ class SendMessageRequest(BaseModel):
     interaction_id: int
     sender: str
     message_text: str
+    is_addon_message: bool = False
 
 # ✅ Function to handle clustering in the background
 def async_cluster_question(bot_id, message_text,message_id):
@@ -139,11 +140,14 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     db.add(bot_message)
     db.commit()
 
+    print("is_addon_message=>",request.is_addon_message)
+
     # ✅ Update message count in background
-    threading.Thread(
-        target=update_message_counts,
-        args=(interaction.bot_id, interaction.user_id)
-    ).start()
+    if not request.is_addon_message:
+        threading.Thread(
+            target=update_message_counts,
+            args=(interaction.bot_id, interaction.user_id)
+        ).start()
 
     return {"message": bot_reply_text, "message_id": bot_message.message_id}
 

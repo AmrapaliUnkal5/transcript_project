@@ -166,4 +166,16 @@ export interface GetWeeklyConversationsParams {
     billing_cycle_start: string;
     billing_cycle_end: string;
   }
-  
+
+  export interface AddonPlan {
+    id: number;
+    name: string;
+    price: number;
+    description: string;
+    addon_type: string;
+    additional_word_limit: number;
+    additional_message_limit: number;
+    additional_admin_users: number;
+    zoho_addon_id: string;
+    zoho_addon_code: string;
+  }

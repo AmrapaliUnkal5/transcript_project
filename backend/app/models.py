@@ -354,6 +354,13 @@ class Addon(Base):
     zoho_addon_code = Column(String(100), nullable=True)
     addon_type = Column(String(50), nullable=True)
     zoho_product_id = Column(String, nullable=True)
+    is_recurring = Column(Boolean, default=False)
+    additional_message_limit = Column(Integer, default=0, nullable=False)  # For "Additional Messages" addon
+    additional_word_limit = Column(Integer, default=0)  # For "Additional Word Capacity" addon
+    additional_admin_users = Column(Integer, default=0)  # For additional admin users
+    
+    # Add proper type hints for relationships
+    user_addons = relationship("UserAddon", back_populates="addon")
 
 class UserSubscription(Base):
     __tablename__ = "user_subscriptions"
@@ -376,6 +383,12 @@ class UserSubscription(Base):
     cancellation_reason = Column(Text, nullable=True)
     payment_method = Column(String(50), nullable=True)
     notes = Column(Text, nullable=True)  # For storing payment failure reasons and other subscription notes
+
+    # Add relationship to UserAddon
+    user_addons = relationship("UserAddon", back_populates="subscription", cascade="all, delete-orphan")
+    
+    # Add relationship to SubscriptionPlan
+    subscription_plan = relationship("SubscriptionPlan")
 
     
 class EmbeddingModel(Base):
@@ -449,3 +462,33 @@ class ClusteredQuestion(Base):
     embedding = Column(JSON)
 
     cluster = relationship("Cluster", back_populates="questions")
+
+class UserAddon(Base):
+    __tablename__ = "user_addons"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    addon_id = Column(Integer, ForeignKey("addons.id", ondelete="CASCADE"), nullable=False)
+    subscription_id = Column(Integer, ForeignKey("user_subscriptions.id", ondelete="CASCADE"), nullable=False)
+    purchase_date = Column(TIMESTAMP, default=func.current_timestamp(), nullable=False)
+    expiry_date = Column(TIMESTAMP, nullable=True)
+    is_active = Column(Boolean, default=True)
+    auto_renew = Column(Boolean, default=False)
+    status = Column(String(50), default="active", nullable=False)
+    zoho_addon_instance_id = Column(String(100), nullable=True)
+    created_at = Column(TIMESTAMP, default=func.current_timestamp())
+    updated_at = Column(TIMESTAMP, default=func.current_timestamp(), onupdate=func.current_timestamp())
+    remaining_count = Column(Integer, default=0)  # For tracking unused messages
+    initial_count = Column(Integer)
+    
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint('id', 'user_id', name='user_addons_user_id_idx'),
+        UniqueConstraint('id', 'addon_id', name='user_addons_addon_id_idx'),
+        UniqueConstraint('id', 'subscription_id', name='user_addons_subscription_id_idx'),
+    )
+
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    addon = relationship("Addon", foreign_keys=[addon_id])
+    subscription = relationship("UserSubscription", back_populates="user_addons")

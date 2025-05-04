@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Bot, ArrowRight, TrendingUp, Settings } from "lucide-react";
 import { Legend } from "recharts";
 import { useAuth } from "../context/AuthContext";
@@ -16,23 +16,74 @@ import { authApi } from "../services/api";
 import { useBot } from "../context/BotContext";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
-// import { UserUsage } from "../types/index";
-// import { getPlanById, SubscriptionPlan } from "../types/index";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
+import { Lock } from "lucide-react";
+
+const SubscriptionExpiredOverlay = () => {
+  const { user } = useAuth();
+  const location = useLocation();
+
+  const handleRenewClick = () => {
+    // Create state object with string values only
+    const state = {
+      currentPlanId: user?.subscription_plan_id?.toString() || '',
+      fromExpired: 'true',
+      isExpired: (user?.subscription_status === 'expired').toString(),
+      returnTo: location.pathname
+    };
+
+    // Convert to URLSearchParams
+    const params = new URLSearchParams();
+    Object.entries(state).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+
+    // Open in new tab with query params
+    window.open(`/subscription?${params.toString()}`, '_blank');
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 top-16 z-40 bg-black bg-opacity-50 backdrop-blur-sm">
+        <div className="flex items-center justify-center h-full">
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl max-w-md text-center">
+            <Lock className="w-12 h-12 mx-auto text-red-500 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Subscription Expired
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              Your subscription has expired. Please renew to continue using our services.
+            </p>
+            <button
+              onClick={handleRenewClick}
+              className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Renew Subscription
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
 
 export const Welcome = () => {
-  const { user } = useAuth();
+  const { user,refreshUserData } = useAuth();
   const navigate = useNavigate();
   const userId = user?.user_id;
   const { setSelectedBot } = useBot();
   const { setLoading } = useLoader();
-  const {
-    plans,
-    getPlanById,
-    isLoading: isPlansLoading,
-    setPlans,
-    setLoading: setPlansLoading,
+  const { 
+    plans, 
+    addons,
+    getPlanById, 
+    getAddonById,
+    isLoading: isPlansLoading, 
+    setPlans, 
+    setAddons,
+    setLoading: setPlansLoading 
   } = useSubscriptionPlans();
   // This would come from your API in a real app
   //const [hasBots] = useState(true);
@@ -69,92 +120,125 @@ export const Welcome = () => {
   const userPlanId = user?.subscription_plan_id || 1;
   const userPlan = getPlanById(userPlanId);
 
-  // Combined data loading effect
+// Get user's addon IDs (from auth context)
+const userAddonIds = user?.addon_plan_ids || [];
+console.log("Addon plan id=>",userAddonIds)
+const userActiveAddons = addons ? addons.filter(addon => userAddonIds.includes(addon.id)) : [];
+console.log("Active Addon: ",userActiveAddons)
+const effectiveWordLimit = (userPlan?.word_count_limit || 0) + 
+  userAddonIds.reduce((sum, addonId) => {
+    const addon = getAddonById(addonId);
+    return sum + (addon?.additional_word_limit || 0);
+  }, 0);
+const effectiveMessageLimit = (userPlan?.message_limit || 0) + 
+  userAddonIds.reduce((sum, addonId) => {
+    const addon = getAddonById(addonId);
+    return sum + (addon?.additional_message_limit || 0);
+  }, 0);
+
   useEffect(() => {
-    const loadAllData = async () => {
-      try {
-        setLoading(true);
-        setIsDataLoaded(false);
+    // Check subscription status when component mounts
+    if (user?.subscription_status === 'expired') {
+      // You might want to force logout or show the overlay
+      console.log('Subscription expired');
+    }
+  }, [user]);
 
-        // 1. Load subscription plans first
-        const plansData = await authApi.fetchPlans();
-        if (Array.isArray(plansData)) {
-          setPlans(plansData);
-          localStorage.setItem(
-            "subscriptionPlans",
-            JSON.stringify({
-              data: plansData,
-              timestamp: Date.now(),
-            })
-          );
-        }
+// Combined data loading effect
+useEffect(() => {
+  const loadAllData = async () => {
+    try {
+      setLoading(true);
+      setIsDataLoaded(false);
+      
+      // 1. Load subscription plans first
+      const [plansData, addonsData] = await Promise.all([
+        authApi.fetchPlans(),
+        authApi.fetchAddons()
+      ]);
+      console.log("Addons data from API:", addonsData);
 
-        // 2. Only proceed with bot data if we have a user ID
-        if (userId) {
-          let effectiveId = userId;
-
-          if (user?.is_team_member && user?.owner_id) {
-            effectiveId = user?.owner_id;
-          }
-          const [botResponse, trendsResponse, metrics] = await Promise.all([
-            authApi.getBotSettingsByUserId(effectiveId),
-            authApi.getConversationTrends(effectiveId),
-            authApi.getUsageMetrics(),
-          ]);
-
-          // Process bot data
-          const botExists = botResponse.length > 0;
-          setHasBots(botExists);
-
-          const extractedBots = botResponse.map((botObj) => {
-            const botId = Object.keys(botObj)[0];
-            const botData = botObj[botId];
-
-            return {
-              id: Number(botId),
-              name: botData.bot_name,
-              status: botData.status,
-              conversations: botData.conversation_count_today,
-              satisfaction: {
-                likes: botData.satisfaction?.likes || 0,
-                dislikes: botData.satisfaction?.dislikes || 0,
-              },
-            };
-          });
-
-          setBots(extractedBots);
-          setConversationTrends(trendsResponse);
-          setUsageMetrics(metrics);
-        }
-      } catch (error) {
-        console.error("Error loading data:", error);
-        setHasBots(false);
-      } finally {
-        setLoading(false);
-        setIsDataLoaded(true);
+      if (Array.isArray(plansData)) {
+        setPlans(plansData);
+        localStorage.setItem('subscriptionPlans', 
+          JSON.stringify({ 
+            data: plansData, 
+            timestamp: Date.now() 
+          }));
       }
-    };
 
-    loadAllData();
-  }, [userId, setLoading, setPlans]);
+      if (Array.isArray(addonsData)) {
+        setAddons(addonsData);
+        localStorage.setItem('addonPlans', 
+          JSON.stringify({ 
+            data: addonsData, 
+            timestamp: Date.now() 
+          }));
+      }
 
-  if (isPlansLoading || !userPlan) {
-    return <Loader />;
-  }
+      // 2. Only proceed with bot data if we have a user ID
+      if (userId) {
+        const [botResponse, trendsResponse, metrics] = await Promise.all([
+          authApi.getBotSettingsByUserId(userId),
+          authApi.getConversationTrends(userId),
+          authApi.getUsageMetrics()
+        ]);
 
-  const maxBotsAllowed = userPlan.chatbot_limit;
-  const maxWordsAllowed = userPlan.word_count_limit;
-  const chatbotlimit = userPlan.chatbot_limit;
-  const storagelimit = userPlan.storage_limit;
-  const chat_messages_used = userPlan.message_limit;
+        // Process bot data
+        const botExists = botResponse.length > 0;
+        setHasBots(botExists);
 
-  const usedBytes = convertToBytes(usageMetrics.total_storage_used);
-  const limitBytes = convertToBytes(storagelimit);
-  const storageUsagePercent = Math.min(
-    (usedBytes / limitBytes) * 100,
-    100
-  ).toFixed(2);
+        const extractedBots = botResponse.map((botObj) => {
+          const botId = Object.keys(botObj)[0];
+          const botData = botObj[botId];
 
+          return {
+            id: Number(botId),
+            name: botData.bot_name,
+            status: botData.status,
+            conversations: botData.conversation_count_today,
+            satisfaction: {
+              likes: botData.satisfaction?.likes || 0,
+              dislikes: botData.satisfaction?.dislikes || 0,
+            },
+          };
+        });
+
+        setBots(extractedBots);
+        setConversationTrends(trendsResponse);
+        setUsageMetrics(metrics);
+      }
+    } catch (error) {
+      console.error("Error loading data:", error);
+      setHasBots(false);
+    } finally {
+      setLoading(false);
+      setIsDataLoaded(true);
+    }
+  };
+
+  loadAllData();
+}, [userId, setLoading, setPlans, setAddons]);
+
+if (isPlansLoading || !userPlan) {
+  return <Loader />;
+}
+
+const maxBotsAllowed = userPlan.chatbot_limit;
+//const maxWordsAllowed = userPlan.word_count_limit;
+const maxWordsAllowed = effectiveWordLimit;
+const chatbotlimit = userPlan.chatbot_limit;
+const storagelimit = userPlan.storage_limit;
+//const chat_messages_used = userPlan.message_limit;
+console.log("effectiveMessageLimit",effectiveMessageLimit)
+const chat_messages_used = effectiveMessageLimit
+
+const usedBytes = convertToBytes(usageMetrics.total_storage_used);
+const limitBytes = convertToBytes(storagelimit);
+const storageUsagePercent = Math.min(
+  (usedBytes / limitBytes) * 100,
+  100
+).toFixed(2);
   function convertToBytes(sizeStr: string): number {
     if (!sizeStr) return 0;
 
@@ -179,11 +263,6 @@ export const Welcome = () => {
   }
 
   const handleCreateBot = () => {
-    //const userPlanId = user?.subscription_plan_id || 1; // Default to Free Plan
-    // ✅ Add a loading check
-
-    //const userPlan = getPlanById(userPlanId);
-
     console.log("userPlan", userPlan);
     if (!userPlan) return;
 
@@ -204,36 +283,6 @@ export const Welcome = () => {
 
     //navigate("/Options");
   };
-
-  // const transformDataForGraph = (trends: any[]) => {
-  //   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  //   const today = new Date().getDay(); // Get the current day of the week (0 = Sunday, 1 = Monday, etc.)
-
-  //   const graphData: any[] = [];
-
-  //   // Loop through all days of the week
-  //   daysOfWeek.forEach((day, index) => {
-  //     const dayData: any = { day };
-
-  //     trends.forEach((trend) => {
-  //       const botId = trend.bot_id;
-
-  //       // For days up to today, plot the data (or 0 if no data exists)
-  //       if (index <= today) {
-  //         const botDayData = trend.data.find((d: any) => d.day === day);
-  //         dayData[`bot_${botId}`] = botDayData ? botDayData.conversations : 0;
-  //       } else {
-  //         // For future days, set the value to null (no plotting)
-  //         dayData[`bot_${botId}`] = null;
-  //       }
-  //     });
-
-  //     graphData.push(dayData);
-  //   });
-
-  //   return graphData;
-  // };
-
   // Generate a unique color for each bot
   const generateColors = (count: number) => {
     const colors = [
@@ -360,43 +409,7 @@ export const Welcome = () => {
 
     return transformedData;
   };
-
-  // const getLast7Days = () => {
-  //   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  //   const today = new Date();
-  //   const last7Days = [];
-
-  //   for (let i = 6; i >= 0; i--) {
-  //     const day = new Date();
-  //     day.setDate(today.getDate() - i);
-  //     last7Days.push(days[day.getDay()]); // Get weekday name
-  //   }
-
-  //   return last7Days;
-  // };
-
-  // if (hasBots === null) {
-  //   return <Loader />; // Show loading state while API call is in progress
-  // }
-
-  // const bots = [
-  //   {
-  //     id: 1,
-  //     name: "Support Bot",
-  //     status: "active",
-  //     conversations: 1289,
-  //     satisfaction: 94,
-  //   },
-  //   {
-  //     id: 2,
-  //     name: "Sales Assistant",
-  //     status: "active",
-  //     conversations: 856,
-  //     satisfaction: 89,
-  //   },
-  // ];
-
-  const NewUserWelcome = () => {
+ const NewUserWelcome = () => {
     const isFreePlan = user?.subscription_plan_id === 1; // Check if user is on free plan
 
     const handleBuildBotClick = () => {
@@ -647,6 +660,8 @@ export const Welcome = () => {
               ></div>
             </div>
           </div>
+
+          
         </div>
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           {/* <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -674,43 +689,14 @@ export const Welcome = () => {
           </div>
           <div className="h-96 overflow-hidden">{renderGraph()}</div>
         </div>
-
-        {/* <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Quick Actions
-          </h2>
-          <div className="space-y-3">
-            {[
-              {
-                icon: MessageSquare,
-                label: "Customize Responses",
-                path: "/chatbot",
-              },
-              { icon: Users, label: "View Analytics", path: "/performance" },
-              { icon: Settings, label: "Bot Settings", path: "/settings" },
-            ].map((action, index) => (
-              <button
-                key={index}
-                onClick={() => navigate(action.path)}
-                className="w-full flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                <div className="flex items-center">
-                  <action.icon className="w-5 h-5 text-blue-500 mr-3" />
-                  <span className="text-gray-700 dark:text-gray-300">
-                    {action.label}
-                  </span>
-                </div>
-                <ArrowUpRight className="w-4 h-4 text-gray-400" />
-              </button>
-            ))}
-          </div>
-        </div> */}
       </div>
     </div>
   );
 
   return (
     <div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
+      {user?.subscription_status === 'expired' && <SubscriptionExpiredOverlay />}
+      <Loader/>
       {!isDataLoaded || hasBots === null ? (
         <Loader /> // Show loader while data is loading
       ) : hasBots ? (

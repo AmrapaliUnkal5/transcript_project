@@ -13,6 +13,27 @@ import Loader from "../components/Loader";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 
+interface MessageUsage {
+  totalUsed: number;
+  basePlan: {
+    limit: number;
+    used: number;
+    remaining: number;
+  };
+  addons: {
+    totalLimit: number;
+    used: number;
+    remaining: number;
+    items: Array<{
+      addon_id: number;
+      name: string;
+      limit: number;
+      remaining: number;
+    }>;
+  };
+  effectiveRemaining: number;
+}
+
 const saveBotSettings = async (
   settings: BotSettings,
   userId: number,
@@ -95,7 +116,7 @@ const updateBotSettings = async (
 
 export const ChatbotCustomization = () => {
   const { loading, setLoading } = useLoader();
-  const { user } = useAuth();
+  const { user,refreshUserData } = useAuth();
   //const [botToDelete, setBotToDelete] = useState<string | null>(null);
   const userId = user?.user_id;
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -115,6 +136,7 @@ export const ChatbotCustomization = () => {
       reaction?: "like" | "dislike";
     }[]
   >([]);
+  
   const [inputMessage, setInputMessage] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [isBotTyping, setIsBotTyping] = useState(false);
@@ -128,13 +150,38 @@ export const ChatbotCustomization = () => {
   const [reactionGiven, setReactionGiven] = useState(false);
   const [reaction, setReaction] = useState<"like" | "dislike" | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
-  const { getPlanById } = useSubscriptionPlans();
-  const [messageUsage, setMessageUsage] = useState({
-    used: 0,
-    remaining: 0,
-    limit: 0,
-  });
-  const [planLimit, setPlanLimit] = useState(0);
+  const { plans, addons,getPlanById } = useSubscriptionPlans();
+  //const [planLimit, setPlanLimit] = useState(0);
+  const [pendingAddonMessages, setPendingAddonMessages] = useState(0);
+  const userPlanId = user?.subscription_plan_id || 1;
+  const userPlan = getPlanById(userPlanId);
+  const userAddonIds = user?.addon_plan_ids || [];
+  const userActiveAddons = addons ? addons.filter(addon => userAddonIds.includes(addon.id)) : [];
+
+  // Calculate effective message limits
+  const baseMessageLimit = userPlan?.message_limit || 0;
+  // Count each addon purchase separately
+  const addonMessageLimit = userAddonIds.reduce(
+    (sum, addonId) => {
+      const addon = addons?.find(a => a.id === addonId);
+      return sum + (addon?.additional_message_limit || 0);
+    }, 
+    0
+  );
+  const totalMessageLimit = baseMessageLimit + addonMessageLimit;
+
+// Track usage state
+const [messageUsage, setMessageUsage] = useState({
+  totalUsed: 0,
+  baseUsed: 0,
+  baseRemaining: baseMessageLimit,
+  addonUsed: 0,
+  addonRemaining: addonMessageLimit,
+  effectiveRemaining: baseMessageLimit + addonMessageLimit
+});
+
+// Track which addons are being used
+const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
 
   const [settings, setSettings] = useState<BotSettings>({
     name: "Support Bot",
@@ -216,25 +263,30 @@ export const ChatbotCustomization = () => {
     const fetchMessageData = async () => {
       try {
         const response = await authApi.getUserMessageCount();
-        const userPlan = getPlanById(user?.subscription_plan_id!);
-        const messageLimit = userPlan?.message_limit || 0;
-        console.log("response=>", response);
-        console.log("userPlan=>", userPlan);
-        console.log("messageLimit=>", messageLimit);
-
+        console.log("Message usage response:", response); // Debug log
+        
+        // Map the backend response to frontend state
         setMessageUsage({
-          used: response.totalMessagesUsed,
-          remaining: Math.max(0, messageLimit - response.totalMessagesUsed),
-          limit: messageLimit,
+          totalUsed: response.total_messages_used,
+          basePlan: {
+            limit: response.base_plan.limit,
+            used: response.base_plan.used,
+            remaining: response.base_plan.remaining
+          },
+          addons: {
+            totalLimit: response.addons.total_limit,
+            used: response.addons.used,
+            remaining: response.addons.remaining,
+            items: response.addons.items || []
+          },
+          effectiveRemaining: response.effective_remaining
         });
-
-        setPlanLimit(messageLimit);
+        
       } catch (error) {
         console.error("Failed to fetch message data:", error);
         toast.error("Failed to load message usage data");
       }
     };
-
     if (user?.user_id) {
       fetchMessageData();
     }
@@ -283,16 +335,97 @@ export const ChatbotCustomization = () => {
     }
   }, [selectedBot, setLoading]);
 
-  const updateMessageCount = () => {
-    setMessageUsage((prev) => ({
-      ...prev,
-      used: prev.used + 1,
-      remaining: Math.max(0, prev.limit - (prev.used + 1)),
-    }));
+  useEffect(() => {
+  const fetchInitialUsage = async () => {
+    try {
+      const response = await authApi.getUserMessageCount();
+      const baseUsed = response.base_plan.used;
+      const addonUsed = response.addons.used;
+      
+      setMessageUsage({
+        totalUsed: baseUsed + addonUsed,
+        baseUsed,
+        baseRemaining: Math.max(0, baseMessageLimit - baseUsed),
+        addonUsed,
+        addonRemaining: Math.max(0, addonMessageLimit - addonUsed),
+        effectiveRemaining: Math.max(0, totalMessageLimit - (baseUsed + addonUsed))
+      });
+
+      // Initialize addon usage tracking
+      if (response.addons.items) {
+        const initialAddonUsage: Record<number, number> = {};
+        response.addons.items.forEach(addon => {
+          initialAddonUsage[addon.addon_id] = addon.used || 0;
+        });
+        setAddonUsage(initialAddonUsage);
+      }
+    } catch (error) {
+      console.error("Failed to fetch message usage:", error);
+    }
   };
 
-  const canSendMessage = () => {
-    return messageUsage.remaining > 0;
+  if (user?.user_id) {
+    fetchInitialUsage();
+  }
+}, [user, baseMessageLimit, addonMessageLimit, totalMessageLimit]);
+
+  const updateMessageCount = async () => {
+    setMessageUsage(prev => {
+      // If base messages available, use those first
+      if (prev.baseRemaining > 0) {
+        return {
+          ...prev,
+          totalUsed: prev.totalUsed + 1,
+          baseUsed: prev.baseUsed + 1,
+          baseRemaining: prev.baseRemaining - 1,
+          effectiveRemaining: prev.effectiveRemaining - 1
+        };
+      }
+      
+      // Otherwise use addon messages
+      if (prev.addonRemaining > 0) {
+        // Find the first addon with remaining messages
+        const addonToUse = userActiveAddons.find(addon => {
+          const used = addonUsage[addon.id] || 0;
+          return used < addon.additional_message_limit;
+        });
+  
+        if (addonToUse) {
+          // Update addon usage tracking
+          const addonId = addonToUse.id;
+          const newAddonUsage = {
+            ...addonUsage,
+            [addonId]: (addonUsage[addonId] || 0) + 1
+          };
+          setAddonUsage(newAddonUsage);
+  
+          // Call API to record addon usage
+          recordAddonUsage(addonId);
+  
+          return {
+            ...prev,
+            totalUsed: prev.totalUsed + 1,
+            addonUsed: prev.addonUsed + 1,
+            addonRemaining: prev.addonRemaining - 1,
+            effectiveRemaining: prev.effectiveRemaining - 1
+          };
+        }
+      }
+      
+      // If we get here, no messages available
+      console.error("No messages available but trying to send");
+      return prev;
+    });
+  };
+  
+  const recordAddonUsage = async (addonId: number) => {
+    try {
+      await authApi.recordAddonUsage(addonId, 1); // Passing 1 message used
+      // Refresh user data to get latest counts
+      await refreshUserData();
+    } catch (error) {
+      console.error("Failed to record addon usage:", error);
+    }
   };
 
   const handleUserActivity = () => {
@@ -389,13 +522,27 @@ export const ChatbotCustomization = () => {
     }
   };
 
+  const canSendMessage = () => {
+    return messageUsage.effectiveRemaining > 0;
+  };
+
   const sendMessage = async () => {
+    // First check if we can send (either base or addon messages available)
     if (!canSendMessage()) {
-      toast.error(
-        "You have reached your message limit, please upgrade your plan."
-      );
+      toast.error("You have reached your message limit, please upgrade your plan.");
       return;
     }
+    
+    // Then check if we have any remaining messages (base or addon)
+    if (messageUsage.effectiveRemaining <= 0) {
+      toast.error("You've used all your available messages for this period.");
+      return;
+    }
+
+    // Determine if we're using addon messages
+    const isAddonMessage = messageUsage.baseRemaining <= 0 && messageUsage.addonRemaining > 0
+    console.log("isAddonMessage",isAddonMessage)
+  
     if (!inputMessage.trim()) return;
     setWaitingForBotResponse(true);
 
@@ -415,7 +562,7 @@ export const ChatbotCustomization = () => {
     setPreviewLoading(true);
 
     try {
-      const data = await authApi.sendMessage(sessionId, "user", inputMessage);
+      const data = await authApi.sendMessage(sessionId, "user", inputMessage, isAddonMessage);
       setBotMessageId(data.message_id);
 
       const thinkingDelay = Math.random() * 1000 + 500;
@@ -473,6 +620,35 @@ export const ChatbotCustomization = () => {
       setPreviewLoading(false);
     }
   };
+
+  // const handleMessageReset = () => {
+  //   setMessageUsage(prev => {
+  //     const remainingAddons = prev.addons.items
+  //       .filter(a => a.remaining > 0)
+  //       .reduce((sum, a) => sum + a.remaining, 0);
+      
+  //     setPendingAddonMessages(remainingAddons);
+      
+  //     return {
+  //       totalUsed: 0,
+  //       basePlan: {
+  //         ...prev.basePlan,
+  //         used: 0,
+  //         remaining: prev.basePlan.limit
+  //       },
+  //       addons: {
+  //         ...prev.addons,
+  //         used: 0,
+  //         remaining: prev.addons.totalLimit,
+  //         items: prev.addons.items.map(a => ({
+  //           ...a,
+  //           remaining: a.limit
+  //         }))
+  //       },
+  //       effectiveRemaining: prev.basePlan.limit + prev.addons.totalLimit
+  //     };
+  //   });
+  // };
 
   const startTypingAnimation = (
     startIndex: number,
@@ -982,10 +1158,39 @@ export const ChatbotCustomization = () => {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Preview
             </h2>
-            <div className="text-sm bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-lg">
-              Messages: {messageUsage.used}/{messageUsage.limit}
-            </div>
-          </div>
+            <div className="flex flex-col space-y-1 text-sm bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg">
+  <div className="font-medium flex justify-between">
+    <span>Total Messages:</span>
+    <span>
+      {messageUsage.totalUsed} / {totalMessageLimit}
+    </span>
+  </div>
+  
+  <div className="flex justify-between text-xs">
+    <span>Base Plan:</span>
+    <span className={messageUsage.baseRemaining <= 0 ? "text-red-500" : ""}>
+      {messageUsage.baseUsed}/{baseMessageLimit}
+      {messageUsage.baseRemaining > 0 && (
+        <span className="text-green-500 ml-1">({messageUsage.baseRemaining} left)</span>
+      )}
+    </span>
+  </div>
+  
+  {addonMessageLimit > 0 && (
+    <div className="flex justify-between text-xs">
+      <span>Addon Messages:</span>
+      <span className={messageUsage.addonRemaining <= 0 ? "text-red-500" : ""}>
+        {messageUsage.addonUsed}/{addonMessageLimit}
+        {messageUsage.addonRemaining > 0 && (
+          <span className="text-green-500 ml-1">({messageUsage.addonRemaining} left)</span>
+        )}
+      </span>
+    </div>
+  )}
+</div>
+</div>
+
+
 
           {/* Chat Window */}
           <div
