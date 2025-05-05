@@ -5,7 +5,7 @@ from starlette.responses import RedirectResponse
 from app.config import settings
 from app.database import engine
 from app.models import (
-    User, Bot, File, Interaction, Language, 
+    User, Bot, File, Interaction, Language, UserAddon, 
     UserAuthProvider, ChatMessage, 
     DemoRequest, EmbeddingModel, LLMModel, SubscriptionPlan,
     Addon, UserSubscription, TeamMember, InteractionReaction, ScrapedNode, 
@@ -548,6 +548,48 @@ class ClusteredQuestionAdmin(ModelView, model=ClusteredQuestion):
         ClusteredQuestion.embedding
     ]
 
+class UserAddonAdmin(ModelView, model=UserAddon):
+    column_list = [
+        UserAddon.id,
+        UserAddon.user_id,
+        UserAddon.addon_id,
+        UserAddon.subscription_id,
+        UserAddon.purchase_date,
+        UserAddon.expiry_date,
+        UserAddon.is_active,
+        UserAddon.auto_renew,
+        UserAddon.status,
+        UserAddon.remaining_count,
+        UserAddon.initial_count,
+        UserAddon.created_at,
+        UserAddon.updated_at
+    ]
+    column_searchable_list = [UserAddon.user_id, UserAddon.addon_id, UserAddon.status]
+    column_filters = [
+        "user_id", 
+        "addon_id", 
+        "subscription_id", 
+        "is_active", 
+        "status", 
+        "purchase_date", 
+        "expiry_date"
+    ]
+    
+    # Add form columns to include all fields
+    form_columns = [
+        UserAddon.user_id,
+        UserAddon.addon_id,
+        UserAddon.subscription_id,
+        UserAddon.purchase_date,
+        UserAddon.expiry_date,
+        UserAddon.is_active,
+        UserAddon.auto_renew,
+        UserAddon.status,
+        UserAddon.zoho_addon_instance_id,
+        UserAddon.remaining_count,
+        UserAddon.initial_count
+    ]
+
 def init(app: FastAPI):
     admin = Admin(app=app, engine=engine, authentication_backend=authentication_backend)
     app.mount("/admin", admin)
@@ -576,3 +618,4 @@ def init(app: FastAPI):
     admin.add_view(NotificationAdmin)
     admin.add_view(ClusterAdmin)
     admin.add_view(ClusteredQuestionAdmin)
+    admin.add_view(UserAddonAdmin) 

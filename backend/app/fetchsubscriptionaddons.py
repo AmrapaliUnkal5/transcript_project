@@ -76,7 +76,7 @@ async def record_addon_usage(
         # Get all active message addons (ID 5) ordered by purchase date (oldest first)
         user_addons = db.query(UserAddon).join(Addon).filter(
             UserAddon.user_id == current_user["user_id"],
-            UserAddon.addon_id == 5,  # Message addon
+            UserAddon.addon_id == 3,  # Message addon
             UserAddon.is_active == True,
             or_(
                 UserAddon.expiry_date == None,
@@ -120,7 +120,7 @@ def update_addon_usage_proper(db: Session, user_id: int, messages_to_use: int):
         # Lock addons for update
         addons = db.query(UserAddon).join(Addon).filter(
             UserAddon.user_id == user_id,
-            UserAddon.addon_id == 5,
+            UserAddon.addon_id == 3,
             UserAddon.is_active == True,
             or_(
                 UserAddon.expiry_date == None,

@@ -194,7 +194,7 @@ def get_usage_metrics(
         total_initial_count = db.query(func.sum(UserAddon.initial_count)).join(Addon).filter(
             UserAddon.user_id == user_id,
             UserAddon.is_active == True,
-            Addon.id == 5,  # Additional Messages addon
+            Addon.id == 3,  # Additional Messages addon
         ).scalar() or 0
 
         chat_messages_used = (user.total_message_count + total_initial_count) or 0
