@@ -31,6 +31,7 @@ import { CustomerSupportRequest } from "./pages/CustomerSupport.tsx";
 import { SubscriptionPlanProvider } from "./context/SubscriptionPlanContext";
 import { ScriptGeneratePage } from "./pages/ScriptGeneratePage";
 import { TeamInvitation } from "./pages/TeamInvitation.tsx";
+import { AddonPurchasePage } from "./pages/AddonPurchasePage";
 
 function App() {
   return (
@@ -60,6 +61,8 @@ function App() {
                   path="customersupport"
                   element={<CustomerSupportRequest />}
                 />
+                
+                {/* Main layout with sidebar */}
                 <Route
                   path="/"
                   element={
@@ -84,6 +87,7 @@ function App() {
                     element={<SubscriptionSuccess />}
                   />
                   <Route path="myaccount" element={<Settings />} />
+                  <Route path="account/add-ons" element={<AddonPurchasePage />} />
                   <Route path="options" element={<PlanSelection />} />
                   {/* <Route path="report-issue" element={<ReportIssue />} /> */}
                 </Route>

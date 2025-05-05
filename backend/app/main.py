@@ -394,13 +394,40 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
     db_user = get_user_by_email(db, email=email)
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    # Get the user's active subscription
+    subscription = db.query(UserSubscription).filter(
+        UserSubscription.user_id == db_user.user_id,
+        UserSubscription.status == "active"
+    ).order_by(UserSubscription.payment_date.desc()).first()
+    
+    # Get subscription plan ID if available
+    subscription_plan_id = None
+    if subscription:
+        subscription_plan_id = subscription.subscription_plan_id
+    
+    # Get list of addon plan IDs
+    addon_plan_ids = []
+    user_addons = db.query(UserAddon).filter(
+        UserAddon.user_id == db_user.user_id,
+        UserAddon.is_active == True
+    ).all()
+    
+    if user_addons:
+        addon_plan_ids = [ua.addon_id for ua in user_addons]
+    
     return RegisterResponse(
         message="Successfull retrival",
         user=UserOut(
             email=db_user.email,
             role=db_user.role,
             company_name=db_user.company_name,
-            name=db_user.name
+            name=db_user.name,
+            user_id=db_user.user_id,
+            phone_no=db_user.phone_no,
+            communication_email=db_user.communication_email,
+            total_words_used=db_user.total_words_used,
+            subscription_plan_id=subscription_plan_id
         )
     )
 

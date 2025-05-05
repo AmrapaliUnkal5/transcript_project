@@ -692,18 +692,53 @@ export const subscriptionApi = {
 
   // In your subscriptionApi service
   getCurrentPlan: async (userId: number) => {
-  const response = await api.get(`/subscription/user/${userId}/current`);
-  return response.data;
-},
-  getUserAddons: async (userId: number) => {
-  const response = await api.get(`/user/${userId}/addons`);
-  return response.data;
-},
+    const response = await api.get(`/subscription/user/${userId}/current`);
+    return response.data;
+  },
   
-createCheckout: async (planId: number, addonIds?: number[]): Promise<string> => {
-  const response = await api.post("/subscription/checkout", { planId, addonIds });
-  return response.data.url;
-},
+  getUserAddons: async (userId: number) => {
+    const response = await api.get(`/user/${userId}/addons`);
+    return response.data;
+  },
+
+  purchaseAddon: async (addonId: number, quantity: number = 1): Promise<string> => {
+    try {
+      console.log(`DEBUG - API - Creating addon checkout for addon ${addonId} with quantity ${quantity}`);
+      
+      const payload = {
+        addon_id: addonId,
+        quantity: quantity
+      };
+      console.log(`DEBUG - API - Addon checkout payload:`, JSON.stringify(payload));
+      
+      const response = await api.post("/addons/checkout", payload);
+      
+      console.log("DEBUG - API - Addon checkout API response status:", response.status);
+      console.log("DEBUG - API - Addon checkout API response data:", response.data);
+      
+      if (response?.data?.checkout_url) {
+        console.log("DEBUG - API - Addon checkout URL received:", response.data.checkout_url);
+        return response.data.checkout_url;
+      } else {
+        console.error("DEBUG - API - No checkout URL in response:", response.data);
+        throw new Error('No checkout URL returned from the server');
+      }
+    } catch (error: any) {
+      console.error("DEBUG - API - Error in addon checkout API:", error);
+      
+      if (error.response?.data?.detail) {
+        // Extract the error message from the API response if available
+        throw new Error(error.response.data.detail);
+      }
+      
+      throw error;
+    }
+  },
+  
+  createCheckout: async (planId: number, addonIds?: number[]): Promise<string> => {
+    const response = await api.post("/subscription/checkout", { planId, addonIds });
+    return response.data.url;
+  },
 
   // New endpoints for Zoho subscription
   syncPlansWithZoho: async () => {
@@ -761,4 +796,59 @@ createCheckout: async (planId: number, addonIds?: number[]): Promise<string> => 
       throw error;
     }
   },  
+
+  // New method to get subscription status (including pending status)
+  getSubscriptionStatus: async (userId: number) => {
+    try {
+      const response = await api.get(`/zoho/status/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting subscription status:', error);
+      throw error;
+    }
+  },
+  
+  // Method to resume a pending checkout
+  resumeCheckout: async (subscriptionId: number) => {
+    try {
+      const response = await api.post(`/zoho/resume-checkout/${subscriptionId}`);
+      return response.data.checkout_url;
+    } catch (error) {
+      console.error('Error resuming checkout:', error);
+      throw error;
+    }
+  },
+  
+  // Method to cancel a pending subscription
+  cancelPendingSubscription: async (subscriptionId: number) => {
+    try {
+      await api.post(`/zoho/cancel-pending/${subscriptionId}`);
+      return true;
+    } catch (error) {
+      console.error('Error canceling pending subscription:', error);
+      throw error;
+    }
+  },
+
+  // Get pending addon purchases for a user
+  getPendingAddonPurchases: async (userId: number) => {
+    try {
+      const response = await api.get(`/addons/pending/${userId}`);
+      return response.data.pendingAddons;
+    } catch (error) {
+      console.error('Error getting pending addon purchases:', error);
+      throw error;
+    }
+  },
+  
+  // Cancel a pending addon purchase
+  cancelPendingAddonPurchase: async (addonId: number) => {
+    try {
+      const response = await api.post(`/addons/cancel-pending/${addonId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error canceling pending addon purchase:', error);
+      throw error;
+    }
+  },
 };

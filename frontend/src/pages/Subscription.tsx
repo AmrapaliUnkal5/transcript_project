@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, CreditCard, ExternalLink, PlusCircle, MinusCircle, Compass, Rocket, TrendingUp, Briefcase, Building, X } from 'lucide-react';
+import { Check, CreditCard, ExternalLink, PlusCircle, MinusCircle, Compass, Rocket, TrendingUp, Briefcase, Building, X, AlertTriangle } from 'lucide-react';
 import { useSubscriptionPlans } from '../context/SubscriptionPlanContext';
 import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -200,7 +200,7 @@ const AddonsModal = ({
 
 export const Subscription = () => {
   const { plans, addons, isLoading, loadPlans, createCheckout, setAddons } = useSubscriptionPlans();
-  const { user } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const navigate = useNavigate();
   const [processingPlanId, setProcessingPlanId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -213,7 +213,9 @@ export const Subscription = () => {
   const currentPlanIdFromState = location.state?.currentPlanId;
   const fromExpired = location.state?.fromExpired;
   const [isExpiredPlan, setIsExpiredPlan] = useState(false);
-
+  const [hasPendingSubscription, setHasPendingSubscription] = useState(false);
+  const [pendingSubscriptionDetails, setPendingSubscriptionDetails] = useState<any>(null);
+  const [showPendingNotification, setShowPendingNotification] = useState(false);
 
   useEffect(() => {
     // Check URL params for expired status
@@ -678,6 +680,107 @@ export const Subscription = () => {
     );
   };
 
+  // Check for pending subscriptions when component mounts
+  useEffect(() => {
+    const checkPendingSubscriptions = async () => {
+      if (user?.user_id) {
+        try {
+          const subscriptionStatus = await subscriptionApi.getSubscriptionStatus(user.user_id);
+          if (subscriptionStatus && subscriptionStatus.status === 'pending') {
+            setHasPendingSubscription(true);
+            setPendingSubscriptionDetails(subscriptionStatus);
+            setShowPendingNotification(true);
+          } else {
+            setHasPendingSubscription(false);
+            setPendingSubscriptionDetails(null);
+          }
+        } catch (error) {
+          console.error('Error checking pending subscriptions:', error);
+        }
+      }
+    };
+    
+    checkPendingSubscriptions();
+  }, [user?.user_id]);
+
+  // Handle abandoned checkout
+  const handleAbandonedCheckout = async (action: 'continue' | 'cancel') => {
+    if (!pendingSubscriptionDetails) return;
+    
+    try {
+      if (action === 'continue') {
+        // Re-use existing pending subscription to generate a new checkout URL
+        const checkoutUrl = await subscriptionApi.resumeCheckout(pendingSubscriptionDetails.id);
+        if (checkoutUrl) {
+          window.location.href = checkoutUrl;
+        } else {
+          throw new Error('Failed to generate checkout URL');
+        }
+      } else {
+        // Cancel the pending subscription
+        await subscriptionApi.cancelPendingSubscription(pendingSubscriptionDetails.id);
+        setHasPendingSubscription(false);
+        setPendingSubscriptionDetails(null);
+        setShowPendingNotification(false);
+        
+        // Refresh user data to make sure we have the latest state
+        await refreshUserData();
+      }
+    } catch (error) {
+      console.error('Error handling abandoned checkout:', error);
+      setError(error instanceof Error ? error.message : 'An error occurred');
+    }
+  };
+
+  // Render the pending subscription notification
+  const renderPendingSubscriptionNotification = () => {
+    if (!showPendingNotification || !pendingSubscriptionDetails) return null;
+    
+    const pendingPlan = plans.find(p => p.id === pendingSubscriptionDetails.subscription_plan_id);
+    const planName = pendingPlan?.name || 'Selected plan';
+    
+    return (
+      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg p-6 mb-8">
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            <AlertTriangle className="h-5 w-5 text-yellow-500" aria-hidden="true" />
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+              Incomplete Checkout Detected
+            </h3>
+            <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+              <p>
+                You have an incomplete checkout for the <strong>{planName}</strong> plan. 
+                Would you like to continue with this checkout or start a new one?
+              </p>
+              <div className="mt-4 flex space-x-4">
+                <button
+                  onClick={() => handleAbandonedCheckout('continue')}
+                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors"
+                >
+                  Continue Checkout
+                </button>
+                <button
+                  onClick={() => handleAbandonedCheckout('cancel')}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                >
+                  Cancel & Start Fresh
+                </button>
+                <button
+                  onClick={() => setShowPendingNotification(false)}
+                  className="px-4 py-2 bg-transparent text-yellow-700 dark:text-yellow-300 hover:text-yellow-800 dark:hover:text-yellow-200"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-8 px-4 py-6 max-w-7xl mx-auto">
       <div className="flex flex-col">
@@ -688,6 +791,9 @@ export const Subscription = () => {
           Choose the plan that best fits your needs
         </p>
       </div>
+
+      {/* Pending subscription notification */}
+      {renderPendingSubscriptionNotification()}
 
       {/* Error message */}
       {error && (

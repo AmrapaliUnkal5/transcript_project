@@ -90,13 +90,13 @@ def require_addon(addon_type: str):
     Returns:
         A dependency function that will raise an HTTPException if the user doesn't have the add-on
     """
-    def dependency(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    def dependency(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
         # Skip check for admins (they have access to all features)
-        if current_user.role == "admin":
+        if current_user["role"] == "admin":
             return current_user
             
         # Check if the user has the required add-on
-        has_addon = AddonService.check_addon_active(db, current_user.user_id, addon_type)
+        has_addon = AddonService.check_addon_active(db, current_user["user_id"], addon_type)
         if not has_addon:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

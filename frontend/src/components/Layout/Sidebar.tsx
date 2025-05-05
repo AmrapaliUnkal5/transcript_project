@@ -30,6 +30,7 @@ export const Sidebar = () => {
     "/subscription",
     "/Options",
     "/myaccount",
+    "/account/add-ons",
   ];
 
   if (hiddenRoutes.includes(location.pathname)) {

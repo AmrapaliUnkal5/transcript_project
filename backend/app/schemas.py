@@ -429,7 +429,8 @@ class UserAddonOut(BaseModel):
 
 class PurchaseAddonRequest(BaseModel):
     addon_id: int
-    
+    quantity: Optional[int] = 1
+
 class CancelAddonRequest(BaseModel):
     user_addon_id: int
 
@@ -444,3 +445,6 @@ class MessageUsageResponse(BaseModel):
     base_plan: dict
     addons: dict
     effective_remaining: int
+
+class AddOnCheckoutResponse(BaseModel):
+    checkout_url: str

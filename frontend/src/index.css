@@ -17,6 +17,16 @@
   font-family: 'Lato', sans-serif;
 }
 
+/* Hide sidebar when no-sidebar class is present on body */
+body.no-sidebar .flex.flex-1.overflow-hidden > aside {
+  display: none;
+}
+
+/* Make main content full width when sidebar is hidden */
+body.no-sidebar .flex.flex-1.overflow-hidden > main {
+  width: 100%;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

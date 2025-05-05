@@ -654,3 +654,191 @@ async def handle_payment_failed(payload: Dict[str, Any], db: Session):
         db.rollback()
         logger.error(f"Error handling payment_failed event: {str(e)}")
         print(f"ERROR handling payment failure: {str(e)}") 
+
+# Add a new endpoint to get subscription status for a user
+@router.get("/status/{user_id}", response_model=dict)
+async def get_subscription_status(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: Union[dict, User] = Depends(get_current_user),
+):
+    """Get subscription status for a user, including pending subscriptions"""
+    try:
+        # Verify that the requested user_id matches the current user or is admin
+        if isinstance(current_user, dict):
+            requester_id = current_user.get("user_id")
+            is_admin = current_user.get("role") == "admin"
+        else:
+            requester_id = current_user.user_id
+            is_admin = current_user.role == "admin"
+            
+        if requester_id != user_id and not is_admin:
+            raise HTTPException(status_code=403, detail="Not authorized to view this user's subscription")
+            
+        # Get the latest subscription for the user
+        subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id
+        ).order_by(UserSubscription.updated_at.desc()).first()
+        
+        if not subscription:
+            return {"status": "none", "message": "No subscription found"}
+            
+        # Get the associated plan
+        plan = db.query(SubscriptionPlan).filter(
+            SubscriptionPlan.id == subscription.subscription_plan_id
+        ).first()
+        
+        plan_data = None
+        if plan:
+            plan_data = {
+                "id": plan.id,
+                "name": plan.name,
+                "price": plan.price,
+                "billing_period": plan.billing_period
+            }
+            
+        subscription_data = {
+            "id": subscription.id,
+            "status": subscription.status,
+            "subscription_plan_id": subscription.subscription_plan_id,
+            "plan": plan_data,
+            "created_at": subscription.created_at.isoformat() if subscription.created_at else None,
+            "updated_at": subscription.updated_at.isoformat() if subscription.updated_at else None,
+            "zoho_subscription_id": subscription.zoho_subscription_id,
+            "expiry_date": subscription.expiry_date.isoformat() if subscription.expiry_date else None,
+        }
+        
+        return subscription_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting subscription status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting subscription status: {str(e)}")
+
+# Add endpoint to resume a pending checkout
+@router.post("/resume-checkout/{subscription_id}", response_model=dict)
+async def resume_checkout(
+    subscription_id: int,
+    db: Session = Depends(get_db),
+    current_user: Union[dict, User] = Depends(get_current_user),
+):
+    """Resume a pending checkout by generating a new checkout URL for an existing pending subscription"""
+    try:
+        # Find the pending subscription
+        subscription = db.query(UserSubscription).filter(
+            UserSubscription.id == subscription_id,
+            UserSubscription.status == "pending"
+        ).first()
+        
+        if not subscription:
+            raise HTTPException(status_code=404, detail="Pending subscription not found")
+            
+        # Verify that the subscription belongs to the current user or user is admin
+        if isinstance(current_user, dict):
+            requester_id = current_user.get("user_id")
+            is_admin = current_user.get("role") == "admin"
+        else:
+            requester_id = current_user.user_id
+            is_admin = current_user.role == "admin"
+            
+        if subscription.user_id != requester_id and not is_admin:
+            raise HTTPException(status_code=403, detail="Not authorized to resume this subscription")
+            
+        # Get the plan details
+        plan = db.query(SubscriptionPlan).filter(
+            SubscriptionPlan.id == subscription.subscription_plan_id
+        ).first()
+        
+        if not plan:
+            raise HTTPException(status_code=404, detail="Subscription plan not found")
+            
+        # Handle user data
+        if isinstance(current_user, dict):
+            user_data = {
+                "name": current_user.get("name", ""),
+                "email": current_user.get("email", ""),
+                "phone_no": current_user.get("phone_no", ""),
+                "company_name": current_user.get("company_name", "")
+            }
+            user_id = current_user.get("user_id")
+        else:
+            user_data = {
+                "name": current_user.name,
+                "email": current_user.email,
+                "phone_no": current_user.phone_no,
+                "company_name": current_user.company_name
+            }
+            user_id = current_user.user_id
+            
+        # Update the pending subscription's timestamp
+        subscription.updated_at = datetime.now()
+        db.commit()
+            
+        # Format the subscription data for Zoho
+        subscription_data = format_subscription_data_for_hosted_page(
+            user_id=user_id,
+            user_data=user_data,
+            plan_code=plan.zoho_plan_code,
+            addon_codes=[]  # No add-ons for now when resuming
+        )
+        
+        # Get a new checkout URL
+        zoho_service = ZohoBillingService()
+        checkout_url = zoho_service.get_hosted_page_url(subscription_data)
+        
+        if not checkout_url:
+            raise HTTPException(status_code=500, detail="Failed to generate checkout URL")
+            
+        return {"checkout_url": checkout_url}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resuming checkout: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error resuming checkout: {str(e)}")
+
+# Add endpoint to cancel a pending subscription
+@router.post("/cancel-pending/{subscription_id}")
+async def cancel_pending_subscription(
+    subscription_id: int,
+    db: Session = Depends(get_db),
+    current_user: Union[dict, User] = Depends(get_current_user),
+):
+    """Cancel a pending subscription"""
+    try:
+        # Find the pending subscription
+        subscription = db.query(UserSubscription).filter(
+            UserSubscription.id == subscription_id,
+            UserSubscription.status == "pending"
+        ).first()
+        
+        if not subscription:
+            raise HTTPException(status_code=404, detail="Pending subscription not found")
+            
+        # Verify that the subscription belongs to the current user or user is admin
+        if isinstance(current_user, dict):
+            requester_id = current_user.get("user_id")
+            is_admin = current_user.get("role") == "admin"
+        else:
+            requester_id = current_user.user_id
+            is_admin = current_user.role == "admin"
+            
+        if subscription.user_id != requester_id and not is_admin:
+            raise HTTPException(status_code=403, detail="Not authorized to cancel this subscription")
+            
+        # Mark the subscription as cancelled
+        subscription.status = "cancelled"
+        subscription.notes = "Cancelled by user before checkout completion"
+        subscription.updated_at = datetime.now()
+        
+        db.commit()
+        
+        return {"success": True, "message": "Pending subscription cancelled"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error cancelling pending subscription: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error cancelling pending subscription: {str(e)}") 

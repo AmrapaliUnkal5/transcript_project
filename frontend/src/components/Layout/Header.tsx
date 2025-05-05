@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Bell, Sun, Moon, Home, CreditCard, Settings, LogOut,HelpCircle,Contact,Headset } from "lucide-react";
+import { Bell, Sun, Moon, Home, CreditCard, Settings, LogOut, HelpCircle, Contact, Headset, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { NotificationDropdown } from "../notifications/NotificationDropdown";
@@ -176,6 +176,21 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
                 />
                 <span className="text-sm font-medium text-gray-900 dark:text-white">
                   Subscription
+                </span>
+              </button>
+              <button
+                onClick={() => {
+                  navigate("/account/add-ons");
+                  setDropdownOpen(false);
+                }}
+                className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <Plus
+                  color={isDark ? "white" : "black"}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  Add-ons
                 </span>
               </button>
               <button

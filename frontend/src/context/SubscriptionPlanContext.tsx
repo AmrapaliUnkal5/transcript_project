@@ -47,6 +47,7 @@ interface SubscriptionPlanContextType {
   setAddons: (addons: AddonPlan[]) => void;
   setLoading: (loading: boolean) => void;
   createCheckout: (planId: number, addonIds?: number[]) => Promise<string>;
+  purchaseAddon: (addonId: number, quantity?: number, isContinuation?: boolean) => Promise<string>;
 }
 
 
@@ -123,36 +124,44 @@ export const SubscriptionPlanProvider: React.FC<{ children: React.ReactNode }> =
   const getPlanById = (id: number) => plans.find((plan) => plan.id === id);
   const getAddonById = (id: number) => addons.find((addon) => addon.id === id);
 
-  const createCheckout = async (planId: number, addonIds?: number[]): Promise<string> => {
+  const createCheckout = async (planId: number, addonIds?: number[]) => {
     try {
-      console.log(`DEBUG - CONTEXT - Requesting checkout URL for plan ${planId}`);
-      console.log(`DEBUG - CONTEXT - Addon IDs passed to context:`, addonIds);
-      
-      const checkoutUrl = await subscriptionApi.createSubscriptionCheckout(planId, addonIds);
-      
-      console.log(`DEBUG - CONTEXT - Checkout URL received in context: ${checkoutUrl}`);
-      return checkoutUrl;
-    } catch (error: any) {
-      console.error("DEBUG - CONTEXT - Error creating subscription checkout in context:", error);
-      console.error("DEBUG - CONTEXT - Error message:", error.message);
+      return await subscriptionApi.createSubscriptionCheckout(planId, addonIds);
+    } catch (error) {
+      console.error("Error creating checkout:", error);
+      throw error;
+    }
+  };
+  
+  const purchaseAddon = async (addonId: number, quantity: number = 1, isContinuation: boolean = false) => {
+    try {
+      if (isContinuation) {
+        return await subscriptionApi.purchaseAddon(addonId, quantity);
+      }
+      return await subscriptionApi.purchaseAddon(addonId, quantity);
+    } catch (error) {
+      console.error("Error purchasing addon:", error);
       throw error;
     }
   };
 
+  const contextValue = {
+    plans,
+    addons,
+    getPlanById,
+    getAddonById,
+    isLoading,
+    loadPlans,
+    setPlans,
+    setAddons,
+    setLoading,
+    createCheckout,
+    purchaseAddon
+  };
+
   return (
     <SubscriptionPlanContext.Provider 
-      value={{ 
-        plans, 
-        addons,
-        getPlanById,
-        getAddonById,
-        isLoading,
-        loadPlans,
-        setPlans,
-        setAddons,
-        setLoading,
-        createCheckout
-      }}
+      value={contextValue}
     >
       {children}
     </SubscriptionPlanContext.Provider>

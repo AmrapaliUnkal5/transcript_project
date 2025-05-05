@@ -1,9 +1,10 @@
 from sqlalchemy.orm import Session
-from app.models import UserAddon, Addon, UserSubscription, User
+from app.models import UserAddon, Addon, UserSubscription, User, SubscriptionPlan
 from app.schemas import UserAddonCreate, UserAddonUpdate
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 import logging
+from app.zoho_billing_service import ZohoBillingService, format_subscription_data_for_hosted_page
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,116 @@ class AddonService:
         db.refresh(user_addon)
         
         return user_addon
+    
+    @staticmethod
+    def get_addon_checkout_url(db: Session, user_id: int, addon_id: int, quantity: int = 1) -> str:
+        """
+        Generate a checkout URL for standalone add-on purchase
+        
+        Args:
+            db: Database session
+            user_id: ID of the user purchasing the add-on
+            addon_id: ID of the add-on being purchased
+            quantity: Quantity of the add-on to purchase (default: 1)
+            
+        Returns:
+            Checkout URL for the add-on purchase
+        """
+        print(f"Generating checkout URL for addon ID: {addon_id}")
+        # Get addon details
+        addon = db.query(Addon).filter(Addon.id == addon_id).first()
+        if not addon:
+            raise ValueError(f"Add-on with ID {addon_id} not found")
+        
+        print(f"Addon details: {addon}")
+        # Make sure the addon has a Zoho code
+        if not addon.zoho_addon_code:
+            raise ValueError(f"Add-on '{addon.name}' is not properly configured for checkout")
+        
+        print(f"Addon has Zoho code: {addon.zoho_addon_code}")
+        # Get user's active subscription to link the add-on to
+        subscription = (
+            db.query(UserSubscription)
+            .filter(
+                UserSubscription.user_id == user_id,
+                UserSubscription.status == "active"
+            )
+            .order_by(UserSubscription.expiry_date.desc())
+            .first()
+        )
+        
+        print(f"Subscription details: {subscription}")
+        if not subscription:
+            raise ValueError("You need an active subscription to purchase add-ons. Please subscribe to a plan first.")
+            
+        # Get plan details to check if it's a free plan
+        plan = db.query(SubscriptionPlan).filter(
+            SubscriptionPlan.id == subscription.subscription_plan_id
+        ).first()
+        
+        if plan and (plan.price == 0 or plan.price is None):
+            raise ValueError("Add-ons can only be purchased with a paid subscription plan. Please upgrade from your free plan first.")
+            
+        # Ensure subscription has a Zoho subscription ID
+        if not subscription.zoho_subscription_id:
+            raise ValueError("Your subscription doesn't have a valid billing reference. Please contact support for assistance or try subscribing to a paid plan first.")
+        
+        print(f"User has active subscription with Zoho ID: {subscription.zoho_subscription_id}")
+        # Get user details
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            raise ValueError(f"User with ID {user_id} not found")
+        
+        print(f"User found")
+        # Create user data dictionary
+        user_data = {
+            "name": user.name,
+            "email": user.email,
+            "phone_no": user.phone_no,
+            "company_name": user.company_name if hasattr(user, 'company_name') else None
+        }
+        
+        print(f"User data: {user_data}")
+        # Initialize Zoho billing service
+        zoho_service = ZohoBillingService()
+        
+        print(f"Zoho service initialized")
+        # Format data for Zoho hosted page (buyonetimeaddon endpoint)
+        addon_data = {
+            "customer": {
+                "display_name": user_data.get("name", ""),
+                "email": user_data.get("email", "")
+            },
+            "addons": [
+                {
+                    "addon_code": addon.zoho_addon_code,
+                    "quantity": quantity
+                }
+            ],
+            "redirect_url": f"{zoho_service.get_frontend_url()}/account/add-ons",
+            "cancel_url": f"{zoho_service.get_frontend_url()}/account/add-ons"
+        }
+        
+        # Add customer fields if they exist
+        if user_data.get("phone_no"):
+            addon_data["customer"]["phone"] = user_data.get("phone_no")
+        
+        if user_data.get("company_name"):
+            addon_data["customer"]["company_name"] = user_data.get("company_name")
+        
+        print(f"Addon data: {addon_data}")
+        
+        # Get the checkout URL using the buyonetimeaddon endpoint
+        checkout_url = zoho_service.get_addon_hosted_page_url(
+            subscription_id=subscription.zoho_subscription_id,
+            addon_data=addon_data
+        )
+        
+        if not checkout_url:
+            raise ValueError("Failed to generate checkout URL")
+        
+        print(f"Checkout URL generated: {checkout_url}")
+        return checkout_url
     
     @staticmethod
     def cancel_addon(db: Session, user_addon_id: int) -> UserAddon:
