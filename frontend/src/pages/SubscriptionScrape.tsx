@@ -184,7 +184,9 @@ const SubscriptionScrape: React.FC = () => {
       }
     } catch (error) {
       console.error("Error fetching nodes:", error);
-      toast.error("Failed to fetch website pages. Please check the URL and try again.");
+      toast.error(
+        "Failed to fetch website pages. Please check the URL and try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -196,10 +198,10 @@ const SubscriptionScrape: React.FC = () => {
       toast.error("Please select at least one page to scrape.");
       return;
     }
-    
+
     setLoading(true);
     setIsProcessing(true);
-    
+
     try {
       // Validate bot ID first
       if (!selectedBot?.id) {
@@ -209,35 +211,41 @@ const SubscriptionScrape: React.FC = () => {
         setLoading(false);
         return;
       }
-      
+
       console.log("Starting async scraping for bot ID:", selectedBot.id);
       console.log("Selected nodes:", selectedNodes);
-      
+
       // Use the async version of scrapeNodes
-      const response = await authApi.scrapeNodesAsync(selectedNodes, selectedBot.id);
+      const response = await authApi.scrapeNodesAsync(
+        selectedNodes,
+        selectedBot.id
+      );
       console.log("Scraping response:", response);
-      
-      toast.info("Web scraping has started. You will be notified when it's complete.");
-      
+
+      toast.info(
+        "Web scraping has started. You will be notified when it's complete."
+      );
+
       localStorage.setItem("isScraped", "1"); // added for createbot.tsx page
-      
+
       if (websiteUrl) {
         handleScrapingSuccess(websiteUrl);
       }
-      
+
       handleSaveSuccess(); // Mark save as completed
       setWebsiteUrl(""); // Reset the input textbox
       setSelectedNodes([]); // Clear the checkbox selection
       setNodes([]); // Clear the nodes list
-      
+
       // We'll fetch scraped URLs after a delay to give the backend time to process
       setTimeout(() => {
         fetchScrapedUrls();
       }, 2000);
-      
     } catch (error) {
       console.error("Error starting web scraping:", error);
-      toast.error("An error occurred while starting the scraping process. Please try again.");
+      toast.error(
+        "An error occurred while starting the scraping process. Please try again."
+      );
     } finally {
       setLoading(false);
       // Keep isProcessing true since processing is ongoing in the backend
@@ -340,16 +348,17 @@ const SubscriptionScrape: React.FC = () => {
             ))}
           </div>
         )}
-        
+
         {isProcessing && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-start space-x-2">
             <Info size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-blue-700">
-              Web scraping is in progress. You will be notified when it's complete.
+              Web scraping is in progress. You will be notified when it's
+              complete.
             </p>
           </div>
         )}
-        
+
         <div className="flex items-center space-x-2">
           {" "}
           <input
@@ -368,11 +377,19 @@ const SubscriptionScrape: React.FC = () => {
             Submit
           </button>
         </div>
-        <div className="mt-4 p-4 bg-blue-50 rounded-md dark:bg-gray-800">
-          <p className="text-sm text-blue-800 dark:text-blue-300">
-            {`${user.subscription_plan_id === 1 ? "You can scrape only 1 website with the Free Plan" : getWebsiteLimit(user.subscription_plan_id) === -1 ? "You can scrape unlimited websites with your current plan" : `You can scrape up to ${getWebsiteLimit(user.subscription_plan_id)} websites with your current plan`}.Enter a URL and click Submit`}
-          </p>
-        </div>
+
+        <p className="text-xs text-gray-500 mt-1 italic">
+          {(() => {
+            const limit = getWebsiteLimit(user.subscription_plan_id);
+            if (user.subscription_plan_id === 1) {
+              return "You can scrape only 1 website with the Free Plan. Enter a URL and click Submit";
+            } else if (limit === Infinity) {
+              return "You can scrape multiple websites with your current plan. Enter a URL and click Submit";
+            } else {
+              return `You can scrape up to ${limit} websites with your current plan. Enter a URL and click Submit`;
+            }
+          })()}
+        </p>
       </div>
       {nodes.length > 0 && !isProcessing && (
         <div className="mt-4">

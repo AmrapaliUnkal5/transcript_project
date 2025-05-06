@@ -448,3 +448,8 @@ class MessageUsageResponse(BaseModel):
 
 class AddOnCheckoutResponse(BaseModel):
     checkout_url: str
+
+class YouTubeVideoResponse(BaseModel):
+    video_id: str
+    video_title: str
+    video_url: str

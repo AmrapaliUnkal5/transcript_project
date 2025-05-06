@@ -14,6 +14,7 @@ from app.utils.reembedding_utils import reembed_all_files
 from app.dependency import get_current_user
 from datetime import datetime, timezone
 from app.notifications import add_notification
+from .utils.email_helper import send_email
 
 router = APIRouter(prefix="/botsettings", tags=["Bot Settings"])
 
@@ -106,6 +107,13 @@ def update_bot(bot_id: int, update_data: BotUpdateStatus, db: Session = Depends(
                     event_data=event_data,
                     bot_id=bot_id,
                     user_id=bot.user_id)
+        print("update_data.is_active",update_data.is_active)
+        
+        if update_data.is_active:
+            user = db.query(User).filter(User.user_id == bot.user_id).first()
+            print("user",user.email)
+            if user:
+                send_bot_activation_email(user_name=user.name, user_email=user.email, bot_name=bot.bot_name)
         
         return {"message": "Bot updated successfully", "bot": bot}
     except Exception as e:
@@ -154,3 +162,17 @@ async def submit_reaction(payload: ReactionCreate, db: Session = Depends(get_db)
     db.refresh(reaction)
     return {"message": "Reaction recorded successfully"}
 
+def send_bot_activation_email(user_name: str, user_email: str, bot_name: str):
+    print("user send_bot_activation_email")
+    subject = "Your chatbot has been activated!"
+    body = f"""
+        Hi {user_name},
+
+        Your chatbot "{bot_name}" is now active and ready to assist users.
+
+        You can customize it further from your dashboard if needed.
+
+        Best regards,  
+        Evolra Team
+        """
+    send_email(user_email, subject, body)

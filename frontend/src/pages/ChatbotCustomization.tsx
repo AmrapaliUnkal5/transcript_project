@@ -116,7 +116,7 @@ const updateBotSettings = async (
 
 export const ChatbotCustomization = () => {
   const { loading, setLoading } = useLoader();
-  const { user,refreshUserData } = useAuth();
+  const { user, refreshUserData } = useAuth();
   //const [botToDelete, setBotToDelete] = useState<string | null>(null);
   const userId = user?.user_id;
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -136,7 +136,7 @@ export const ChatbotCustomization = () => {
       reaction?: "like" | "dislike";
     }[]
   >([]);
-  
+
   const [inputMessage, setInputMessage] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [isBotTyping, setIsBotTyping] = useState(false);
@@ -150,45 +150,44 @@ export const ChatbotCustomization = () => {
   const [reactionGiven, setReactionGiven] = useState(false);
   const [reaction, setReaction] = useState<"like" | "dislike" | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
-  const { plans, addons,getPlanById } = useSubscriptionPlans();
+  const { plans, addons, getPlanById } = useSubscriptionPlans();
   //const [planLimit, setPlanLimit] = useState(0);
   const [pendingAddonMessages, setPendingAddonMessages] = useState(0);
   const userPlanId = user?.subscription_plan_id || 1;
   const userPlan = getPlanById(userPlanId);
   const userAddonIds = user?.addon_plan_ids || [];
-  const userActiveAddons = addons ? addons.filter(addon => userAddonIds.includes(addon.id)) : [];
+  const userActiveAddons = addons
+    ? addons.filter((addon) => userAddonIds.includes(addon.id))
+    : [];
 
   // Calculate effective message limits
   const baseMessageLimit = userPlan?.message_limit || 0;
   // Count each addon purchase separately
-  const addonMessageLimit = userAddonIds.reduce(
-    (sum, addonId) => {
-      const addon = addons?.find(a => a.id === addonId);
-      return sum + (addon?.additional_message_limit || 0);
-    }, 
-    0
-  );
+  const addonMessageLimit = userAddonIds.reduce((sum, addonId) => {
+    const addon = addons?.find((a) => a.id === addonId);
+    return sum + (addon?.additional_message_limit || 0);
+  }, 0);
   const totalMessageLimit = baseMessageLimit + addonMessageLimit;
 
-// Track usage state
-const [messageUsage, setMessageUsage] = useState({
-  totalUsed: 0,
-  baseUsed: 0,
-  baseRemaining: baseMessageLimit,
-  addonUsed: 0,
-  addonRemaining: addonMessageLimit,
-  effectiveRemaining: baseMessageLimit + addonMessageLimit
-});
+  // Track usage state
+  const [messageUsage, setMessageUsage] = useState({
+    totalUsed: 0,
+    baseUsed: 0,
+    baseRemaining: baseMessageLimit,
+    addonUsed: 0,
+    addonRemaining: addonMessageLimit,
+    effectiveRemaining: baseMessageLimit + addonMessageLimit,
+  });
 
-// Track which addons are being used
-const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
+  // Track which addons are being used
+  const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
 
   const [settings, setSettings] = useState<BotSettings>({
     name: "Support Bot",
     icon: "https://images.unsplash.com/photo-1531379410502-63bfe8cdaf6f?w=200&h=200&fit=crop&crop=faces",
     fontSize: "16px",
     fontStyle: "Inter",
-    position: "top-left",
+    position: "bottom-right",
     maxMessageLength: 200,
     botColor: "#E3F2FD",
     userColor: "#F3E5F5",
@@ -211,7 +210,7 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
     gap: "10px",
   };
   const [errors, setErrors] = useState<{ maxMessageLength?: string }>({});
-
+  const MAX_USER_MESSAGE_LENGTH = 1000;
   const iconStyle: React.CSSProperties = {
     width: "32px",
     height: "32px",
@@ -264,24 +263,23 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
       try {
         const response = await authApi.getUserMessageCount();
         console.log("Message usage response:", response); // Debug log
-        
+
         // Map the backend response to frontend state
         setMessageUsage({
           totalUsed: response.total_messages_used,
           basePlan: {
             limit: response.base_plan.limit,
             used: response.base_plan.used,
-            remaining: response.base_plan.remaining
+            remaining: response.base_plan.remaining,
           },
           addons: {
             totalLimit: response.addons.total_limit,
             used: response.addons.used,
             remaining: response.addons.remaining,
-            items: response.addons.items || []
+            items: response.addons.items || [],
           },
-          effectiveRemaining: response.effective_remaining
+          effectiveRemaining: response.effective_remaining,
         });
-        
       } catch (error) {
         console.error("Failed to fetch message data:", error);
         toast.error("Failed to load message usage data");
@@ -308,15 +306,15 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
 
           setSettings({
             name: response.bot_name,
-            icon: response.bot_icon,
+            icon: response.bot_icon || settings.icon,
             fontSize: `${response.font_size}px`,
-            fontStyle: response.font_style,
-            position: response.position,
+            fontStyle: response.font_style || settings.fontStyle,
+            position: response.position || settings.position,
             maxMessageLength: response.max_words_per_message,
-            botColor: response.bot_color,
-            userColor: response.user_color,
-            appearance: response.appearance,
-            temperature: response.temperature,
+            botColor: response.bot_color || settings.botColor,
+            userColor: response.user_color || settings.userColor,
+            appearance: response.appearance || settings.appearance,
+            temperature: response.temperature || settings.temperature,
             windowBgColor: response.window_bg_color || "#F9FAFB",
             welcomeMessage:
               response.welcome_message || "Hi there! How can I help you today?",
@@ -336,41 +334,44 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
   }, [selectedBot, setLoading]);
 
   useEffect(() => {
-  const fetchInitialUsage = async () => {
-    try {
-      const response = await authApi.getUserMessageCount();
-      const baseUsed = response.base_plan.used;
-      const addonUsed = response.addons.used;
-      
-      setMessageUsage({
-        totalUsed: baseUsed + addonUsed,
-        baseUsed,
-        baseRemaining: Math.max(0, baseMessageLimit - baseUsed),
-        addonUsed,
-        addonRemaining: Math.max(0, addonMessageLimit - addonUsed),
-        effectiveRemaining: Math.max(0, totalMessageLimit - (baseUsed + addonUsed))
-      });
+    const fetchInitialUsage = async () => {
+      try {
+        const response = await authApi.getUserMessageCount();
+        const baseUsed = response.base_plan.used;
+        const addonUsed = response.addons.used;
 
-      // Initialize addon usage tracking
-      if (response.addons.items) {
-        const initialAddonUsage: Record<number, number> = {};
-        response.addons.items.forEach(addon => {
-          initialAddonUsage[addon.addon_id] = addon.used || 0;
+        setMessageUsage({
+          totalUsed: baseUsed + addonUsed,
+          baseUsed,
+          baseRemaining: Math.max(0, baseMessageLimit - baseUsed),
+          addonUsed,
+          addonRemaining: Math.max(0, addonMessageLimit - addonUsed),
+          effectiveRemaining: Math.max(
+            0,
+            totalMessageLimit - (baseUsed + addonUsed)
+          ),
         });
-        setAddonUsage(initialAddonUsage);
-      }
-    } catch (error) {
-      console.error("Failed to fetch message usage:", error);
-    }
-  };
 
-  if (user?.user_id) {
-    fetchInitialUsage();
-  }
-}, [user, baseMessageLimit, addonMessageLimit, totalMessageLimit]);
+        // Initialize addon usage tracking
+        if (response.addons.items) {
+          const initialAddonUsage: Record<number, number> = {};
+          response.addons.items.forEach((addon) => {
+            initialAddonUsage[addon.addon_id] = addon.used || 0;
+          });
+          setAddonUsage(initialAddonUsage);
+        }
+      } catch (error) {
+        console.error("Failed to fetch message usage:", error);
+      }
+    };
+
+    if (user?.user_id) {
+      fetchInitialUsage();
+    }
+  }, [user, baseMessageLimit, addonMessageLimit, totalMessageLimit]);
 
   const updateMessageCount = async () => {
-    setMessageUsage(prev => {
+    setMessageUsage((prev) => {
       // If base messages available, use those first
       if (prev.baseRemaining > 0) {
         return {
@@ -378,46 +379,46 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
           totalUsed: prev.totalUsed + 1,
           baseUsed: prev.baseUsed + 1,
           baseRemaining: prev.baseRemaining - 1,
-          effectiveRemaining: prev.effectiveRemaining - 1
+          effectiveRemaining: prev.effectiveRemaining - 1,
         };
       }
-      
+
       // Otherwise use addon messages
       if (prev.addonRemaining > 0) {
         // Find the first addon with remaining messages
-        const addonToUse = userActiveAddons.find(addon => {
+        const addonToUse = userActiveAddons.find((addon) => {
           const used = addonUsage[addon.id] || 0;
           return used < addon.additional_message_limit;
         });
-  
+
         if (addonToUse) {
           // Update addon usage tracking
           const addonId = addonToUse.id;
           const newAddonUsage = {
             ...addonUsage,
-            [addonId]: (addonUsage[addonId] || 0) + 1
+            [addonId]: (addonUsage[addonId] || 0) + 1,
           };
           setAddonUsage(newAddonUsage);
-  
+
           // Call API to record addon usage
           recordAddonUsage(addonId);
-  
+
           return {
             ...prev,
             totalUsed: prev.totalUsed + 1,
             addonUsed: prev.addonUsed + 1,
             addonRemaining: prev.addonRemaining - 1,
-            effectiveRemaining: prev.effectiveRemaining - 1
+            effectiveRemaining: prev.effectiveRemaining - 1,
           };
         }
       }
-      
+
       // If we get here, no messages available
       console.error("No messages available but trying to send");
       return prev;
     });
   };
-  
+
   const recordAddonUsage = async (addonId: number) => {
     try {
       await authApi.recordAddonUsage(addonId, 1); // Passing 1 message used
@@ -529,10 +530,12 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
   const sendMessage = async () => {
     // First check if we can send (either base or addon messages available)
     if (!canSendMessage()) {
-      toast.error("You have reached your message limit, please upgrade your plan.");
+      toast.error(
+        "You have reached your message limit, please upgrade your plan."
+      );
       return;
     }
-    
+
     // Then check if we have any remaining messages (base or addon)
     if (messageUsage.effectiveRemaining <= 0) {
       toast.error("You've used all your available messages for this period.");
@@ -540,9 +543,10 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
     }
 
     // Determine if we're using addon messages
-    const isAddonMessage = messageUsage.baseRemaining <= 0 && messageUsage.addonRemaining > 0
-    console.log("isAddonMessage",isAddonMessage)
-  
+    const isAddonMessage =
+      messageUsage.baseRemaining <= 0 && messageUsage.addonRemaining > 0;
+    console.log("isAddonMessage", isAddonMessage);
+
     if (!inputMessage.trim()) return;
     setWaitingForBotResponse(true);
 
@@ -562,7 +566,12 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
     setPreviewLoading(true);
 
     try {
-      const data = await authApi.sendMessage(sessionId, "user", inputMessage, isAddonMessage);
+      const data = await authApi.sendMessage(
+        sessionId,
+        "user",
+        inputMessage,
+        isAddonMessage
+      );
       setBotMessageId(data.message_id);
 
       const thinkingDelay = Math.random() * 1000 + 500;
@@ -626,9 +635,9 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
   //     const remainingAddons = prev.addons.items
   //       .filter(a => a.remaining > 0)
   //       .reduce((sum, a) => sum + a.remaining, 0);
-      
+
   //     setPendingAddonMessages(remainingAddons);
-      
+
   //     return {
   //       totalUsed: 0,
   //       basePlan: {
@@ -706,6 +715,7 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
     try {
       if (!userId) return;
       if (isBotExisting && botId) {
+        console.log("settings", settings);
         await updateBotSettings(botId, userId, settings, setLoading);
       } else {
         await saveBotSettings(settings, userId, setLoading);
@@ -844,56 +854,42 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
         },
       ],
     },
-    {
-      title: "Position",
-      icon: Move,
-      fields: [
-        {
-          label: "Chatbot Position",
-          type: "select",
-          value: settings.position,
-          //options: ["top-left", "top-right", "bottom-left", "bottom-right"],
-          options: ["bottom-left", "bottom-right", "top-right"],
-          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-            handleChange("position", e.target.value),
-        },
-      ],
-    },
+
     {
       title: "Message Settings",
       icon: Palette,
       fields: [
-        {
-          label: "Maximum User Message Length",
-          type: "number",
-          min: 10,
-          max: 1000,
-          value: settings.maxMessageLength ?? 200, // default to 200 if undefined
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-            const raw = e.target.value;
-            setErrors((prev) => ({
-              ...prev,
-              maxMessageLength: "", // clear the error when deleting input
-            }));
+        // {
+        //   label: "Maximum User Message Length",
+        //   type: "number",
+        //   min: 10,
+        //   max: 1000,
+        //   value: settings.maxMessageLength ?? 200, // default to 200 if undefined
+        //   onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+        //     const raw = e.target.value;
+        //     setErrors((prev) => ({
+        //       ...prev,
+        //       maxMessageLength: "", // clear the error when deleting input
+        //     }));
 
-            // Allow deleting to empty string
-            if (raw === "") {
-              setSettings((prev) => ({
-                ...prev,
-                maxMessageLength: "" as any, // temporary empty state
-              }));
-              return;
-            }
+        //     // Allow deleting to empty string
+        //     if (raw === "") {
+        //       setSettings((prev) => ({
+        //         ...prev,
+        //         maxMessageLength: "" as any, // temporary empty state
+        //       }));
+        //       return;
+        //     }
 
-            const num = parseInt(raw);
-            if (!isNaN(num) && num <= 1000) {
-              setSettings((prev) => ({
-                ...prev,
-                maxMessageLength: num,
-              }));
-            }
-          },
-        },
+        //     const num = parseInt(raw);
+        //     if (!isNaN(num) && num <= 1000) {
+        //       setSettings((prev) => ({
+        //         ...prev,
+        //         maxMessageLength: num,
+        //       }));
+        //     }
+        //   },
+        // },
         {
           label: "Bot Message Color",
           type: "color",
@@ -938,9 +934,18 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
       ],
     },
     {
-      title: "Appearance & Behavior",
+      title: "Chat Interface Behavior",
       icon: Sliders,
       fields: [
+        {
+          label: "Chatbot Position",
+          type: "select",
+          value: settings.position,
+          //options: ["top-left", "top-right", "bottom-left", "bottom-right"],
+          options: ["bottom-left", "bottom-right", "top-right"],
+          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
+            handleChange("position", e.target.value),
+        },
         {
           label: "Appearance",
           type: "select",
@@ -949,6 +954,7 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("appearance", e.target.value),
         },
+
         {
           label: "Model Temperature",
           type: "slider",
@@ -1050,6 +1056,20 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
               <div className="flex items-center space-x-2 mb-4">
                 <section.icon className="w-5 h-5 text-blue-500" />
                 <h2 className="dark:text-white">{section.title}</h2>
+                {section.title === "Chat Interface Behavior" && (
+                  <div className="relative group">
+                    <span className="text-gray-500 hover:text-blue-500 cursor-pointer">
+                      ℹ️
+                    </span>
+                    <div className="absolute left-0 top-7 w-64 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg">
+                      Some settings like <strong>Chatbot Position</strong> and{" "}
+                      <strong>Appearance Mode</strong> define how the chatbot
+                      integrates with your website. These settings are not
+                      reflected in the preview pane but will be visible on your
+                      live site.
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="space-y-4">
                 {section.fields.map((field) => (
@@ -1159,43 +1179,53 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
               Preview
             </h2>
             <div className="flex flex-col space-y-1 text-sm bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg">
-  <div className="font-medium flex justify-between">
-    <span>Total Messages:</span>
-    <span>
-      {messageUsage.totalUsed} / {totalMessageLimit}
-    </span>
-  </div>
-  
-  <div className="flex justify-between text-xs">
-    <span>Base Plan:</span>
-    <span className={messageUsage.baseRemaining <= 0 ? "text-red-500" : ""}>
-      {messageUsage.baseUsed}/{baseMessageLimit}
-      {messageUsage.baseRemaining > 0 && (
-        <span className="text-green-500 ml-1">({messageUsage.baseRemaining} left)</span>
-      )}
-    </span>
-  </div>
-  
-  {addonMessageLimit > 0 && (
-    <div className="flex justify-between text-xs">
-      <span>Addon Messages:</span>
-      <span className={messageUsage.addonRemaining <= 0 ? "text-red-500" : ""}>
-        {messageUsage.addonUsed}/{addonMessageLimit}
-        {messageUsage.addonRemaining > 0 && (
-          <span className="text-green-500 ml-1">({messageUsage.addonRemaining} left)</span>
-        )}
-      </span>
-    </div>
-  )}
-</div>
-</div>
+              <div className="font-medium flex justify-between">
+                <span>Total Messages:</span>
+                <span>
+                  {messageUsage.totalUsed} / {totalMessageLimit}
+                </span>
+              </div>
 
+              <div className="flex justify-between text-xs">
+                <span>Base Plan:</span>
+                <span
+                  className={
+                    messageUsage.baseRemaining <= 0 ? "text-red-500" : ""
+                  }
+                >
+                  {messageUsage.baseUsed}/{baseMessageLimit}
+                  {messageUsage.baseRemaining > 0 && (
+                    <span className="text-green-500 ml-1">
+                      ({messageUsage.baseRemaining} left)
+                    </span>
+                  )}
+                </span>
+              </div>
 
+              {addonMessageLimit > 0 && (
+                <div className="flex justify-between text-xs">
+                  <span>Addon Messages:</span>
+                  <span
+                    className={
+                      messageUsage.addonRemaining <= 0 ? "text-red-500" : ""
+                    }
+                  >
+                    {messageUsage.addonUsed}/{addonMessageLimit}
+                    {messageUsage.addonRemaining > 0 && (
+                      <span className="text-green-500 ml-1">
+                        ({messageUsage.addonRemaining} left)
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Chat Window */}
           <div
             ref={chatContainerRef}
-            className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 h-[1250px] overflow-y-auto flex flex-col"
+            className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 h-[1050px] overflow-y-auto flex flex-col"
             style={{
               backgroundColor: settings.windowBgColor,
             }}
@@ -1318,9 +1348,7 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
               value={inputMessage}
               onChange={(e) => {
                 const value = e.target.value;
-                if (value.length <= settings.maxMessageLength) {
-                  setInputMessage(value);
-                }
+                setInputMessage(value);
               }}
               onKeyDown={(e) => {
                 if (
@@ -1345,16 +1373,16 @@ const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
                 waitingForBotResponse ||
                 isBotTyping ||
                 previewLoading ||
-                inputMessage.length > settings.maxMessageLength
+                inputMessage.length > MAX_USER_MESSAGE_LENGTH
               }
             >
               Send
             </button>
           </div>
           {/* Show warning if max length reached */}
-          {inputMessage.length === settings.maxMessageLength && (
+          {inputMessage.length >= MAX_USER_MESSAGE_LENGTH && (
             <div className="text-xs text-red-500 mt-1">
-              You have reached the maximum allowed characters.
+              You have reached the maximum allowed characters of 1000.
             </div>
           )}
         </div>

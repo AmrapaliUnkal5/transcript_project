@@ -37,15 +37,15 @@ def verify_email(token: str, db: Session = Depends(get_db)):
         # Mark user as verified
         
          # Get the free plan (Explorer Plan) from subscription_plans
-        free_plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.name == "Explorer Plan").first()
+        # free_plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.name == "Explorer Plan").first()
 
-        if not free_plan:
-            raise HTTPException(status_code=404, detail="Free plan not found")   
+        # if not free_plan:
+        #     raise HTTPException(status_code=404, detail="Free plan not found")
 
         # Insert user into user_subscriptions with the free plan
         subscription = UserSubscription(
             user_id=user.user_id,
-            subscription_plan_id=free_plan.id,
+            subscription_plan_id=1,
             amount=0.00,
             currency="USD",
             payment_date=datetime.now(timezone.utc),
