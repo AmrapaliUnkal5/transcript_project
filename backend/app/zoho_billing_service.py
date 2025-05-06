@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models import SubscriptionPlan, Addon, UserSubscription
 import json
 from app.utils.logger import get_module_logger
+import time
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -485,6 +486,7 @@ class ZohoBillingService:
         return result
 
     def sync_addons_with_zoho(self, db: Session) -> Dict[str, Any]:
+        """Sync all local addons with Zoho API"""
         result = {
             "created": 0,
             "updated": 0,

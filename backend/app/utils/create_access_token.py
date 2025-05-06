@@ -2,6 +2,11 @@ from datetime import datetime, timedelta, timezone
 from jose import jwt
 from app.config import settings  
 from fastapi import HTTPException
+import logging
+from app.utils.logger import get_module_logger
+
+# Create a logger for this module
+logger = get_module_logger(__name__)
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     """
@@ -15,7 +20,7 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     - Encoded JWT token string.
     """
     to_encode = data.copy()
-    print("encode_data=",to_encode)
+    logger.debug("encode_data= %s", to_encode)
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
     to_encode.update({"exp": expire})
     
@@ -42,8 +47,8 @@ def decode_access_token(token: str):
 
         # Check if token is expired
         exp_timestamp = payload.get("exp")
-        print("exp_timestamp",exp_timestamp)
-        print("datetime.now(timezone.utc).timestamp()",datetime.now(timezone.utc).timestamp())
+        logger.debug("exp_timestamp: %s", exp_timestamp)
+        logger.debug("datetime.now(timezone.utc).timestamp(): %s", datetime.now(timezone.utc).timestamp())
         if datetime.now(timezone.utc).timestamp() > exp_timestamp:
             raise HTTPException(status_code=401, detail="Token has expired")
 

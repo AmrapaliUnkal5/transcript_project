@@ -15,6 +15,11 @@ from app.utils.upload_knowledge_utils import extract_text_from_file
 from app.vector_db import add_document
 from app.utils.upload_knowledge_utils import extract_text_from_file,validate_and_store_text_in_ChromaDB
 from app.fetchsubscripitonplans import get_subscription_plan_by_id
+import logging
+from app.utils.logger import get_module_logger
+
+# Create a logger for this module
+logger = get_module_logger(__name__)
 
 # Update other constants to be dynamic
 UPLOAD_FOLDER = "uploads"  
@@ -170,7 +175,7 @@ async def process_file_for_knowledge(file: UploadFile, bot_id: int):
         # Extract text from file
         text = await extract_text_from_file(file)
         if not text:
-            print(f"⚠️ No extractable text found in the file: {file.filename}")
+            logger.warning(f"⚠️ No extractable text found in the file: {file.filename}")
             raise HTTPException(status_code=400, detail="No extractable text found in the file.")
         
         # Get user_id for the bot to include in metadata
@@ -187,12 +192,12 @@ async def process_file_for_knowledge(file: UploadFile, bot_id: int):
         }
         
         # Store extracted text in ChromaDB
-        print(f"💾 Storing document in ChromaDB for bot {bot_id}: {file.filename}")
+        logger.info(f"💾 Storing document in ChromaDB for bot {bot_id}: {file.filename}")
         add_document(bot_id, text, metadata)
         
         return text, file_id
     except Exception as e:
-        print(f"❌ Error processing file for knowledge: {str(e)}")
+        logger.error(f"❌ Error processing file for knowledge: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Error processing file: {str(e)}")
     
 def parse_storage_to_bytes(storage_str: str) -> int:

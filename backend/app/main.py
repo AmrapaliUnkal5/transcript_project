@@ -268,7 +268,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
         "role": new_user.role,
         "user_id": new_user.user_id,
     }
-    print("regisering")
+    logger.info("Registering user")
     access_token = create_access_token(data=token_data, expires_delta=timedelta(hours=settings.REGISTER_TOKEN_EXPIRE_HOURS))
     emailverificationurl = f"{settings.BASE_URL}/verify-email?token={access_token}"
      # ✅ Send verification email
@@ -286,7 +286,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     Your Team
     """
     send_email(new_user.email, subject, body)
-    print("Sent email success")
+    logger.info("Email verification sent successfully")
 
     return RegisterResponse(
         message="User registered successfully",
@@ -521,26 +521,26 @@ async def reset_password(request: PasswordResetRequest, db: Session = Depends(ge
 def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
 ):
-    print(f"Received login request for: {form_data.username}")
+    logger.info(f"Received login request for: {form_data.username}")
 
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
-        print("User not found in database")
+        logger.warning("User not found in database")
         raise HTTPException(status_code=401, detail="User not found")
 
     if not verify_password(form_data.password, user.password):
-        print("Password verification failed")
+        logger.warning("Password verification failed")
         raise HTTPException(status_code=401, detail="Incorrect password")
 
-    print("User authenticated successfully!")
+    logger.info("User authenticated successfully!")
 
     user_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == user.user_id,
         UserSubscription.status != "pending"
     ).order_by(UserSubscription.payment_date.desc()).first()
 
-    print("If user subscription", user_subscription)
-    print("user sub id=>", user_subscription.subscription_plan_id)
+    logger.info(f"User subscription: {user_subscription}")
+    logger.info(f"User subscription plan ID: {user_subscription.subscription_plan_id}")
     
     subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
 
@@ -549,7 +549,7 @@ def login_for_access_token(
         UserAddon.status == "active"  
     ).all()
 
-# Get message addon (ID 5) details if exists
+    # Get message addon (ID 5) details if exists
     message_addon = db.query(UserAddon).filter(
     UserAddon.user_id == user.user_id,
     UserAddon.addon_id == 5,

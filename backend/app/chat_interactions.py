@@ -11,6 +11,11 @@ from datetime import datetime, timezone
 from app.schemas import FAQResponse
 import threading 
 from app.clustering import PGClusterer
+from app.utils.logger import get_module_logger
+
+# Create a logger for this module
+logger = get_module_logger(__name__)
+
 pg_clusterer = PGClusterer()
 
 
@@ -23,8 +28,8 @@ class StartChatRequest(BaseModel):
 @router.post("/start_chat")
 def start_chat(request: StartChatRequest, db: Session = Depends(get_db)):
     """Creates a new chat session for a user and bot."""
-    print("Bot ID:", request.bot_id)
-    print("User ID:", request.user_id)
+    logger.info("Bot ID: %s", request.bot_id)
+    logger.info("User ID: %s", request.user_id)
 
     new_interaction = Interaction(bot_id=request.bot_id, user_id=request.user_id)
     db.add(new_interaction)
@@ -45,16 +50,16 @@ def async_cluster_question(bot_id, message_text,message_id):
     db = next(get_db())
     try:
         cluster_id = pg_clusterer.process_question(db,bot_id, message_text)
-        print("🔁 Background Cluster ID:", cluster_id)
+        logger.info("🔁 Background Cluster ID: %s", cluster_id)
 
         # Update message with cluster_id
         db.query(ChatMessage)\
             .filter(ChatMessage.message_id == message_id)\
             .update({"cluster_id": cluster_id})
         db.commit()
-        print("✅ Cluster id updated in database")
+        logger.info("✅ Cluster id updated in database")
     except Exception as e:
-        print(f"⚠️ Error in background clustering: {e}")
+        logger.warning("⚠️ Error in background clustering: %s", e)
         db.rollback()
     finally:
         db.close()
@@ -73,10 +78,10 @@ def update_message_counts(bot_id: int, user_id: int):
         })
 
         db.commit()
-        print("✅ Message counts updated")
+        logger.info("✅ Message counts updated")
     except Exception as e:
         db.rollback()
-        print("⚠️ Failed to update message counts:", e)
+        logger.warning("⚠️ Failed to update message counts: %s", e)
     finally:
         db.close()
 
@@ -90,7 +95,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     if not interaction:
         raise HTTPException(status_code=404, detail="Chat session not found")
 
-    print("interaction_botid=>", interaction.bot_id)
+    logger.debug("interaction_botid=> %s", interaction.bot_id)
     
 
     # ✅ Store user message with cluster_id=None initially
@@ -140,7 +145,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     db.add(bot_message)
     db.commit()
 
-    print("is_addon_message=>",request.is_addon_message)
+    logger.debug("is_addon_message=> %s", request.is_addon_message)
 
     # ✅ Update message count in background
     if not request.is_addon_message:
@@ -170,7 +175,7 @@ def get_chat_messages(interaction_id: int, db: Session = Depends(get_db)):
 
 @router.put("/interactions/{interaction_id}/end")
 def end_interaction(interaction_id: int, db: Session = Depends(get_db)):
-    print("End interaction")
+    logger.info("End interaction")
     interaction = db.query(Interaction).filter(Interaction.interaction_id == interaction_id).first()
     if not interaction:
         raise HTTPException(status_code=404, detail="Interaction not found")
@@ -178,7 +183,7 @@ def end_interaction(interaction_id: int, db: Session = Depends(get_db)):
     # Get the current UTC time
     utc_now = datetime.now(timezone.utc)
     interaction.end_time = utc_now
-    print("interaction.end_time",interaction.end_time)
+    logger.debug("interaction.end_time %s", interaction.end_time)
     db.commit()
     return {"message": "Session ended successfully", "end_time": interaction.end_time}
 

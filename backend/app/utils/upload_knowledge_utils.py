@@ -11,6 +11,11 @@ from PIL import Image
 import tempfile
 import zipfile
 from docx import Document
+import logging
+from app.utils.logger import get_module_logger
+
+# Create a logger for this module
+logger = get_module_logger(__name__)
 
 def extract_text_from_pdf(pdf_file):
     """Extracts text from a PDF file using pdfplumber."""
@@ -19,7 +24,7 @@ def extract_text_from_pdf(pdf_file):
             text = "\n".join([page.extract_text() or "" for page in pdf.pages])
         return text.strip() if text.strip() else None
     except Exception as e:
-        print(f"⚠️ Error extracting PDF text: {e}")
+        logger.warning(f"⚠️ Error extracting PDF text: {e}")
         return None
 
 def extract_text_from_pdf_images(pdf_content: bytes) -> str:
@@ -37,7 +42,7 @@ def extract_text_from_pdf_images(pdf_content: bytes) -> str:
         
         return extracted_text.strip()
     except Exception as e:
-        print(f"⚠️ Error extracting text from PDF images: {e}")
+        logger.warning(f"⚠️ Error extracting text from PDF images: {e}")
         return ""
 
 def extract_text_from_image(image_bytes: bytes) -> str:
@@ -46,7 +51,7 @@ def extract_text_from_image(image_bytes: bytes) -> str:
         image = Image.open(io.BytesIO(image_bytes))
         return pytesseract.image_to_string(image)
     except Exception as e:
-        print(f"⚠️ Error extracting text from image: {e}")
+        logger.warning(f"⚠️ Error extracting text from image: {e}")
         return ""
 
 def extract_text_from_docx(docx_content: bytes) -> str:
@@ -55,7 +60,7 @@ def extract_text_from_docx(docx_content: bytes) -> str:
         doc = Document(io.BytesIO(docx_content))
         return " ".join([para.text for para in doc.paragraphs])
     except Exception as e:
-        print(f"⚠️ Error extracting text from DOCX: {e}")
+        logger.warning(f"⚠️ Error extracting text from DOCX: {e}")
         return ""
 
 def extract_text_from_docx_images(docx_content: bytes) -> str:
@@ -76,7 +81,7 @@ def extract_text_from_docx_images(docx_content: bytes) -> str:
         
         return extracted_text.strip()
     except Exception as e:
-        print(f"⚠️ Error extracting text from DOCX images: {e}")
+        logger.warning(f"⚠️ Error extracting text from DOCX images: {e}")
         return ""
     finally:
         if temp_path and os.path.exists(temp_path):
@@ -94,7 +99,7 @@ def extract_text_from_doc(doc_content: bytes) -> str:
         text = os.popen(f"antiword '{temp_path}'").read()
         return text.strip()
     except Exception as e:
-        print(f"⚠️ Error extracting text from DOC file: {e}")
+        logger.warning(f"⚠️ Error extracting text from DOC file: {e}")
         return ""
     finally:
         if temp_path and os.path.exists(temp_path):
@@ -114,14 +119,14 @@ async def extract_text_from_file(file, filename=None) -> Union[str, None]:
             if hasattr(file, 'filename'):
                 filename = file.filename
             else:
-                print("⚠️ No filename provided and file object has no filename attribute")
+                logger.warning("⚠️ No filename provided and file object has no filename attribute")
                 raise ValueError("Filename must be provided when file does not have filename attribute")
         
-        print(f"📄 Extracting text from file: {filename}")
+        logger.info(f"📄 Extracting text from file: {filename}")
         
         # Get file extension
         file_extension = filename.split(".")[-1].lower()
-        print(f"📋 File extension: {file_extension}")
+        logger.info(f"📋 File extension: {file_extension}")
 
         # Get file content
         if isinstance(file, bytes):
@@ -136,58 +141,58 @@ async def extract_text_from_file(file, filename=None) -> Union[str, None]:
 
         # Process based on file type
         if file_extension == "txt":
-            print("📝 Processing as TXT file")
+            logger.info("📝 Processing as TXT file")
             text = content.decode("utf-8")
-            print(f"✅ Successfully extracted text from TXT file (length: {len(text)})")
+            logger.info(f"✅ Successfully extracted text from TXT file (length: {len(text)})")
             return text
             
         elif file_extension == "pdf":
-            print("📄 Processing as PDF file")
+            logger.info("📄 Processing as PDF file")
             # First try regular text extraction
             file_obj = io.BytesIO(content)
             text = extract_text_from_pdf(file_obj)
             
             # If no text found or very little text, try OCR on images
             if not text or len(text.strip()) < 50:  # Arbitrary threshold
-                print("🔍 Trying OCR for possible image-based PDF")
+                logger.info("🔍 Trying OCR for possible image-based PDF")
                 ocr_text = extract_text_from_pdf_images(content)
                 text = (text + " " + ocr_text).strip() if text else ocr_text
             
             if text:
-                print(f"✅ Successfully extracted text from PDF file (length: {len(text)})")
+                logger.info(f"✅ Successfully extracted text from PDF file (length: {len(text)})")
             else:
-                print("⚠️ No text extracted from PDF file")
+                logger.warning("⚠️ No text extracted from PDF file")
             return text
             
         elif file_extension == "docx":
-            print("📝 Processing as DOCX file")
+            logger.info("📝 Processing as DOCX file")
             text = extract_text_from_docx(content)
             ocr_text = extract_text_from_docx_images(content)
             combined_text = (text + " " + ocr_text).strip()
-            print(f"✅ Successfully extracted text from DOCX file (length: {len(combined_text)})")
+            logger.info(f"✅ Successfully extracted text from DOCX file (length: {len(combined_text)})")
             return combined_text
             
         elif file_extension == "doc":
-            print("📝 Processing as DOC file")
+            logger.info("📝 Processing as DOC file")
             text = extract_text_from_doc(content)
-            print(f"✅ Successfully extracted text from DOC file (length: {len(text)})")
+            logger.info(f"✅ Successfully extracted text from DOC file (length: {len(text)})")
             return text
             
         elif file_extension in ("png", "jpg", "jpeg"):
-            print("🖼️ Processing as image file")
+            logger.info("🖼️ Processing as image file")
             text = extract_text_from_image(content)
-            print(f"✅ Successfully extracted text from image file (length: {len(text)})")
+            logger.info(f"✅ Successfully extracted text from image file (length: {len(text)})")
             return text
             
         else:
-            print(f"❌ Unsupported file extension: {file_extension}")
+            logger.error(f"❌ Unsupported file extension: {file_extension}")
             raise HTTPException(
                 status_code=400, 
                 detail=f"File format '{file_extension}' is not supported. Supported formats: TXT, PDF, DOC, DOCX, PNG, JPG."
             )
 
     except Exception as e:
-        print(f"❌ Error extracting text from file {filename if filename else 'unknown'}: {str(e)}")
+        logger.error(f"❌ Error extracting text from file {filename if filename else 'unknown'}: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Error extracting text: {str(e)}")
 
 def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file, user_id: int = None) -> None:
@@ -201,7 +206,7 @@ def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file, user_id: i
         user_id: Optional user ID for model selection
     """
     if not text:
-        print(f"⚠️ No extractable text found in the file: {file.filename}")
+        logger.warning(f"⚠️ No extractable text found in the file: {file.filename}")
         raise HTTPException(status_code=400, detail="No extractable text found in the file.")
 
     # Create a more complete metadata object
@@ -212,5 +217,5 @@ def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file, user_id: i
     }
     
     # Store extracted text in ChromaDB
-    print(f"💾 Storing document in ChromaDB for bot {bot_id}: {metadata['id']}")
+    logger.info(f"💾 Storing document in ChromaDB for bot {bot_id}: {metadata['id']}")
     add_document(bot_id, text, metadata, user_id=user_id)
