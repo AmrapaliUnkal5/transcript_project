@@ -255,6 +255,10 @@ class YouTubeVideo(Base):
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     # New column to indicate soft deletion
     is_deleted = Column(Boolean, nullable=False, server_default="false")
+    # Add embedding status tracking fields
+    embedding_status = Column(String(50), default="pending", nullable=True)  # pending, completed, failed
+    last_embedded = Column(TIMESTAMP, nullable=True)
+    transcript = Column(Text, nullable=True)
 
 # Define Enum for reactions
 class ReactionType(enum.Enum):
@@ -291,6 +295,10 @@ class ScrapedNode(Base):
     is_deleted = Column(Boolean, nullable=False, server_default="false")
     website_id = Column(Integer, ForeignKey("websites.id", ondelete="CASCADE"), nullable=True)  # New column
     nodes_text_count = Column(Integer, nullable=True, server_default="0")
+    # Add embedding status tracking fields
+    embedding_status = Column(String(50), default="pending", nullable=True)  # pending, completed, failed
+    last_embedded = Column(TIMESTAMP, nullable=True)
+    nodes_text = Column(Text, nullable=True)  # Store the scraped text content
 
     #website = relationship("Website", back_populates="scraped_nodes")  #
 

@@ -11,6 +11,7 @@ import os
 from app.dependency import get_current_user
 from app.notifications import add_notification
 from dotenv import load_dotenv
+import traceback
 
 # Load environment variables
 load_dotenv()
@@ -139,10 +140,24 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
             ).first()
 
             if existing_video:
-                reason = f"Video {info.get('id')} already exists. Skipping."
-                print(f"⚠️ {reason}")
-                failed_videos.append({"video_url": video_url, "reason": reason})
-                send_failure_notification(db, bot_id, video_url, reason)
+                # Update existing video with transcript content
+                existing_video.transcript = transcript
+                existing_video.embedding_status = "pending"
+                existing_video.last_embedded = None
+                existing_video.transcript_count = len(transcript.split())
+                db.commit()
+                
+                # Add notification for updated video
+                event_type = "YOUTUBE_VIDEO_UPDATED"
+                event_data = f"YouTube video '{existing_video.video_title}' updated with transcript. {existing_video.transcript_count} words extracted."
+                send_success_notification(db, bot_id, event_type, event_data, existing_video.video_title)
+                
+                # Add to stored videos
+                stored_videos.append({
+                    "video_id": existing_video.video_id,
+                    "video_title": existing_video.video_title,
+                    "transcript_count": existing_video.transcript_count
+                })
                 continue
 
             # Enforce word limit
@@ -172,7 +187,9 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
                 "description": info.get("description", None),
                 "thumbnail_url": info.get("thumbnail", None) if isinstance(info.get("thumbnail"), str) else None,
                 "bot_id": bot_id,
-                "transcript_count": word_count_transcript
+                "transcript_count": word_count_transcript,
+                "transcript": transcript,
+                "embedding_status": "pending"
             }
 
             new_video = YouTubeVideo(**video_data)
@@ -183,26 +200,22 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
             # Add notification for successful video processing
             event_type = "YOUTUBE_VIDEO_PROCESSED"
             event_data = f"YouTube video '{video_data['video_title']}' processed successfully. {word_count_transcript} words extracted."
-            add_notification(
-                db=db,
-                event_type=event_type,
-                event_data=event_data,
-                bot_id=bot_id,
-                user_id=None
-            )
-
-            print(f"✅ Stored video: {video_data['video_title']}")
+            send_success_notification(db, bot_id, event_type, event_data, video_data["video_title"])
 
         except Exception as e:
-            reason = str(e)
-            print(f"⚠️ Metadata or ChromaDB error for {video_url}: {reason}")
-            failed_videos.append({"video_url": video_url, "reason": reason})
-            send_failure_notification(db, bot_id, video_url, reason)
+            traceback_str = traceback.format_exc()
+            print(f"⚠️ Error processing {video_url}: {e}")
+            print(traceback_str)
+            failed_videos.append({"video_url": video_url, "reason": str(e)})
+            send_failure_notification(db, bot_id, video_url, str(e))
+
+    # Send consolidated report
+    report_result = report_video_processing_results(db, bot_id, stored_videos, failed_videos)
 
     return {
-        "message": "YouTube transcript processing completed!",
         "stored_videos": stored_videos,
-        "failed_videos": failed_videos
+        "failed_videos": failed_videos,
+        "report": report_result
     }
 
 def update_word_count_for_bot(transcript: str, bot_id: int, db: Session) -> dict:
@@ -290,3 +303,57 @@ async def process_videos_in_background(bot_id: int, video_urls: list[str], db: S
             bot_id=bot_id,
             user_id=user_id
         )
+
+def send_success_notification(db, bot_id, event_type, event_data, video_title):
+    """Send a notification about successful video processing"""
+    try:
+        add_notification(
+            db=db,
+            event_type=event_type,
+            event_data=event_data,
+            bot_id=bot_id,
+            user_id=None
+        )
+        print(f"✅ Processed video: {video_title}")
+    except Exception as e:
+        print(f"❌ Error sending success notification: {e}")
+
+def report_video_processing_results(db, bot_id, stored_videos, failed_videos):
+    """Send a consolidated report about video processing results"""
+    try:
+        # Get the bot's user ID for notification
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        
+        if not bot:
+            print(f"❌ Could not find bot with ID {bot_id} for sending report")
+            return False
+            
+        # Create report summary
+        total_videos = len(stored_videos) + len(failed_videos)
+        success_count = len(stored_videos)
+        failed_count = len(failed_videos)
+        
+        # Only send report if we processed any videos
+        if total_videos > 0:
+            event_type = "YOUTUBE_PROCESSING_REPORT"
+            event_data = (
+                f"YouTube video processing completed. "
+                f"Successfully processed {success_count} of {total_videos} videos. "
+                f"Failed: {failed_count}."
+            )
+            
+            add_notification(
+                db=db,
+                event_type=event_type,
+                event_data=event_data,
+                bot_id=bot_id,
+                user_id=bot.user_id
+            )
+            
+            print(f"📊 Processing report sent for bot {bot_id}")
+            return True
+        
+        return False
+    except Exception as e:
+        print(f"❌ Error sending processing report: {e}")
+        return False

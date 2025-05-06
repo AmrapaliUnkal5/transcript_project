@@ -18,7 +18,7 @@ from fastapi.security import OAuth2PasswordBearer
 from .crud import get_user_by_email
 from passlib.context import CryptContext
 from app.utils.verify_password import verify_password
-from app.utils.reembedding_utils import reembed_all_files
+from app.utils.reembedding_utils import reembed_all_files, reembed_all_bot_data
 import asyncio
 from sqlalchemy.inspection import inspect
 
@@ -116,8 +116,9 @@ class BotAdmin(ModelView, model=Bot):
                     else:
                         print(f"❌ Could not find bot with ID {model.bot_id} in database")
                     
-                    # Run the re-embedding in the background to avoid blocking the admin UI
-                    task = asyncio.create_task(reembed_all_files(model.bot_id, session))
+                    # Run the comprehensive re-embedding in the background to avoid blocking the admin UI
+                    # This will now re-embed files, web scraping data, and YouTube data
+                    task = asyncio.create_task(reembed_all_bot_data(model.bot_id, session))
                     
                     def callback(future):
                         try:
@@ -127,7 +128,7 @@ class BotAdmin(ModelView, model=Bot):
                             print(f"❌ Re-embedding task failed for bot {model.bot_id}: {str(e)}")
                     
                     task.add_done_callback(callback)
-                    print(f"✅ Re-embedding task started for bot {model.bot_id}")
+                    print(f"✅ Comprehensive re-embedding task started for bot {model.bot_id}")
                     
                     # Return None since we've already called the parent method
                     return None
@@ -413,10 +414,12 @@ class ScrapedNodeAdmin(ModelView, model=ScrapedNode):
         ScrapedNode.title,
         ScrapedNode.website_id,
         ScrapedNode.is_deleted,
-        ScrapedNode.nodes_text_count
+        ScrapedNode.nodes_text_count,
+        ScrapedNode.embedding_status,
+        ScrapedNode.last_embedded
     ]
     column_searchable_list = [ScrapedNode.url, ScrapedNode.title]
-    column_filters = ["bot_id", "website_id", "is_deleted", "created_at"]
+    column_filters = ["bot_id", "website_id", "is_deleted", "created_at", "embedding_status"]
     
     # Add form columns to include all fields
     form_columns = [
@@ -427,7 +430,10 @@ class ScrapedNodeAdmin(ModelView, model=ScrapedNode):
         ScrapedNode.title,
         ScrapedNode.is_deleted,
         ScrapedNode.website_id,
-        ScrapedNode.nodes_text_count
+        ScrapedNode.nodes_text_count,
+        ScrapedNode.embedding_status,
+        ScrapedNode.last_embedded,
+        ScrapedNode.nodes_text
     ]
 
 class WebsiteDBAdmin(ModelView, model=WebsiteDB):
@@ -459,10 +465,12 @@ class YouTubeVideoAdmin(ModelView, model=YouTubeVideo):
         YouTubeVideo.channel_name,
         YouTubeVideo.bot_id,
         YouTubeVideo.is_deleted,
-        YouTubeVideo.created_at
+        YouTubeVideo.created_at,
+        YouTubeVideo.embedding_status,
+        YouTubeVideo.last_embedded
     ]
     column_searchable_list = [YouTubeVideo.video_title, YouTubeVideo.channel_name, YouTubeVideo.video_id]
-    column_filters = ["bot_id", "is_deleted", "is_playlist", "created_at"]
+    column_filters = ["bot_id", "is_deleted", "is_playlist", "created_at", "embedding_status"]
     
     # Add form columns to include all fields
     form_columns = [
@@ -485,7 +493,10 @@ class YouTubeVideoAdmin(ModelView, model=YouTubeVideo):
         YouTubeVideo.bot_id,
         YouTubeVideo.transcript_count,
         YouTubeVideo.created_at,
-        YouTubeVideo.is_deleted
+        YouTubeVideo.is_deleted,
+        YouTubeVideo.embedding_status,
+        YouTubeVideo.last_embedded,
+        YouTubeVideo.transcript
     ]
 
 class NotificationAdmin(ModelView, model=Notification):

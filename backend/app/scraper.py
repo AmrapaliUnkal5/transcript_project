@@ -226,6 +226,7 @@ def save_scraped_nodes(url_list, bot_id, db: Session):
             url = item["url"]
             title = item.get("title", "No Title")  # Default to "No Title" if missing
             word_count = item["word_count"]
+            text_content = item.get("text", "")  # Get the text content
             print("title",title)
             print("url",url)
             print("word_count",word_count)
@@ -242,12 +243,24 @@ def save_scraped_nodes(url_list, bot_id, db: Session):
                 # Update title if it's missing or outdated
                 if not existing_node.title or existing_node.title != title:
                     existing_node.title = title
-                else:
-                    print("Website node already crawled")
+                
+                # Update nodes_text field with text content
+                existing_node.nodes_text = text_content
+                existing_node.embedding_status = "pending"
+                existing_node.last_embedded = None
+                print("Website node updated with text content")
             else:
                 print("New")
-                # Insert new record
-                new_node = ScrapedNode(url=url, title=title, bot_id=bot_id,website_id=website.id,nodes_text_count = word_count if website else None)
+                # Insert new record with text content
+                new_node = ScrapedNode(
+                    url=url, 
+                    title=title, 
+                    bot_id=bot_id,
+                    website_id=website.id,
+                    nodes_text_count=word_count if website else None,
+                    nodes_text=text_content,
+                    embedding_status="pending"
+                )
                 db.add(new_node)
                 event_type = "SCRAPED_URL_SAVED"
                 event_data = f"URL '{url}' for bot added successfully. {word_count} words extracted."
