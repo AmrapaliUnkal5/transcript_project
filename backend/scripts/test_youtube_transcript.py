@@ -4,10 +4,18 @@ Script to test YouTube transcript retrieval and diagnose issues.
 Run this script on your dev server to test transcript retrieval with specific videos.
 """
 
+import logging
+from pathlib import Path
 import os
 import sys
+import re
+from urllib.parse import urlparse, parse_qs
 import yt_dlp
-from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
+from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound, _errors
+
+# Configure logger
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger(__name__)
 
 def get_yt_dlp_options():
     base_opts = {
@@ -31,54 +39,54 @@ def get_yt_dlp_options():
     # Use the first cookie file found
     for path in cookie_paths:
         if path and os.path.exists(path):
-            print(f"Using cookie file: {path}")
+            logger.info(f"Using cookie file: {path}")
             base_opts["cookies"] = path
             break
     else:
-        print("Warning: No cookie file found. Authentication may fail.")
+        logger.warning("Warning: No cookie file found. Authentication may fail.")
     
     return base_opts
 
 def check_video_accessibility(video_url):
     """Check if a video is accessible using yt-dlp"""
-    print(f"\n===== Checking video accessibility for {video_url} =====")
+    logger.info(f"\n===== Checking video accessibility for {video_url} =====")
     
     try:
         with yt_dlp.YoutubeDL(get_yt_dlp_options()) as ydl:
             info = ydl.extract_info(video_url, download=False)
-            print(f"✅ Video accessible: {info.get('title')}")
-            print(f"Duration: {info.get('duration')} seconds")
-            print(f"Upload date: {info.get('upload_date')}")
-            print(f"Channel: {info.get('uploader')}")
+            logger.info(f"✅ Video accessible: {info.get('title')}")
+            logger.info(f"Duration: {info.get('duration')} seconds")
+            logger.info(f"Upload date: {info.get('upload_date')}")
+            logger.info(f"Channel: {info.get('uploader')}")
             return True
     except Exception as e:
-        print(f"❌ Video access failed: {str(e)}")
+        logger.error(f"❌ Video access failed: {str(e)}")
         
         # Fallback mechanism for authentication issues
         if "Sign in to confirm you're not a bot" in str(e):
-            print("\n🔄 Trying fallback method (direct transcript API without authentication)...")
+            logger.info("\n🔄 Trying fallback method (direct transcript API without authentication)...")
             # Extract video ID
             if "youtu.be/" in video_url:
                 video_id = video_url.split("youtu.be/")[-1].split("?")[0]
             elif "v=" in video_url:
                 video_id = video_url.split("v=")[-1].split("&")[0]
             else:
-                print("❌ Could not extract video ID from URL")
+                logger.error("❌ Could not extract video ID from URL")
                 return False
                 
             # Try direct transcript API
             try:
                 transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-                print("✅ Fallback successful! Video is accessible via transcript API")
+                logger.info("✅ Fallback successful! Video is accessible via transcript API")
                 return True
             except Exception as transcript_error:
-                print(f"❌ Fallback method also failed: {str(transcript_error)}")
+                logger.error(f"❌ Fallback method also failed: {str(transcript_error)}")
         
         return False
 
 def test_get_transcript(video_url):
     """Test retrieving transcript from a YouTube video"""
-    print(f"\n===== Testing transcript retrieval for {video_url} =====")
+    logger.info(f"\n===== Testing transcript retrieval for {video_url} =====")
     
     # Extract video ID
     if "youtu.be/" in video_url:
@@ -86,93 +94,93 @@ def test_get_transcript(video_url):
     elif "v=" in video_url:
         video_id = video_url.split("v=")[-1].split("&")[0]
     else:
-        print(f"❌ Could not extract video ID from URL: {video_url}")
+        logger.error(f"❌ Could not extract video ID from URL: {video_url}")
         return None
         
-    print(f"Video ID: {video_id}")
+    logger.info(f"Video ID: {video_id}")
     
     # Try listing available transcripts
     try:
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
         languages = [tr.language_code for tr in transcript_list]
-        print(f"Available transcript languages: {languages}")
+        logger.info(f"Available transcript languages: {languages}")
         
         # Try English first if available
         if 'en' in languages:
             try:
-                print("Trying to get English transcript...")
+                logger.info("Trying to get English transcript...")
                 transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
-                print(f"✅ Successfully retrieved English transcript with {len(transcript)} segments")
+                logger.info(f"✅ Successfully retrieved English transcript with {len(transcript)} segments")
                 
                 # Print a sample
                 if transcript:
-                    print("\nSample transcript text:")
+                    logger.info("\nSample transcript text:")
                     sample = " ".join([entry["text"] for entry in transcript[:5]])
-                    print(f"{sample}...\n")
+                    logger.info(f"{sample}...\n")
                 return True
             except Exception as e:
-                print(f"❌ Failed to get English transcript: {str(e)}")
+                logger.error(f"❌ Failed to get English transcript: {str(e)}")
         
         # Try getting any transcript
         for language in languages:
             try:
-                print(f"Trying language: {language}")
+                logger.info(f"Trying language: {language}")
                 transcript = transcript_list.find_transcript([language]).fetch()
-                print(f"✅ Successfully retrieved {language} transcript with {len(transcript)} segments")
+                logger.info(f"✅ Successfully retrieved {language} transcript with {len(transcript)} segments")
                 
                 # Print a sample
                 if transcript:
-                    print("\nSample transcript text:")
+                    logger.info("\nSample transcript text:")
                     sample = " ".join([entry["text"] for entry in transcript[:5]])
-                    print(f"{sample}...\n")
+                    logger.info(f"{sample}...\n")
                 return True
             except Exception as e:
-                print(f"❌ Failed to get {language} transcript: {str(e)}")
+                logger.error(f"❌ Failed to get {language} transcript: {str(e)}")
                 
         return False
         
     except TranscriptsDisabled:
-        print("❌ Transcripts are disabled for this video")
+        logger.error("❌ Transcripts are disabled for this video")
         return False
     except NoTranscriptFound:
-        print("❌ No transcript found for this video")
+        logger.error("❌ No transcript found for this video")
         return False
     except Exception as e:
-        print(f"❌ Error listing transcripts: {str(e)}")
+        logger.error(f"❌ Error listing transcripts: {str(e)}")
         
         # Try direct retrieval as fallback
         try:
-            print("Trying direct transcript retrieval...")
+            logger.info("Trying direct transcript retrieval...")
             transcript = YouTubeTranscriptApi.get_transcript(video_id)
-            print(f"✅ Successfully retrieved transcript with {len(transcript)} segments")
+            logger.info(f"✅ Successfully retrieved transcript with {len(transcript)} segments")
             return True
         except Exception as direct_error:
-            print(f"❌ Direct retrieval failed: {str(direct_error)}")
+            logger.error(f"❌ Direct retrieval failed: {str(direct_error)}")
             return False
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python test_youtube_transcript.py <youtube_url1> [youtube_url2] ...")
-        print("Example: python test_youtube_transcript.py https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-        print("\nAlternative videos to try:")
-        print("- TED Talk: https://www.youtube.com/watch?v=8jPQjjsBbIc")
-        print("- Khan Academy: https://www.youtube.com/watch?v=EW5PcUzx_kA")
-        print("- MIT OpenCourseWare: https://www.youtube.com/watch?v=HtSuA80QTyo")
+        logger.info("Usage: python test_youtube_transcript.py <youtube_url1> [youtube_url2] ...")
+        logger.info("Example: python test_youtube_transcript.py https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        logger.info("\nAlternative videos to try:")
+        logger.info("- TED Talk: https://www.youtube.com/watch?v=8jPQjjsBbIc")
+        logger.info("- Khan Academy: https://www.youtube.com/watch?v=EW5PcUzx_kA")
+        logger.info("- MIT OpenCourseWare: https://www.youtube.com/watch?v=HtSuA80QTyo")
         sys.exit(1)
     
     video_urls = sys.argv[1:]
     
     for url in video_urls:
-        print("\n" + "=" * 60)
-        print(f"TESTING URL: {url}")
-        print("=" * 60)
+        logger.info("\n" + "=" * 60)
+        logger.info(f"TESTING URL: {url}")
+        logger.info("=" * 60)
         
         # Check if video is accessible first
         if check_video_accessibility(url):
             # Then test transcript retrieval
             test_get_transcript(url)
         
-        print("\n" + "=" * 60)
+        logger.info("\n" + "=" * 60)
 
 if __name__ == "__main__":
     main() 

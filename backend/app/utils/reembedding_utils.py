@@ -9,6 +9,8 @@ import os
 import shutil
 from datetime import datetime
 
+logger = logging.getLogger(__name__)
+
 async def reembed_all_files(bot_id: int, db):
     """Re-embed all files for a specific bot with the current embedding model.
     
@@ -27,7 +29,7 @@ async def reembed_all_files(bot_id: int, db):
     # after a model ID change in the admin panel
     bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
     if not bot:
-        print(f"❌ Bot with ID {bot_id} not found")
+        logger.error(f"❌ Bot with ID {bot_id} not found")
         return {
             "bot_id": bot_id,
             "error": "Bot not found"
@@ -43,7 +45,7 @@ async def reembed_all_files(bot_id: int, db):
     total_files = len(files)
     
     if total_files == 0:
-        print(f"📄 No files found for bot {bot_id}. Nothing to re-embed.")
+        logger.info(f"📄 No files found for bot {bot_id}. Nothing to re-embed.")
         return {
             "bot_id": bot_id,
             "total_files": 0,
@@ -52,11 +54,11 @@ async def reembed_all_files(bot_id: int, db):
             "elapsed_time": 0
         }
     
-    print(f"🔄 Starting re-embedding for bot {bot_id}. Total files: {total_files}")
+    logger.info(f"🔄 Starting re-embedding for bot {bot_id}. Total files: {total_files}")
     
     # Verify we have proper embedding model information
     if not bot.embedding_model_id:
-        print(f"❌ Bot {bot_id} has no embedding model ID assigned")
+        logger.error(f"❌ Bot {bot_id} has no embedding model ID assigned")
         return {
             "bot_id": bot_id,
             "error": "No embedding model ID assigned to bot"
@@ -68,18 +70,18 @@ async def reembed_all_files(bot_id: int, db):
     ).first()
     
     if not embedding_model:
-        print(f"❌ Could not find embedding model with ID {bot.embedding_model_id}")
+        logger.error(f"❌ Could not find embedding model with ID {bot.embedding_model_id}")
         return {
             "bot_id": bot_id,
             "error": f"Could not find embedding model with ID {bot.embedding_model_id}"
         }
     
-    print(f"📋 Embedding model details:")
-    print(f"   - ID: {embedding_model.id}")
-    print(f"   - Name: {embedding_model.name}")
-    print(f"   - Provider: {embedding_model.provider}")
+    logger.info(f"📋 Embedding model details:")
+    logger.info(f"   - ID: {embedding_model.id}")
+    logger.info(f"   - Name: {embedding_model.name}")
+    logger.info(f"   - Provider: {embedding_model.provider}")
     if embedding_model.dimension:
-        print(f"   - Dimension: {embedding_model.dimension}")
+        logger.info(f"   - Dimension: {embedding_model.dimension}")
     
     # Store the model name to ensure consistency
     model_name = embedding_model.name
@@ -90,17 +92,17 @@ async def reembed_all_files(bot_id: int, db):
         # Use the directly retrieved model name instead
         sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
         base_collection_name = f"bot_{bot_id}_{sanitized_model_name}"
-        print(f"🔍 Using model: {model_name}")
-        print(f"📚 Base collection name: {base_collection_name}")
+        logger.info(f"🔍 Using model: {model_name}")
+        logger.info(f"📚 Base collection name: {base_collection_name}")
         
         # Create a timestamp string for a consistent temporary collection name
         timestamp = int(time.time())
         temp_collection_name = f"{base_collection_name}_{timestamp}"
-        print(f"📚 Creating temporary collection: {temp_collection_name}")
+        logger.info(f"📚 Creating temporary collection: {temp_collection_name}")
         
     except Exception as e:
         error_msg = f"Error getting model name: {str(e)}"
-        print(f"❌ {error_msg}")
+        logger.error(f"❌ {error_msg}")
         return {
             "bot_id": bot_id,
             "error": error_msg
@@ -121,7 +123,7 @@ async def reembed_all_files(bot_id: int, db):
     
     for index, file in enumerate(files):
         try:
-            print(f"📄 Processing file {index+1}/{total_files}: {file.file_name}")
+            logger.info(f"📄 Processing file {index+1}/{total_files}: {file.file_name}")
             
             # Since we're now storing just text files, we can directly read the text
             file_path = file.file_path
@@ -129,7 +131,7 @@ async def reembed_all_files(bot_id: int, db):
             # Check if file exists
             if not os.path.exists(file_path):
                 error_msg = f"File not found: {file_path}"
-                print(f"⚠️ {error_msg}")
+                logger.warning(f"⚠️ {error_msg}")
                 if not first_error_message:
                     first_error_message = error_msg
                 error_count += 1
@@ -142,16 +144,16 @@ async def reembed_all_files(bot_id: int, db):
                 
                 if not text or not text.strip():
                     error_msg = f"Empty text in file: {file.file_name}. Skipping."
-                    print(f"⚠️ {error_msg}")
+                    logger.warning(f"⚠️ {error_msg}")
                     if not first_error_message:
                         first_error_message = error_msg
                     error_count += 1
                     continue
                     
-                print(f"📄 Read {len(text)} characters from {file.file_name}")
+                logger.info(f"📄 Read {len(text)} characters from {file.file_name}")
             except Exception as e:
                 error_msg = f"Error reading text from file {file.file_name}: {str(e)}"
-                print(f"❌ {error_msg}")
+                logger.error(f"❌ {error_msg}")
                 if not first_error_message:
                     first_error_message = error_msg
                 error_count += 1
@@ -183,10 +185,10 @@ async def reembed_all_files(bot_id: int, db):
                 db.commit()
                 
                 success_count += 1
-                print(f"✅ Successfully re-embedded file: {file.file_name}")
+                logger.info(f"✅ Successfully re-embedded file: {file.file_name}")
             except Exception as e:
                 error_msg = f"Error adding document to vector DB: {str(e)}"
-                print(f"❌ {error_msg}")
+                logger.error(f"❌ {error_msg}")
                 if not first_error_message:
                     first_error_message = error_msg
                 
@@ -200,7 +202,7 @@ async def reembed_all_files(bot_id: int, db):
             
         except Exception as e:
             error_msg = f"Error re-embedding file {file.file_name}: {str(e)}"
-            print(f"❌ {error_msg}")
+            logger.error(f"❌ {error_msg}")
             # Capture first error message for admin notification
             if not first_error_message:
                 first_error_message = error_msg
@@ -216,8 +218,8 @@ async def reembed_all_files(bot_id: int, db):
     all_successful = error_count == 0 and success_count == total_files
     
     if all_successful:
-        print("✅ All files were successfully re-embedded!")
-        print(f"✅ Using the new collection: {temp_collection_name}")
+        logger.info("✅ All files were successfully re-embedded!")
+        logger.info(f"✅ Using the new collection: {temp_collection_name}")
         
         # Update all files to indicate they were embedded with the new model
         for file in files:
@@ -227,21 +229,21 @@ async def reembed_all_files(bot_id: int, db):
         db.commit()
     else:
         # Some files failed, so we should continue using the original collection
-        print(f"⚠️ Some files failed to re-embed ({error_count}/{total_files})")
-        print("⚠️ Continuing to use the original collection")
+        logger.warning(f"⚠️ Some files failed to re-embed ({error_count}/{total_files})")
+        logger.warning("⚠️ Continuing to use the original collection")
     
     # Summary
-    print(f"\n✅ Re-embedding completed for bot {bot_id}")
-    print(f"📊 Summary:")
-    print(f"   - Total files: {total_files}")
-    print(f"   - Successfully re-embedded: {success_count}")
-    print(f"   - Failed: {error_count}")
-    print(f"   - Elapsed time: {elapsed_time:.2f} seconds")
-    print(f"   - All successful: {all_successful}")
+    logger.info(f"\n✅ Re-embedding completed for bot {bot_id}")
+    logger.info(f"📊 Summary:")
+    logger.info(f"   - Total files: {total_files}")
+    logger.info(f"   - Successfully re-embedded: {success_count}")
+    logger.info(f"   - Failed: {error_count}")
+    logger.info(f"   - Elapsed time: {elapsed_time:.2f} seconds")
+    logger.info(f"   - All successful: {all_successful}")
     
     # If not all files were successful, revert the embedding model ID for the bot
     if not all_successful:
-        print("⚠️ Not all files were successfully re-embedded. Checking for failed files...")
+        logger.warning("⚠️ Not all files were successfully re-embedded. Checking for failed files...")
         
         # List failed files for debugging
         failed_files = db.query(File).filter(
@@ -250,7 +252,7 @@ async def reembed_all_files(bot_id: int, db):
         ).all()
         
         for f in failed_files:
-            print(f"❌ Failed file: {f.file_name}")
+            logger.error(f"❌ Failed file: {f.file_name}")
     
     result = {
         "bot_id": bot_id,
@@ -279,7 +281,7 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
     # Get bot details to get user/account info
     bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
     if not bot:
-        print(f"❌ Bot with ID {bot_id} not found")
+        logger.error(f"❌ Bot with ID {bot_id} not found")
         return {
             "bot_id": bot_id,
             "error": "Bot not found"
@@ -298,7 +300,7 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
     total_nodes = len(scraped_nodes)
     
     if total_nodes == 0:
-        print(f"📄 No scraped nodes found for bot {bot_id}. Nothing to re-embed.")
+        logger.info(f"📄 No scraped nodes found for bot {bot_id}. Nothing to re-embed.")
         return {
             "bot_id": bot_id,
             "total_nodes": 0,
@@ -307,11 +309,11 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
             "elapsed_time": 0
         }
     
-    print(f"🔄 Starting re-embedding for bot {bot_id}. Total scraped nodes: {total_nodes}")
+    logger.info(f"🔄 Starting re-embedding for bot {bot_id}. Total scraped nodes: {total_nodes}")
     
     # Verify we have proper embedding model information
     if not bot.embedding_model_id:
-        print(f"❌ Bot {bot_id} has no embedding model ID assigned")
+        logger.error(f"❌ Bot {bot_id} has no embedding model ID assigned")
         return {
             "bot_id": bot_id,
             "error": "No embedding model ID assigned to bot"
@@ -323,18 +325,18 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
     ).first()
     
     if not embedding_model:
-        print(f"❌ Could not find embedding model with ID {bot.embedding_model_id}")
+        logger.error(f"❌ Could not find embedding model with ID {bot.embedding_model_id}")
         return {
             "bot_id": bot_id,
             "error": f"Could not find embedding model with ID {bot.embedding_model_id}"
         }
     
-    print(f"📋 Embedding model details:")
-    print(f"   - ID: {embedding_model.id}")
-    print(f"   - Name: {embedding_model.name}")
-    print(f"   - Provider: {embedding_model.provider}")
+    logger.info(f"📋 Embedding model details:")
+    logger.info(f"   - ID: {embedding_model.id}")
+    logger.info(f"   - Name: {embedding_model.name}")
+    logger.info(f"   - Provider: {embedding_model.provider}")
     if embedding_model.dimension:
-        print(f"   - Dimension: {embedding_model.dimension}")
+        logger.info(f"   - Dimension: {embedding_model.dimension}")
     
     # Store the model name to ensure consistency
     model_name = embedding_model.name
@@ -344,17 +346,17 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
         # Use the directly retrieved model name
         sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
         base_collection_name = f"bot_{bot_id}_{sanitized_model_name}"
-        print(f"🔍 Using model: {model_name}")
-        print(f"📚 Base collection name: {base_collection_name}")
+        logger.info(f"🔍 Using model: {model_name}")
+        logger.info(f"📚 Base collection name: {base_collection_name}")
         
         # Create a timestamp string for a consistent temporary collection name
         timestamp = int(time.time())
         temp_collection_name = f"{base_collection_name}_{timestamp}"
-        print(f"📚 Creating temporary collection: {temp_collection_name}")
+        logger.info(f"📚 Creating temporary collection: {temp_collection_name}")
         
     except Exception as e:
         error_msg = f"Error getting model name: {str(e)}"
-        print(f"❌ {error_msg}")
+        logger.error(f"❌ {error_msg}")
         return {
             "bot_id": bot_id,
             "error": error_msg
@@ -372,20 +374,20 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
     
     for index, node in enumerate(scraped_nodes):
         try:
-            print(f"🌐 Processing scraped node {index+1}/{total_nodes}: {node.url}")
+            logger.info(f"🌐 Processing scraped node {index+1}/{total_nodes}: {node.url}")
             
             # Get the text content
             nodes_text = node.nodes_text
             
             if not nodes_text or not nodes_text.strip():
                 error_msg = f"Empty text for node: {node.url}. Skipping."
-                print(f"⚠️ {error_msg}")
+                logger.warning(f"⚠️ {error_msg}")
                 if not first_error_message:
                     first_error_message = error_msg
                 error_count += 1
                 continue
                 
-            print(f"🌐 Processing content with {len(nodes_text)} characters from {node.url}")
+            logger.info(f"🌐 Processing content with {len(nodes_text)} characters from {node.url}")
             
             # Create metadata for re-embedding
             metadata = {
@@ -414,10 +416,10 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
                 db.commit()
                 
                 success_count += 1
-                print(f"✅ Successfully re-embedded scraped node: {node.url}")
+                logger.info(f"✅ Successfully re-embedded scraped node: {node.url}")
             except Exception as e:
                 error_msg = f"Error adding document to vector DB: {str(e)}"
-                print(f"❌ {error_msg}")
+                logger.error(f"❌ {error_msg}")
                 if not first_error_message:
                     first_error_message = error_msg
                 
@@ -431,7 +433,7 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
             
         except Exception as e:
             error_msg = f"Error re-embedding scraped node {node.url}: {str(e)}"
-            print(f"❌ {error_msg}")
+            logger.error(f"❌ {error_msg}")
             if not first_error_message:
                 first_error_message = error_msg
             
@@ -446,8 +448,8 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
     all_successful = error_count == 0 and success_count == total_nodes
     
     if all_successful:
-        print("✅ All scraped nodes were successfully re-embedded!")
-        print(f"✅ Using the new collection: {temp_collection_name}")
+        logger.info("✅ All scraped nodes were successfully re-embedded!")
+        logger.info(f"✅ Using the new collection: {temp_collection_name}")
         
         # Update all nodes to indicate they were embedded with the new model
         for node in scraped_nodes:
@@ -456,17 +458,17 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
         db.commit()
     else:
         # Some nodes failed, so we should continue using the original collection
-        print(f"⚠️ Some scraped nodes failed to re-embed ({error_count}/{total_nodes})")
-        print("⚠️ Continuing to use the original collection")
+        logger.warning(f"⚠️ Some scraped nodes failed to re-embed ({error_count}/{total_nodes})")
+        logger.warning("⚠️ Continuing to use the original collection")
     
     # Summary
-    print(f"\n✅ Web scraping re-embedding completed for bot {bot_id}")
-    print(f"📊 Summary:")
-    print(f"   - Total nodes: {total_nodes}")
-    print(f"   - Successfully re-embedded: {success_count}")
-    print(f"   - Failed: {error_count}")
-    print(f"   - Elapsed time: {elapsed_time:.2f} seconds")
-    print(f"   - All successful: {all_successful}")
+    logger.info(f"\n✅ Web scraping re-embedding completed for bot {bot_id}")
+    logger.info(f"📊 Summary:")
+    logger.info(f"   - Total nodes: {total_nodes}")
+    logger.info(f"   - Successfully re-embedded: {success_count}")
+    logger.info(f"   - Failed: {error_count}")
+    logger.info(f"   - Elapsed time: {elapsed_time:.2f} seconds")
+    logger.info(f"   - All successful: {all_successful}")
     
     return {
         "bot_id": bot_id,
@@ -489,7 +491,7 @@ async def reembed_all_youtube_videos(bot_id: int, db):
     # Get bot details to get user/account info
     bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
     if not bot:
-        print(f"❌ Bot with ID {bot_id} not found")
+        logger.error(f"❌ Bot with ID {bot_id} not found")
         return {
             "bot_id": bot_id,
             "error": "Bot not found"
@@ -508,7 +510,7 @@ async def reembed_all_youtube_videos(bot_id: int, db):
     total_videos = len(youtube_videos)
     
     if total_videos == 0:
-        print(f"📺 No YouTube videos found for bot {bot_id}. Nothing to re-embed.")
+        logger.info(f"📺 No YouTube videos found for bot {bot_id}. Nothing to re-embed.")
         return {
             "bot_id": bot_id,
             "total_videos": 0,
@@ -517,11 +519,11 @@ async def reembed_all_youtube_videos(bot_id: int, db):
             "elapsed_time": 0
         }
     
-    print(f"🔄 Starting re-embedding for bot {bot_id}. Total YouTube videos: {total_videos}")
+    logger.info(f"🔄 Starting re-embedding for bot {bot_id}. Total YouTube videos: {total_videos}")
     
     # Verify we have proper embedding model information
     if not bot.embedding_model_id:
-        print(f"❌ Bot {bot_id} has no embedding model ID assigned")
+        logger.error(f"❌ Bot {bot_id} has no embedding model ID assigned")
         return {
             "bot_id": bot_id,
             "error": "No embedding model ID assigned to bot"
@@ -533,18 +535,18 @@ async def reembed_all_youtube_videos(bot_id: int, db):
     ).first()
     
     if not embedding_model:
-        print(f"❌ Could not find embedding model with ID {bot.embedding_model_id}")
+        logger.error(f"❌ Could not find embedding model with ID {bot.embedding_model_id}")
         return {
             "bot_id": bot_id,
             "error": f"Could not find embedding model with ID {bot.embedding_model_id}"
         }
     
-    print(f"📋 Embedding model details:")
-    print(f"   - ID: {embedding_model.id}")
-    print(f"   - Name: {embedding_model.name}")
-    print(f"   - Provider: {embedding_model.provider}")
+    logger.info(f"📋 Embedding model details:")
+    logger.info(f"   - ID: {embedding_model.id}")
+    logger.info(f"   - Name: {embedding_model.name}")
+    logger.info(f"   - Provider: {embedding_model.provider}")
     if embedding_model.dimension:
-        print(f"   - Dimension: {embedding_model.dimension}")
+        logger.info(f"   - Dimension: {embedding_model.dimension}")
     
     # Store the model name to ensure consistency
     model_name = embedding_model.name
@@ -554,17 +556,17 @@ async def reembed_all_youtube_videos(bot_id: int, db):
         # Use the directly retrieved model name
         sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
         base_collection_name = f"bot_{bot_id}_{sanitized_model_name}"
-        print(f"🔍 Using model: {model_name}")
-        print(f"📚 Base collection name: {base_collection_name}")
+        logger.info(f"🔍 Using model: {model_name}")
+        logger.info(f"📚 Base collection name: {base_collection_name}")
         
         # Create a timestamp string for a consistent temporary collection name
         timestamp = int(time.time())
         temp_collection_name = f"{base_collection_name}_{timestamp}"
-        print(f"📚 Creating temporary collection: {temp_collection_name}")
+        logger.info(f"📚 Creating temporary collection: {temp_collection_name}")
         
     except Exception as e:
         error_msg = f"Error getting model name: {str(e)}"
-        print(f"❌ {error_msg}")
+        logger.error(f"❌ {error_msg}")
         return {
             "bot_id": bot_id,
             "error": error_msg
@@ -582,20 +584,19 @@ async def reembed_all_youtube_videos(bot_id: int, db):
     
     for index, video in enumerate(youtube_videos):
         try:
-            print(f"📺 Processing YouTube video {index+1}/{total_videos}: {video.video_title}")
+            logger.info(f"📺 Processing YouTube video {index+1}/{total_videos}: {video.video_title}")
             
-            # Get the transcript content
-            transcript_text = video.transcript
-            
-            if not transcript_text or not transcript_text.strip():
-                error_msg = f"No transcript for video: {video.video_id}. Skipping."
-                print(f"⚠️ {error_msg}")
+            # Get the transcript text
+            if not video.transcript or not video.transcript.strip():
+                error_msg = f"Empty transcript for video: {video.video_title}. Skipping."
+                logger.warning(f"⚠️ {error_msg}")
                 if not first_error_message:
                     first_error_message = error_msg
                 error_count += 1
                 continue
-                
-            print(f"📺 Processing transcript with {len(transcript_text)} characters from {video.video_title}")
+            
+            transcript_text = video.transcript
+            logger.info(f"📺 Processing transcript with {len(transcript_text)} characters from {video.video_title}")
             
             # Create metadata for re-embedding
             metadata = {
@@ -624,10 +625,10 @@ async def reembed_all_youtube_videos(bot_id: int, db):
                 db.commit()
                 
                 success_count += 1
-                print(f"✅ Successfully re-embedded YouTube video: {video.video_title}")
+                logger.info(f"✅ Successfully re-embedded YouTube video: {video.video_title}")
             except Exception as e:
                 error_msg = f"Error adding document to vector DB: {str(e)}"
-                print(f"❌ {error_msg}")
+                logger.error(f"❌ {error_msg}")
                 if not first_error_message:
                     first_error_message = error_msg
                 
@@ -641,7 +642,7 @@ async def reembed_all_youtube_videos(bot_id: int, db):
             
         except Exception as e:
             error_msg = f"Error re-embedding YouTube video {video.video_title}: {str(e)}"
-            print(f"❌ {error_msg}")
+            logger.error(f"❌ {error_msg}")
             if not first_error_message:
                 first_error_message = error_msg
             
@@ -656,8 +657,8 @@ async def reembed_all_youtube_videos(bot_id: int, db):
     all_successful = error_count == 0 and success_count == total_videos
     
     if all_successful:
-        print("✅ All YouTube videos were successfully re-embedded!")
-        print(f"✅ Using the new collection: {temp_collection_name}")
+        logger.info("✅ All YouTube videos were successfully re-embedded!")
+        logger.info(f"✅ Using the new collection: {temp_collection_name}")
         
         # Update all videos to indicate they were embedded with the new model
         for video in youtube_videos:
@@ -666,17 +667,17 @@ async def reembed_all_youtube_videos(bot_id: int, db):
         db.commit()
     else:
         # Some videos failed, so we should continue using the original collection
-        print(f"⚠️ Some YouTube videos failed to re-embed ({error_count}/{total_videos})")
-        print("⚠️ Continuing to use the original collection")
+        logger.warning(f"⚠️ Some YouTube videos failed to re-embed ({error_count}/{total_videos})")
+        logger.warning("⚠️ Continuing to use the original collection")
     
     # Summary
-    print(f"\n✅ YouTube re-embedding completed for bot {bot_id}")
-    print(f"📊 Summary:")
-    print(f"   - Total videos: {total_videos}")
-    print(f"   - Successfully re-embedded: {success_count}")
-    print(f"   - Failed: {error_count}")
-    print(f"   - Elapsed time: {elapsed_time:.2f} seconds")
-    print(f"   - All successful: {all_successful}")
+    logger.info(f"\n✅ YouTube re-embedding completed for bot {bot_id}")
+    logger.info(f"📊 Summary:")
+    logger.info(f"   - Total videos: {total_videos}")
+    logger.info(f"   - Successfully re-embedded: {success_count}")
+    logger.info(f"   - Failed: {error_count}")
+    logger.info(f"   - Elapsed time: {elapsed_time:.2f} seconds")
+    logger.info(f"   - All successful: {all_successful}")
     
     return {
         "bot_id": bot_id,
@@ -694,21 +695,21 @@ async def reembed_all_bot_data(bot_id: int, db):
     This function calls the individual re-embedding functions for each data type and
     consolidates the results.
     """
-    print(f"🔄 Starting comprehensive re-embedding for bot {bot_id}")
+    logger.info(f"🔄 Starting comprehensive re-embedding for bot {bot_id}")
     
     start_time = time.time()
     
     # Re-embed files
     file_results = await reembed_all_files(bot_id, db)
-    print(f"✅ File re-embedding completed")
+    logger.info(f"✅ File re-embedding completed")
     
     # Re-embed web scraping data
     web_results = await reembed_all_scraped_nodes(bot_id, db)
-    print(f"✅ Web scraping re-embedding completed")
+    logger.info(f"✅ Web scraping re-embedding completed")
     
     # Re-embed YouTube data
     youtube_results = await reembed_all_youtube_videos(bot_id, db)
-    print(f"✅ YouTube re-embedding completed")
+    logger.info(f"✅ YouTube re-embedding completed")
     
     elapsed_time = time.time() - start_time
     
@@ -732,13 +733,13 @@ async def reembed_all_bot_data(bot_id: int, db):
     )
     
     # Summary
-    print(f"\n✅ Complete re-embedding process finished for bot {bot_id}")
-    print(f"📊 Overall Summary:")
-    print(f"   - Total items processed: {total_items}")
-    print(f"   - Successfully re-embedded: {success_count}")
-    print(f"   - Failed: {error_count}")
-    print(f"   - Total elapsed time: {elapsed_time:.2f} seconds")
-    print(f"   - All successful: {all_successful}")
+    logger.info(f"\n✅ Complete re-embedding process finished for bot {bot_id}")
+    logger.info(f"📊 Overall Summary:")
+    logger.info(f"   - Total items processed: {total_items}")
+    logger.info(f"   - Successfully re-embedded: {success_count}")
+    logger.info(f"   - Failed: {error_count}")
+    logger.info(f"   - Total elapsed time: {elapsed_time:.2f} seconds")
+    logger.info(f"   - All successful: {all_successful}")
     
     return {
         "bot_id": bot_id,

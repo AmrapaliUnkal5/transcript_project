@@ -254,13 +254,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 # Register API
 @app.post("/register", response_model=RegisterResponse)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    logger.info(f"Registering new user with email: {user.email}")
+    logger.info("Processing user registration")
     db_user = get_user_by_email(db, user.email)
     if db_user:
         logger.warning(f"Registration failed: Email already registered: {user.email}")
         raise HTTPException(status_code=400, detail="Emailid already registered")
     new_user = create_user(db, user)
-    logger.info(f"User registered successfully: {user.email}")
+    logger.info("User registration successful")
 
     # ✅ Generate JWT token for the registered user
     token_data = {
@@ -303,11 +303,16 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 @app.post("/login")
 def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     db_user = get_user_by_email(db, email=login_request.email)
+    
+    logger.info(f"Received login request for: {login_request.email}")
+    
     if not db_user or not verify_password(login_request.password, db_user.password):
+        logger.warning("Invalid credentials provided")
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
     # Check if the user is verified
     if not db_user.is_verified:
+        logger.warning(f"Unverified email attempt: {login_request.email}")
         raise HTTPException(status_code=400, detail="Email not verified. Please activate your email-id.")
     
     # Check if user is a team member
@@ -318,26 +323,26 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     subscription_user_id = owner_id if is_team_member else db_user.user_id
     member_id = db_user.user_id if is_team_member else None
     
-    
-    
     user_subscription = db.query(UserSubscription).filter(
-    UserSubscription.user_id == db_user.user_id,
-    UserSubscription.status != "pending"
+        UserSubscription.user_id == db_user.user_id,
+        UserSubscription.status != "pending"
     ).order_by(UserSubscription.payment_date.desc()).first()
 
-    print("If user subscription", user_subscription)
-    print("user sub id=>", user_subscription.subscription_plan_id)
+    logger.debug("User subscription: %s", user_subscription)
+    if user_subscription:
+        logger.debug("User subscription plan ID: %s", user_subscription.subscription_plan_id)
 
-# Get message addon (ID 5) details if exists
+    # Get message addon (ID 5) details if exists
     message_addon = db.query(UserAddon).filter(
-    UserAddon.user_id == db_user.user_id,
-    UserAddon.addon_id == 5,
-    UserAddon.is_active == True
+        UserAddon.user_id == db_user.user_id,
+        UserAddon.addon_id == 5,
+        UserAddon.is_active == True
     ).order_by(UserAddon.expiry_date.desc()).first()
 
     # If no active subscription exists, set default subscription ID to 1
     subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
-    print("")
+    
+    logger.info(f"User {db_user.email} authenticated successfully")
 
     user_addons = db.query(UserAddon).filter(
         UserAddon.user_id == db_user.user_id,
@@ -587,9 +592,9 @@ async def upload_avatar(file: UploadFile = File(...)):
     try:
         # Generate a unique filename
         file_extension = file.filename.split(".")[-1]
-        print("file_extension", file_extension)
+        logger.debug("File extension: %s", file_extension)
         filename = f"{uuid.uuid4()}.{file_extension}"
-        print("filename", filename)
+        logger.debug("Filename: %s", filename)
         
         # Define the file path to save the file
         file_path = os.path.join(UPLOAD_DIR, filename)
@@ -610,8 +615,8 @@ async def update_avatar_endpoint(request: UpdateAvatarRequest, db: Session = Dep
     """
     Update the avatar URL for a user.
     """
-    print("request.user_id",request.user_id)
-    print("request.avatar_url",request.avatar_url)
+    logger.debug("User ID: %s", request.user_id)
+    logger.debug("Avatar URL: %s", request.avatar_url)
     updated_user = update_avatar(db, user_id=request.user_id, avatar_url=request.avatar_url)
     if not updated_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -660,7 +665,7 @@ async def get_captcha():
 
 @app.post("/validate-captcha")
 async def validate_captcha(data: CaptchaRequest):
-    print("capta",captcha_store.get("captcha", ""))
+    logger.debug("Captcha validation: %s", captcha_store.get("captcha", ""))
     is_valid = data.user_input == captcha_store.get("captcha", "")
     return {"valid": is_valid, "message": "Captcha validated", "user_input": data.user_input}
 

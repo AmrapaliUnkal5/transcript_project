@@ -9,6 +9,11 @@ from fastapi.responses import JSONResponse
 import re
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
+import logging
+from app.utils.logger import get_module_logger
+
+# Create a logger for this module
+logger = get_module_logger(__name__)
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -54,13 +59,13 @@ class RoleBasedAccessMiddleware(BaseHTTPMiddleware):
 
             # Database session
             db: Session = SessionLocal()
-            print("user")
+            logger.info("user")
 
             user = db.query(User).filter(User.email == user_email).first()
             if not user:
                 db.close()
                 return JSONResponse(status_code=404, content={"detail": "User not found"})
-            print(user)
+            logger.info(f"User: {user}")
 
             #role = db.query(Role).filter(Role.name == user.role).first()
             #if not role:
@@ -110,5 +115,5 @@ class RoleBasedAccessMiddleware(BaseHTTPMiddleware):
             return JSONResponse(status_code=http_exc.status_code, content={"detail": http_exc.detail})
 
         except Exception as e:
-            print(f"Unexpected Error: {str(e)}")  # Log the unexpected error for debugging
+            logger.error(f"Unexpected Error: {str(e)}")  # Log the unexpected error for debugging
             return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})

@@ -1,4 +1,4 @@
-
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -7,10 +7,13 @@ from app.dependency import get_current_user
 from app.schemas import NotificationOut
 from typing import List, Optional
 from datetime import datetime, timezone
-import logging
+from app.utils.logger import get_module_logger
 
 
 router = APIRouter()
+
+# Create a logger for this module
+logger = get_module_logger(__name__)
 
 @router.get("/notifications", response_model=List[NotificationOut])  # Optional schema
 def get_notifications(
@@ -22,7 +25,7 @@ def get_notifications(
 
     try:
         user_id = current_user["user_id"]
-        print("user_id",user_id)
+        logger.debug("user_id: %s", user_id)
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
@@ -61,8 +64,6 @@ def mark_all_notifications_as_read(
     db.commit()
     return {"message": "All notifications marked as read"}
     
-logger = logging.getLogger(__name__)
-
 def add_notification(
     db: Session,
     event_type: str,

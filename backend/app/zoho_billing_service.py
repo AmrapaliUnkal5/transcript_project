@@ -6,8 +6,10 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from app.models import SubscriptionPlan, Addon, UserSubscription
 import json
+from app.utils.logger import get_module_logger
 
-logger = logging.getLogger(__name__)
+# Create a logger for this module
+logger = get_module_logger(__name__)
 
 class ZohoBillingService:
     def __init__(self, config: Dict[str, str] = None):
@@ -22,30 +24,28 @@ class ZohoBillingService:
         self.token_expiry = datetime.now() + timedelta(hours=1) if self.access_token else datetime.now()  # Default expiry time
         self.base_url = "https://www.zohoapis.in/billing/v1"
         
-        # Print initialization info
-        print(f"=== ZohoBillingService Initialized ===")
-        print(f"Client ID: {self.config['client_id'][:5]}...{self.config['client_id'][-5:] if self.config['client_id'] else None}")
-        print(f"Client Secret: {self.config['client_secret'][:5]}...{self.config['client_secret'][-5:] if self.config['client_secret'] else None}")
-        print(f"Refresh Token: {self.config['refresh_token'][:5]}...{self.config['refresh_token'][-5:] if self.config['refresh_token'] else None}")
-        print(f"Organization ID: {self.config['organization_id']}")
-        print(f"Base URL: {self.base_url}")
-        print(f"Initial Access Token: {self.access_token[:5]}...{self.access_token[-5:] if self.access_token else None}")
-        print(f"Token Expiry: {self.token_expiry}")
-        print("=" * 40)
+        logger.info("=== ZohoBillingService Initialized ===")
+        logger.info(f"Client ID: {self.config['client_id'][:5]}...{self.config['client_id'][-5:] if self.config['client_id'] else None}")
+        logger.info(f"Client Secret: {self.config['client_secret'][:5]}...{self.config['client_secret'][-5:] if self.config['client_secret'] else None}")
+        logger.info(f"Refresh Token: {self.config['refresh_token'][:5]}...{self.config['refresh_token'][-5:] if self.config['refresh_token'] else None}")
+        logger.info(f"Organization ID: {self.config['organization_id']}")
+        logger.info(f"Base URL: {self.base_url}")
+        logger.info(f"Initial Access Token: {self.access_token[:5]}...{self.access_token[-5:] if self.access_token else None}")
+        logger.info(f"Token Expiry: {self.token_expiry}")
+        logger.info("=" * 40)
         
         # Always refresh the token at initialization to ensure we have a valid token
         if not self.access_token:
             try:
                 self._refresh_access_token(force=True)
             except Exception as e:
-                print(f"WARNING: Failed to get initial token: {str(e)}")
-                logger.warning(f"Failed to get initial token: {str(e)}")
+                logger.warning(f"WARNING: Failed to get initial token: {str(e)}")
 
     def _refresh_access_token(self, force=False) -> None:
         """Refresh the Zoho API access token"""
         try:
-            print(f"\n=== Refreshing Zoho Access Token ===")
-            print(f"Force refresh: {force}")
+            logger.info(f"\n=== Refreshing Zoho Access Token ===")
+            logger.info(f"Force refresh: {force}")
             url = "https://accounts.zoho.in/oauth/v2/token"
             data = {
                 'client_id': self.config['client_id'],
@@ -54,12 +54,13 @@ class ZohoBillingService:
                 'grant_type': 'refresh_token',
                 'scope': 'ZohoSubscriptions.hostedpages.CREATE ZohoSubscriptions.subscriptions.ALL ZohoSubscriptions.plans.ALL ZohoSubscriptions.addons.ALL'
             }
-            print(f"Token refresh URL: {url}")
-            print(f"Token refresh data: {data}")
+            logger.debug(f"Token refresh URL: {url}")
+            logger.debug(f"Token refresh data: {data}")
             
             response = requests.post(url, data=data)
-            print(f"Token refresh status code: {response.status_code}")
-            print(f"Token refresh response: {response.text}")
+            
+            logger.debug(f"Token refresh status code: {response.status_code}")
+            logger.debug(f"Token refresh response: {response.text}")
             
             response.raise_for_status()
             
@@ -70,29 +71,28 @@ class ZohoBillingService:
             # Update the environment variable (for debugging/development purposes)
             os.environ['ZOHO_ACCESS_TOKEN'] = self.access_token
             
-            print(f"New access token: {self.access_token[:5]}...{self.access_token[-5:]}")
-            print(f"Token expires at: {self.token_expiry}")
-            print("=" * 40)
+            logger.info(f"New access token: {self.access_token[:5]}...{self.access_token[-5:]}")
+            logger.info(f"Token expires at: {self.token_expiry}")
+            logger.info("=" * 40)
             
             logger.info("Zoho access token refreshed successfully")
         except Exception as e:
-            print(f"ERROR refreshing token: {str(e)}")
-            logger.error(f"Error refreshing Zoho access token: {str(e)}")
+            logger.error(f"ERROR refreshing token: {str(e)}")
             raise
 
     def _get_headers(self, force_refresh=False) -> Dict[str, str]:
         """Get request headers with valid access token"""
-        print(f"\n=== Getting Zoho API Headers ===")
-        print(f"Current time: {datetime.now()}")
-        print(f"Token expiry: {self.token_expiry}")
-        print(f"Token expired: {datetime.now() >= self.token_expiry}")
-        print(f"Force refresh: {force_refresh}")
+        logger.info(f"\n=== Getting Zoho API Headers ===")
+        logger.info(f"Current time: {datetime.now()}")
+        logger.info(f"Token expiry: {self.token_expiry}")
+        logger.info(f"Token expired: {datetime.now() >= self.token_expiry}")
+        logger.info(f"Force refresh: {force_refresh}")
         
         if not self.access_token or datetime.now() >= self.token_expiry or force_refresh:
-            print("Access token missing or expired, refreshing...")
+            logger.info("Access token missing or expired, refreshing...")
             self._refresh_access_token(force=force_refresh)
         else:
-            print(f"Using existing token: {self.access_token[:5]}...{self.access_token[-5:]}")
+            logger.info(f"Using existing token: {self.access_token[:5]}...{self.access_token[-5:]}")
             
         headers = {
             'Authorization': f'Zoho-oauthtoken {self.access_token}',
@@ -100,8 +100,8 @@ class ZohoBillingService:
             'Content-Type': 'application/json'
         }
         
-        print(f"Headers generated: {headers}")
-        print("=" * 40)
+        logger.info(f"Headers generated: {headers}")
+        logger.info("=" * 40)
         return headers
 
     def get_all_plans(self) -> List[Dict[str, Any]]:
@@ -113,7 +113,7 @@ class ZohoBillingService:
             
             return response.json().get('plans', [])
         except Exception as e:
-            logger.error(f"Error fetching plans from Zoho: {str(e)}")
+            logger.error(f"ERROR fetching plans from Zoho: {str(e)}")
             return []
 
     def get_plan_by_code(self, plan_code: str) -> Optional[Dict[str, Any]]:
@@ -125,7 +125,7 @@ class ZohoBillingService:
             
             # If we get a 401 error, refresh token and try again
             if response.status_code == 401:
-                print("Received 401 Unauthorized error in get_plan_by_code. Refreshing token and retrying...")
+                logger.info("Received 401 Unauthorized error in get_plan_by_code. Refreshing token and retrying...")
                 headers = self._get_headers(force_refresh=True)
                 response = requests.get(url, headers=headers)
             
@@ -137,7 +137,7 @@ class ZohoBillingService:
                     return plan
             return None
         except Exception as e:
-            logger.error(f"Error fetching plan {plan_code} from Zoho: {str(e)}")
+            logger.error(f"ERROR fetching plan {plan_code} from Zoho: {str(e)}")
             return None
 
     def create_plan(self, plan_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -150,7 +150,7 @@ class ZohoBillingService:
             
             # If we get a 401 error, refresh token and try again
             if response.status_code == 401:
-                print("Received 401 Unauthorized error in create_plan. Refreshing token and retrying...")
+                logger.info("Received 401 Unauthorized error in create_plan. Refreshing token and retrying...")
                 headers = self._get_headers(force_refresh=True)
                 response = requests.post(url, headers=headers, json=plan_data)
             
@@ -175,7 +175,7 @@ class ZohoBillingService:
                     logger.error(f"Raw error response: {e.response.text}")
             raise
         except Exception as e:
-            logger.error(f"Error creating plan in Zoho: {str(e)}")
+            logger.error(f"ERROR creating plan in Zoho: {str(e)}")
             raise
 
     def update_plan(self, plan_id: str, plan_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -205,7 +205,7 @@ class ZohoBillingService:
                     logger.error(f"Raw error response: {e.response.text}")
             raise
         except Exception as e:
-            logger.error(f"Error updating plan in Zoho: {str(e)}")
+            logger.error(f"ERROR updating plan in Zoho: {str(e)}")
             raise
 
     def get_all_addons(self) -> List[Dict[str, Any]]:
@@ -217,7 +217,7 @@ class ZohoBillingService:
             
             return response.json().get('addons', [])
         except Exception as e:
-            logger.error(f"Error fetching addons from Zoho: {str(e)}")
+            logger.error(f"ERROR fetching addons from Zoho: {str(e)}")
             return []
 
     def get_addon_by_code(self, addon_code: str) -> Optional[Dict[str, Any]]:
@@ -233,7 +233,7 @@ class ZohoBillingService:
                     return addon
             return None
         except Exception as e:
-            logger.error(f"Error fetching addon {addon_code} from Zoho: {str(e)}")
+            logger.error(f"ERROR fetching addon {addon_code} from Zoho: {str(e)}")
             return None
 
     def create_addon(self, addon_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -255,19 +255,19 @@ class ZohoBillingService:
             }
 
             # Log the exact payload to be sent
-            print(f"Creating addon with payload: {json.dumps(payload, indent=2)}")
+            logger.debug(f"Creating addon with payload: {json.dumps(payload, indent=2)}")
             
             # Make the API request
             response = requests.post(url, headers=headers, json=payload)
             
             # Log the response
-            print(f"Zoho create addon response status: {response.status_code}")
+            logger.debug(f"Zoho create addon response status: {response.status_code}")
             
             try:
                 response_json = response.json()
-                print(f"Zoho create addon response: {json.dumps(response_json, indent=2)}")
+                logger.debug(f"Zoho create addon response: {json.dumps(response_json, indent=2)}")
             except:
-                print(f"Raw response: {response.text}")
+                logger.debug(f"Raw response: {response.text}")
             
             # Check for HTTP errors
             response.raise_for_status()
@@ -288,15 +288,13 @@ class ZohoBillingService:
             if hasattr(e, 'response') and e.response:
                 try:
                     error_data = e.response.json()
-                    print(f"Zoho API error details: {error_data}")
                     logger.error(f"Zoho API error details: {error_data}")
                 except:
-                    print(f"Raw error response: {e.response.text}")
                     logger.error(f"Raw error response: {e.response.text}")
             raise
 
         except Exception as e:
-            logger.error(f"Error creating addon in Zoho: {str(e)}")
+            logger.error(f"ERROR creating addon in Zoho: {str(e)}")
             raise
 
     def update_addon(self, addon_id: str, addon_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -308,60 +306,60 @@ class ZohoBillingService:
             
             return response.json().get('addon', {})
         except Exception as e:
-            logger.error(f"Error updating addon in Zoho: {str(e)}")
+            logger.error(f"ERROR updating addon in Zoho: {str(e)}")
             raise
 
     def get_hosted_page_url(self, subscription_data: Dict[str, Any]) -> str:
         """Get a hosted page URL for subscription checkout"""
         try:
-            print(f"\n=== Creating Zoho Hosted Page ===")
-            print(f"Input subscription data: {subscription_data}")
+            logger.info(f"\n=== Creating Zoho Hosted Page ===")
+            logger.info(f"Input subscription data: {subscription_data}")
             
             # Check if addons exist in the payload
             has_addons = "addons" in subscription_data and subscription_data["addons"]
-            print(f"Payload contains addons: {has_addons}")
+            logger.info(f"Payload contains addons: {has_addons}")
             if has_addons:
-                print(f"Number of addons in payload: {len(subscription_data['addons'])}")
+                logger.info(f"Number of addons in payload: {len(subscription_data['addons'])}")
                 for i, addon in enumerate(subscription_data["addons"]):
-                    print(f"  Addon {i+1}: {addon}")
+                    logger.info(f"  Addon {i+1}: {addon}")
             
             logger.info(f"Creating hosted page with data: {subscription_data}")
             url = f"{self.base_url}/hostedpages/newsubscription"
-            print(f"API URL: {url}")
+            logger.info(f"API URL: {url}")
             
             # Get headers with token
             headers = self._get_headers()
-            print(f"Using headers: {headers}")
+            logger.info(f"Using headers: {headers}")
             
             # Make the API request
-            print("Sending request to Zoho API...")
+            logger.info("Sending request to Zoho API...")
             
             # Convert to JSON string for logging exact payload sent
             payload_json = json.dumps(subscription_data)
-            print(f"Exact JSON payload being sent:\n{payload_json}")
+            logger.debug(f"Exact JSON payload being sent:\n{payload_json}")
             
             response = requests.post(url, headers=headers, json=subscription_data)
             
             # Log the full response
-            print(f"Zoho API response status: {response.status_code}")
-            print(f"Zoho API response headers: {dict(response.headers)}")
+            logger.debug(f"Zoho API response status: {response.status_code}")
+            logger.debug(f"Zoho API response headers: {dict(response.headers)}")
             
             response_text = response.text
-            print(f"Zoho API raw response: {response_text}")
+            logger.debug(f"Zoho API raw response: {response_text}")
             
             # If we get a 401 error, refresh token and try again
             if response.status_code == 401:
-                print("Received 401 Unauthorized error. Refreshing token and retrying...")
+                logger.info("Received 401 Unauthorized error. Refreshing token and retrying...")
                 # Force refresh the token
                 headers = self._get_headers(force_refresh=True)
-                print("Retrying request with new token...")
+                logger.info("Retrying request with new token...")
                 response = requests.post(url, headers=headers, json=subscription_data)
-                print(f"Retry response status: {response.status_code}")
-                print(f"Retry response: {response.text}")
+                logger.debug(f"Retry response status: {response.status_code}")
+                logger.debug(f"Retry response: {response.text}")
             
             try:
                 response_json = response.json()
-                print(f"Zoho API JSON response: {response_json}")
+                logger.debug(f"Zoho API JSON response: {response_json}")
                 logger.info(f"Zoho API response body: {response_json}")
                 
                 # Deeply inspect the response for addon-related information
@@ -369,18 +367,18 @@ class ZohoBillingService:
                     hostedpage = response_json["hostedpage"]
                     if "page_context" in hostedpage:
                         page_context = hostedpage["page_context"]
-                        print(f"Page context from response: {page_context}")
+                        logger.info(f"Page context from response: {page_context}")
                         
                         if "subscription" in page_context:
                             sub_context = page_context["subscription"]
-                            print(f"Subscription context: {sub_context}")
+                            logger.info(f"Subscription context: {sub_context}")
                             
                             if "addons" in sub_context:
-                                print(f"Addons in response context: {sub_context['addons']}")
+                                logger.info(f"Addons in response context: {sub_context['addons']}")
                             else:
-                                print("WARNING: No addons found in subscription context")
+                                logger.info("WARNING: No addons found in subscription context")
             except Exception as e:
-                print(f"Error parsing or inspecting JSON response: {str(e)}")
+                logger.info(f"Error parsing or inspecting JSON response: {str(e)}")
                 logger.info(f"Zoho API response text: {response_text}")
             
             # Check for HTTP errors
@@ -388,40 +386,37 @@ class ZohoBillingService:
             
             # Parse the response
             response_data = response.json()
-            print(f"Processing response data: {response_data}")
+            logger.info(f"Processing response data: {response_data}")
             logger.info(f"Hosted page response: {response_data}")
             
             if response_data.get('code') == 0 and response_data.get('hostedpage'):
                 hosted_page_data = response_data.get('hostedpage', {})
                 hosted_page_url = hosted_page_data.get('url', '')
                 
-                print(f"Checkout URL generated: {hosted_page_url}")
+                logger.info(f"Checkout URL generated: {hosted_page_url}")
                 
                 if not hosted_page_url:
-                    print("ERROR: No URL returned in the hosted page response")
+                    logger.error("ERROR: No URL returned in the hosted page response")
                     raise Exception("No URL returned in the hosted page response")
                     
-                print("=" * 40)
+                logger.info("=" * 40)
                 return hosted_page_url
             else:
                 error_msg = response_data.get('message', 'Unknown error from Zoho API')
-                print(f"ERROR: Zoho API error: {error_msg}")
-                logger.error(f"Zoho API error: {error_msg}")
+                logger.error(f"ERROR: Zoho API error: {error_msg}")
                 raise Exception(error_msg)
         except requests.exceptions.RequestException as e:
-            print(f"ERROR: Request exception: {str(e)}")
+            logger.error(f"ERROR: Request exception: {str(e)}")
             logger.error(f"Request error creating hosted page: {str(e)}")
             if hasattr(e, 'response') and e.response:
                 try:
                     error_data = e.response.json()
-                    print(f"Zoho API error details: {error_data}")
                     logger.error(f"Zoho API error details: {error_data}")
                 except:
-                    print(f"Raw error response: {e.response.text}")
                     logger.error(f"Raw error response: {e.response.text}")
             raise
         except Exception as e:
-            print(f"ERROR: Exception creating hosted page: {str(e)}")
+            logger.error(f"ERROR: Exception creating hosted page: {str(e)}")
             logger.error(f"Error creating hosted page for subscription: {str(e)}")
             raise
 

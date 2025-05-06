@@ -67,15 +67,15 @@ async def addon_checkout(
 ):
     """Generate a checkout URL for standalone add-on purchase"""
     try:
-        print(f"Received request: {request}")
+        logger.debug(f"Received request: {request}")
         # Get the add-on details
         addon = db.query(Addon).filter(Addon.id == request.addon_id).first()
         if not addon:
             raise HTTPException(status_code=404, detail=f"Add-on with ID {request.addon_id} not found")
             
-        print(f"Add-on found: {addon}")
-        print(f"Add-on details: {addon.name}, {addon.id}, {addon.addon_type}")
-        print(f"Current user: {current_user['user_id']}")
+        logger.debug(f"Add-on found: {addon}")
+        logger.debug(f"Add-on details: {addon.name}, {addon.id}, {addon.addon_type}")
+        logger.debug(f"Current user: {current_user['user_id']}")
         # Log information about the request
         logger.info(f"Creating checkout for add-on '{addon.name}' (ID: {addon.id}) for user {current_user['user_id']}")
         logger.info(f"Add-on type: {addon.addon_type}, Quantity: {request.quantity}")
@@ -87,7 +87,7 @@ async def addon_checkout(
             addon_id=request.addon_id,
             quantity=request.quantity
         )
-        print(f"Checkout URL generated: {checkout_url}")
+        logger.debug(f"Checkout URL generated: {checkout_url}")
         return {"checkout_url": checkout_url}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

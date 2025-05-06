@@ -11,7 +11,11 @@ from sqlalchemy import func, and_
 import enum
 from sqlalchemy import text  # Add this import at the top of your file
 from sqlalchemy import case
+import logging
+from app.utils.logger import get_module_logger
 
+# Create a logger for this module
+logger = get_module_logger(__name__)
 
 # Initialize password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -65,8 +69,8 @@ def update_bot(db: Session, bot_id: int, bot_data: BotUpdate):
     if not bot:
         return None  # Handle case when bot is not found
     
-    #print(f"Incoming bot data: {bot_data.dict()}")
-    #print(f"Existing bot data: {bot}")
+    logger.debug(f"Incoming bot data: {bot_data.dict()}")
+    logger.debug(f"Existing bot data: {bot}")
     
     # Default values for each field (you can adjust these as needed)
     default_values = {
@@ -90,7 +94,7 @@ def update_bot(db: Session, bot_id: int, bot_data: BotUpdate):
         
         # Skip update if incoming value is the default one or same as the current value in the database
         if value != default_values.get(field) and value != current_value:
-            #print(f"Updating {field} from {current_value} to {value}")
+            logger.debug(f"Updating {field} from {current_value} to {value}")
             setattr(bot, field, value)  # Set the new value
     
     db.commit()
@@ -116,10 +120,10 @@ def get_bot_by_user_id(db: Session, user_id: int):
     bot_ids = [bot.bot_id for bot in bots]
 
     today_start = datetime.combine(date.today(), datetime.min.time())  # Start of today
-    print("today_start",today_start)
+    logger.debug("today_start: %s", today_start)
     
     today_end = datetime.combine(date.today(), datetime.max.time())  # End of today
-    print("today_end",today_end)
+    logger.debug("today_end: %s", today_end)
 
     # Get conversation count per bot for today
     bot_conversation_counts = (
@@ -271,7 +275,7 @@ def invite_team_member(db: Session, owner_id: int, invite_data: TeamMemberCreate
         
     else:
         # Member does not exist, so create a new user
-        print("Not an existing team member")
+        logger.debug("Not an existing team member")
         raw_password = "evolrai123"
         hashed_password = pwd_context.hash(raw_password)
 
@@ -453,7 +457,7 @@ def get_owners_for_user(db: Session, user_id: int):
     return result
 # crud.py
 def update_user_word_count(db: Session, user_id: int, word_count: int):
-    print("User id here ",user_id)
+    #logger.debug("User id here: %s", user_id)
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

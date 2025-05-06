@@ -10,6 +10,11 @@ import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
+import logging
+from app.utils.logger import get_module_logger
+
+# Create a logger for this module
+logger = get_module_logger(__name__)
 
 router = APIRouter()
 
@@ -55,7 +60,7 @@ async def submit_issue_request(
     current_user: UserOut = Depends(get_current_user),
 ):
     try:
-        print(f"Received description: {description}")
+        logger.debug(f"Received description: {description}")
         # Extract user details from current_user
         user_email = current_user["email"]
         user_name = current_user["name"]
@@ -63,7 +68,7 @@ async def submit_issue_request(
         user_phone = current_user["phone_no"]
         user_id = current_user["user_id"]
 
-        print("Extracted Data", user_email, user_id, user_name, user_company, user_phone)
+        logger.debug("Extracted Data: %s, %s, %s, %s, %s", user_email, user_id, user_name, user_company, user_phone)
 
         # Validate file sizes and prepare attachments
         attachments = []
