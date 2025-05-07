@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 from app.embedding_manager import EmbeddingManager
 from app.database import SessionLocal
-from app.models import Bot, EmbeddingModel
+from app.models import Bot, EmbeddingModel, UserSubscription, SubscriptionPlan
 from app.utils.logger import get_module_logger
 
 # Initialize logger
@@ -505,28 +505,54 @@ def get_bot_config(bot_id: int) -> str:
             logger.warning(f"Bot {bot_id} not found in database")
             return "BAAI/bge-large-en-v1.5"  # Default fallback
             
-        if not bot.embedding_model:
-            logger.warning(f"Bot {bot_id} has no embedding model assigned, using default")
-            # Try to find a default model from the database
-            default_model = db.query(EmbeddingModel).filter(
-                EmbeddingModel.provider == "huggingface",
-                EmbeddingModel.name == "BAAI/bge-large-en-v1.5",
-                EmbeddingModel.is_active == True
+        if bot.embedding_model:
+            logger.info(f"Bot {bot_id} has an embedding model assigned: {bot.embedding_model.name}")
+            return bot.embedding_model.name
+        
+        # Bot doesn't have embedding model, check user's subscription plan
+        logger.info(f"Bot {bot_id} has no embedding model assigned, checking user subscription plan")
+        user_id = bot.user_id
+        
+        # Get user's active subscription
+        user_subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "active"
+        ).order_by(UserSubscription.expiry_date.desc()).first()
+        
+        if user_subscription:
+            # Get subscription plan
+            subscription_plan = db.query(SubscriptionPlan).filter(
+                SubscriptionPlan.id == user_subscription.subscription_plan_id
             ).first()
             
-            if default_model:
-                logger.info(f"Using default model from database: {default_model.name}")
-                return default_model.name
-            else:
-                return db.query(EmbeddingModel).filter(
-                    EmbeddingModel.provider == "huggingface",
-                    EmbeddingModel.is_active == True
-                ).first().name
+            if subscription_plan and subscription_plan.default_embedding_model_id:
+                # Plan has a default embedding model, use it
+                embedding_model = db.query(EmbeddingModel).filter(
+                    EmbeddingModel.id == subscription_plan.default_embedding_model_id
+                ).first()
+                
+                if embedding_model:
+                    logger.info(f"Using embedding model from subscription plan: {embedding_model.name}")
+                    return embedding_model.name
+                    
+        # If no model found from subscription plan or user has no subscription,
+        # fall back to default model from database
+        logger.warning(f"No embedding model from subscription plan, using default")
+        default_model = db.query(EmbeddingModel).filter(
+            EmbeddingModel.provider == "huggingface",
+            EmbeddingModel.name == "BAAI/bge-large-en-v1.5",
+            EmbeddingModel.is_active == True
+        ).first()
         
-        # Return the model name from the relationship
-        model_name = bot.embedding_model.name
-        logger.info(f"Using embedding model for bot {bot_id}: {model_name}")
-        return model_name
+        if default_model:
+            logger.info(f"Using default model from database: {default_model.name}")
+            return default_model.name
+        else:
+            # Last resort fallback - get any active model
+            return db.query(EmbeddingModel).filter(
+                EmbeddingModel.provider == "huggingface",
+                EmbeddingModel.is_active == True
+            ).first().name
     except Exception as e:
         logger.error(f"Error getting bot config", 
                     extra={"bot_id": bot_id, "error": str(e)})
