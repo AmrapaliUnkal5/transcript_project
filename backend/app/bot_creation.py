@@ -1,10 +1,11 @@
 from fastapi import FastAPI, Depends, HTTPException, APIRouter, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Bot
+from app.models import Bot, UserSubscription, SubscriptionPlan
 from app.schemas import BotCreation, UserOut, BotRename
 from app.dependency import get_current_user
 from app.utils.logger import get_module_logger
+from datetime import datetime, timedelta
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -37,6 +38,47 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
                       extra={"request_id": request_id, "user_id": user_id, 
                             "bot_name": bot.bot_name, "existing_bot_id": existing_bot.bot_id})
         raise HTTPException(status_code=400, detail="A bot with this name already exists for the user")
+
+    # Check if user has any existing bots (excluding deleted ones)
+    user_has_existing_bots = db.query(Bot).filter(Bot.user_id == user_id, Bot.status != "Deleted").first() is not None
+    
+    # Check if user has any active subscription
+    user_has_subscription = db.query(UserSubscription).filter(
+        UserSubscription.user_id == user_id,
+        UserSubscription.status == "active"
+    ).first() is not None
+    
+    # If user doesn't have an active subscription and this is their first bot,
+    # create a free plan subscription for them
+    if not user_has_subscription and not user_has_existing_bots:
+        logger.info(f"User has no subscription and creating first bot, adding free plan", 
+                    extra={"request_id": request_id, "user_id": user_id})
+        
+        # Get the free plan (Explorer Plan) from subscription_plans
+        free_plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.name == "Explorer Plan").first()
+        
+        if not free_plan:
+            # Fallback to plan ID 1 if plan by name not found
+            free_plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == 1).first()
+            
+        if free_plan:
+            # Create a new subscription for the free plan
+            subscription = UserSubscription(
+                user_id=user_id,
+                subscription_plan_id=free_plan.id,
+                amount=0.00,
+                currency="USD",
+                payment_date=datetime.now(),
+                expiry_date=datetime.now() + timedelta(days=30),
+                status="active",
+                auto_renew=False
+            )
+            
+            db.add(subscription)
+            db.commit()
+            logger.info(f"Created free plan subscription for user", 
+                        extra={"request_id": request_id, "user_id": user_id, 
+                              "plan_id": free_plan.id, "plan_name": free_plan.name})
 
     try:
         # Create a new bot
