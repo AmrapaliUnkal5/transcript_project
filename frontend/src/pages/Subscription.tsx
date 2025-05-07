@@ -218,7 +218,7 @@ export const Subscription = () => {
   const [showPendingNotification, setShowPendingNotification] = useState(false);
 
   useEffect(() => {
-    // Check URL params for expired status
+    // Check URL params for expired or canceled status
     const params = new URLSearchParams(window.location.search);
     setIsExpiredPlan(params.get('isExpired') === 'true');
   }, []);
@@ -458,7 +458,7 @@ export const Subscription = () => {
     const hasBadge = planBadges[plan.name as keyof typeof planBadges];
     const selectedAddonCount = getSelectedAddonCount();
     const isExpiredCurrentPlan = isCurrent && isExpiredPlan;
-
+    const isCanceled = user?.subscription_status === 'canceled';
 
     return (
       <div
@@ -612,18 +612,18 @@ export const Subscription = () => {
         
         <button
           className={`mt-6 w-full px-4 py-2 rounded-lg transition-all transform hover:scale-105 flex items-center justify-center ${
-            isCurrent && !isExpiredPlan // Changed this condition
+            isCurrent && !isExpiredPlan
               ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 cursor-default'
               : processingPlanId === plan.id 
                 ? `bg-${planAccent}-400 text-white cursor-wait`
                 : `bg-${planAccent}-500 hover:bg-${planAccent}-600 text-white shadow-md hover:shadow-lg`
           }`}
-          disabled={(isCurrent && !isExpiredPlan) || processingPlanId !== null} // Changed this
+          disabled={(isCurrent && !isExpiredPlan) || processingPlanId !== null}
           onClick={() => handleSubscribe(plan.id)}
         >
           {isCurrent ? (
             isExpiredPlan ? (
-              'Renew Plan' // Show "Renew" instead of "Current Plan" if expired
+              isCanceled ? 'Subscribe Again' : 'Renew Plan'
             ) : (
               'Current Plan'
             )
