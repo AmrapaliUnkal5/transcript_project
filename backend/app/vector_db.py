@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 from app.embedding_manager import EmbeddingManager
 from app.database import SessionLocal
-from app.models import Bot, EmbeddingModel
+from app.models import Bot, EmbeddingModel, UserSubscription, SubscriptionPlan
 from app.utils.logger import get_module_logger
 
 # Initialize logger
