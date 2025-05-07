@@ -153,8 +153,10 @@ const effectiveMessageLimit = (userPlan?.message_limit || 0) +
     // Only show the overlay if:
     // 1. User has an expired or canceled subscription status AND
     // 2. User has a subscription_plan_id (indicating they previously had a subscription)
+    console.log("---------> subscription check",(user?.subscription_status === 'expired' || user?.subscription_status === 'canceled') 
+    && user?.subscription_plan_id !== undefined || user?.subscription_plan_id !== null)
     return (user?.subscription_status === 'expired' || user?.subscription_status === 'canceled') 
-           && user?.subscription_plan_id !== undefined;
+           && user?.subscription_plan_id !== undefined || user?.subscription_plan_id !== null;
   };
 
 // Combined data loading effect

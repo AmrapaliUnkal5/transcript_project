@@ -364,7 +364,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
                    "member_id": member_id,
                   "addon_plan_ids": addon_plan_ids,
                   "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
-                  "subscription_status": user_subscription.status if user_subscription else "expired",
+                  "subscription_status": user_subscription.status if user_subscription else "",
                   }
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     
