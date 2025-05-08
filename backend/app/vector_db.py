@@ -101,9 +101,17 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
         logger.debug(f"Sanitizing model name for collection", 
                    extra={"bot_id": bot_id, "model_name": model_name})
         sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
+        
+        # IMPORTANT: Always use a consistent collection name format based ONLY on bot_id and model
+        # This ensures all data sources (YouTube, files, websites) share the same collection
         base_collection_name = f"bot_{bot_id}_{sanitized_model_name}"
-        logger.debug(f"Base collection name", 
+        logger.debug(f"Using collection name", 
                    extra={"bot_id": bot_id, "collection": base_collection_name})
+
+        # Log collection name with source type for debugging purposes
+        source_type = metadata.get('source', 'unknown')
+        logger.info(f"*** COLLECTION: {base_collection_name} - SOURCE TYPE: {source_type} ***", 
+                   extra={"bot_id": bot_id, "collection": base_collection_name, "source": source_type})
         
         # Check if this is a re-embedding process by looking at metadata
         is_reembedding = metadata.get("source") == "re-embed"
@@ -114,103 +122,9 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             logger.info(f"Using temporary collection for re-embedding", 
                        extra={"bot_id": bot_id, "collection": collection_name})
         else:
-            # Normal document addition (not re-embedding)
-            # First check if there are timestamped collections for this model
-            try:
-                collections = chroma_client.list_collections()
-                
-                # Safely determine if we're using new or old API
-                try:
-                    # First, assume we're using the new API (v0.6.0+)
-                    collection_names = collections
-                    # If all items in collections are strings, we're using the new API
-                    is_new_api = all(isinstance(item, str) for item in collections) if collections else True
-                    
-                    if not is_new_api:
-                        # Try to get collection names using old API style
-                        try:
-                            # Just try with the first item
-                            if collections and len(collections) > 0:
-                                test_name = collections[0].name
-                                # If we got here without exception, it's the old API
-                                logger.debug("Using old ChromaDB API style (pre-0.6.0)")
-                                collection_names = [collection.name for collection in collections]
-                            else:
-                                collection_names = []
-                        except Exception as e:
-                            # If accessing 'name' causes an error, we're using the new API
-                            logger.debug(f"Error checking collection type: {str(e)}")
-                            logger.debug("Defaulting to new ChromaDB API style (0.6.0+)")
-                            collection_names = collections
-                    else:
-                        logger.debug("Using new ChromaDB API style (0.6.0+)")
-                except Exception as e:
-                    logger.warning(f"Error determining ChromaDB API version: {str(e)}")
-                    # Safe default - treat as new API
-                    collection_names = collections if isinstance(collections, list) else []
-                
-                # Find timestamped collections for this model (sorted by timestamp, most recent first)
-                timestamped_collections = [
-                    name for name in collection_names
-                    if name.startswith(base_collection_name + "_")
-                ]
-                
-                if timestamped_collections:
-                    # Sort to get most recent first
-                    timestamped_collections.sort(reverse=True)
-                    collection_name = timestamped_collections[0]
-                    logger.info(f"Using most recent timestamped collection", 
-                               extra={"bot_id": bot_id, "collection": collection_name})
-                else:
-                    # No timestamped collections, try to use base collection
-                    try:
-                        existing_collection = chroma_client.get_collection(name=base_collection_name)
-                        if existing_collection.count() > 0:
-                            # Test dimension compatibility
-                            try:
-                                result = existing_collection.query(
-                                    query_embeddings=[[0.0] * embedding_dimension],
-                                    n_results=1,
-                                    include=['embeddings']
-                                )
-                                
-                                if result['embeddings'] and len(result['embeddings']) > 0 and len(result['embeddings'][0]) > 0:
-                                    existing_dimension = len(result['embeddings'][0][0])
-                                    logger.debug(f"Existing collection dimension", 
-                                                extra={"bot_id": bot_id, "dimension": existing_dimension})
-                                    
-                                    if existing_dimension != embedding_dimension:
-                                        logger.warning(f"Embedding dimension mismatch", 
-                                                     extra={"bot_id": bot_id, 
-                                                           "existing_dimension": existing_dimension, 
-                                                           "new_dimension": embedding_dimension})
-                                        raise ValueError(f"Embedding dimension {embedding_dimension} does not match collection dimensionality {existing_dimension}")
-                            except Exception as e:
-                                logger.error(f"Error checking collection dimensions", 
-                                            extra={"bot_id": bot_id, "error": str(e)})
-                                raise e
-                        collection_name = base_collection_name
-                        logger.info(f"Using base collection", 
-                                   extra={"bot_id": bot_id, "collection": collection_name})
-                    except Exception as e:
-                        if "not found" in str(e).lower():
-                            # Collection doesn't exist, create it
-                            collection_name = base_collection_name
-                            logger.info(f"Creating new base collection", 
-                                       extra={"bot_id": bot_id, "collection": collection_name})
-                        else:
-                            # Other error
-                            logger.error(f"Error accessing collection", 
-                                        extra={"bot_id": bot_id, "error": str(e)})
-                            raise e
-            except Exception as e:
-                logger.error(f"Error checking for existing collections", 
-                            extra={"bot_id": bot_id, "error": str(e)})
-                # Fallback to base collection name
-                collection_name = base_collection_name
-                logger.info(f"Falling back to base collection name", 
-                           extra={"bot_id": bot_id, "collection": collection_name})
-        
+            # Standard case for all document types - use the consistent base collection name
+            collection_name = base_collection_name
+            
         logger.debug(f"Getting or creating ChromaDB collection", 
                     extra={"bot_id": bot_id, "collection": collection_name})
         try:
@@ -220,6 +134,8 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
                 logger.debug(f"Existing collection found", 
                            extra={"bot_id": bot_id, "collection": collection_name, 
                                  "count": existing_collection.count()})
+                logger.info(f"*** USING EXISTING COLLECTION: {collection_name} - DOCUMENT COUNT: {existing_collection.count()} ***", 
+                           extra={"bot_id": bot_id})
                 bot_collection = existing_collection
             except Exception as e:
                 logger.debug(f"Collection not found, creating new collection", 
@@ -228,6 +144,8 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
                     name=collection_name,
                     embedding_function=None  # We'll provide our own embeddings
                 )
+                logger.info(f"*** CREATED NEW COLLECTION: {collection_name} ***", 
+                           extra={"bot_id": bot_id})
                 logger.info(f"New collection created", 
                            extra={"bot_id": bot_id, "collection": collection_name})
         except Exception as e:
@@ -346,93 +264,40 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
         
         # Sanitize model name for ChromaDB collection naming requirements
         sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
-        base_collection_name = f"bot_{bot_id}_{sanitized_model_name}"
         
-        # List all collections to find the appropriate one
-        collections = chroma_client.list_collections()
+        # IMPORTANT: Use the same consistent collection naming as in add_document
+        collection_name = f"bot_{bot_id}_{sanitized_model_name}"
+        logger.info(f"Using consistent collection name", 
+                   extra={"bot_id": bot_id, "collection": collection_name})
         
-        # Safely determine if we're using new or old API
-        # In v0.6.0+, collections is a list of strings
-        # In older versions, collections is a list of objects with a name attribute
+        # Add debug highlighting for query collection name
+        logger.info(f"*** QUERYING COLLECTION: {collection_name} ***", 
+                   extra={"bot_id": bot_id})
+        
+        # Try to get the collection
         try:
-            # First, assume we're using the new API (v0.6.0+)
-            logger.debug("Checking ChromaDB API version...")
-            collection_names = collections
-            # If all items in collections are strings, we're using the new API
-            is_new_api = all(isinstance(item, str) for item in collections) if collections else True
+            bot_collection = chroma_client.get_collection(name=collection_name)
             
-            if not is_new_api:
-                # Try to get collection names using old API style
-                # but catch any errors that might occur
-                try:
-                    # Just try with the first item
-                    if collections and len(collections) > 0:
-                        # This will work only if collections[0] has a 'name' attribute
-                        test_name = collections[0].name
-                        # If we got here without exception, it's the old API
-                        logger.debug("Using old ChromaDB API style (pre-0.6.0)")
-                        collection_names = [collection.name for collection in collections]
-                    else:
-                        # Empty collection list
-                        collection_names = []
-                except Exception as e:
-                    # If accessing 'name' causes an error, we're using the new API
-                    # or there's some other issue - stick with default
-                    logger.debug(f"Error checking collection type: {str(e)}")
-                    logger.debug("Defaulting to new ChromaDB API style (0.6.0+)")
-                    collection_names = collections
-            else:
-                logger.debug("Using new ChromaDB API style (0.6.0+)")
+            # Check if it has documents
+            doc_count = bot_collection.count()
+            logger.info(f"Collection has {doc_count} documents", 
+                       extra={"bot_id": bot_id, "collection": collection_name})
+            
+            if doc_count == 0:
+                logger.warning(f"Collection {collection_name} is empty, falling back to other collections")
+                return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
         except Exception as e:
-            logger.warning(f"Error determining ChromaDB API version: {str(e)}")
-            # Safe default - treat as new API
-            collection_names = collections if isinstance(collections, list) else []
-        
-        # First, look for a base collection with this model name
-        if base_collection_name in collection_names:
-            try:
-                # Try to use the base collection
-                bot_collection = chroma_client.get_collection(name=base_collection_name)
-                
-                # Check if it has documents
-                if bot_collection.count() > 0:
-                    logger.info(f"Using base collection", 
-                               extra={"bot_id": bot_id, "collection": base_collection_name})
-                    collection_name = base_collection_name
-                else:
-                    logger.warning(f"Base collection {base_collection_name} is empty, looking for alternatives")
-                    return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
-            except Exception as e:
-                logger.error(f"Error with base collection", 
-                            extra={"bot_id": bot_id, "error": str(e)})
-                return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
-        else:
-            # Look for timestamped collections for this model
-            model_collections = [
-                name for name in collection_names 
-                if name.startswith(base_collection_name + "_")
-            ]
-            
-            if model_collections:
-                # Sort collections by timestamp (descending) to get the most recent one
-                model_collections.sort(reverse=True)
-                collection_name = model_collections[0]
-                logger.info(f"Using most recent collection for model", 
-                           extra={"bot_id": bot_id, "collection": collection_name})
-            else:
-                # No collection found for this model, try fallback
-                logger.warning(f"No collection found for model {model_name}, falling back to any available collection")
-                return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
+            logger.error(f"Error accessing collection {collection_name}", 
+                        extra={"bot_id": bot_id, "error": str(e)})
+            logger.warning(f"Collection not found, falling back to other collections")
+            return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
         
         # Query the collection
         try:
-            bot_collection = chroma_client.get_collection(name=collection_name)
-            logger.info(f"Collection has {bot_collection.count()} documents")
-            
             # Run the query
             results = bot_collection.query(
                 query_embeddings=[query_embedding],
-                n_results=min(top_k, bot_collection.count()),
+                n_results=min(top_k, doc_count),
                 include=["documents", "metadatas", "distances"]
             )
             
@@ -449,7 +314,7 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                         "metadata": metadata,
                         "score": score
                     })
-                    logger.info(f"Match {i+1}: Score {score:.4f}, Source: {metadata.get('file_name', 'unknown')}")
+                    logger.info(f"Match {i+1}: Score {score:.4f}, Source: {metadata.get('source', 'unknown')}, Name: {metadata.get('file_name', 'unknown')}")
             else:
                 logger.warning("No documents returned from query")
             
@@ -763,7 +628,7 @@ def delete_document_from_chroma(bot_id: int, file_id: str):
         
         file_id_str = str(file_id)
         
-        # Try each collection and delete documents with matching file_id
+        # Try each collection and delete documents with matching file_id or id
         for collection_name in bot_collections:
             try:
                 logger.info(f"Checking collection: {collection_name}")
@@ -774,12 +639,45 @@ def delete_document_from_chroma(bot_id: int, file_id: str):
                     continue
                 
                 # Query to find document IDs with the given file ID in metadata
+                # Note: We need to check multiple fields since the metadata structure
+                # has been inconsistent across sources
                 try:
-                    # First, get all documents and their metadata
+                    # Try with 'id' field first (our new standardized approach)
                     results = collection.get(
-                        where={"file_id": file_id_str},
+                        where={"id": file_id_str},
                         include=["metadatas", "documents"]
                     )
+                    
+                    # If no results, try with 'file_id' field (older inconsistent approach)
+                    if not results["ids"] or len(results["ids"]) == 0:
+                        logger.debug(f"No documents found with id={file_id_str}, trying file_id field")
+                        try:
+                            results = collection.get(
+                                where={"file_id": file_id_str},
+                                include=["metadatas", "documents"]
+                            )
+                        except Exception as where_err:
+                            logger.warning(f"Error querying with file_id: {str(where_err)}")
+                            # If where query fails, fall back to getting all and filtering
+                            try:
+                                all_results = collection.get(include=["metadatas", "documents"])
+                                # Filter manually
+                                matching_indices = []
+                                for i, metadata in enumerate(all_results["metadatas"]):
+                                    if metadata.get("id") == file_id_str or metadata.get("file_id") == file_id_str:
+                                        matching_indices.append(i)
+                                
+                                if matching_indices:
+                                    results = {
+                                        "ids": [all_results["ids"][i] for i in matching_indices],
+                                        "metadatas": [all_results["metadatas"][i] for i in matching_indices],
+                                        "documents": [all_results["documents"][i] for i in matching_indices]
+                                    }
+                                else:
+                                    results = {"ids": [], "metadatas": [], "documents": []}
+                            except Exception as fallback_err:
+                                logger.error(f"Fallback filtering failed: {str(fallback_err)}")
+                                results = {"ids": [], "metadatas": [], "documents": []}
                     
                     if results["ids"] and len(results["ids"]) > 0:
                         logger.info(f"Found {len(results['ids'])} documents to delete in {collection_name}")
@@ -788,54 +686,50 @@ def delete_document_from_chroma(bot_id: int, file_id: str):
                         collection.delete(ids=results["ids"])
                         logger.info(f"Successfully deleted {len(results['ids'])} documents from {collection_name}")
                     else:
-                        logger.info(f"No documents found with file_id {file_id} in {collection_name}")
+                        logger.info(f"No documents matching file_id {file_id} found in {collection_name}")
                         
-                except Exception as e:
-                    logger.warning(f"Error querying collection {collection_name}", 
-                                  extra={"bot_id": bot_id, "error": str(e)})
+                except Exception as query_err:
+                    logger.error(f"Error querying collection: {str(query_err)}")
                     continue
-                    
-            except Exception as e:
-                logger.warning(f"Error with collection {collection_name}", 
-                              extra={"bot_id": bot_id, "error": str(e)})
+                
+            except Exception as collection_err:
+                logger.error(f"Error with collection {collection_name}: {str(collection_err)}")
                 continue
+                
+        logger.info(f"Document deletion process completed for file_id {file_id}")
         
-        logger.info(f"Document deletion process completed for bot {bot_id}, file_id {file_id}")
-        return True
     except Exception as e:
-        error_msg = f"Error deleting documents from ChromaDB for bot {bot_id}, file_id {file_id}: {str(e)}"
-        logger.error(f"Document deletion failed", 
-                    extra={"bot_id": bot_id, "file_id": file_id, "error": str(e)})
-        return False
+        logger.error(f"Error in delete_document_from_chroma: {str(e)}")
+        # Don't re-raise to prevent disrupting the calling function
 
 
 def delete_video_from_chroma(bot_id: int, video_id: str):
-    """Deletes documents related to a specific YouTube video from ChromaDB."""
-    logger.info(f"Starting video document deletion process for bot {bot_id}, video_id {video_id}")
+    """Deletes YouTube video documents from ChromaDB."""
+    logger.info(f"Starting YouTube video deletion process for bot {bot_id}, video_id {video_id}")
     
     try:
+        # Format the video ID consistently with how it was stored
+        standard_id = f"youtube_{video_id}"
+        video_id_str = str(video_id)
+        
         # List all collections
         collections = chroma_client.list_collections()
         
         # Safely determine if we're using new or old API
         try:
             # First, assume we're using the new API (v0.6.0+)
-            # If all items in collections are strings, we're using the new API
             is_new_api = all(isinstance(item, str) for item in collections) if collections else True
             
             if not is_new_api:
                 # Try to get collection names using old API style
                 try:
-                    # Just try with the first item
                     if collections and len(collections) > 0:
                         test_name = collections[0].name
-                        # If we got here without exception, it's the old API
                         logger.debug("Using old ChromaDB API style (pre-0.6.0)")
                         bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
                     else:
                         bot_collections = []
                 except Exception as e:
-                    # If accessing 'name' causes an error, we're using the new API
                     logger.debug(f"Error checking collection type: {str(e)}")
                     logger.debug("Defaulting to new ChromaDB API style (0.6.0+)")
                     bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
@@ -844,16 +738,15 @@ def delete_video_from_chroma(bot_id: int, video_id: str):
                 bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
         except Exception as e:
             logger.warning(f"Error determining ChromaDB API version: {str(e)}")
-            # Safe default - treat as new API
             bot_collections = [name for name in collections if f"bot_{bot_id}_" in name] if isinstance(collections, list) else []
         
         if not bot_collections:
             logger.warning(f"No collections found for bot {bot_id}")
-            return
+            return False
             
         logger.info(f"Found collections for bot {bot_id}: {bot_collections}")
         
-        # Try each collection and delete documents with matching video_id
+        # Try each collection and delete matching documents
         for collection_name in bot_collections:
             try:
                 logger.info(f"Checking collection: {collection_name}")
@@ -863,69 +756,79 @@ def delete_video_from_chroma(bot_id: int, video_id: str):
                     logger.warning(f"Collection {collection_name} is empty, skipping")
                     continue
                 
-                # Query to find document IDs with the given video ID in metadata
+                # Try different metadata fields that might contain the video ID
                 try:
-                    # First, get all documents and their metadata
+                    # Try with 'id' field first (our new standardized approach)
                     results = collection.get(
-                        where={"video_id": video_id},
+                        where={"id": standard_id},
                         include=["metadatas", "documents"]
                     )
                     
+                    # If no results, try with 'video_id' field (older approach)
+                    if not results["ids"] or len(results["ids"]) == 0:
+                        logger.debug(f"No documents found with id={standard_id}, trying video_id field")
+                        results = collection.get(
+                            where={"video_id": video_id_str},
+                            include=["metadatas", "documents"]
+                        )
+                    
                     if results["ids"] and len(results["ids"]) > 0:
-                        logger.info(f"Found {len(results['ids'])} documents to delete in {collection_name}")
+                        logger.info(f"Found {len(results['ids'])} YouTube documents to delete in {collection_name}")
                         
                         # Delete the documents
                         collection.delete(ids=results["ids"])
-                        logger.info(f"Successfully deleted {len(results['ids'])} documents from {collection_name}")
+                        logger.info(f"Successfully deleted {len(results['ids'])} YouTube documents from {collection_name}")
                     else:
-                        logger.info(f"No documents found with video_id {video_id} in {collection_name}")
+                        logger.info(f"No YouTube documents found with video_id {video_id} in {collection_name}")
                         
                 except Exception as e:
                     logger.warning(f"Error querying collection {collection_name}", 
                                   extra={"bot_id": bot_id, "error": str(e)})
                     continue
-                    
+                
             except Exception as e:
                 logger.warning(f"Error with collection {collection_name}", 
                               extra={"bot_id": bot_id, "error": str(e)})
                 continue
-        
-        logger.info(f"Video document deletion process completed for bot {bot_id}, video_id {video_id}")
+                
+        logger.info(f"YouTube video deletion process completed for bot {bot_id}, video_id {video_id}")
         return True
+        
     except Exception as e:
-        error_msg = f"Error deleting video documents from ChromaDB for bot {bot_id}, video_id {video_id}: {str(e)}"
-        logger.error(f"Video deletion failed", 
+        error_msg = f"Error deleting YouTube documents from ChromaDB for bot {bot_id}, video_id {video_id}: {str(e)}"
+        logger.error(f"YouTube document deletion failed", 
                     extra={"bot_id": bot_id, "video_id": video_id, "error": str(e)})
         return False
 
 
 def delete_url_from_chroma(bot_id: int, url: str):
-    """Deletes documents related to a specific scraped URL from ChromaDB."""
-    logger.info(f"Starting URL document deletion process for bot {bot_id}, url {url}")
+    """Deletes website documents from ChromaDB."""
+    logger.info(f"Starting website deletion process for bot {bot_id}, url {url}")
     
     try:
+        # Create a consistent ID for the URL (MD5 hash, same as in scraper.py)
+        import hashlib
+        website_id = hashlib.md5(url.encode()).hexdigest()
+        url_str = str(url)
+        
         # List all collections
         collections = chroma_client.list_collections()
         
         # Safely determine if we're using new or old API
         try:
             # First, assume we're using the new API (v0.6.0+)
-            # If all items in collections are strings, we're using the new API
             is_new_api = all(isinstance(item, str) for item in collections) if collections else True
             
             if not is_new_api:
                 # Try to get collection names using old API style
                 try:
-                    # Just try with the first item
                     if collections and len(collections) > 0:
                         test_name = collections[0].name
-                        # If we got here without exception, it's the old API
                         logger.debug("Using old ChromaDB API style (pre-0.6.0)")
                         bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
                     else:
                         bot_collections = []
                 except Exception as e:
-                    # If accessing 'name' causes an error, we're using the new API
                     logger.debug(f"Error checking collection type: {str(e)}")
                     logger.debug("Defaulting to new ChromaDB API style (0.6.0+)")
                     bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
@@ -934,16 +837,15 @@ def delete_url_from_chroma(bot_id: int, url: str):
                 bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
         except Exception as e:
             logger.warning(f"Error determining ChromaDB API version: {str(e)}")
-            # Safe default - treat as new API
             bot_collections = [name for name in collections if f"bot_{bot_id}_" in name] if isinstance(collections, list) else []
         
         if not bot_collections:
             logger.warning(f"No collections found for bot {bot_id}")
-            return
+            return False
             
         logger.info(f"Found collections for bot {bot_id}: {bot_collections}")
         
-        # Try each collection and delete documents with matching URL
+        # Try each collection and delete matching documents
         for collection_name in bot_collections:
             try:
                 logger.info(f"Checking collection: {collection_name}")
@@ -953,37 +855,53 @@ def delete_url_from_chroma(bot_id: int, url: str):
                     logger.warning(f"Collection {collection_name} is empty, skipping")
                     continue
                 
-                # Query to find document IDs with the given URL in metadata
+                # Try different metadata fields that might contain the URL
                 try:
-                    # First, get all documents and their metadata
+                    # Try with 'id' field first (our new standardized approach)
                     results = collection.get(
-                        where={"url": url},
+                        where={"id": website_id},
                         include=["metadatas", "documents"]
                     )
                     
+                    # If no results, try with 'website_url' field (older approach)
+                    if not results["ids"] or len(results["ids"]) == 0:
+                        logger.debug(f"No documents found with id={website_id}, trying website_url field")
+                        try:
+                            results = collection.get(
+                                where={"website_url": url_str},
+                                include=["metadatas", "documents"]
+                            )
+                        except Exception as web_err:
+                            logger.debug(f"Error querying with website_url: {str(web_err)}, trying url field")
+                            results = collection.get(
+                                where={"url": url_str},
+                                include=["metadatas", "documents"]
+                            )
+                    
                     if results["ids"] and len(results["ids"]) > 0:
-                        logger.info(f"Found {len(results['ids'])} documents to delete in {collection_name}")
+                        logger.info(f"Found {len(results['ids'])} website documents to delete in {collection_name}")
                         
                         # Delete the documents
                         collection.delete(ids=results["ids"])
-                        logger.info(f"Successfully deleted {len(results['ids'])} documents from {collection_name}")
+                        logger.info(f"Successfully deleted {len(results['ids'])} website documents from {collection_name}")
                     else:
-                        logger.info(f"No documents found with url {url} in {collection_name}")
+                        logger.info(f"No website documents found with URL {url} in {collection_name}")
                         
                 except Exception as e:
                     logger.warning(f"Error querying collection {collection_name}", 
                                   extra={"bot_id": bot_id, "error": str(e)})
                     continue
-                    
+                
             except Exception as e:
                 logger.warning(f"Error with collection {collection_name}", 
                               extra={"bot_id": bot_id, "error": str(e)})
                 continue
-        
-        logger.info(f"URL document deletion process completed for bot {bot_id}, url {url}")
+                
+        logger.info(f"Website deletion process completed for bot {bot_id}, URL {url}")
         return True
+        
     except Exception as e:
-        error_msg = f"Error deleting URL documents from ChromaDB for bot {bot_id}, url {url}: {str(e)}"
-        logger.error(f"URL deletion failed", 
+        error_msg = f"Error deleting website documents from ChromaDB for bot {bot_id}, URL {url}: {str(e)}"
+        logger.error(f"Website document deletion failed", 
                     extra={"bot_id": bot_id, "url": url, "error": str(e)})
         return False

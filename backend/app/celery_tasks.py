@@ -172,6 +172,9 @@ def process_file_upload(self, bot_id: int, file_data: dict):
         if not bot:
             raise Exception(f"Bot with ID {bot_id} not found")
             
+        # Get user_id for embedding model selection
+        user_id = bot.user_id
+        
         # Get file path
         file_path = file_data.get("file_path")
         original_filename = file_data.get("original_filename")
@@ -540,42 +543,24 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                 
                 # Create metadata for embedding - ENSURE CONSISTENT FORMAT
                 metadata = {
-                    "id": file_id,                # Primary identifier
-                    "source": "file",             # Source type for filtering
-                    "file_name": original_filename,
-                    "file_id": file_id,           # Original source ID
-                    "bot_id": bot_id,             # Always include bot_id
-                    "url": file_path              # Include URL equivalent for consistency
+                    "id": file_id,               # Primary identifier 
+                    "source": "upload",          # Source type for filtering
+                    "file_name": original_filename, 
+                    "file_type": file_type,
+                    "bot_id": bot_id            # Always include bot_id
                 }
-                logger.info(f"Prepared metadata for vector database: {metadata}")
                 
-                # Add to vector database
-                logger.info(f"Adding file content to vector database: {original_filename}")
-                add_document(bot_id, text=file_content_text, metadata=metadata, user_id=bot.user_id)
-                logger.info(f"✅ Successfully added document to vector database")
+                logger.info(f"Adding document to vector database: {original_filename}")
                 
-                # Update the file record
+                # Add the document to the vector database with user_id for model selection
+                add_document(bot_id, text=file_content_text, metadata=metadata, user_id=user_id)
+                
+                # Update the database record
                 if file_record:
-                    logger.info(f"Updating file record in database")
+                    logger.info(f"Updating file record with embedding status")
                     file_record.embedding_status = "completed"
                     file_record.last_embedded = datetime.now()
-                    
-                    # Only set extracted_content if the attribute exists
-                    if hasattr(file_record, 'extracted_content'):
-                        file_record.extracted_content = file_content_text
-                        logger.info("Updated extracted_content field in database")
-                    else:
-                        logger.warning("File model doesn't have 'extracted_content' attribute - skipping this update")
-                    
-                    # Update word count if not already set
-                    if not file_record.word_count and file_content_text:
-                        word_count = len(file_content_text.split())
-                        logger.info(f"Calculated word count: {word_count}")
-                        file_record.word_count = word_count
-                        file_data["word_count"] = word_count
-                    
                     db.commit()
-                    logger.info(f"✅ Successfully updated file record in database")
                 
                 # Send success notification
                 try:
@@ -668,7 +653,7 @@ def process_web_scraping(self, bot_id: int, url_list: list):
     """
     try:
         logger.info(f"🌐 Starting Celery task to process {len(url_list)} web pages for bot {bot_id}")
-        logger.info(f"🌐 URLs to process: {url_list}")
+        logger.info(f"URLs to process: {url_list}")
         
         # Get database session
         db = next(get_db())
