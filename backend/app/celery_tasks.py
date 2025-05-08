@@ -216,31 +216,75 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                     file_content = f.read()
                 logger.info(f"Successfully read {len(file_content)} bytes from file")
                 
-                # Import the existing text extraction function
-                from app.utils.upload_knowledge_utils import extract_text_from_file
-                import asyncio
+                # For text files, directly read the content to avoid any potential truncation
+                file_content_text = None
+                if original_filename.lower().endswith('.txt'):
+                    logger.info(f"Text file detected. Using direct text extraction method")
+                    try:
+                        # Try reading as UTF-8 first
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            file_content_text = f.read()
+                            logger.info(f"Direct UTF-8 extraction successful, got {len(file_content_text)} characters")
+                    except UnicodeDecodeError:
+                        # Fall back to a more lenient encoding if UTF-8 fails
+                        logger.info(f"UTF-8 decoding failed, trying with 'utf-8-sig' encoding")
+                        try:
+                            with open(file_path, 'r', encoding='utf-8-sig', errors='replace') as f:
+                                file_content_text = f.read()
+                                logger.info(f"Fallback text extraction successful, got {len(file_content_text)} characters")
+                        except Exception as txt_err:
+                            logger.error(f"Error with direct text file reading: {txt_err}")
+                            file_content_text = None
                 
-                # Use the same text extraction that's working in the rest of the system
-                # We need to run the async function in a synchronous context
-                logger.info(f"Starting text extraction for file: {original_filename}")
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    file_content_text = loop.run_until_complete(
-                        extract_text_from_file(file_content, filename=original_filename)
-                    )
-                    logger.info(f"Text extraction completed successfully")
-                    # Log text length and preview
-                    text_length = len(file_content_text) if file_content_text else 0
-                    text_preview = file_content_text[:100] + "..." if text_length > 100 else file_content_text
-                    logger.info(f"Extracted text length: {text_length} characters")
-                    logger.info(f"Text preview: {text_preview}")
-                except Exception as extract_error:
-                    logger.error(f"Error during text extraction: {str(extract_error)}")
-                    logger.exception("Text extraction traceback:")
-                    file_content_text = None
-                finally:
-                    loop.close()
+                # If not a text file or direct extraction failed, use the standard extraction method
+                if file_content_text is None:
+                    # Import the existing text extraction function
+                    from app.utils.upload_knowledge_utils import extract_text_from_file
+                    import asyncio
+                    
+                    # Use the same text extraction that's working in the rest of the system
+                    # We need to run the async function in a synchronous context
+                    logger.info(f"Starting text extraction for file: {original_filename}")
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        file_content_text = loop.run_until_complete(
+                            extract_text_from_file(file_content, filename=original_filename)
+                        )
+                        logger.info(f"Text extraction completed successfully")
+                        # Log text length and preview
+                        text_length = len(file_content_text) if file_content_text else 0
+                        text_preview = file_content_text[:100] + "..." if text_length > 100 else file_content_text
+                        logger.info(f"Extracted text length: {text_length} characters")
+                        logger.info(f"Text preview: {text_preview}")
+                    except Exception as extract_error:
+                        logger.error(f"Error during text extraction: {str(extract_error)}")
+                        logger.exception("Text extraction traceback:")
+                        file_content_text = None
+                    finally:
+                        loop.close()
+                        
+                # Add debugging for short text results
+                if file_content_text and len(file_content_text) < 100:
+                    logger.warning(f"⚠️ Very short text extracted ({len(file_content_text)} chars). File size is {len(file_content)/1024:.2f} KB")
+                    logger.warning(f"Full extracted content: {file_content_text}")
+                    # Try one more time with a direct binary read for text files
+                    if original_filename.lower().endswith('.txt'):
+                        logger.info("Attempting emergency text extraction directly from binary content")
+                        try:
+                            # Try different encodings
+                            for encoding in ['utf-8', 'latin-1', 'cp1252', 'ascii']:
+                                try:
+                                    direct_text = file_content.decode(encoding, errors='replace')
+                                    logger.info(f"Binary decoding with {encoding} got {len(direct_text)} characters")
+                                    if len(direct_text) > len(file_content_text):
+                                        logger.info(f"Using binary decoded text ({len(direct_text)} chars) instead of extracted text ({len(file_content_text)} chars)")
+                                        file_content_text = direct_text
+                                        break
+                                except Exception as decode_err:
+                                    logger.error(f"Error decoding with {encoding}: {decode_err}")
+                        except Exception as bin_err:
+                            logger.error(f"Emergency extraction failed: {bin_err}")
                 
                 # If we still don't have content
                 if not file_content_text:
