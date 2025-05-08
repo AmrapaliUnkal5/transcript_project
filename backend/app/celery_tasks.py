@@ -246,7 +246,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                 if not file_content_text:
                     logger.warning(f"No text content extracted from file: {original_filename}")
                     # Try to get it from the file record as fallback
-                    if file_record and file_record.extracted_content:
+                    if file_record and hasattr(file_record, 'extracted_content') and file_record.extracted_content:
                         logger.info(f"Using extracted_content from database as fallback")
                         file_content_text = file_record.extracted_content
                         logger.info(f"Retrieved {len(file_content_text)} characters from database")
@@ -290,7 +290,13 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                     logger.info(f"Updating file record in database")
                     file_record.embedding_status = "completed"
                     file_record.last_embedded = datetime.now()
-                    file_record.extracted_content = file_content_text
+                    
+                    # Only set extracted_content if the attribute exists
+                    if hasattr(file_record, 'extracted_content'):
+                        file_record.extracted_content = file_content_text
+                        logger.info("Updated extracted_content field in database")
+                    else:
+                        logger.warning("File model doesn't have 'extracted_content' attribute - skipping this update")
                     
                     # Update word count if not already set
                     if not file_record.word_count and file_content_text:
