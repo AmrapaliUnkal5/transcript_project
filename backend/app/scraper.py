@@ -11,6 +11,7 @@ from app.database import get_db
 from urllib.parse import urlparse
 from app.vector_db import add_document
 from app.notifications import add_notification
+from app.utils.logger import get_module_logger
 
 # Function to detect if JavaScript is needed
 def is_js_heavy(url):
@@ -99,63 +100,124 @@ def scrape_dynamic_page(url):
 
 # Hybrid scraping function
 def scrape_selected_nodes(url_list, bot_id, db: Session):
-    print(f"[INFO] Starting scrape_selected_nodes for bot {bot_id} with {len(url_list)} URLs")
+    logger = get_module_logger(__name__)
+    
+    logger.info(f"Starting scrape_selected_nodes", 
+               extra={"bot_id": bot_id, "url_count": len(url_list), "urls": url_list})
+    
     crawled_data = []
     failed_urls = []
         
     for url in url_list:
-        print(f"[INFO] Processing URL: {url}")
+        logger.info(f"Processing URL", extra={"bot_id": bot_id, "url": url})
         result = None
         
         try:
             if is_js_heavy(url):
-                print(f"🔵 JavaScript detected - Using Playwright for {url}")
+                logger.info(f"JavaScript detected - Using Playwright", extra={"bot_id": bot_id, "url": url})
                 result = scrape_dynamic_page(url)
             else:
-                print(f"🟢 Static HTML detected - Using BeautifulSoup for {url}")
+                logger.info(f"Static HTML detected - Using BeautifulSoup", extra={"bot_id": bot_id, "url": url})
                 result = scrape_static_page(url)
                 
             if result:
-                print(f"[INFO] Successfully scraped {url}")
+                logger.info(f"Successfully scraped URL", 
+                          extra={"bot_id": bot_id, "url": url, "title": result.get("title", "No Title")})
                 crawled_data.append(result)
                 
                 if result["text"]:
-                    try:
-                        update_word_counts(db, bot_id=bot_id, word_count=result["word_count"])
-                        print(f"[INFO] Updated word count for {url}: {result['word_count']} words")
-                    except Exception as word_count_err:
-                        print(f"[ERROR] Failed to update word count: {str(word_count_err)}")
+                    logger.info(f"Extracted text content", 
+                              extra={"bot_id": bot_id, "url": url, 
+                                   "word_count": result["word_count"], 
+                                   "text_length": len(result["text"])})
                     
                     try:
+                        update_word_counts(db, bot_id=bot_id, word_count=result["word_count"])
+                        logger.debug(f"Updated word count", 
+                                   extra={"bot_id": bot_id, "url": url, 
+                                         "word_count": result["word_count"]})
+                    except Exception as word_count_err:
+                        logger.error(f"Failed to update word count", 
+                                   extra={"bot_id": bot_id, "url": url, 
+                                         "error": str(word_count_err)})
+                    
+                    try:
+                        logger.info(f"Preparing to add document to vector DB", 
+                                  extra={"bot_id": bot_id, "url": url})
+                        
                         website_id = hashlib.md5(result["url"].encode()).hexdigest()
+                        logger.debug(f"Generated document ID", 
+                                   extra={"bot_id": bot_id, "url": url, 
+                                         "document_id": website_id})
+                        
                         metadata = {
                             "id": website_id,
                             "source": "website",
-                            "website_url": result["url"]
+                            "website_url": result["url"],
+                            "title": result.get("title", "No Title"),
+                            "url": result["url"],
+                            "file_name": result.get("title", "No Title")  # Add file_name for consistency
                         }
-                        add_document(bot_id, text=result["text"], metadata=metadata)
-                        print(f"[INFO] Added document to vector DB for {url}")
+                        
+                        logger.debug(f"Document metadata prepared", 
+                                   extra={"bot_id": bot_id, "url": url, 
+                                         "metadata": metadata})
+                        
+                        # Important: Pass user_id to add_document for proper embedding model selection
+                        # Get the bot's user_id
+                        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+                        user_id = bot.user_id if bot else None
+                        
+                        if user_id:
+                            logger.info(f"Adding document to vector DB with user_id", 
+                                      extra={"bot_id": bot_id, "url": url, 
+                                            "user_id": user_id})
+                            add_document(bot_id, text=result["text"], metadata=metadata, user_id=user_id)
+                        else:
+                            logger.warning(f"No user_id found for bot, adding document without user context", 
+                                        extra={"bot_id": bot_id, "url": url})
+                            add_document(bot_id, text=result["text"], metadata=metadata)
+                        
+                        logger.info(f"Successfully added document to vector DB", 
+                                  extra={"bot_id": bot_id, "url": url, 
+                                        "document_id": website_id})
                     except Exception as db_err:
-                        print(f"[ERROR] Failed to add document to vector DB: {str(db_err)}")
+                        logger.error(f"Failed to add document to vector DB", 
+                                   extra={"bot_id": bot_id, "url": url, 
+                                         "error": str(db_err)})
+                        import traceback
+                        logger.error(f"Vector DB error details", 
+                                   extra={"bot_id": bot_id, "url": url, 
+                                         "traceback": traceback.format_exc()})
+                else:
+                    logger.warning(f"No text content extracted", 
+                                 extra={"bot_id": bot_id, "url": url})
             else:
-                print(f"[WARN] No content was scraped from {url}")
+                logger.warning(f"No content was scraped", extra={"bot_id": bot_id, "url": url})
                 failed_urls.append(url)
         except Exception as e:
-            print(f"[ERROR] Unexpected error processing {url}: {str(e)}")
+            logger.error(f"Unexpected error processing URL", 
+                       extra={"bot_id": bot_id, "url": url, "error": str(e)})
             import traceback
-            print(f"[ERROR] Processing traceback: {traceback.format_exc()}")
+            logger.error(f"Processing traceback", 
+                       extra={"bot_id": bot_id, "url": url, 
+                             "traceback": traceback.format_exc()})
             failed_urls.append(url)
     
-    print(f"[INFO] Scraping completed: {len(crawled_data)} successful, {len(failed_urls)} failed")
+    logger.info(f"Scraping completed", 
+              extra={"bot_id": bot_id, "successful": len(crawled_data), 
+                   "failed": len(failed_urls)})
     
     if crawled_data:
         try:
             save_scraped_nodes(crawled_data, bot_id, db)
-            print(f"[INFO] Saved {len(crawled_data)} scraped nodes to database")
+            logger.info(f"Saved scraped nodes to database", 
+                      extra={"bot_id": bot_id, "count": len(crawled_data)})
         except Exception as save_err:
-            print(f"[ERROR] Failed to save scraped nodes: {str(save_err)}")
+            logger.error(f"Failed to save scraped nodes", 
+                       extra={"bot_id": bot_id, "error": str(save_err)})
     else:
-        print(f"[WARN] No data was scraped from any URL")
+        logger.warning(f"No data was scraped from any URL", extra={"bot_id": bot_id})
         
         # Create completion notification even if no URLs were successfully scraped
         try:
@@ -168,9 +230,10 @@ def scrape_selected_nodes(url_list, bot_id, db: Session):
                     bot_id=bot_id,
                     user_id=bot.user_id
                 )
-                print(f"[INFO] Sent empty completion notification for bot {bot_id}")
+                logger.info(f"Sent empty completion notification", extra={"bot_id": bot_id})
         except Exception as notify_err:
-            print(f"[ERROR] Failed to send empty completion notification: {str(notify_err)}")
+            logger.error(f"Failed to send empty completion notification", 
+                       extra={"bot_id": bot_id, "error": str(notify_err)})
 
     return crawled_data
 
