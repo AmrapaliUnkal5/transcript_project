@@ -16,8 +16,9 @@ SMTP_CONFIG = {
     "demo_email": config("DEMO_EMAIL")
 }
 
-# Optional Hugging Face API key - properly handled if not set
+# Optional API keys - properly handled if not set
 HUGGINGFACE_API_KEY = config("HUGGINGFACE_API_KEY", default=None)
+OPENAI_API_KEY = config("OPENAI_API_KEY", default=None)
 
 class Settings(BaseSettings):
     SECRET_KEY: str = "d75e89c82a0c7d588441cca9849935dd7c43c831a0191ffd821ba2abd307f4f3"
@@ -28,5 +29,6 @@ class Settings(BaseSettings):
     BASE_URL: str = config("BASE_URL")
     SERVER_URL: str = config("SERVER_URL")  # Add the SERVER_URL here
     HUGGINGFACE_API_KEY: Optional[str] = HUGGINGFACE_API_KEY  # Use Optional to handle None values
+    OPENAI_API_KEY: Optional[str] = OPENAI_API_KEY  # Add OpenAI API key
    
 settings = Settings()

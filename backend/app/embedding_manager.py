@@ -160,7 +160,34 @@ class EmbeddingManager:
             if provider == "openai":
                 # For OpenAI models
                 print(f"🔄 Using OpenAI embeddings with model: {model_name}")
-                return OpenAIEmbeddings(model=model_name)
+                openai_api_key = settings.OPENAI_API_KEY
+                
+                if not openai_api_key:
+                    print("❌ OpenAI API key not configured in settings")
+                    raise ValueError("OpenAI API key not configured")
+                
+                try:
+                    # Create embeddings with explicit API key
+                    embedder = OpenAIEmbeddings(
+                        model=model_name,
+                        openai_api_key=openai_api_key
+                    )
+                    
+                    # Test the embedder if requested
+                    if test_embedder:
+                        print(f"🔄 Testing OpenAI model with a simple query")
+                        test_result = embedder.embed_query("test")
+                        
+                        if not test_result:
+                            print("❌ Got empty embedding from OpenAI API")
+                            raise ValueError("Failed to get valid embedding from OpenAI API")
+                            
+                        print(f"✅ OpenAI model test successful. Embedding length: {len(test_result)}")
+                    
+                    return embedder
+                except Exception as e:
+                    print(f"❌ Error initializing OpenAI embedder: {str(e)}")
+                    raise ValueError(f"Error initializing OpenAI embedder: {str(e)}")
                 
             elif provider == "huggingface":
                 # For HuggingFace models using Inference API

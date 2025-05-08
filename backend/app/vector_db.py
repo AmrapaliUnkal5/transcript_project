@@ -7,17 +7,19 @@ from app.embedding_manager import EmbeddingManager
 from app.database import SessionLocal
 from app.models import Bot, EmbeddingModel, UserSubscription, SubscriptionPlan
 from app.utils.logger import get_module_logger
+from app.config import settings
 
 # Initialize logger
 logger = get_module_logger(__name__)
 
 load_dotenv()
 
-api_key = os.getenv("OPENAI_API_KEY")
+# Use settings object instead of direct environment access
+api_key = settings.OPENAI_API_KEY
 
 if not api_key:
-    logger.critical("OPENAI_API_KEY environment variable is not set")
-    raise ValueError("OPENAI_API_KEY is not set in the environment variables!")
+    logger.critical("OPENAI_API_KEY is not configured in settings")
+    raise ValueError("OPENAI_API_KEY is not set in configuration!")
 
 # Initialize ChromaDB Client
 chroma_client = chromadb.PersistentClient(path="./chromadb_store")
@@ -358,7 +360,6 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
         
         # Try Hugging Face embedding as fallback for query
         from app.embedding_manager import HuggingFaceAPIEmbedder
-        from app.config import settings
         
         logger.info(f"Using Hugging Face embeddings as fallback for query")
         huggingface_api_key = settings.HUGGINGFACE_API_KEY
