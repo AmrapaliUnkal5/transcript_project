@@ -92,9 +92,22 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             # First check if there are timestamped collections for this model
             try:
                 collections = chroma_client.list_collections()
-                # Extract collection names from list of collections
-                collection_names = [collection.name for collection in collections]
-
+                
+                # Handle both old and new ChromaDB API versions
+                # Check if collections is a list of strings (new API) or objects with name attribute (old API)
+                if collections and isinstance(collections, list):
+                    if collections and hasattr(collections[0], 'name'):
+                        # Old API (pre-0.6.0) - collections is a list of objects with name attribute
+                        logger.debug("Using old ChromaDB API style (pre-0.6.0)")
+                        collection_names = [collection.name for collection in collections]
+                    else:
+                        # New API (0.6.0+) - collections is already a list of strings
+                        logger.debug("Using new ChromaDB API style (0.6.0+)")
+                        collection_names = collections
+                else:
+                    logger.warning("Unexpected collections format from ChromaDB")
+                    collection_names = []
+                
                 # Find timestamped collections for this model (sorted by timestamp, most recent first)
                 timestamped_collections = [
                     name for name in collection_names
@@ -257,8 +270,20 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
         # List all collections to find the appropriate one
         collections = chroma_client.list_collections()
         
-        # Extract collection names from list of collections
-        collection_names = [collection.name for collection in collections]
+        # Handle both old and new ChromaDB API versions
+        # Check if collections is a list of strings (new API) or objects with name attribute (old API)
+        if collections and isinstance(collections, list):
+            if collections and hasattr(collections[0], 'name'):
+                # Old API (pre-0.6.0) - collections is a list of objects with name attribute
+                logger.debug("Using old ChromaDB API style (pre-0.6.0)")
+                collection_names = [collection.name for collection in collections]
+            else:
+                # New API (0.6.0+) - collections is already a list of strings
+                logger.debug("Using new ChromaDB API style (0.6.0+)")
+                collection_names = collections
+        else:
+            logger.warning("Unexpected collections format from ChromaDB")
+            collection_names = []
         
         # First, look for a base collection with this model name
         if base_collection_name in collection_names:
@@ -349,8 +374,20 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
         # List all collections
         collections = chroma_client.list_collections()
         
-        # Extract collection names from list of collections
-        bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
+        # Handle both old and new ChromaDB API versions
+        # Check if collections is a list of strings (new API) or objects with name attribute (old API)
+        if collections and isinstance(collections, list):
+            if collections and hasattr(collections[0], 'name'):
+                # Old API (pre-0.6.0) - collections is a list of objects with name attribute
+                logger.debug("Using old ChromaDB API style (pre-0.6.0)")
+                bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
+            else:
+                # New API (0.6.0+) - collections is already a list of strings
+                logger.debug("Using new ChromaDB API style (0.6.0+)")
+                bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
+        else:
+            logger.warning("Unexpected collections format from ChromaDB")
+            bot_collections = []
         
         if not bot_collections:
             logger.warning(f"No collections found for bot {bot_id}")
@@ -570,8 +607,20 @@ def delete_document_from_chroma(bot_id: int, file_id: str):
         # List all collections
         collections = chroma_client.list_collections()
         
-        # Extract collection names from list of collections
-        bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
+        # Handle both old and new ChromaDB API versions
+        # Check if collections is a list of strings (new API) or objects with name attribute (old API)
+        if collections and isinstance(collections, list):
+            if collections and hasattr(collections[0], 'name'):
+                # Old API (pre-0.6.0) - collections is a list of objects with name attribute
+                logger.debug("Using old ChromaDB API style (pre-0.6.0)")
+                bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
+            else:
+                # New API (0.6.0+) - collections is already a list of strings
+                logger.debug("Using new ChromaDB API style (0.6.0+)")
+                bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
+        else:
+            logger.warning("Unexpected collections format from ChromaDB")
+            bot_collections = []
         
         if not bot_collections:
             logger.warning(f"No collections found for bot {bot_id}")
@@ -635,8 +684,20 @@ def delete_video_from_chroma(bot_id: int, video_id: str):
         # List all collections
         collections = chroma_client.list_collections()
         
-        # Extract collection names from list of collections
-        bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
+        # Handle both old and new ChromaDB API versions
+        # Check if collections is a list of strings (new API) or objects with name attribute (old API)
+        if collections and isinstance(collections, list):
+            if collections and hasattr(collections[0], 'name'):
+                # Old API (pre-0.6.0) - collections is a list of objects with name attribute
+                logger.debug("Using old ChromaDB API style (pre-0.6.0)")
+                bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
+            else:
+                # New API (0.6.0+) - collections is already a list of strings
+                logger.debug("Using new ChromaDB API style (0.6.0+)")
+                bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
+        else:
+            logger.warning("Unexpected collections format from ChromaDB")
+            bot_collections = []
         
         if not bot_collections:
             logger.warning(f"No collections found for bot {bot_id}")
@@ -698,8 +759,20 @@ def delete_url_from_chroma(bot_id: int, url: str):
         # List all collections
         collections = chroma_client.list_collections()
         
-        # Extract collection names from list of collections
-        bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
+        # Handle both old and new ChromaDB API versions
+        # Check if collections is a list of strings (new API) or objects with name attribute (old API)
+        if collections and isinstance(collections, list):
+            if collections and hasattr(collections[0], 'name'):
+                # Old API (pre-0.6.0) - collections is a list of objects with name attribute
+                logger.debug("Using old ChromaDB API style (pre-0.6.0)")
+                bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
+            else:
+                # New API (0.6.0+) - collections is already a list of strings
+                logger.debug("Using new ChromaDB API style (0.6.0+)")
+                bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
+        else:
+            logger.warning("Unexpected collections format from ChromaDB")
+            bot_collections = []
         
         if not bot_collections:
             logger.warning(f"No collections found for bot {bot_id}")
