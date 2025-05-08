@@ -225,6 +225,77 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                         with open(file_path, 'r', encoding='utf-8') as f:
                             file_content_text = f.read()
                             logger.info(f"Direct UTF-8 extraction successful, got {len(file_content_text)} characters")
+                            
+                            # Check if text is just the placeholder
+                            if file_content_text.strip() == "Processing file...":
+                                logger.warning(f"Detected placeholder text 'Processing file...' - need to use original archived file")
+                                file_content_text = None  # Will try to get from archive file
+                                
+                                # Get the original archived file path based on archive_original_file function
+                                # The archive file uses the original filename extension
+                                _, ext = os.path.splitext(original_filename)
+                                archive_filename = f"{file_id}_original{ext}"
+                                
+                                # Get user_id for the bot to create path
+                                user_id = None
+                                try:
+                                    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+                                    if bot:
+                                        user_id = bot.user_id
+                                except Exception as user_err:
+                                    logger.error(f"Error getting user_id: {user_err}")
+                                
+                                if user_id:
+                                    # Build path similar to get_hierarchical_file_path with is_archive=True
+                                    account_dir = os.path.join("uploads", f"account_{user_id}")
+                                    bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
+                                    archive_dir = os.path.join(bot_dir, "archives")
+                                    archive_path = os.path.join(archive_dir, archive_filename)
+                                    
+                                    logger.info(f"Looking for archive file at: {archive_path}")
+                                    
+                                    if os.path.exists(archive_path):
+                                        logger.info(f"Found original archive file at {archive_path}")
+                                        
+                                        # Read the file and extract the text
+                                        try:
+                                            with open(archive_path, 'rb') as f:
+                                                archive_content = f.read()
+                                            
+                                            logger.info(f"Successfully read {len(archive_content)} bytes from archive file")
+                                            
+                                            # Extract text from the original file based on its extension
+                                            if original_filename.lower().endswith(('.txt')):
+                                                # For text files, try to decode directly
+                                                for encoding in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+                                                    try:
+                                                        file_content_text = archive_content.decode(encoding, errors='replace')
+                                                        logger.info(f"Successfully decoded archive file with {encoding}, got {len(file_content_text)} characters")
+                                                        break
+                                                    except Exception as decode_err:
+                                                        logger.error(f"Failed to decode with {encoding}: {decode_err}")
+                                            else:
+                                                # For other files, use the extraction utility
+                                                from app.utils.upload_knowledge_utils import extract_text_from_file
+                                                import asyncio
+                                                
+                                                loop = asyncio.new_event_loop()
+                                                asyncio.set_event_loop(loop)
+                                                try:
+                                                    file_content_text = loop.run_until_complete(
+                                                        extract_text_from_file(archive_content, filename=original_filename)
+                                                    )
+                                                    logger.info(f"Extracted {len(file_content_text)} characters from archive file")
+                                                except Exception as extract_err:
+                                                    logger.error(f"Error extracting text from archive: {extract_err}")
+                                                finally:
+                                                    loop.close()
+                                        except Exception as archive_err:
+                                            logger.error(f"Error processing archive file: {archive_err}")
+                                    else:
+                                        logger.error(f"Archive file not found at: {archive_path}")
+                                else:
+                                    logger.error(f"Cannot build archive path - user_id not found for bot {bot_id}")
                     except UnicodeDecodeError:
                         # Fall back to a more lenient encoding if UTF-8 fails
                         logger.info(f"UTF-8 decoding failed, trying with 'utf-8-sig' encoding")
@@ -232,6 +303,11 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                             with open(file_path, 'r', encoding='utf-8-sig', errors='replace') as f:
                                 file_content_text = f.read()
                                 logger.info(f"Fallback text extraction successful, got {len(file_content_text)} characters")
+                                
+                                # Check if text is just the placeholder
+                                if file_content_text.strip() == "Processing file...":
+                                    logger.warning(f"Detected placeholder text 'Processing file...' even with fallback encoding")
+                                    file_content_text = None  # Will proceed to next methods
                         except Exception as txt_err:
                             logger.error(f"Error with direct text file reading: {txt_err}")
                             file_content_text = None
