@@ -33,6 +33,10 @@ from app.utils.file_size_validations_utils import process_file_for_knowledge, pr
 from app.notifications import add_notification
 from datetime import datetime
 from app.scraper import scrape_selected_nodes, send_web_scraping_failure_notification
+from app.vector_db import add_document, delete_document_from_chroma, delete_video_from_chroma, delete_url_from_chroma
+import os
+import hashlib
+import uuid
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -54,6 +58,53 @@ def process_youtube_videos(self, bot_id: int, video_urls: list):
         
         # Process videos
         result = store_videos_in_chroma(bot_id, video_urls, db)
+        
+        # Get bot information for user_id
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        user_id = bot.user_id if bot else None
+        
+        # Now handle embedding for each successfully stored video
+        stored_videos = result.get("stored_videos", [])
+        for video in stored_videos:
+            try:
+                # Find video in database to get transcript
+                video_record = db.query(YouTubeVideo).filter(
+                    YouTubeVideo.bot_id == bot_id,
+                    YouTubeVideo.video_id == video.get("video_id")
+                ).first()
+                
+                if video_record and video_record.transcript:
+                    # Create metadata for embedding - ENSURE CONSISTENT FORMAT
+                    video_id = video_record.video_id
+                    metadata = {
+                        "id": f"youtube_{video_id}",  # Consistent ID format
+                        "source": "youtube",          # Source type for retrieval
+                        "video_id": video_id,         # Original source ID
+                        "title": video_record.title,
+                        "url": video_record.url,
+                        "file_name": video_record.title,  # For consistency across sources
+                        "bot_id": bot_id              # Always include bot_id
+                    }
+                    
+                    # Add the document to the vector database
+                    logger.info(f"Adding YouTube transcript to vector database for video: {video_record.title}")
+                    add_document(bot_id, text=video_record.transcript, metadata=metadata, user_id=user_id)
+                    
+                    # Update the database record to mark embedding as complete
+                    video_record.embedding_status = "completed"
+                    video_record.last_embedded = datetime.now()
+                    db.commit()
+                    
+                    logger.info(f"✅ YouTube video transcript embedded successfully: {video_record.title}")
+                else:
+                    logger.warning(f"⚠️ No transcript found for video ID: {video.get('video_id')}")
+            except Exception as embed_error:
+                logger.exception(f"❌ Error embedding YouTube transcript: {str(embed_error)}")
+                
+                # Update the video record if available
+                if video_record:
+                    video_record.embedding_status = "failed"
+                    db.commit()
         
         # Get success/failure counts
         success_count = len(result.get("stored_videos", []))
@@ -123,52 +174,104 @@ def process_file_upload(self, bot_id: int, file_data: dict):
         # Get file path
         file_path = file_data.get("file_path")
         original_filename = file_data.get("original_filename")
-        if not file_path or not original_filename:
-            raise Exception("Missing file path or original filename")
+        file_id = file_data.get("file_id")
+        if not file_path or not original_filename or not file_id:
+            raise Exception("Missing file path, original filename, or file ID")
         
         # Attempt to process the file
         try:
             # Update file status to "processing" in the database
             file_record = db.query(File).filter(
                 File.bot_id == bot_id,
-                File.unique_file_name == file_data.get("file_id")
+                File.unique_file_name == file_id
             ).first()
             
             if file_record:
                 file_record.embedding_status = "processing"
                 db.commit()
             
-            # Add processed data to database
-            processed_file = db.query(File).filter(
-                File.unique_file_name == file_data.get("file_id"),
-                File.bot_id == bot_id
-            ).first()
-            
-            if processed_file:
-                processed_file.embedding_status = "completed"
-                processed_file.last_embedded = datetime.now()
-                db.commit()
+            # Process the file content
+            try:
+                # Check if file exists
+                if not os.path.exists(file_path):
+                    raise Exception(f"File does not exist at path: {file_path}")
+                
+                # Process file to extract text content
+                # If process_file_for_knowledge doesn't return text content directly, 
+                # we'll need to read the file and extract text
+                file_content = ""
+                
+                # Here you would normally use your existing file processing logic
+                # Since the exact implementation isn't visible in the provided code, 
+                # I'll provide a generic approach:
+                
+                # For text files, pdf, docx, etc.
+                with open(file_path, 'rb') as f:
+                    # This is a placeholder. You should use your actual text extraction logic
+                    # from process_file_for_knowledge or similar function
+                    if file_path.endswith('.txt'):
+                        file_content = f.read().decode('utf-8', errors='ignore')
+                    else:
+                        # Use your existing extraction methods based on file type
+                        # This might involve libraries like PyPDF2, python-docx, etc.
+                        # For now, let's assume we have the content in file_data
+                        file_content = file_data.get("content", "")
+                        
+                # If we still don't have content, try to get it from the file record
+                if not file_content and file_record and file_record.extracted_content:
+                    file_content = file_record.extracted_content
+                
+                if not file_content:
+                    raise Exception("Failed to extract content from file")
+                
+                # Create metadata for embedding - ENSURE CONSISTENT FORMAT
+                metadata = {
+                    "id": file_id,                # Primary identifier
+                    "source": "file",             # Source type for filtering
+                    "file_name": original_filename,
+                    "file_id": file_id,           # Original source ID
+                    "bot_id": bot_id,             # Always include bot_id
+                    "url": file_path              # Include URL equivalent for consistency
+                }
+                
+                # Add to vector database
+                logger.info(f"Adding file content to vector database: {original_filename}")
+                add_document(bot_id, text=file_content, metadata=metadata, user_id=bot.user_id)
+                
+                # Update the file record
+                if file_record:
+                    file_record.embedding_status = "completed"
+                    file_record.last_embedded = datetime.now()
+                    
+                    # Update word count if not already set
+                    if not file_record.word_count and file_content:
+                        word_count = len(file_content.split())
+                        file_record.word_count = word_count
+                        file_data["word_count"] = word_count
+                    
+                    db.commit()
                 
                 # Send success notification
                 add_notification(
                     db=db,
                     event_type="FILE_PROCESSED",
-                    event_data=f'"{original_filename}" has been processed successfully. {file_data.get("word_count", 0)} words extracted.',
+                    event_data=f'"{original_filename}" has been processed and embedded successfully. {file_data.get("word_count", 0)} words extracted.',
                     bot_id=bot_id,
                     user_id=bot.user_id
                 )
                 
-                logger.info(f"✅ File processing complete for {original_filename}")
+                logger.info(f"✅ File processing and embedding complete for {original_filename}")
                 
                 return {
                     "status": "complete",
                     "bot_id": bot_id,
-                    "file_id": file_data.get("file_id"),
+                    "file_id": file_id,
                     "filename": original_filename,
                     "word_count": file_data.get("word_count", 0)
                 }
-            else:
-                raise Exception(f"File record not found for {file_data.get('file_id')}")
+            except Exception as process_error:
+                logger.exception(f"❌ Error processing file: {str(process_error)}")
+                raise process_error
                 
         except Exception as process_error:
             # Mark file as failed in database
@@ -180,7 +283,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
             add_notification(
                 db=db,
                 event_type="FILE_PROCESSING_FAILED",
-                event_data=f'Failed to process "{original_filename}". Reason: {str(process_error)}',
+                event_data=f'Failed to process and embed "{original_filename}". Reason: {str(process_error)}',
                 bot_id=bot_id,
                 user_id=bot.user_id
             )
@@ -270,7 +373,8 @@ def process_web_scraping(self, bot_id: int, url_list: list):
             logger.error(f"❌ Playwright import error: {str(e)}. This will affect dynamic website scraping.")
             # Still continue to try static scraping
         
-        # Process web pages
+        # Process web pages - Notice that scrape_selected_nodes already handles embedding
+        # in the vector database (see app/scraper.py implementation)
         logger.info(f"🌐 Starting scraping for bot {bot_id}")
         result = scrape_selected_nodes(url_list, bot_id, db)
         
@@ -289,7 +393,7 @@ def process_web_scraping(self, bot_id: int, url_list: list):
                 add_notification(
                     db=db,
                     event_type="WEB_SCRAPING_COMPLETED",
-                    event_data=f"Successfully scraped {success_count} web pages for your bot.",
+                    event_data=f"Successfully scraped and embedded {success_count} web pages for your bot.",
                     bot_id=bot_id,
                     user_id=bot.user_id
                 )

@@ -150,13 +150,15 @@ def scrape_selected_nodes(url_list, bot_id, db: Session):
                                    extra={"bot_id": bot_id, "url": url, 
                                          "document_id": website_id})
                         
+                        # Create metadata for embedding - ENSURE CONSISTENT FORMAT
                         metadata = {
-                            "id": website_id,
-                            "source": "website",
-                            "website_url": result["url"],
+                            "id": website_id,               # Primary identifier 
+                            "source": "website",            # Source type for filtering
+                            "website_url": result["url"],   # Original source URL
                             "title": result.get("title", "No Title"),
                             "url": result["url"],
-                            "file_name": result.get("title", "No Title")  # Add file_name for consistency
+                            "file_name": result.get("title", "No Title"),  # Consistent with other document types
+                            "bot_id": bot_id                # Always include bot_id
                         }
                         
                         logger.debug(f"Document metadata prepared", 
