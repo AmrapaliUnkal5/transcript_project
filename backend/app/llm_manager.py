@@ -8,6 +8,20 @@ from app.database import SessionLocal
 from app.models import LLMModel as LLMModelDB
 from app.config import settings
 from app.utils.model_selection import get_llm_model_for_bot
+from langdetect import detect
+from app.addon_service import AddonService
+
+# Function to detect language of text
+def detect_language(text):
+    """
+    Detect the language of the given text using langdetect.
+    Returns language code (e.g., 'en' for English, 'es' for Spanish, etc.)
+    """
+    try:
+        return detect(text)
+    except:
+        # If detection fails, default to English
+        return 'en'
 
 class HuggingFaceLLM:
     """Class for generating text using HuggingFace Inference API."""
@@ -170,6 +184,9 @@ class LLMManager:
             bot_id: Optional bot ID for model selection
             user_id: Optional user ID for model selection
         """
+        # Store the user_id for addon feature checking
+        self.user_id = user_id
+        
         db = SessionLocal()
         try:
             # If bot_id and user_id are provided, get the model dynamically
@@ -360,6 +377,23 @@ class LLMManager:
         print(f"🔄 Generating response with {model_name} ({provider})")
         print(f"🔍 External knowledge enabled: {use_external_knowledge}")
         print(f"🌡️ Using temperature: {temperature}")
+        
+        # Detect language of user message
+        detected_lang = detect_language(user_message)
+        
+        # Check for multilingual support if language is not English
+        if detected_lang != 'en' and self.user_id:
+            # Create a database session
+            db = SessionLocal()
+            try:
+                # Check if user has multilingual addon
+                has_multilingual = AddonService.check_addon_active(db, self.user_id, "Multilingual")
+                
+                # If user doesn't have multilingual support, return message about the addon
+                if not has_multilingual:
+                    return "Multilingual support is not enabled for your account. Please contact the website admin to enable multilingual support."
+            finally:
+                db.close()
         
         try:
             if provider == "openai":
