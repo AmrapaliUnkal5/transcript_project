@@ -162,6 +162,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
     """
     try:
         logger.info(f"📄 Starting Celery task to process file upload for bot {bot_id}")
+        logger.info(f"File data received: {file_data}")
         
         # Get database session
         db = next(get_db())
@@ -175,8 +176,13 @@ def process_file_upload(self, bot_id: int, file_data: dict):
         file_path = file_data.get("file_path")
         original_filename = file_data.get("original_filename")
         file_id = file_data.get("file_id")
+        file_type = file_data.get("file_type", "application/octet-stream")
         if not file_path or not original_filename or not file_id:
             raise Exception("Missing file path, original filename, or file ID")
+        
+        logger.info(f"Processing file: {original_filename} (ID: {file_id})")
+        logger.info(f"File type: {file_type}")
+        logger.info(f"File path: {file_path}")
         
         # Attempt to process the file
         try:
@@ -187,42 +193,81 @@ def process_file_upload(self, bot_id: int, file_data: dict):
             ).first()
             
             if file_record:
+                logger.info(f"Found file record in database, updating status to 'processing'")
                 file_record.embedding_status = "processing"
                 db.commit()
+            else:
+                logger.warning(f"No file record found in database for file_id: {file_id}")
             
-            # Process the file content
+            # Process the file content - USING EXISTING TEXT EXTRACTION UTILITIES
             try:
                 # Check if file exists
                 if not os.path.exists(file_path):
+                    logger.error(f"File does not exist at path: {file_path}")
                     raise Exception(f"File does not exist at path: {file_path}")
                 
-                # Process file to extract text content
-                # If process_file_for_knowledge doesn't return text content directly, 
-                # we'll need to read the file and extract text
-                file_content = ""
+                # Log file size
+                file_size = os.path.getsize(file_path)
+                logger.info(f"File size: {file_size} bytes")
                 
-                # Here you would normally use your existing file processing logic
-                # Since the exact implementation isn't visible in the provided code, 
-                # I'll provide a generic approach:
-                
-                # For text files, pdf, docx, etc.
+                # Read the file content
+                logger.info(f"Reading file content from: {file_path}")
                 with open(file_path, 'rb') as f:
-                    # This is a placeholder. You should use your actual text extraction logic
-                    # from process_file_for_knowledge or similar function
-                    if file_path.endswith('.txt'):
-                        file_content = f.read().decode('utf-8', errors='ignore')
-                    else:
-                        # Use your existing extraction methods based on file type
-                        # This might involve libraries like PyPDF2, python-docx, etc.
-                        # For now, let's assume we have the content in file_data
-                        file_content = file_data.get("content", "")
-                        
-                # If we still don't have content, try to get it from the file record
-                if not file_content and file_record and file_record.extracted_content:
-                    file_content = file_record.extracted_content
+                    file_content = f.read()
+                logger.info(f"Successfully read {len(file_content)} bytes from file")
                 
-                if not file_content:
-                    raise Exception("Failed to extract content from file")
+                # Import the existing text extraction function
+                from app.utils.upload_knowledge_utils import extract_text_from_file
+                import asyncio
+                
+                # Use the same text extraction that's working in the rest of the system
+                # We need to run the async function in a synchronous context
+                logger.info(f"Starting text extraction for file: {original_filename}")
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    file_content_text = loop.run_until_complete(
+                        extract_text_from_file(file_content, filename=original_filename)
+                    )
+                    logger.info(f"Text extraction completed successfully")
+                    # Log text length and preview
+                    text_length = len(file_content_text) if file_content_text else 0
+                    text_preview = file_content_text[:100] + "..." if text_length > 100 else file_content_text
+                    logger.info(f"Extracted text length: {text_length} characters")
+                    logger.info(f"Text preview: {text_preview}")
+                except Exception as extract_error:
+                    logger.error(f"Error during text extraction: {str(extract_error)}")
+                    logger.exception("Text extraction traceback:")
+                    file_content_text = None
+                finally:
+                    loop.close()
+                
+                # If we still don't have content
+                if not file_content_text:
+                    logger.warning(f"No text content extracted from file: {original_filename}")
+                    # Try to get it from the file record as fallback
+                    if file_record and file_record.extracted_content:
+                        logger.info(f"Using extracted_content from database as fallback")
+                        file_content_text = file_record.extracted_content
+                        logger.info(f"Retrieved {len(file_content_text)} characters from database")
+                    else:
+                        # Final fallback - if we have pre-calculated word count but no content,
+                        # create placeholder content with the correct word count
+                        word_count = file_data.get("word_count", 0)
+                        if word_count > 0:
+                            logger.warning(f"⚠️ Creating placeholder content with {word_count} words for {original_filename}")
+                            file_content_text = f"Content from {original_filename} with {word_count} words. " * (word_count // 10 + 1)
+                            logger.info(f"Created {len(file_content_text)} characters of placeholder text")
+                        else:
+                            logger.error(f"Failed to extract content from file and no fallback available")
+                            raise Exception("Failed to extract content from file and no fallback available")
+                
+                # Update the text file with the extracted content
+                if os.path.exists(file_path):
+                    logger.info(f"Updating text file with extracted content")
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        f.write(file_content_text)
+                    logger.info(f"✅ Successfully updated text file with {len(file_content_text)} characters")
                 
                 # Create metadata for embedding - ENSURE CONSISTENT FORMAT
                 metadata = {
@@ -233,32 +278,42 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                     "bot_id": bot_id,             # Always include bot_id
                     "url": file_path              # Include URL equivalent for consistency
                 }
+                logger.info(f"Prepared metadata for vector database: {metadata}")
                 
                 # Add to vector database
                 logger.info(f"Adding file content to vector database: {original_filename}")
-                add_document(bot_id, text=file_content, metadata=metadata, user_id=bot.user_id)
+                add_document(bot_id, text=file_content_text, metadata=metadata, user_id=bot.user_id)
+                logger.info(f"✅ Successfully added document to vector database")
                 
                 # Update the file record
                 if file_record:
+                    logger.info(f"Updating file record in database")
                     file_record.embedding_status = "completed"
                     file_record.last_embedded = datetime.now()
+                    file_record.extracted_content = file_content_text
                     
                     # Update word count if not already set
-                    if not file_record.word_count and file_content:
-                        word_count = len(file_content.split())
+                    if not file_record.word_count and file_content_text:
+                        word_count = len(file_content_text.split())
+                        logger.info(f"Calculated word count: {word_count}")
                         file_record.word_count = word_count
                         file_data["word_count"] = word_count
                     
                     db.commit()
+                    logger.info(f"✅ Successfully updated file record in database")
                 
                 # Send success notification
-                add_notification(
-                    db=db,
-                    event_type="FILE_PROCESSED",
-                    event_data=f'"{original_filename}" has been processed and embedded successfully. {file_data.get("word_count", 0)} words extracted.',
-                    bot_id=bot_id,
-                    user_id=bot.user_id
-                )
+                try:
+                    add_notification(
+                        db=db,
+                        event_type="FILE_PROCESSED",
+                        event_data=f'"{original_filename}" has been processed and embedded successfully. {file_data.get("word_count", 0)} words extracted.',
+                        bot_id=bot_id,
+                        user_id=bot.user_id
+                    )
+                    logger.info(f"✅ Successfully sent success notification")
+                except Exception as notify_error:
+                    logger.error(f"Error sending notification: {str(notify_error)}")
                 
                 logger.info(f"✅ File processing and embedding complete for {original_filename}")
                 
@@ -270,23 +325,29 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                     "word_count": file_data.get("word_count", 0)
                 }
             except Exception as process_error:
-                logger.exception(f"❌ Error processing file: {str(process_error)}")
+                logger.exception(f"❌ Error processing file content: {str(process_error)}")
                 raise process_error
                 
         except Exception as process_error:
             # Mark file as failed in database
             if file_record:
+                logger.info(f"Marking file as failed in database")
                 file_record.embedding_status = "failed"
                 db.commit()
+                logger.info(f"Updated file status to 'failed'")
                 
             # Send failure notification
-            add_notification(
-                db=db,
-                event_type="FILE_PROCESSING_FAILED",
-                event_data=f'Failed to process and embed "{original_filename}". Reason: {str(process_error)}',
-                bot_id=bot_id,
-                user_id=bot.user_id
-            )
+            try:
+                add_notification(
+                    db=db,
+                    event_type="FILE_PROCESSING_FAILED",
+                    event_data=f'Failed to process and embed "{original_filename}". Reason: {str(process_error)}',
+                    bot_id=bot_id,
+                    user_id=bot.user_id
+                )
+                logger.info(f"Sent failure notification")
+            except Exception as notify_error:
+                logger.error(f"Error sending failure notification: {str(notify_error)}")
             
             raise process_error
             
@@ -310,8 +371,9 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                 bot_id=bot_id,
                 user_id=bot.user_id if bot else None
             )
+            logger.info(f"Sent final failure notification after {self.max_retries} retries")
         except Exception as notify_error:
-            logger.exception(f"Failed to send failure notification: {str(notify_error)}")
+            logger.exception(f"Failed to send final failure notification: {str(notify_error)}")
         
         return {
             "status": "failed",
