@@ -28,6 +28,7 @@ sentence-transformers
 numpy
 schedule
 apscheduler
+PyPDF2>=3.0.0
 
 # For LLM Part
 chromadb

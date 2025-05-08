@@ -218,7 +218,156 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                 
                 # For text files, directly read the content to avoid any potential truncation
                 file_content_text = None
-                if original_filename.lower().endswith('.txt'):
+                
+                # Special handling for PDFs - since PDF extraction is failing
+                if original_filename.lower().endswith('.pdf'):
+                    logger.info(f"PDF file detected - using specialized extraction method")
+                    
+                    # First, try to find the original archived PDF
+                    _, ext = os.path.splitext(original_filename)
+                    archive_filename = f"{file_id}_original{ext}"
+                    
+                    # Get user_id for the bot to create path
+                    user_id = bot.user_id if bot else None
+                    
+                    if user_id:
+                        # Build archive path
+                        account_dir = os.path.join("uploads", f"account_{user_id}")
+                        bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
+                        archive_dir = os.path.join(bot_dir, "archives")
+                        archive_path = os.path.join(archive_dir, archive_filename)
+                        
+                        logger.info(f"Looking for original PDF at: {archive_path}")
+                        
+                        if os.path.exists(archive_path):
+                            logger.info(f"Found original PDF at {archive_path}")
+                            
+                            # Try multiple PDF extraction libraries in sequence
+                            # 1. Try PyPDF2
+                            try:
+                                import PyPDF2
+                                logger.info(f"Attempting extraction with PyPDF2")
+                                
+                                pdf_text = ""
+                                with open(archive_path, 'rb') as pdf_file:
+                                    try:
+                                        pdf_reader = PyPDF2.PdfReader(pdf_file)
+                                        logger.info(f"PDF has {len(pdf_reader.pages)} pages according to PyPDF2")
+                                        
+                                        for page_num in range(len(pdf_reader.pages)):
+                                            page = pdf_reader.pages[page_num]
+                                            page_text = page.extract_text()
+                                            if page_text:
+                                                pdf_text += page_text + "\n\n"
+                                                logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
+                                            else:
+                                                logger.warning(f"No text extracted from page {page_num+1} with PyPDF2")
+                                        
+                                        if pdf_text.strip():
+                                            logger.info(f"Successfully extracted {len(pdf_text)} chars with PyPDF2")
+                                            file_content_text = pdf_text
+                                        else:
+                                            logger.warning(f"PyPDF2 extraction yielded no text, trying next method")
+                                    except Exception as pypdf_err:
+                                        logger.error(f"PyPDF2 extraction error: {str(pypdf_err)}")
+                            except ImportError:
+                                logger.warning(f"PyPDF2 not available, skipping this extraction method")
+                            
+                            # 2. If PyPDF2 failed, try pdfplumber
+                            if not file_content_text:
+                                try:
+                                    import pdfplumber
+                                    logger.info(f"Attempting extraction with pdfplumber")
+                                    
+                                    pdf_text = ""
+                                    try:
+                                        with pdfplumber.open(archive_path) as pdf:
+                                            logger.info(f"PDF has {len(pdf.pages)} pages according to pdfplumber")
+                                            
+                                            for page_num, page in enumerate(pdf.pages):
+                                                page_text = page.extract_text() or ""
+                                                pdf_text += page_text + "\n\n"
+                                                logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
+                                        
+                                        if pdf_text.strip():
+                                            logger.info(f"Successfully extracted {len(pdf_text)} chars with pdfplumber")
+                                            file_content_text = pdf_text
+                                        else:
+                                            logger.warning(f"Pdfplumber extraction yielded no text, trying next method")
+                                    except Exception as plumber_err:
+                                        logger.error(f"Pdfplumber extraction error: {str(plumber_err)}")
+                                except ImportError:
+                                    logger.warning(f"pdfplumber not available, skipping this extraction method")
+                            
+                            # 3. If both failed, try PyMuPDF (fitz)
+                            if not file_content_text:
+                                try:
+                                    import fitz  # PyMuPDF
+                                    logger.info(f"Attempting extraction with PyMuPDF (fitz)")
+                                    
+                                    pdf_text = ""
+                                    try:
+                                        doc = fitz.open(archive_path)
+                                        logger.info(f"PDF has {len(doc)} pages according to PyMuPDF")
+                                        
+                                        for page_num in range(len(doc)):
+                                            page = doc[page_num]
+                                            page_text = page.get_text()
+                                            pdf_text += page_text + "\n\n"
+                                            logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
+                                        
+                                        if pdf_text.strip():
+                                            logger.info(f"Successfully extracted {len(pdf_text)} chars with PyMuPDF")
+                                            file_content_text = pdf_text
+                                        else:
+                                            logger.warning(f"PyMuPDF extraction yielded no text")
+                                    except Exception as fitz_err:
+                                        logger.error(f"PyMuPDF extraction error: {str(fitz_err)}")
+                                except ImportError:
+                                    logger.warning(f"PyMuPDF not available, skipping this extraction method")
+                            
+                            # 4. As a last resort, try to OCR with pytesseract
+                            if not file_content_text:
+                                try:
+                                    import fitz  # PyMuPDF for image extraction
+                                    from PIL import Image
+                                    import pytesseract
+                                    import io
+                                    
+                                    logger.info(f"Attempting OCR with pytesseract")
+                                    
+                                    pdf_text = ""
+                                    try:
+                                        doc = fitz.open(archive_path)
+                                        for page_num in range(len(doc)):
+                                            page = doc[page_num]
+                                            
+                                            # Get page as image
+                                            pix = page.get_pixmap()
+                                            img_data = pix.tobytes("png")
+                                            img = Image.open(io.BytesIO(img_data))
+                                            
+                                            # OCR the image
+                                            page_text = pytesseract.image_to_string(img)
+                                            pdf_text += page_text + "\n\n"
+                                            logger.info(f"OCR extracted {len(page_text)} chars from page {page_num+1}")
+                                        
+                                        if pdf_text.strip():
+                                            logger.info(f"Successfully extracted {len(pdf_text)} chars with OCR")
+                                            file_content_text = pdf_text
+                                        else:
+                                            logger.warning(f"OCR extraction yielded no text")
+                                    except Exception as ocr_err:
+                                        logger.error(f"OCR extraction error: {str(ocr_err)}")
+                                except ImportError as imp_err:
+                                    logger.warning(f"OCR libraries not available: {str(imp_err)}")
+                        else:
+                            logger.error(f"Original PDF file not found at expected path: {archive_path}")
+                    else:
+                        logger.error(f"Cannot build archive path - user_id not found for bot {bot_id}")
+                
+                # For text files, use standard extraction
+                elif original_filename.lower().endswith('.txt'):
                     logger.info(f"Text file detected. Using direct text extraction method")
                     try:
                         # Try reading as UTF-8 first
