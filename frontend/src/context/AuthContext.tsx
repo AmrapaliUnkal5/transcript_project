@@ -66,6 +66,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const response = await authApi.getAccountInfo(user.email);
         if (response && response.user) {
           const updatedUserData = response.user;
+          
+          // Make sure the user has addon_plan_ids initialized
+          if (!updatedUserData.addon_plan_ids) {
+            updatedUserData.addon_plan_ids = [];
+          }
+          
+          // Set the user state
           setUser(updatedUserData);
           localStorage.setItem("user", JSON.stringify(updatedUserData));
         }

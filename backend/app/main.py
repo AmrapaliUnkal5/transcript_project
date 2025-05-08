@@ -367,7 +367,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
                    "member_id": member_id,
                   "addon_plan_ids": addon_plan_ids,
                   "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
-                  "subscription_status": user_subscription.status if user_subscription else "expired",
+                  "subscription_status": user_subscription.status if user_subscription else "new",
                   }
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     
@@ -389,7 +389,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
             "member_id": member_id,
             "addon_plan_ids": addon_plan_ids,
             "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
-            "subscription_status": user_subscription.status if user_subscription else "expired",
+            "subscription_status": user_subscription.status if user_subscription else "new",
         }
     }
 
@@ -563,7 +563,7 @@ def login_for_access_token(
 
     access_token = create_access_token(data={
         "sub": user.email,
-        "role": user.role, 
+        "role": user.role,
         "user_id": user.user_id,
         "name": user.name,
         "company_name": user.company_name, 
@@ -571,7 +571,7 @@ def login_for_access_token(
         "subscription_plan_id": subscription_plan_id,
         "total_words_used":user.total_words_used,
         "addon_plan_ids": addon_plan_ids,
-        "subscription_status": user_subscription.status if user_subscription else "expired",
+        "subscription_status": user_subscription.status if user_subscription else "new",
         "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
     })
     return {"access_token": access_token, "token_type": "bearer"}
