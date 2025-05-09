@@ -56,10 +56,12 @@ export const FileUpload = () => {
   const [newFiles, setNewFiles] = useState<FileUploadInterface[]>([]);
   const [totalSize, setTotalSize] = useState<number>(0);
   const [totalWordCount, setTotalWordCount] = useState<number>(0);
-  // const [activeTab, setActiveTab] = useState(user.subscription_plan_id === 1 || user.subscription_plan_id === 2 
-  //   ? "websitescraping" 
+  // const [activeTab, setActiveTab] = useState(user.subscription_plan_id === 1 || user.subscription_plan_id === 2
+  //   ? "websitescraping"
   //   : "websiteSub");
-  const [youtubeVideos, setYoutubeVideos] = useState([]);
+  const [youtubeVideos, setYoutubeVideos] = useState<
+    { video_url: string; video_title: string }[]
+  >([]);
   const { loading, setLoading } = useLoader();
   const [currentPage, setCurrentPage] = useState(1);
   const videosPerPage = 5;
@@ -85,18 +87,18 @@ export const FileUpload = () => {
   const user = userData ? JSON.parse(userData) : null;
   const { getPlanById } = useSubscriptionPlans();
   const userPlan = getPlanById(user?.subscription_plan_id);
-  console.log("userPlan====>",userPlan)
+  console.log("userPlan====>", userPlan);
   const parseStorageLimit = (limitStr: string): number => {
     const units: Record<string, number> = {
       KB: 1024,
       MB: 1024 ** 2,
       GB: 1024 ** 3,
-      TB: 1024 ** 4
+      TB: 1024 ** 4,
     };
-    
+
     const match = limitStr.match(/^(\d+)\s*(KB|MB|GB|TB)$/i);
     if (!match) return 20 * 1024 ** 2; // Default 20MB if parsing fails
-    
+
     const unit = match[2].toUpperCase();
     return parseInt(match[1]) * units[unit];
   };
@@ -114,17 +116,28 @@ export const FileUpload = () => {
   const MAX_WORD_COUNT = userPlan?.word_count_limit;
 
   // Calculate usage metrics
-  const totalWordsUsed = userUsage.globalWordsUsed + userUsage.currentSessionWords;
+  const totalWordsUsed =
+    userUsage.globalWordsUsed + userUsage.currentSessionWords;
   console.log("userUsage.globalWordsUsed=>", userUsage.globalWordsUsed);
   console.log("userUsage.currentSessionWords=>", userUsage.currentSessionWords);
   console.log("TotalWordsUsed=>", totalWordsUsed);
   const remainingWords = Math.max(0, userUsage.planLimit - totalWordsUsed);
-  const usagePercentage = Math.min( 100,(totalWordsUsed / userUsage.planLimit) * 100);
-  const totalStorageUsed = userUsage.globalStorageUsed + userUsage.currentSessionStorage;
-  
+  const usagePercentage = Math.min(
+    100,
+    (totalWordsUsed / userUsage.planLimit) * 100
+  );
+  const totalStorageUsed =
+    userUsage.globalStorageUsed + userUsage.currentSessionStorage;
+
   console.log("totalStorageUsed=>", totalStorageUsed);
-  const remainingStorage = Math.max(0, userUsage.storageLimit - totalStorageUsed);
-  const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.storageLimit) * 100);
+  const remainingStorage = Math.max(
+    0,
+    userUsage.storageLimit - totalStorageUsed
+  );
+  const storageUsagePercentage = Math.min(
+    100,
+    (totalStorageUsed / userUsage.storageLimit) * 100
+  );
 
   // Calculate total pages
   const totalPages = Math.ceil(youtubeVideos.length / videosPerPage);
@@ -139,10 +152,12 @@ export const FileUpload = () => {
 
   // Generate page numbers
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
-  const [activeTab, setActiveTab] = useState(user.subscription_plan_id === 1 || user.subscription_plan_id === 2 
-    ? "websitescraping" 
-    : "websiteSub");
-  
+  const [activeTab, setActiveTab] = useState(
+    user.subscription_plan_id === 1 || user.subscription_plan_id === 2
+      ? "websitescraping"
+      : "websiteSub"
+  );
+
   // Fetch user usage on component mount
   useEffect(() => {
     const fetchUsage = async () => {
@@ -154,7 +169,7 @@ export const FileUpload = () => {
           planLimit: apiUsage.planLimit,
           globalStorageUsed: apiUsage.totalStorageUsed || 0,
           currentSessionStorage: 0,
-          storageLimit: parseStorageLimit(userPlan?.storage_limit || "20 MB")
+          storageLimit: parseStorageLimit(userPlan?.storage_limit || "20 MB"),
         });
       } catch (error) {
         console.error("Failed to fetch user usage", error);
@@ -218,7 +233,7 @@ export const FileUpload = () => {
       if (selectedBot?.id && parsedSelectedVideos.length > 0) {
         // Set button state to loading instead of global loading
         setIsVideoProcessing(true);
-        
+
         try {
           const responseyoutube = await authApi.storeSelectedYouTubeTranscripts(
             parsedSelectedVideos,
@@ -226,28 +241,31 @@ export const FileUpload = () => {
           );
           console.log("responseyoutube----", responseyoutube);
           console.log("Type of responseyoutube:-----", typeof responseyoutube);
-          console.log("Keys:--------------", Object.keys(responseyoutube || {}));
-          
+          console.log(
+            "Keys:--------------",
+            Object.keys(responseyoutube || {})
+          );
+
           // Check if the response is from background processing
           if (responseyoutube.status === "processing") {
             toast.info(
               `${responseyoutube.video_count} YouTube videos are being processed in the background. You will be notified when complete.`
             );
-            
+
             // Clear selected videos since they're being processed
             localStorage.removeItem("selected_videos");
             setRefreshKey((prev) => prev + 1);
-            
+
             if (selectedBot?.status === "In Progress") {
               await authApi.updateBotStatusActive(selectedBot.id, {
                 status: "Active",
                 is_active: true,
               });
             }
-            
+
             return; // Exit early since videos are being processed in background
           }
-          
+
           // Handle traditional synchronous response (for backward compatibility)
           if (responseyoutube && Object.keys(responseyoutube).length > 0) {
             const successCount = responseyoutube.stored_videos?.length || 0;
@@ -283,7 +301,7 @@ export const FileUpload = () => {
                 `All ${failedCount} video(s) failed to upload:\n\n${failedDetails}`
               );
             }
-          } 
+          }
           // ✅ Remove processed videos from local storage
           console.log(
             "responseyoutube.stored_videos",
@@ -409,8 +427,10 @@ export const FileUpload = () => {
           id: file.file_id.toString(),
           name: file.file_name,
           type: file.file_type,
-          size: file.original_file_size_bytes || parseFileSizeToBytes(file.file_size), // Fallback to extracted size if original not available
-          displaySize: String(file.original_file_size_bytes) || file.file_size, 
+          size:
+            file.original_file_size_bytes ||
+            parseFileSizeToBytes(file.file_size), // Fallback to extracted size if original not available
+          displaySize: String(file.original_file_size_bytes) || file.file_size,
           uploadDate: new Date(file.upload_date),
           url: file.file_path,
           wordCount: file.word_count,
@@ -482,7 +502,7 @@ export const FileUpload = () => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     const size = (bytes / Math.pow(k, i)).toFixed(2);
     return size + " " + sizes[i];
-};
+  };
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
@@ -494,36 +514,45 @@ export const FileUpload = () => {
       }
 
       // Check storage limit
-    const newFilesTotalSize = acceptedFiles.reduce((sum, file) => sum + file.size, 0);
-    if (totalStorageUsed + newFilesTotalSize > userUsage.storageLimit) {
-      toast.error(`Uploading these files would exceed your storage limit of ${formatBytesToHumanReadable(userUsage.storageLimit)}`);
-      return;
-    }
-  
-      // Check for duplicate file names (case-insensitive)
-      const allFileNames = [
-        ...existingFiles.map(f => f.name.toLowerCase()),
-        ...newFiles.map(f => f.name.toLowerCase())
-      ];
-      
-      const duplicateFiles = acceptedFiles.filter(file => 
-        allFileNames.includes(file.name.toLowerCase())
+      const newFilesTotalSize = acceptedFiles.reduce(
+        (sum, file) => sum + file.size,
+        0
       );
-  
-      if (duplicateFiles.length > 0) {
-        const duplicateNames = duplicateFiles.map(f => `"${f.name}"`).join(', ');
+      if (totalStorageUsed + newFilesTotalSize > userUsage.storageLimit) {
         toast.error(
-          `Cannot upload files with duplicate names: ${duplicateNames}. ` +
-          `Please rename the file(s) or delete the existing ones before uploading.`
+          `Uploading these files would exceed your storage limit of ${formatBytesToHumanReadable(
+            userUsage.storageLimit
+          )}`
         );
         return;
       }
-  
+
+      // Check for duplicate file names (case-insensitive)
+      const allFileNames = [
+        ...existingFiles.map((f) => f.name.toLowerCase()),
+        ...newFiles.map((f) => f.name.toLowerCase()),
+      ];
+
+      const duplicateFiles = acceptedFiles.filter((file) =>
+        allFileNames.includes(file.name.toLowerCase())
+      );
+
+      if (duplicateFiles.length > 0) {
+        const duplicateNames = duplicateFiles
+          .map((f) => `"${f.name}"`)
+          .join(", ");
+        toast.error(
+          `Cannot upload files with duplicate names: ${duplicateNames}. ` +
+            `Please rename the file(s) or delete the existing ones before uploading.`
+        );
+        return;
+      }
+
       // Check each file's size before processing
       const oversizedFiles = acceptedFiles.filter(
         (file) => file.size > MAX_FILE_SIZE
       );
-  
+
       if (oversizedFiles.length > 0) {
         toast.error(
           `Files exceed the ${
@@ -532,9 +561,9 @@ export const FileUpload = () => {
         );
         return;
       }
-  
+
       setIsProcessingFiles(true);
-  
+
       try {
         // Process word counts for new files
         const counts = await processWordCounts(acceptedFiles);
@@ -543,7 +572,7 @@ export const FileUpload = () => {
         let newStorage = 0;
         const validFiles: FileUploadInterface[] = [];
         let hasExceededLimit = false;
-  
+
         for (let i = 0; i < acceptedFiles.length; i++) {
           const file = acceptedFiles[i];
           const countData = counts[i];
@@ -553,7 +582,7 @@ export const FileUpload = () => {
             toast.error(`${file.name}: ${countData.error}`);
             continue;
           }
-  
+
           const fileWords = countData.word_count || 0;
           const fileSize = file.size;
 
@@ -561,7 +590,10 @@ export const FileUpload = () => {
             toast.error(`Skipped "${file.name}" - would exceed word limit`);
             continue;
           }
-          if (totalStorageUsed + newStorage + fileSize > userUsage.storageLimit) {
+          if (
+            totalStorageUsed + newStorage + fileSize >
+            userUsage.storageLimit
+          ) {
             toast.error(`Skipped "${file.name}" - would exceed storage limit`);
             continue;
           }
@@ -588,9 +620,9 @@ export const FileUpload = () => {
         setUserUsage((prev) => ({
           ...prev,
           currentSessionWords: prev.currentSessionWords + newWords,
-          currentSessionStorage: prev.currentSessionStorage + newStorage
+          currentSessionStorage: prev.currentSessionStorage + newStorage,
         }));
-  
+
         if (validFiles.length > 0) {
           toast.success("Files added successfully");
         }
@@ -599,7 +631,14 @@ export const FileUpload = () => {
       } finally {
         setIsProcessingFiles(false);
       }
-    }, [totalWordsUsed, totalStorageUsed, userUsage.planLimit, userUsage.storageLimit]);
+    },
+    [
+      totalWordsUsed,
+      totalStorageUsed,
+      userUsage.planLimit,
+      userUsage.storageLimit,
+    ]
+  );
 
   // Handle file deletion
   const handleDelete = async (id: string) => {
@@ -621,12 +660,12 @@ export const FileUpload = () => {
         await authApi.updateBotWordCount({
           bot_id: selectedBot.id,
           word_count: -fileToDelete.wordCount,
-          file_size: -fileToDelete.size
+          file_size: -fileToDelete.size,
         });
 
         // Update global words used
         const apiUsage: UserUsageResponse = await authApi.getUserUsage();
-        setUserUsage(prev => ({
+        setUserUsage((prev) => ({
           ...prev,
           globalWordsUsed: apiUsage.totalWordsUsed,
           globalStorageUsed: apiUsage.totalStorageUsed,
@@ -636,8 +675,10 @@ export const FileUpload = () => {
         setNewFiles((prev) => prev.filter((file) => file.id !== id));
         setUserUsage((prev) => ({
           ...prev,
-          currentSessionWords: prev.currentSessionWords - (fileToDelete.wordCount || 0),
-          currentSessionStorage: prev.currentSessionStorage - (fileToDelete.size || 0)
+          currentSessionWords:
+            prev.currentSessionWords - (fileToDelete.wordCount || 0),
+          currentSessionStorage:
+            prev.currentSessionStorage - (fileToDelete.size || 0),
         }));
       }
 
@@ -655,17 +696,21 @@ export const FileUpload = () => {
       toast.error("No bot selected.");
       return;
     }
-    //setIsSaving(true); 
+    //setIsSaving(true);
 
     if (totalWordsUsed > userUsage.planLimit) {
       toast.error(
         `Total word count exceeds limit of ${userUsage.planLimit.toLocaleString()}`
       );
-      setIsSaving(false); 
+      setIsSaving(false);
       return;
     }
     if (totalStorageUsed > userUsage.storageLimit) {
-      toast.error(`Total file size exceeds storage limit of ${formatBytesToHumanReadable(userUsage.storageLimit)}`);
+      toast.error(
+        `Total file size exceeds storage limit of ${formatBytesToHumanReadable(
+          userUsage.storageLimit
+        )}`
+      );
       return;
     }
 
@@ -695,11 +740,14 @@ export const FileUpload = () => {
           (acc, file) => acc + (file.wordCount || 0),
           0
         );
-        const newStorage = newFiles.reduce((acc, file) => acc + (file.size || 0), 0);
+        const newStorage = newFiles.reduce(
+          (acc, file) => acc + (file.size || 0),
+          0
+        );
         await authApi.updateBotWordCount({
           bot_id: selectedBot.id,
           word_count: newWords,
-          file_size:newStorage,
+          file_size: newStorage,
         });
 
         const apiUsage = await authApi.getUserUsage();
@@ -709,7 +757,7 @@ export const FileUpload = () => {
           planLimit: apiUsage.planLimit,
           globalStorageUsed: apiUsage.totalStorageUsed || 0,
           currentSessionStorage: 0,
-          storageLimit: parseStorageLimit(userPlan?.storage_limit || "20 MB")
+          storageLimit: parseStorageLimit(userPlan?.storage_limit || "20 MB"),
         });
 
         setNewFiles([]);
@@ -726,7 +774,7 @@ export const FileUpload = () => {
       }
     } catch (error) {
       toast.error("An error occurred while saving files");
-    }finally {
+    } finally {
       setIsSaving(false); // Re-enable the button when done
     }
   };
@@ -746,13 +794,13 @@ export const FileUpload = () => {
       "application/msword": [".doc"],
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         [".docx"],
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
+      "image/*": [".png", ".jpg", ".jpeg", ".gif"],
     },
   });
 
   const getFileExtension = (fileName: string) => {
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    return extension ? extension.toUpperCase() : 'UNKNOWN';
+    const extension = fileName.split(".").pop()?.toLowerCase();
+    return extension ? extension.toUpperCase() : "UNKNOWN";
   };
 
   const handleTabClick = (tab: string) => {
@@ -774,8 +822,8 @@ export const FileUpload = () => {
         <div className="text-gray-500 dark:text-white text-lg">
           No bot selected.
         </div>
-        <button 
-          onClick={() => navigate('/')}
+        <button
+          onClick={() => navigate("/")}
           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
         >
           Go to Home
@@ -790,41 +838,40 @@ export const FileUpload = () => {
       {loading && <Loader />}
 
       {/* Tabs Section */}
-      
-        <div className="flex border-b border-gray-300 dark:border-gray-700">
-          <button
-            onClick={() => handleTabClick("websitescraping")}
-            className={`px-4 py-2 ${
+
+      <div className="flex border-b border-gray-300 dark:border-gray-700">
+        <button
+          onClick={() => handleTabClick("websitescraping")}
+          className={`px-4 py-2 ${
             activeTab === "websitescraping" || activeTab === "websiteSub"
-            ? "border-b-2 border-blue-500 text-blue-600"
-            : "text-gray-500"
-        }`}
-      >
+              ? "border-b-2 border-blue-500 text-blue-600"
+              : "text-gray-500"
+          }`}
+        >
           Website
         </button>
-          <button
-            onClick={() => setActiveTab("files")}
-            className={`px-4 py-2 ${
+        <button
+          onClick={() => setActiveTab("files")}
+          className={`px-4 py-2 ${
             activeTab === "files"
-            ? "border-b-2 border-blue-500 text-blue-600"
-        : "text-gray-500"
+              ? "border-b-2 border-blue-500 text-blue-600"
+              : "text-gray-500"
           }`}
         >
           Files
         </button>
         <button
-            onClick={() => setActiveTab("youtube")}
-            className={`px-4 py-2 ${
+          onClick={() => setActiveTab("youtube")}
+          className={`px-4 py-2 ${
             activeTab === "youtube"
-            ? "border-b-2 border-blue-500 text-blue-600"
-            : "text-gray-500"
-            }`}
-          >
+              ? "border-b-2 border-blue-500 text-blue-600"
+              : "text-gray-500"
+          }`}
+        >
           YouTube Videos
         </button>
       </div>
 
-     
       {activeTab === "websitescraping" &&
         (user.subscription_plan_id === 1 ||
           user.subscription_plan_id === 2) && (
@@ -841,7 +888,7 @@ export const FileUpload = () => {
           user.subscription_plan_id === 4) && (
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
-            Enter the Website URL
+              Enter the Website URL
             </h1>
             <SubscriptionScrape />
           </div>
@@ -880,7 +927,8 @@ export const FileUpload = () => {
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
               Maximum {userUsage.planLimit.toLocaleString()} words total,{" "}
-              {userPlan?.per_file_size_limit}MB per file (PDF, TXT, Doc, Docx, .png, .jpg, .jpeg, .gif files only)
+              {userPlan?.per_file_size_limit}MB per file (PDF, TXT, Doc, Docx,
+              .png, .jpg, .jpeg, .gif files only)
             </p>
           </div>
 
@@ -937,53 +985,61 @@ export const FileUpload = () => {
             ) : null}
           </div>
 
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <div className="flex items-center justify-between mb-1">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Storage Usage
-            </span>
-            <span className={`text-sm font-medium ${
-              remainingStorage <= 0
-              ? "text-red-500"
-              : remainingStorage < userUsage.storageLimit * 0.2
-              ? "text-yellow-500"
-              : "text-green-500"
-             }`}>
-                {formatBytesToHumanReadable(totalStorageUsed)}/{formatBytesToHumanReadable(userUsage.storageLimit)}
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Storage Usage
+              </span>
+              <span
+                className={`text-sm font-medium ${
+                  remainingStorage <= 0
+                    ? "text-red-500"
+                    : remainingStorage < userUsage.storageLimit * 0.2
+                    ? "text-yellow-500"
+                    : "text-green-500"
+                }`}
+              >
+                {formatBytesToHumanReadable(totalStorageUsed)}/
+                {formatBytesToHumanReadable(userUsage.storageLimit)}
                 {userUsage.currentSessionStorage > 0 && (
-              <span className="text-gray-500 ml-2">
-                  (This session: {formatBytesToHumanReadable(userUsage.currentSessionStorage)})
-                </span>
-              )}
-            </span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600">
-          <div
-              className="h-2.5 rounded-full"
-              style={{
-              width: `${storageUsagePercentage}%`,
-              backgroundColor:
-              remainingStorage <= 0
-              ? "#ef4444"
-              : remainingStorage < userUsage.storageLimit * 0.2
-              ? "#f59e0b"
-              : "#10b981",
-            }}
-          ></div>
-        </div>
+                  <span className="text-gray-500 ml-2">
+                    (This session:{" "}
+                    {formatBytesToHumanReadable(
+                      userUsage.currentSessionStorage
+                    )}
+                    )
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600">
+              <div
+                className="h-2.5 rounded-full"
+                style={{
+                  width: `${storageUsagePercentage}%`,
+                  backgroundColor:
+                    remainingStorage <= 0
+                      ? "#ef4444"
+                      : remainingStorage < userUsage.storageLimit * 0.2
+                      ? "#f59e0b"
+                      : "#10b981",
+                }}
+              ></div>
+            </div>
             {remainingStorage <= 0 ? (
-        <div className="mt-2 text-xs text-red-500 dark:text-red-400">
-            <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-             You've reached your storage limit! Remove files or upgrade your plan.
-            </div>
-          ) : remainingStorage < userUsage.storageLimit * 0.2 ? (
-            <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
-              <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-                Approaching storage limit ({Math.round(storageUsagePercentage)}% used)
-            </div>
+              <div className="mt-2 text-xs text-red-500 dark:text-red-400">
+                <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
+                You've reached your storage limit! Remove files or upgrade your
+                plan.
+              </div>
+            ) : remainingStorage < userUsage.storageLimit * 0.2 ? (
+              <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
+                <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
+                Approaching storage limit ({Math.round(storageUsagePercentage)}%
+                used)
+              </div>
             ) : null}
           </div>
-
 
           {/* Files Table */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
@@ -1035,7 +1091,7 @@ export const FileUpload = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {getFileExtension(file.name)}
+                          {getFileExtension(file.name)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -1077,18 +1133,18 @@ export const FileUpload = () => {
             onClick={handleSave}
             disabled={isSaveDisabled || isSaving}
             className={`px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed ${
-            isSaving ? "opacity-75" : ""
-          }`}
-        >
-        {isSaving ? (
-        <>
-        <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
-            Saving...
-        </>
+              isSaving ? "opacity-75" : ""
+            }`}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                Saving...
+              </>
             ) : (
-            "Save"
-        )}
-            </button>
+              "Save"
+            )}
+          </button>
         </>
       )}
 
@@ -1130,6 +1186,9 @@ export const FileUpload = () => {
                         #
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Title
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Video URL
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -1149,18 +1208,25 @@ export const FileUpload = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-900 dark:text-white">
+                            {videoUrl.video_title || "Untitled"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <a
-                            href={videoUrl}
+                            href={videoUrl.video_url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-500 hover:underline"
                           >
-                            {videoUrl}
+                            {videoUrl.video_url}
                           </a>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <button
-                            onClick={() => handleVideoDelete(videoUrl)}
+                            onClick={() =>
+                              handleVideoDelete(videoUrl.video_url)
+                            }
                             className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
                           >
                             <Trash2 className="w-5 h-5" />

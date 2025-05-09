@@ -18,6 +18,8 @@ from app.models import Bot
 from app.notifications import add_notification
 from app.utils.logger import get_module_logger
 from app.celery_tasks import process_youtube_videos
+from app.dependency import get_current_user
+from app.schemas import UserOut, YouTubeVideoResponse
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -337,7 +339,7 @@ async def process_selected_videos(
                               "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Error starting video processing: {str(e)}")
 
-@router.get("/bot/{bot_id}/videos", response_model=List[str])
+@router.get("/bot/{bot_id}/videos", response_model=List[YouTubeVideoResponse])
 def get_bot_videos(request: Request, bot_id: int, db: Session = Depends(get_db)):
     """Retrieves a list of YouTube videos stored for a specific bot."""
     request_id = getattr(request.state, "request_id", "unknown")
@@ -354,11 +356,19 @@ def get_bot_videos(request: Request, bot_id: int, db: Session = Depends(get_db))
         
         # Extract video IDs
         video_ids = [video.video_id for video in videos]
+        video_data = [
+            YouTubeVideoResponse(
+                video_id=video.video_id,
+                video_title=video.video_title,
+                video_url=video.video_url
+            )
+            for video in videos
+        ]
         
         logger.info(f"Retrieved bot's YouTube videos", 
                    extra={"request_id": request_id, "bot_id": bot_id, "video_count": len(video_ids)})
         
-        return video_ids
+        return video_data
     except Exception as e:
         logger.exception(f"Error retrieving bot videos", 
                         extra={"request_id": request_id, "bot_id": bot_id, "error": str(e)})
@@ -366,7 +376,7 @@ def get_bot_videos(request: Request, bot_id: int, db: Session = Depends(get_db))
 
 
 @router.delete("/bot/{bot_id}/videos")
-def soft_delete_video(request: Request, bot_id: int, video_id: str = Query(...), db: Session = Depends(get_db)):
+def soft_delete_video(request: Request, bot_id: int, video_id: str = Query(...), db: Session = Depends(get_db),current_user: UserOut = Depends(get_current_user)):
     """Soft deletes a YouTube video from a bot's knowledge base."""
     request_id = getattr(request.state, "request_id", "unknown")
     
@@ -392,10 +402,12 @@ def soft_delete_video(request: Request, bot_id: int, video_id: str = Query(...),
         
         # Delete from ChromaDB
         delete_video_from_chroma(bot_id, video_id)
+        user_youtube = current_user["user_id"]
+        print("user_youtube",user_youtube)
         
         # Add notification
-        notification_text = f"Video '{video.title}' was removed from bot {bot_id}'s knowledge base."
-        add_notification(db, "Video Removed", notification_text, video.user_id)
+        notification_text = f"Video '{video.video_title}' was removed from bot {bot_id}'s knowledge base."
+        add_notification(db, "Video Removed", notification_text,bot_id, user_youtube)
         
         logger.info(f"Video deleted successfully", 
                    extra={"request_id": request_id, "bot_id": bot_id, "video_id": video_id})
@@ -411,7 +423,7 @@ def soft_delete_video(request: Request, bot_id: int, video_id: str = Query(...),
 
 
 @router.delete("/bot/{bot_id}/scraped-urls")
-def soft_delete_scraped_url(request: Request, bot_id: int, url: str = Query(...), db: Session = Depends(get_db)):
+def soft_delete_scraped_url(request: Request, bot_id: int, url: str = Query(...), db: Session = Depends(get_db),current_user: UserOut = Depends(get_current_user)):
     """Soft deletes a scraped URL from a bot's knowledge base."""
     request_id = getattr(request.state, "request_id", "unknown")
     
@@ -443,7 +455,7 @@ def soft_delete_scraped_url(request: Request, bot_id: int, url: str = Query(...)
         
         # Add notification
         notification_text = f"URL '{decoded_url}' was removed from bot {bot_id}'s knowledge base."
-        add_notification(db, "URL Removed", notification_text, scraped_node.user_id)
+        add_notification(db, "URL Removed", notification_text,bot_id, current_user["user_id"])
         
         logger.info(f"Scraped URL deleted successfully", 
                    extra={"request_id": request_id, "bot_id": bot_id, "url": decoded_url})

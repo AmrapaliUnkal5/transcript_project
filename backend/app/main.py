@@ -316,7 +316,10 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email not verified. Please activate your email-id.")
     
     # Check if user is a team member
-    team_member_entry = db.query(TeamMember).filter(TeamMember.member_id == db_user.user_id).first()
+    team_member_entry = db.query(TeamMember).filter(
+    TeamMember.member_id == db_user.user_id,
+    TeamMember.invitation_status == "accepted"
+    ).first()
     is_team_member = team_member_entry is not None
     owner_id = team_member_entry.owner_id if team_member_entry else None
 
@@ -324,7 +327,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     member_id = db_user.user_id if is_team_member else None
     
     user_subscription = db.query(UserSubscription).filter(
-        UserSubscription.user_id == db_user.user_id,
+        UserSubscription.user_id == subscription_user_id,
         UserSubscription.status != "pending"
     ).order_by(UserSubscription.payment_date.desc()).first()
 
@@ -334,7 +337,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
 
     # Get message addon (ID 5) details if exists
     message_addon = db.query(UserAddon).filter(
-        UserAddon.user_id == db_user.user_id,
+        UserAddon.user_id == subscription_user_id,
         UserAddon.addon_id == 5,
         UserAddon.is_active == True
     ).order_by(UserAddon.expiry_date.desc()).first()
@@ -345,7 +348,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     logger.info(f"User {db_user.email} authenticated successfully")
 
     user_addons = db.query(UserAddon).filter(
-        UserAddon.user_id == db_user.user_id,
+        UserAddon.user_id == subscription_user_id,
         UserAddon.status == "active"  
     ).all()
     
