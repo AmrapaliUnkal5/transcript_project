@@ -76,6 +76,188 @@ def format_chat_history(chat_messages: List[ChatMessage]) -> str:
     
     return formatted_history
 
+# Adding a new helper function to detect and respond to greetings
+def is_greeting(message: str) -> tuple[bool, str]:
+    """
+    Checks if a message is a simple greeting and returns an appropriate response.
+    
+    Args:
+        message: The user's message text
+        
+    Returns:
+        A tuple of (is_greeting, response). If is_greeting is True, response contains the greeting response.
+    """
+    # Convert to lowercase and strip whitespace for consistent matching
+    message = message.lower().strip()
+    
+    # Remove punctuation from the end for better matching
+    message = message.rstrip('!.,;:?')
+    
+    # Dictionary of greetings and their responses
+    greetings = {
+        # Basic greetings
+        "hi": "Hi there! How can I help you today?",
+        "hello": "Hello! How can I assist you?",
+        "hey": "Hey! What can I help you with?",
+        "greetings": "Greetings! How may I assist you today?",
+        "howdy": "Howdy! What can I do for you?",
+        
+        # Time-based greetings
+        "good morning": "Good morning! How can I help you today?",
+        "morning": "Good morning! How can I assist you today?",
+        "good afternoon": "Good afternoon! What can I assist you with?",
+        "afternoon": "Good afternoon! What can I help you with today?",
+        "good evening": "Good evening! How may I help you?",
+        "evening": "Good evening! How can I assist you today?",
+        "good day": "Good day to you! How can I be of assistance?",
+        "good night": "Good night! Is there something I can help you with before you go?",
+        
+        # Other common greetings
+        "what's up": "Not much, just here to help! What can I do for you?",
+        "whats up": "Not much, just here to help! What can I do for you?",
+        "wassup": "Hey there! What can I help you with?",
+        "how are you": "I'm doing well, thanks for asking! How can I assist you?",
+        "how r u": "I'm doing well! How can I help you today?",
+        "how are u": "I'm good, thanks! How can I assist you?",
+        "how you doing": "I'm doing great! What can I help you with?",
+        "how r you": "I'm doing well, thanks! What can I help you with today?",
+        "how's it going": "Everything's running smoothly! What can I help you with?",
+        "hows it going": "Everything's great! How can I assist you today?",
+        "yo": "Hey there! What's on your mind?",
+        "hiya": "Hiya! How can I assist you today?",
+        "sup": "Hey! What can I help you with?",
+        "hola": "Hola! How can I help you?",
+        "namaste": "Namaste! How may I assist you today?",
+        "ciao": "Ciao! How can I help you?",
+        "bonjour": "Bonjour! How can I assist you today?",
+        "guten tag": "Guten Tag! How may I help you today?",
+        "konnichiwa": "Konnichiwa! How can I assist you?",
+        "salaam": "Salaam! How may I help you today?",
+        
+        # Compound and variation greetings
+        "hi there": "Hello there! How can I help you today?",
+        "hello there": "Hi there! What can I help you with?",
+        "hey there": "Hey there! How can I assist you?",
+        "hi friend": "Hello friend! How can I help you today?",
+        "hello friend": "Hi there, friend! What can I help you with?",
+        "heya": "Heya! How can I assist you today?",
+        "heyy": "Hey there! What can I help you with?",
+        "hiii": "Hi! How can I assist you today?",
+        "hiiii": "Hello there! How can I help you?",
+        "hellooo": "Hello! What can I help you with today?",
+        "heyyy": "Hey! How can I assist you?",
+    }
+    
+    # Check if the message is exactly a greeting
+    if message in greetings:
+        return True, greetings[message]
+    
+    # Check for phrases that start with greetings
+    for greeting, response in greetings.items():
+        # Check exact match
+        if message == greeting:
+            return True, response
+        
+        # Check prefix match with common endings
+        if message.startswith(greeting + " "):
+            # Check for common continuation phrases that should still be treated as greetings
+            continuation = message[len(greeting):].strip()
+            simple_continuations = [
+                "there", "friend", "pal", "buddy", "everyone", "all", "folks", 
+                "team", "guys", "everyone", "anybody", "everyone", "y'all"
+            ]
+            
+            if continuation in simple_continuations or not continuation:
+                return True, response
+    
+    # Look for emojis commonly used as greetings
+    greeting_emojis = ["👋", "🙋", "🙋‍♂️", "🙋‍♀️", "✋", "🖐️", "🤚", "✌️"]
+    if any(emoji in message for emoji in greeting_emojis) and len(message.strip()) <= 5:
+        return True, "Hello there! How can I help you today?"
+    
+    # Not a recognized greeting
+    return False, ""
+
+def is_farewell(message: str) -> tuple[bool, str]:
+    """
+    Checks if a message is a farewell and returns an appropriate response.
+    
+    Args:
+        message: The user's message text
+        
+    Returns:
+        A tuple of (is_farewell, response). If is_farewell is True, response contains the farewell response.
+    """
+    # Convert to lowercase and strip whitespace for consistent matching
+    message = message.lower().strip()
+    
+    # Remove punctuation from the end for better matching
+    message = message.rstrip('!.,;:?')
+    
+    # Dictionary of farewells and their responses
+    farewells = {
+        # Basic farewells
+        "bye": "Goodbye! Feel free to come back if you have more questions.",
+        "goodbye": "Goodbye! Have a great day!",
+        "see you": "See you later! Don't hesitate to reach out if you need anything else.",
+        "see ya": "See ya! Come back anytime you need assistance.",
+        "see you later": "See you later! Have a wonderful day!",
+        "cya": "See you! Have a great day!",
+        "farewell": "Farewell! It was a pleasure assisting you.",
+        
+        # Time-based farewells
+        "good night": "Good night! Sleep well and have a great day tomorrow.",
+        "have a good day": "You too! Have a wonderful day!",
+        "have a great day": "You too! Have a fantastic day ahead!",
+        "have a nice day": "Thank you! You have a nice day as well!",
+        
+        # Other common farewells
+        "thanks": "You're welcome! Is there anything else I can help you with?",
+        "thank you": "You're welcome! Feel free to ask if you need any more assistance.",
+        "thx": "You're welcome! Have a great day!",
+        "ty": "You're welcome! Let me know if you need anything else.",
+        "thanks a lot": "You're very welcome! It was my pleasure to help.",
+        "thank you very much": "You're very welcome! Don't hesitate to reach out again if needed.",
+        "appreciate it": "Happy to help! Have a great day!",
+        "thanks for your help": "You're welcome! That's what I'm here for.",
+        
+        # Compound and variation farewells
+        "talk to you later": "Looking forward to it! Have a great day!",
+        "ttyl": "Talk to you later! Have a great day!",
+        "i'm leaving": "Take care! Feel free to return when you need assistance.",
+        "i have to go": "No problem! Have a great day and come back anytime.",
+        "got to go": "Take care! Feel free to chat again whenever you need help.",
+        "gotta go": "No problem! Have a great day!",
+        "until next time": "Until next time! Looking forward to helping you again.",
+        "catch you later": "Catch you later! Have a great day!",
+        "adios": "¡Adiós! Have a wonderful day!",
+        "au revoir": "Au revoir! Feel free to return anytime you need assistance.",
+        
+        # Exit commands
+        "exit": "Goodbye! Feel free to return when you need assistance.",
+        "quit": "Closing this conversation. Feel free to start a new one anytime!",
+        "end": "Ending our conversation. Have a great day!",
+        "stop": "Stopping here as requested. Feel free to start a new conversation anytime!"
+    }
+    
+    # Check if the message is exactly a farewell
+    if message in farewells:
+        return True, farewells[message]
+    
+    # Add compound farewell detection
+    for farewell, response in farewells.items():
+        # Check exact match
+        if message == farewell:
+            return True, response
+        
+        # Check for common endings to farewells
+        if farewell in ["bye", "goodbye", "thanks", "thank you"]:
+            if message.endswith(" " + farewell):
+                return True, response
+    
+    # Not a recognized farewell
+    return False, ""
+
 @router.post("/ask")
 def chatbot_response(request: Request, bot_id: int, user_id: int, user_message: str, db: Session = Depends(get_db)):
     """Processes user queries, retrieves context, and generates responses using the bot's assigned LLM model."""
@@ -100,6 +282,34 @@ def chatbot_response(request: Request, bot_id: int, user_id: int, user_message: 
         logger.error(f"Bot not found", 
                     extra={"request_id": request_id, "bot_id": bot_id})
         raise HTTPException(status_code=404, detail=f"Bot with ID {bot_id} not found")
+    
+    # ✅ Check if this is just a greeting message, to save tokens
+    is_greeting_msg, greeting_response = is_greeting(user_message)
+    if is_greeting_msg:
+        logger.info(f"Greeting detected, responding without LLM", 
+                  extra={"request_id": request_id, "bot_id": bot_id, "user_message": user_message})
+        
+        # Store conversation
+        user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
+        bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=greeting_response)
+        db.add_all([user_msg, bot_msg])
+        db.commit()
+        
+        return {"bot_reply": greeting_response}
+    
+    # ✅ Check if this is a farewell message, to save tokens
+    is_farewell_msg, farewell_response = is_farewell(user_message)
+    if is_farewell_msg:
+        logger.info(f"Farewell detected, responding without LLM", 
+                  extra={"request_id": request_id, "bot_id": bot_id, "user_message": user_message})
+        
+        # Store conversation
+        user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
+        bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=farewell_response)
+        db.add_all([user_msg, bot_msg])
+        db.commit()
+        
+        return {"bot_reply": farewell_response}
     
     use_external_knowledge = bot.external_knowledge if bot else False
     temperature = bot.temperature if bot and bot.temperature is not None else 0.7
@@ -243,6 +453,34 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
     if not bot:
         logger.error(f"Bot not found", extra={"bot_id": bot_id})
         raise HTTPException(status_code=404, detail=f"Bot with ID {bot_id} not found")
+    
+    # ✅ Check if this is just a greeting message, to save tokens
+    is_greeting_msg, greeting_response = is_greeting(user_message)
+    if is_greeting_msg:
+        logger.info(f"Greeting detected, responding without LLM", 
+                  extra={"bot_id": bot_id, "user_message": user_message})
+        
+        # Store conversation
+        user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
+        bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=greeting_response)
+        db.add_all([user_msg, bot_msg])
+        db.commit()
+        
+        return {"bot_reply": greeting_response}
+    
+    # ✅ Check if this is a farewell message, to save tokens
+    is_farewell_msg, farewell_response = is_farewell(user_message)
+    if is_farewell_msg:
+        logger.info(f"Farewell detected, responding without LLM", 
+                  extra={"bot_id": bot_id, "user_message": user_message})
+        
+        # Store conversation
+        user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
+        bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=farewell_response)
+        db.add_all([user_msg, bot_msg])
+        db.commit()
+        
+        return {"bot_reply": farewell_response}
     
     use_external_knowledge = bot.external_knowledge if bot else False
     temperature = bot.temperature if bot and bot.temperature is not None else 0.7
