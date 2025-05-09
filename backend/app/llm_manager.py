@@ -97,7 +97,7 @@ class HuggingFaceLLM:
             return truncated_prompt
         return prompt
     
-    def generate(self, context: str, user_message: str, temperature: float = 0.7) -> str:
+    def generate(self, context: str, user_message: str, temperature: float = 0.7, chat_history: str = "") -> str:
         """Generate a response using the HuggingFace model."""
         try:
             # Construct the prompt based on the type of model
@@ -107,10 +107,22 @@ class HuggingFaceLLM:
             # For chat models like Llama and Mistral
             if use_external_knowledge:
                 # If context contains instruction about external knowledge
-                prompt = f"<s>[INST] You are a helpful assistant. Answer based on the provided context, but you can use your general knowledge if needed.\n\nContext: {context}\n\nUser: {user_message} [/INST]</s>"
+                prompt = f"<s>[INST] You are a helpful assistant. Answer based on the provided context, but you can use your general knowledge if needed.\n\nContext: {context}"
+                
+                # Add chat history if available
+                if chat_history:
+                    prompt += f"{chat_history}"
+                
+                prompt += f"\n\nUser: {user_message} [/INST]</s>"
             else:
                 # Standard strict context prompt
-                prompt = f"<s>[INST] You are a helpful assistant. Only answer based on the provided context. If the context doesn't have relevant information, say you don't know.\n\nContext: {context}\n\nUser: {user_message} [/INST]</s>"
+                prompt = f"<s>[INST] You are a helpful assistant. Only answer based on the provided context. If the context doesn't have relevant information, say you don't know.\n\nContext: {context}"
+                
+                # Add chat history if available
+                if chat_history:
+                    prompt += f"{chat_history}"
+                
+                prompt += f"\n\nUser: {user_message} [/INST]</s>"
             
             # Truncate the prompt to respect token limits
             truncated_prompt = self._truncate_prompt(prompt)
@@ -361,7 +373,7 @@ class LLMManager:
             print(f"🔄 Using default HuggingFace LLM with model: {default_model}")
             return HuggingFaceLLM(default_model, huggingface_api_key, 4096, 512)
 
-    def generate(self, context: str, user_message: str, use_external_knowledge: bool = False, temperature: float = 0.7) -> str:
+    def generate(self, context: str, user_message: str, use_external_knowledge: bool = False, temperature: float = 0.7, chat_history: str = "") -> str:
         """
         Generate a response using the specified LLM.
         
@@ -370,6 +382,7 @@ class LLMManager:
             user_message (str): The user's query
             use_external_knowledge (bool): Whether to use external knowledge if context is insufficient
             temperature (float): The temperature value to control randomness in LLM responses
+            chat_history (str): The formatted chat history from previous messages
         """
         provider = self.model_info.get("provider", "").lower()
         model_name = self.model_info.get("name", "")
@@ -377,6 +390,7 @@ class LLMManager:
         print(f"🔄 Generating response with {model_name} ({provider})")
         print(f"🔍 External knowledge enabled: {use_external_knowledge}")
         print(f"🌡️ Using temperature: {temperature}")
+        print(f"💬 Chat history provided: {bool(chat_history)}")
         
         # Detect language of user message
         detected_lang = detect_language(user_message)
@@ -410,11 +424,17 @@ class LLMManager:
                     system_content += "politely say you don't have that information."
                     print("✅ Strict context mode: Will only use provided context")
                 
+                # Include chat history in user message if available
+                user_content = f"Context: {context}"
+                if chat_history:
+                    user_content += f"{chat_history}"
+                user_content += f"\nUser: {user_message}\nBot:"
+                
                 response = self.llm.chat.completions.create(
                     model=model_name,
                     messages=[
                         {"role": "system", "content": system_content},
-                        {"role": "user", "content": f"Context: {context}\nUser: {user_message}\nBot:"}
+                        {"role": "user", "content": user_content}
                     ],
                     temperature=temperature,
                     max_tokens=250
@@ -426,10 +446,16 @@ class LLMManager:
                 # Add external knowledge flag to prompt
                 if use_external_knowledge:
                     # Modify the prompt to include instructions about external knowledge
-                    enhanced_context = f"{context}\n\nIf the context above doesn't answer the question, you can use your general knowledge."
-                    return self.llm.generate(enhanced_context, user_message, temperature)
+                    enhanced_context = f"{context}"
+                    if chat_history:
+                        enhanced_context += f"{chat_history}"
+                    enhanced_context += "\n\nIf the context above doesn't answer the question, you can use your general knowledge."
+                    return self.llm.generate(enhanced_context, user_message, temperature, chat_history="")
                 else:
-                    return self.llm.generate(context, user_message, temperature)
+                    enhanced_context = context
+                    if chat_history:
+                        enhanced_context += f"{chat_history}"
+                    return self.llm.generate(enhanced_context, user_message, temperature, chat_history="")
             else:
                 raise ValueError(f"Unsupported provider: {provider}")
         except Exception as e:

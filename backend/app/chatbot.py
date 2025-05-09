@@ -32,6 +32,49 @@ YOUTUBE_REGEX = re.compile(
 # Load OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+# New function to fetch recent chat history
+def get_chat_history(db: Session, interaction_id: int, limit: int = 10):
+    """
+    Fetches the last `limit` chat messages for a given interaction,
+    ordered from oldest to newest.
+    
+    Args:
+        db: Database session
+        interaction_id: The interaction ID to fetch messages for
+        limit: Maximum number of messages to return
+        
+    Returns:
+        List of ChatMessage objects
+    """
+    chat_history = db.query(ChatMessage)\
+        .filter(ChatMessage.interaction_id == interaction_id)\
+        .order_by(ChatMessage.timestamp.asc())\
+        .limit(limit)\
+        .all()
+    
+    return chat_history
+
+# New function to format chat history into a string
+def format_chat_history(chat_messages: List[ChatMessage]) -> str:
+    """
+    Formats a list of chat messages into a string with appropriate prefixes.
+    
+    Args:
+        chat_messages: List of ChatMessage objects
+        
+    Returns:
+        Formatted chat history string
+    """
+    if not chat_messages:
+        return ""
+    
+    formatted_history = "\n\nPrevious messages:\n"
+    
+    for message in chat_messages:
+        prefix = "User: " if message.sender.lower() == "user" else "Assistant: "
+        formatted_history += f"{prefix}{message.message_text}\n"
+    
+    return formatted_history
 
 @router.post("/ask")
 def chatbot_response(request: Request, bot_id: int, user_id: int, user_message: str, db: Session = Depends(get_db)):
@@ -61,9 +104,28 @@ def chatbot_response(request: Request, bot_id: int, user_id: int, user_message: 
     use_external_knowledge = bot.external_knowledge if bot else False
     temperature = bot.temperature if bot and bot.temperature is not None else 0.7
     
+    # Get message character limit from bot settings or use default
+    message_char_limit = bot.max_words_per_message * 5 if bot and bot.max_words_per_message else 1000  # Approx 5 chars per word
+    
+    # Check if current user message exceeds character limit
+    if len(user_message) > message_char_limit:
+        logger.warning(f"User message exceeds character limit", 
+                     extra={"request_id": request_id, "bot_id": bot_id, 
+                           "message_length": len(user_message), "limit": message_char_limit})
+        raise HTTPException(status_code=400, 
+                           detail=f"Your message exceeds the maximum allowed length of {message_char_limit} characters.")
+    
     logger.debug(f"Bot settings retrieved", 
                 extra={"request_id": request_id, "bot_id": bot_id, 
                       "external_knowledge": use_external_knowledge, "temperature": temperature})
+    
+    # ✅ Retrieve recent chat history
+    chat_history = get_chat_history(db, interaction.interaction_id)
+    formatted_history = format_chat_history(chat_history)
+    
+    logger.debug(f"Retrieved chat history", 
+                extra={"request_id": request_id, "bot_id": bot_id, 
+                      "message_count": len(chat_history)})
     
     # ✅ Retrieve relevant documents from ChromaDB
     similar_docs = retrieve_similar_docs(bot_id, user_message, user_id=user_id)
@@ -101,7 +163,9 @@ def chatbot_response(request: Request, bot_id: int, user_id: int, user_message: 
                           "external_knowledge": use_external_knowledge})
         
         llm = LLMManager(bot_id=bot_id, user_id=user_id)
-        bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, temperature=temperature)
+        # Pass the formatted history to the LLM
+        bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, 
+                                temperature=temperature, chat_history=formatted_history)
         
         logger.info(f"Generated response successfully", 
                    extra={"request_id": request_id, "bot_id": bot_id, 
@@ -183,9 +247,26 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
     use_external_knowledge = bot.external_knowledge if bot else False
     temperature = bot.temperature if bot and bot.temperature is not None else 0.7
     
+    # Get message character limit from bot settings or use default
+    message_char_limit = bot.max_words_per_message * 5 if bot and bot.max_words_per_message else 1000  # Approx 5 chars per word
+    
+    # Check if current user message exceeds character limit
+    if len(user_message) > message_char_limit:
+        logger.warning(f"User message exceeds character limit", 
+                     extra={"bot_id": bot_id, "message_length": len(user_message), 
+                           "limit": message_char_limit})
+        return {"bot_reply": f"Your message exceeds the maximum allowed length of {message_char_limit} characters."}
+    
     logger.debug(f"Bot settings", 
                 extra={"bot_id": bot_id, "external_knowledge": use_external_knowledge, 
                       "temperature": temperature})
+    
+    # Retrieve chat history for the current interaction
+    chat_history = get_chat_history(db, interaction.interaction_id)
+    formatted_history = format_chat_history(chat_history)
+    
+    logger.debug(f"Retrieved chat history", 
+                extra={"bot_id": bot_id, "message_count": len(chat_history)})
     
     # Retrieve relevant context
     similar_docs = retrieve_similar_docs(bot_id, user_message, user_id=user_id)
@@ -213,7 +294,9 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
                     extra={"bot_id": bot_id, "external_knowledge": use_external_knowledge})
         
         llm = LLMManager(bot_id=bot_id, user_id=user_id)
-        bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, temperature=temperature)
+        # Pass the formatted history to the LLM
+        bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, 
+                               temperature=temperature, chat_history=formatted_history)
         
         logger.info(f"Generated response successfully", 
                    extra={"bot_id": bot_id, "response_length": len(bot_reply) if bot_reply else 0})
