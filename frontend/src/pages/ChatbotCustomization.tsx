@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Type, Move, MessageSquare, Palette, Sliders } from "lucide-react";
+import { Type, Move, MessageSquare, Palette, Sliders, X, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { BotSettings } from "../types";
 import { authApi } from "../services/api";
@@ -217,6 +217,8 @@ export const ChatbotCustomization = () => {
     borderRadius: "50%",
     objectFit: "cover",
   };
+
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     interactionIdRef.current = interactionId;
@@ -1045,7 +1047,7 @@ export const ChatbotCustomization = () => {
       </div>
       <ToastContainer position="top-right" autoClose={3000} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Settings Panel */}
         <div className="space-y-6">
           {sections.map((section) => (
@@ -1092,11 +1094,11 @@ export const ChatbotCustomization = () => {
                     )}
                     {field.type === "select" ? (
                       <select
-                        value={field.value}
-                        onChange={field.onChange}
+                        value={field.value as string}
+                        onChange={field.onChange as React.ChangeEventHandler<HTMLSelectElement>}
                         className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
                       >
-                        {field.options?.map((option) => (
+                        {(field as any).options?.map((option: string) => (
                           <option key={option} value={option}>
                             {option}
                           </option>
@@ -1106,11 +1108,11 @@ export const ChatbotCustomization = () => {
                       <div className="relative w-full">
                         <input
                           type="range"
-                          min={field.min}
-                          max={field.max}
-                          step={field.step}
-                          value={field.value}
-                          onChange={field.onChange}
+                          min={(field as any).min}
+                          max={(field as any).max}
+                          step={(field as any).step}
+                          value={field.value as number}
+                          onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
                           className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
                         />
                         <span
@@ -1118,8 +1120,8 @@ export const ChatbotCustomization = () => {
                             position: "absolute",
                             top: "-20px",
                             left: `calc(${
-                              ((field.value - field.min) /
-                                (field.max - field.min)) *
+                              (((field.value as number) - (field as any).min) /
+                                ((field as any).max - (field as any).min)) *
                               100
                             }% - 10px)`,
                             transform: "translateX(-50%)",
@@ -1133,11 +1135,11 @@ export const ChatbotCustomization = () => {
                       <div className="relative">
                         <input
                           type={field.type}
-                          value={field.value}
-                          min={field.min}
-                          max={field.max}
-                          accept={field.accept}
-                          onChange={field.onChange}
+                          value={field.value as string}
+                          min={(field as any).min}
+                          max={(field as any).max}
+                          accept={(field as any).accept}
+                          onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
                           onBlur={() => {
                             // Check if value is empty when losing focus
                             if (
@@ -1171,222 +1173,217 @@ export const ChatbotCustomization = () => {
             </div>
           ))}
         </div>
+      </div>
 
-        {/* Preview Panel */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 sticky top-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Preview
-            </h2>
-            <div className="flex flex-col space-y-1 text-sm bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg">
-              <div className="font-medium flex justify-between">
-                <span>Total Messages:</span>
-                <span>
-                  {messageUsage.totalUsed} / {totalMessageLimit}
-                </span>
-              </div>
+      {/* Floating Preview Toggle Button */}
+      <button
+        onClick={() => setShowPreview(!showPreview)}
+        className={`fixed ${settings.position === 'bottom-right' ? 'bottom-6 right-6' : 
+                          settings.position === 'bottom-left' ? 'bottom-6 left-6' : 
+                          'top-6 right-6'} 
+                  p-3 rounded-full shadow-lg z-50 transition-transform duration-300 ease-in-out
+                  ${showPreview ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
+        style={{ backgroundColor: settings.botColor }}
+      >
+        <MessageCircle className="w-6 h-6 text-white" />
+      </button>
 
-              <div className="flex justify-between text-xs">
-                <span>Base Plan:</span>
-                <span
-                  className={
-                    messageUsage.baseRemaining <= 0 ? "text-red-500" : ""
-                  }
+      {/* Popup Preview Panel */}
+      {showPreview && (
+        <div className={`fixed ${settings.position === 'bottom-right' ? 'bottom-6 right-6' : 
+                               settings.position === 'bottom-left' ? 'bottom-6 left-6' : 
+                               'top-6 right-6'} 
+                       z-50 transition-all duration-300 ease-in-out
+                       ${settings.appearance === 'Popup' ? 'w-[380px] h-[600px]' : 'w-full h-full'}`}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl flex flex-col h-full">
+            {/* Preview Header */}
+            <div className="flex justify-between items-center p-4 border-b dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Preview
+              </h2>
+              <div className="flex items-center space-x-4">
+                <div className="flex flex-col space-y-1 text-sm bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg">
+                  <div className="font-medium">
+                    <span>Msgs: {messageUsage.totalUsed}/{totalMessageLimit}</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowPreview(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 >
-                  {messageUsage.baseUsed}/{baseMessageLimit}
-                  {messageUsage.baseRemaining > 0 && (
-                    <span className="text-green-500 ml-1">
-                      ({messageUsage.baseRemaining} left)
-                    </span>
-                  )}
-                </span>
+                  <X className="w-5 h-5" />
+                </button>
               </div>
+            </div>
 
-              {addonMessageLimit > 0 && (
-                <div className="flex justify-between text-xs">
-                  <span>Addon Messages:</span>
-                  <span
-                    className={
-                      messageUsage.addonRemaining <= 0 ? "text-red-500" : ""
-                    }
-                  >
-                    {messageUsage.addonUsed}/{addonMessageLimit}
-                    {messageUsage.addonRemaining > 0 && (
-                      <span className="text-green-500 ml-1">
-                        ({messageUsage.addonRemaining} left)
-                      </span>
+            {/* Chat Window */}
+            <div
+              ref={chatContainerRef}
+              className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 flex-grow overflow-y-auto flex flex-col"
+              style={{
+                backgroundColor: settings.windowBgColor,
+              }}
+            >
+              {/* Bot Header */}
+              <div style={headerStyle}>
+                {settings.icon && (
+                  <img src={settings.icon} alt="Bot Icon" style={iconStyle} />
+                )}
+                <strong>{settings.name}</strong>
+              </div>
+              <div className="flex-1"></div>
+              {messages.length > 0 ? (
+                messages.map((msg, index) => (
+                  <div key={index} className="mb-4">
+                    {/* Message Bubble */}
+                    <div
+                      className={`p-3 rounded-lg max-w-[80%] ${
+                        msg.sender === "user"
+                          ? "ml-auto bg-blue-500 text-white"
+                          : "mr-auto bg-gray-300 text-gray-900"
+                      }`}
+                      style={{
+                        backgroundColor:
+                          msg.sender === "user"
+                            ? settings.userColor
+                            : settings.botColor,
+                        fontSize: settings.fontSize,
+                        fontFamily: settings.fontStyle,
+                      }}
+                    >
+                      <div>{msg.text}</div>
+                    </div>
+
+                    {/* Reaction Buttons BELOW the bubble, only for bot */}
+                    {msg.sender === "bot" && (
+                      <div className="flex gap-2 mt-1 ml-2">
+                        <button
+                          onClick={() => handleReaction("like", index)}
+                          className={`p-1 rounded-full transition-colors ${
+                            msg.reaction === "like"
+                              ? "text-green-500 fill-green-500"
+                              : "text-gray-500 hover:text-gray-700"
+                          }`}
+                        >
+                          <ThumbsUp className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleReaction("dislike", index)}
+                          className={`p-1 rounded-full transition-colors ${
+                            msg.reaction === "dislike"
+                              ? "text-red-500 fill-red-500"
+                              : "text-gray-500 hover:text-gray-700"
+                          }`}
+                        >
+                          <ThumbsDown className="w-4 h-4" />
+                        </button>
+                      </div>
                     )}
+                  </div>
+                ))
+              ) : (
+                <div
+                  className="mr-auto p-3 rounded-lg max-w-[80%] bg-gray-300 text-gray-900"
+                  style={{
+                    backgroundColor: settings.botColor,
+                    fontSize: settings.fontSize,
+                    fontFamily: settings.fontStyle,
+                  }}
+                >
+                  {settings.welcomeMessage}
+                </div>
+              )}
+              {previewLoading && !isBotTyping && (
+                <div className="mr-auto bg-gray-300 text-gray-900 p-3 rounded-lg max-w-[80%]">
+                  <span className="animate-pulse">...</span>
+                </div>
+              )}
+              {isBotTyping && (
+                <div
+                  className="mr-auto rounded-lg max-w-[80%] p-3"
+                  style={{
+                    backgroundColor: settings.botColor,
+                    fontSize: settings.fontSize,
+                    fontFamily: settings.fontStyle,
+                  }}
+                >
+                  {currentBotMessage}
+                  <span className="inline-flex items-center ml-1">
+                    <span
+                      className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce"
+                      style={{ animationDelay: "0ms" }}
+                    ></span>
+                    <span
+                      className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce"
+                      style={{ animationDelay: "200ms" }}
+                    ></span>
+                    <span
+                      className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce"
+                      style={{ animationDelay: "400ms" }}
+                    ></span>
                   </span>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Chat Window */}
-          <div
-            ref={chatContainerRef}
-            className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 h-[1050px] overflow-y-auto flex flex-col"
-            style={{
-              backgroundColor: settings.windowBgColor,
-            }}
-          >
-            {/* Bot Header */}
-            <div style={headerStyle}>
-              {settings.icon && (
-                <img src={settings.icon} alt="Bot Icon" style={iconStyle} />
-              )}
-              <strong>{settings.name}</strong>
-            </div>
-            <div className="flex-1"></div>
-            {messages.length > 0 ? (
-              messages.map((msg, index) => (
-                <div key={index} className="mb-4">
-                  {/* Message Bubble */}
-                  <div
-                    className={`p-3 rounded-lg max-w-[80%] ${
-                      msg.sender === "user"
-                        ? "ml-auto bg-blue-500 text-white"
-                        : "mr-auto bg-gray-300 text-gray-900"
-                    }`}
-                    style={{
-                      backgroundColor:
-                        msg.sender === "user"
-                          ? settings.userColor
-                          : settings.botColor,
-                      fontSize: settings.fontSize,
-                      fontFamily: settings.fontStyle,
-                    }}
-                  >
-                    <div>{msg.text}</div>
-                  </div>
-
-                  {/* Reaction Buttons BELOW the bubble, only for bot */}
-                  {msg.sender === "bot" && (
-                    <div className="flex gap-2 mt-1 ml-2">
-                      <button
-                        onClick={() => handleReaction("like", index)}
-                        className={`p-1 rounded-full transition-colors ${
-                          msg.reaction === "like"
-                            ? "text-green-500 fill-green-500"
-                            : "text-gray-500 hover:text-gray-700"
-                        }`}
-                      >
-                        <ThumbsUp className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleReaction("dislike", index)}
-                        className={`p-1 rounded-full transition-colors ${
-                          msg.reaction === "dislike"
-                            ? "text-red-500 fill-red-500"
-                            : "text-gray-500 hover:text-gray-700"
-                        }`}
-                      >
-                        <ThumbsDown className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
+            {/* Chat Input */}
+            <div className="p-4 border-t dark:border-gray-700">
+              <div className="flex items-center">
+                <input
+                  type="text"
+                  className="flex-grow p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-black"
+                  style={{
+                    backgroundColor: settings.inputBgColor,
+                  }}
+                  placeholder={
+                    !canSendMessage()
+                      ? "We are facing technical issue. Kindly reach out to website admin for assistance"
+                      : "Type a message..."
+                  }
+                  value={inputMessage}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setInputMessage(value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === "Enter" &&
+                      inputMessage.trim() &&
+                      canSendMessage() &&
+                      !waitingForBotResponse &&
+                      !isBotTyping &&
+                      !previewLoading
+                    ) {
+                      sendMessage();
+                    }
+                  }}
+                  disabled={!canSendMessage()}
+                />
+                <button
+                  className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed"
+                  onClick={sendMessage}
+                  disabled={
+                    !inputMessage.trim() ||
+                    !canSendMessage() ||
+                    waitingForBotResponse ||
+                    isBotTyping ||
+                    previewLoading ||
+                    inputMessage.length > MAX_USER_MESSAGE_LENGTH
+                  }
+                >
+                  Send
+                </button>
+              </div>
+              {/* Show warning if max length reached */}
+              {inputMessage.length >= MAX_USER_MESSAGE_LENGTH && (
+                <div className="text-xs text-red-500 mt-1">
+                  You have reached the maximum allowed characters of 1000.
                 </div>
-              ))
-            ) : (
-              <div
-                className="mr-auto p-3 rounded-lg max-w-[80%] bg-gray-300 text-gray-900"
-                style={{
-                  backgroundColor: settings.botColor,
-                  fontSize: settings.fontSize,
-                  fontFamily: settings.fontStyle,
-                }}
-              >
-                {settings.welcomeMessage}
-              </div>
-            )}
-            {previewLoading && !isBotTyping && (
-              <div className="mr-auto bg-gray-300 text-gray-900 p-3 rounded-lg max-w-[80%]">
-                <span className="animate-pulse">...</span>
-              </div>
-            )}
-            {isBotTyping && (
-              <div
-                className="mr-auto rounded-lg max-w-[80%] p-3"
-                style={{
-                  backgroundColor: settings.botColor,
-                  fontSize: settings.fontSize,
-                  fontFamily: settings.fontStyle,
-                }}
-              >
-                {currentBotMessage}
-                <span className="inline-flex items-center ml-1">
-                  <span
-                    className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce"
-                    style={{ animationDelay: "0ms" }}
-                  ></span>
-                  <span
-                    className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce"
-                    style={{ animationDelay: "200ms" }}
-                  ></span>
-                  <span
-                    className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce"
-                    style={{ animationDelay: "400ms" }}
-                  ></span>
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Chat Input */}
-          <div className="mt-4 flex items-center">
-            <input
-              type="text"
-              className="flex-grow p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-black"
-              style={{
-                backgroundColor: settings.inputBgColor,
-              }}
-              placeholder={
-                !canSendMessage()
-                  ? "We are facing technical issue. Kindly reach out to website admin for assistance"
-                  : "Type a message..."
-              }
-              value={inputMessage}
-              onChange={(e) => {
-                const value = e.target.value;
-                setInputMessage(value);
-              }}
-              onKeyDown={(e) => {
-                if (
-                  e.key === "Enter" &&
-                  inputMessage.trim() &&
-                  canSendMessage() &&
-                  !waitingForBotResponse &&
-                  !isBotTyping &&
-                  !previewLoading
-                ) {
-                  sendMessage();
-                }
-              }}
-              disabled={!canSendMessage()}
-            />
-            <button
-              className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed"
-              onClick={sendMessage}
-              disabled={
-                !inputMessage.trim() ||
-                !canSendMessage() ||
-                waitingForBotResponse ||
-                isBotTyping ||
-                previewLoading ||
-                inputMessage.length > MAX_USER_MESSAGE_LENGTH
-              }
-            >
-              Send
-            </button>
-          </div>
-          {/* Show warning if max length reached */}
-          {inputMessage.length >= MAX_USER_MESSAGE_LENGTH && (
-            <div className="text-xs text-red-500 mt-1">
-              You have reached the maximum allowed characters of 1000.
+              )}
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
