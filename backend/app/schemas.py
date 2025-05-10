@@ -118,6 +118,17 @@ class BotBase(BaseModel):
     window_bg_color: Optional[str] = "#F9FAFB"
     welcome_message: Optional[str] = "Hi there! How can I help you today?"
     input_bg_color: Optional[str] = "#FFFFFF"
+    # New customization fields
+    header_bg_color: Optional[str] = "#3B82F6"
+    header_text_color: Optional[str] = "#FFFFFF"
+    chat_text_color: Optional[str] = "#1F2937"
+    user_text_color: Optional[str] = "#FFFFFF"
+    button_color: Optional[str] = "#3B82F6"
+    button_text_color: Optional[str] = "#FFFFFF"
+    timestamp_color: Optional[str] = "#9CA3AF"
+    border_radius: Optional[str] = "12px"
+    border_color: Optional[str] = "#E5E7EB"
+    chat_font_family: Optional[str] = "Inter"
 
 class BotCreate(BotBase):
     pass  

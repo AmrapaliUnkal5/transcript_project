@@ -95,6 +95,17 @@ class Bot(Base):
     welcome_message = Column(Text, nullable=True, default="Hi there! How can I help you today?")
     input_bg_color = Column(String, nullable=True, default="#FFFFFF")
     file_size = Column(BigInteger, default=0)
+    # New customization fields
+    header_bg_color = Column(String, nullable=True, default="#3B82F6")
+    header_text_color = Column(String, nullable=True, default="#FFFFFF")
+    chat_text_color = Column(String, nullable=True, default="#1F2937")
+    user_text_color = Column(String, nullable=True, default="#FFFFFF")
+    button_color = Column(String, nullable=True, default="#3B82F6")
+    button_text_color = Column(String, nullable=True, default="#FFFFFF")
+    timestamp_color = Column(String, nullable=True, default="#9CA3AF")
+    border_radius = Column(String, nullable=True, default="12px")
+    border_color = Column(String, nullable=True, default="#E5E7EB")
+    chat_font_family = Column(String, nullable=True, default="Inter")
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")

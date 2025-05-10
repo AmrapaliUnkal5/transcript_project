@@ -131,6 +131,17 @@ export interface BotSettingsData {
   window_bg_color: string;
   welcome_message: string;
   input_bg_color: string;
+  // New customization fields
+  header_bg_color?: string;
+  header_text_color?: string;
+  chat_text_color?: string;
+  user_text_color?: string;
+  button_color?: string;
+  button_text_color?: string;
+  timestamp_color?: string;
+  border_radius?: string;
+  border_color?: string;
+  chat_font_family?: string;
 }
 
 export interface uploadAvatar {

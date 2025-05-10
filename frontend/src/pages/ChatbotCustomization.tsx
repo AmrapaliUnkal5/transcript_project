@@ -57,6 +57,17 @@ const saveBotSettings = async (
     window_bg_color: settings.windowBgColor,
     welcome_message: settings.welcomeMessage,
     input_bg_color: settings.inputBgColor,
+    // Add new customization fields
+    header_bg_color: settings.headerBgColor,
+    header_text_color: settings.headerTextColor,
+    chat_text_color: settings.chatTextColor,
+    user_text_color: settings.userTextColor,
+    button_color: settings.buttonColor,
+    button_text_color: settings.buttonTextColor,
+    timestamp_color: settings.timestampColor,
+    border_radius: settings.borderRadius,
+    border_color: settings.borderColor,
+    chat_font_family: settings.chatFontFamily
   };
 
   try {
@@ -96,6 +107,17 @@ const updateBotSettings = async (
     window_bg_color: settings.windowBgColor,
     welcome_message: settings.welcomeMessage,
     input_bg_color: settings.inputBgColor,
+    // Add new customization fields
+    header_bg_color: settings.headerBgColor,
+    header_text_color: settings.headerTextColor,
+    chat_text_color: settings.chatTextColor,
+    user_text_color: settings.userTextColor,
+    button_color: settings.buttonColor,
+    button_text_color: settings.buttonTextColor,
+    timestamp_color: settings.timestampColor,
+    border_radius: settings.borderRadius,
+    border_color: settings.borderColor,
+    chat_font_family: settings.chatFontFamily
   };
 
   try {
@@ -113,6 +135,33 @@ const updateBotSettings = async (
     setLoading(false);
   }
 };
+
+export interface BotSettings {
+  name: string;
+  icon: string;
+  fontSize: string;
+  fontStyle: string;
+  position: string;
+  maxMessageLength: number;
+  botColor: string;
+  userColor: string;
+  appearance: string;
+  temperature: number;
+  windowBgColor: string;
+  welcomeMessage: string;
+  inputBgColor: string;
+  // New customization fields
+  headerBgColor: string;
+  headerTextColor: string;
+  chatTextColor: string;
+  userTextColor: string;
+  buttonColor: string;
+  buttonTextColor: string;
+  timestampColor: string;
+  borderRadius: string;
+  borderColor: string;
+  chatFontFamily: string;
+}
 
 export const ChatbotCustomization = () => {
   const { loading, setLoading } = useLoader();
@@ -196,18 +245,31 @@ export const ChatbotCustomization = () => {
     windowBgColor: "#F9FAFB",
     welcomeMessage: "Hi there! How can I help you today?",
     inputBgColor: "#FFFFFF",
+    // New customization defaults
+    headerBgColor: "#3B82F6",
+    headerTextColor: "#FFFFFF",
+    chatTextColor: "#1F2937",
+    userTextColor: "#FFFFFF",
+    buttonColor: "#3B82F6",
+    buttonTextColor: "#FFFFFF",
+    timestampColor: "#9CA3AF",
+    borderRadius: "12px",
+    borderColor: "#E5E7EB",
+    chatFontFamily: "Inter"
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
   const [botId, setBotId] = useState<number | null>(null);
   const [waitingForBotResponse, setWaitingForBotResponse] = useState(false);
   const headerStyle: React.CSSProperties = {
-    backgroundColor: settings.botColor || "#007bff",
-    color: "#fff",
+    backgroundColor: settings.headerBgColor || "#007bff",
+    color: settings.headerTextColor || "#fff",
     padding: "10px",
     display: "flex",
     alignItems: "center",
     gap: "10px",
+    borderTopLeftRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
+    borderTopRightRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius
   };
   const [errors, setErrors] = useState<{ maxMessageLength?: string }>({});
   const MAX_USER_MESSAGE_LENGTH = 1000;
@@ -322,6 +384,17 @@ export const ChatbotCustomization = () => {
             welcomeMessage:
               response.welcome_message || "Hi there! How can I help you today?",
             inputBgColor: response.input_bg_color || "#FFFFFF",
+            // Load the new customization fields
+            headerBgColor: response.header_bg_color || "#3B82F6",
+            headerTextColor: response.header_text_color || "#FFFFFF",
+            chatTextColor: response.chat_text_color || "#1F2937",
+            userTextColor: response.user_text_color || "#FFFFFF",
+            buttonColor: response.button_color || "#3B82F6",
+            buttonTextColor: response.button_text_color || "#FFFFFF",
+            timestampColor: response.timestamp_color || "#9CA3AF",
+            borderRadius: response.border_radius || "12px",
+            borderColor: response.border_color || "#E5E7EB",
+            chatFontFamily: response.chat_font_family || "Inter"
           });
         }
       } catch (error) {
@@ -819,6 +892,7 @@ export const ChatbotCustomization = () => {
     { id: "identity", label: "Bot Identity", icon: MessageSquare },
     { id: "typography", label: "Typography", icon: Type },
     { id: "colors", label: "Colors", icon: Palette },
+    { id: "layout", label: "Layout", icon: Move },
     { id: "behavior", label: "Behavior", icon: Sliders },
   ];
 
@@ -827,11 +901,19 @@ export const ChatbotCustomization = () => {
       case "identity":
         return sections.filter(s => s.title === "Bot Identity");
       case "typography":
-        return sections.filter(s => s.title === "Typography");
+        return [
+          ...sections.filter(s => s.title === "Typography"),
+          ...sections.filter(s => s.title === "Typography Advanced")
+        ];
       case "colors":
         return [
-          ...sections.filter(s => s.title === "Message Settings"),
-          ...sections.filter(s => s.title === "Window Appearance")
+          ...sections.filter(s => s.title === "Message Colors"),
+          ...sections.filter(s => s.title === "Interface Colors")
+        ];
+      case "layout":
+        return [
+          ...sections.filter(s => s.title === "Window Appearance"),
+          ...sections.filter(s => s.title === "Layout & Borders")
         ];
       case "behavior":
         return sections.filter(s => s.title === "Chat Interface Behavior");
@@ -858,86 +940,6 @@ export const ChatbotCustomization = () => {
           accept: "image/*",
           onChange: handleFileChange,
         },
-      ],
-    },
-    {
-      title: "Typography",
-      icon: Type,
-      fields: [
-        {
-          label: "Font Size",
-          type: "select",
-          value: settings.fontSize,
-          options: ["12px", "14px", "16px", "18px"],
-          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-            handleChange("fontSize", e.target.value),
-        },
-        {
-          label: "Font Style",
-          type: "select",
-          value: settings.fontStyle,
-          options: ["Inter", "Roboto", "Open Sans", "Lato"],
-          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-            handleChange("fontStyle", e.target.value),
-        },
-      ],
-    },
-
-    {
-      title: "Message Settings",
-      icon: Palette,
-      fields: [
-        // {
-        //   label: "Maximum User Message Length",
-        //   type: "number",
-        //   min: 10,
-        //   max: 1000,
-        //   value: settings.maxMessageLength ?? 200, // default to 200 if undefined
-        //   onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-        //     const raw = e.target.value;
-        //     setErrors((prev) => ({
-        //       ...prev,
-        //       maxMessageLength: "", // clear the error when deleting input
-        //     }));
-
-        //     // Allow deleting to empty string
-        //     if (raw === "") {
-        //       setSettings((prev) => ({
-        //         ...prev,
-        //         maxMessageLength: "" as any, // temporary empty state
-        //       }));
-        //       return;
-        //     }
-
-        //     const num = parseInt(raw);
-        //     if (!isNaN(num) && num <= 1000) {
-        //       setSettings((prev) => ({
-        //         ...prev,
-        //         maxMessageLength: num,
-        //       }));
-        //     }
-        //   },
-        // },
-        {
-          label: "Bot Message Color",
-          type: "color",
-          value: settings.botColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("botColor", e.target.value),
-        },
-        {
-          label: "User Message Color",
-          type: "color",
-          value: settings.userColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("userColor", e.target.value),
-        },
-      ],
-    },
-    {
-      title: "Window Appearance",
-      icon: Palette,
-      fields: [
         {
           label: "Welcome Message",
           type: "text",
@@ -945,6 +947,137 @@ export const ChatbotCustomization = () => {
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
             handleChange("welcomeMessage", e.target.value),
         },
+      ],
+    },
+    {
+      title: "Typography",
+      icon: Type,
+      fields: [
+        {
+          label: "UI Font Family",
+          type: "select",
+          value: settings.fontStyle,
+          options: ["Inter", "Roboto", "Open Sans", "Lato", "Poppins", "Montserrat"],
+          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
+            handleChange("fontStyle", e.target.value),
+        },
+        {
+          label: "Font Size",
+          type: "select",
+          value: settings.fontSize,
+          options: ["12px", "14px", "16px", "18px", "20px"],
+          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
+            handleChange("fontSize", e.target.value),
+        }
+      ],
+    },
+    {
+      title: "Typography Advanced",
+      icon: Type,
+      fields: [
+        {
+          label: "Chat Messages Font",
+          type: "select",
+          value: settings.chatFontFamily,
+          options: ["Inter", "Roboto", "Open Sans", "Lato", "Poppins", "Montserrat", "System Default"],
+          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
+            handleChange("chatFontFamily", e.target.value),
+        }
+      ],
+    },
+    {
+      title: "Message Colors",
+      icon: Palette,
+      fields: [
+        {
+          label: "Bot Message Background",
+          type: "color",
+          value: settings.botColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("botColor", e.target.value),
+        },
+        {
+          label: "Bot Message Text",
+          type: "color",
+          value: settings.chatTextColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("chatTextColor", e.target.value),
+        },
+        {
+          label: "User Message Background",
+          type: "color",
+          value: settings.userColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("userColor", e.target.value),
+        },
+        {
+          label: "User Message Text",
+          type: "color",
+          value: settings.userTextColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("userTextColor", e.target.value),
+        },
+        {
+          label: "Timestamp Color",
+          type: "color",
+          value: settings.timestampColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("timestampColor", e.target.value),
+        },
+      ],
+    },
+    {
+      title: "Interface Colors",
+      icon: Palette,
+      fields: [
+        {
+          label: "Window Background",
+          type: "color",
+          value: settings.windowBgColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("windowBgColor", e.target.value),
+        },
+        {
+          label: "Input Box Background",
+          type: "color",
+          value: settings.inputBgColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("inputBgColor", e.target.value),
+        },
+        {
+          label: "Header Background",
+          type: "color",
+          value: settings.headerBgColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("headerBgColor", e.target.value),
+        },
+        {
+          label: "Header Text Color",
+          type: "color",
+          value: settings.headerTextColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("headerTextColor", e.target.value),
+        },
+        {
+          label: "Button Color",
+          type: "color",
+          value: settings.buttonColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("buttonColor", e.target.value),
+        },
+        {
+          label: "Button Text Color",
+          type: "color",
+          value: settings.buttonTextColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("buttonTextColor", e.target.value),
+        },
+      ],
+    },
+    {
+      title: "Window Appearance",
+      icon: Palette,
+      fields: [
         {
           label: "Window Background Color",
           type: "color",
@@ -962,6 +1095,27 @@ export const ChatbotCustomization = () => {
       ],
     },
     {
+      title: "Layout & Borders",
+      icon: Move,
+      fields: [
+        {
+          label: "Border Radius",
+          type: "select",
+          value: settings.borderRadius,
+          options: ["0px", "4px", "8px", "12px", "16px", "20px", "24px", "rounded-full"],
+          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
+            handleChange("borderRadius", e.target.value),
+        },
+        {
+          label: "Border Color",
+          type: "color",
+          value: settings.borderColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("borderColor", e.target.value),
+        },
+      ],
+    },
+    {
       title: "Chat Interface Behavior",
       icon: Sliders,
       fields: [
@@ -969,7 +1123,6 @@ export const ChatbotCustomization = () => {
           label: "Chatbot Position",
           type: "select",
           value: settings.position,
-          //options: ["top-left", "top-right", "bottom-left", "bottom-right"],
           options: ["bottom-left", "bottom-right", "top-right"],
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("position", e.target.value),
@@ -982,7 +1135,6 @@ export const ChatbotCustomization = () => {
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("appearance", e.target.value),
         },
-
         {
           label: "Model Temperature",
           type: "slider",
@@ -1307,21 +1459,31 @@ export const ChatbotCustomization = () => {
                                'top-6 right-6'} 
                        z-50 transition-all duration-300 ease-in-out
                        ${settings.appearance === 'Popup' ? 'w-[380px] h-[600px]' : 'w-full h-full'}`}>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl flex flex-col h-full">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl flex flex-col h-full overflow-hidden"
+              style={{ 
+                borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
+                border: `1px solid ${settings.borderColor}`
+              }}>
             {/* Preview Header */}
-            <div className="flex justify-between items-center p-4 border-b dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <div className="flex justify-between items-center p-4 border-b dark:border-gray-700"
+                 style={{ 
+                   backgroundColor: settings.headerBgColor,
+                   color: settings.headerTextColor
+                 }}>
+              <h2 className="text-lg font-semibold"
+                  style={{ color: settings.headerTextColor }}>
                 Preview
               </h2>
               <div className="flex items-center space-x-4">
-                <div className="flex flex-col space-y-1 text-sm bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg">
-                  <div className="font-medium">
+                <div className="flex flex-col space-y-1 text-sm bg-opacity-20 bg-white px-3 py-2 rounded-lg">
+                  <div className="font-medium" style={{ color: settings.headerTextColor }}>
                     <span>Msgs: {messageUsage.totalUsed}/{totalMessageLimit}</span>
                   </div>
                 </div>
                 <button 
                   onClick={() => setShowPreview(false)}
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  style={{ color: settings.headerTextColor }}
+                  className="hover:opacity-75"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1331,9 +1493,10 @@ export const ChatbotCustomization = () => {
             {/* Chat Window */}
             <div
               ref={chatContainerRef}
-              className="relative bg-gray-100 dark:bg-gray-700 rounded-lg p-4 flex-grow overflow-y-auto flex flex-col"
+              className="relative rounded-lg p-4 flex-grow overflow-y-auto flex flex-col"
               style={{
                 backgroundColor: settings.windowBgColor,
+                fontFamily: settings.chatFontFamily || settings.fontStyle,
               }}
             >
               {/* Bot Header */}
@@ -1341,7 +1504,7 @@ export const ChatbotCustomization = () => {
                 {settings.icon && (
                   <img src={settings.icon} alt="Bot Icon" style={iconStyle} />
                 )}
-                <strong>{settings.name}</strong>
+                <strong style={{ color: settings.headerTextColor }}>{settings.name}</strong>
               </div>
               <div className="flex-1"></div>
               {messages.length > 0 ? (
@@ -1351,19 +1514,27 @@ export const ChatbotCustomization = () => {
                     <div
                       className={`p-3 rounded-lg max-w-[80%] ${
                         msg.sender === "user"
-                          ? "ml-auto bg-blue-500 text-white"
-                          : "mr-auto bg-gray-300 text-gray-900"
+                          ? "ml-auto"
+                          : "mr-auto"
                       }`}
                       style={{
                         backgroundColor:
                           msg.sender === "user"
                             ? settings.userColor
                             : settings.botColor,
+                        color: 
+                          msg.sender === "user"
+                            ? settings.userTextColor
+                            : settings.chatTextColor,
                         fontSize: settings.fontSize,
-                        fontFamily: settings.fontStyle,
+                        fontFamily: settings.chatFontFamily || settings.fontStyle,
+                        borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
                       }}
                     >
                       <div>{msg.text}</div>
+                      <div className="text-xs mt-1 text-right" style={{ color: settings.timestampColor }}>
+                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
                     </div>
 
                     {/* Reaction Buttons BELOW the bubble, only for bot */}
@@ -1395,18 +1566,28 @@ export const ChatbotCustomization = () => {
                 ))
               ) : (
                 <div
-                  className="mr-auto p-3 rounded-lg max-w-[80%] bg-gray-300 text-gray-900"
+                  className="mr-auto p-3 rounded-lg max-w-[80%]"
                   style={{
                     backgroundColor: settings.botColor,
+                    color: settings.chatTextColor,
                     fontSize: settings.fontSize,
-                    fontFamily: settings.fontStyle,
+                    fontFamily: settings.chatFontFamily || settings.fontStyle,
+                    borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
                   }}
                 >
                   {settings.welcomeMessage}
+                  <div className="text-xs mt-1 text-right" style={{ color: settings.timestampColor }}>
+                    {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
               )}
               {previewLoading && !isBotTyping && (
-                <div className="mr-auto bg-gray-300 text-gray-900 p-3 rounded-lg max-w-[80%]">
+                <div className="mr-auto p-3 rounded-lg max-w-[80%]"
+                style={{
+                  backgroundColor: settings.botColor,
+                  color: settings.chatTextColor,
+                  borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
+                }}>
                   <span className="animate-pulse">...</span>
                 </div>
               )}
@@ -1415,23 +1596,34 @@ export const ChatbotCustomization = () => {
                   className="mr-auto rounded-lg max-w-[80%] p-3"
                   style={{
                     backgroundColor: settings.botColor,
+                    color: settings.chatTextColor,
                     fontSize: settings.fontSize,
-                    fontFamily: settings.fontStyle,
+                    fontFamily: settings.chatFontFamily || settings.fontStyle,
+                    borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
                   }}
                 >
                   {currentBotMessage}
                   <span className="inline-flex items-center ml-1">
                     <span
-                      className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce"
-                      style={{ animationDelay: "0ms" }}
+                      className="h-1.5 w-1.5 rounded-full mx-0.5 animate-bounce"
+                      style={{ 
+                        backgroundColor: settings.chatTextColor,
+                        animationDelay: "0ms" 
+                      }}
                     ></span>
                     <span
-                      className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce"
-                      style={{ animationDelay: "200ms" }}
+                      className="h-1.5 w-1.5 rounded-full mx-0.5 animate-bounce"
+                      style={{ 
+                        backgroundColor: settings.chatTextColor,
+                        animationDelay: "200ms" 
+                      }}
                     ></span>
                     <span
-                      className="h-1.5 w-1.5 bg-gray-600 rounded-full mx-0.5 animate-bounce"
-                      style={{ animationDelay: "400ms" }}
+                      className="h-1.5 w-1.5 rounded-full mx-0.5 animate-bounce"
+                      style={{ 
+                        backgroundColor: settings.chatTextColor,
+                        animationDelay: "400ms" 
+                      }}
                     ></span>
                   </span>
                 </div>
@@ -1439,13 +1631,17 @@ export const ChatbotCustomization = () => {
             </div>
 
             {/* Chat Input */}
-            <div className="p-4 border-t dark:border-gray-700">
+            <div className="p-4 border-t dark:border-gray-700"
+                 style={{ borderColor: settings.borderColor }}>
               <div className="flex items-center">
                 <input
                   type="text"
-                  className="flex-grow p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-black"
+                  className="flex-grow p-2 border rounded-lg"
                   style={{
                     backgroundColor: settings.inputBgColor,
+                    borderColor: settings.borderColor,
+                    color: settings.chatTextColor,
+                    borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
                   }}
                   placeholder={
                     !canSendMessage()
@@ -1472,7 +1668,12 @@ export const ChatbotCustomization = () => {
                   disabled={!canSendMessage()}
                 />
                 <button
-                  className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed"
+                  className="ml-2 px-4 py-2 rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: settings.buttonColor,
+                    color: settings.buttonTextColor,
+                    borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
+                  }}
                   onClick={sendMessage}
                   disabled={
                     !inputMessage.trim() ||
