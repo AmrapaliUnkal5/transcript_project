@@ -219,6 +219,7 @@ export const ChatbotCustomization = () => {
   };
 
   const [showPreview, setShowPreview] = useState(false);
+  const [activeTab, setActiveTab] = useState("identity");
 
   useEffect(() => {
     interactionIdRef.current = interactionId;
@@ -814,6 +815,31 @@ export const ChatbotCustomization = () => {
     setSettings((prev) => ({ ...prev, [field]: value }));
   };
 
+  const tabOptions = [
+    { id: "identity", label: "Bot Identity", icon: MessageSquare },
+    { id: "typography", label: "Typography", icon: Type },
+    { id: "colors", label: "Colors", icon: Palette },
+    { id: "behavior", label: "Behavior", icon: Sliders },
+  ];
+
+  const getTabSections = (tabId: string) => {
+    switch (tabId) {
+      case "identity":
+        return sections.filter(s => s.title === "Bot Identity");
+      case "typography":
+        return sections.filter(s => s.title === "Typography");
+      case "colors":
+        return [
+          ...sections.filter(s => s.title === "Message Settings"),
+          ...sections.filter(s => s.title === "Window Appearance")
+        ];
+      case "behavior":
+        return sections.filter(s => s.title === "Chat Interface Behavior");
+      default:
+        return [];
+    }
+  };
+
   const sections = [
     {
       title: "Bot Identity",
@@ -989,191 +1015,269 @@ export const ChatbotCustomization = () => {
   }
 
   return (
-    <div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4">
       {loading && <Loader />}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Customizing: {selectedBot.name}
-        </h1>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => {
-              setBotToDelete(botId);
-              setIsConfirmOpen(true);
-            }}
-            disabled={loading}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              loading
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-red-500 hover:bg-red-600 text-white"
-            }`}
-          >
-            Delete
-          </button>
-          {isConfirmOpen && (
-            <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50">
-              <div className="bg-white p-6 rounded-lg shadow-lg">
-                <h2 className="text-lg font-semibold mb-4">Confirm Deletion</h2>
-                <p>Do you wish to delete this bot?</p>
-                <div className="mt-4 flex justify-end">
-                  <button
-                    className="bg-gray-300 text-black px-4 py-2 rounded mr-2"
-                    onClick={() => setIsConfirmOpen(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="bg-red-600 text-white px-4 py-2 rounded"
-                    onClick={handleDeleteBot}
-                  >
-                    Continue
-                  </button>
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Customizing: {selectedBot.name}
+            </h1>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => {
+                  setBotToDelete(botId);
+                  setIsConfirmOpen(true);
+                }}
+                disabled={loading}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-red-500 hover:bg-red-600 text-white"
+                }`}
+              >
+                Delete
+              </button>
+              <button
+                onClick={handleSaveSettings}
+                disabled={loading}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-blue-500 hover:bg-blue-600 text-white"
+                }`}
+              >
+                {loading ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+          
+          {/* Navigation Tabs */}
+          <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
+            <nav className="flex space-x-4 overflow-x-auto pb-2" aria-label="Settings tabs">
+              {tabOptions.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center px-4 py-2 font-medium text-sm rounded-lg transition-colors
+                    ${activeTab === tab.id 
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" 
+                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    }`}
+                >
+                  <tab.icon className="mr-2 h-4 w-4" />
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+          
+          {/* Settings Sections */}
+          <div className="space-y-6">
+            {getTabSections(activeTab).map((section) => (
+              <div
+                key={section.title}
+                className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg p-6 text-gray-900 dark:text-white"
+              >
+                <div className="flex items-center space-x-2 mb-6 pb-3 border-b border-gray-100 dark:border-gray-700">
+                  <section.icon className="w-5 h-5 text-blue-500" />
+                  <h2 className="text-lg font-medium dark:text-white">{section.title}</h2>
+                  {section.title === "Chat Interface Behavior" && (
+                    <div className="relative group">
+                      <span className="text-gray-500 hover:text-blue-500 cursor-pointer">
+                        ℹ️
+                      </span>
+                      <div className="absolute left-0 top-7 w-64 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg z-10">
+                        Some settings like <strong>Chatbot Position</strong> and{" "}
+                        <strong>Appearance Mode</strong> define how the chatbot
+                        integrates with your website. These settings are not
+                        reflected in the preview pane but will be visible on your
+                        live site.
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {section.fields.map((field) => (
+                    <div key={field.label} className="space-y-2">
+                      {field.label === "Maximum User Message Length" ? (
+                        <label className="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <span>Maximum User Message Length</span>
+                          <span className="text-xs italic text-gray-500">
+                            Max limit 1000
+                          </span>
+                        </label>
+                      ) : (
+                        <label
+                          className={`block text-sm font-medium text-gray-700 dark:text-gray-300 ${
+                            field.type === "slider" ? "mb-5" : "mb-1"
+                          }`}
+                        >
+                          {field.label}
+                        </label>
+                      )}
+                      
+                      {field.type === "select" ? (
+                        <select
+                          value={field.value as string}
+                          onChange={field.onChange as React.ChangeEventHandler<HTMLSelectElement>}
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          {(field as any).options?.map((option: string) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      ) : field.type === "color" ? (
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="color"
+                            value={field.value as string}
+                            onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
+                            className="w-10 h-10 rounded border border-gray-300 dark:border-gray-600"
+                          />
+                          <input
+                            type="text"
+                            value={field.value as string}
+                            onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
+                            className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                      ) : field.type === "slider" ? (
+                        <div className="relative w-full pt-6">
+                          <input
+                            type="range"
+                            min={(field as any).min}
+                            max={(field as any).max}
+                            step={(field as any).step}
+                            value={field.value as number}
+                            onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                          />
+                          <span
+                            style={{
+                              position: "absolute",
+                              top: "-5px",
+                              left: `calc(${
+                                (((field.value as number) - (field as any).min) /
+                                  ((field as any).max - (field as any).min)) *
+                                100
+                              }% - 12px)`,
+                              transform: "translateX(-50%)",
+                            }}
+                            className="inline-block px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded"
+                          >
+                            {field.value}
+                          </span>
+                        </div>
+                      ) : field.type === "file" ? (
+                        <div className="flex flex-col space-y-2">
+                          {settings.icon && (
+                            <div className="flex items-center space-x-2">
+                              <img 
+                                src={settings.icon} 
+                                alt="Current icon" 
+                                className="w-10 h-10 rounded-full object-cover border border-gray-300 dark:border-gray-600" 
+                              />
+                              <span className="text-sm text-gray-500">Current icon</span>
+                            </div>
+                          )}
+                          <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <svg className="w-8 h-8 mb-2 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                              </svg>
+                              <p className="mb-1 text-sm text-gray-500 dark:text-gray-400">Click to upload</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">SVG, PNG, JPG (MAX. 800x800px)</p>
+                            </div>
+                            <input 
+                              type="file" 
+                              accept={(field as any).accept}
+                              onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
+                              className="hidden" 
+                            />
+                          </label>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <input
+                            type={field.type}
+                            value={field.value as string}
+                            min={(field as any).min}
+                            max={(field as any).max}
+                            accept={(field as any).accept}
+                            onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
+                            onBlur={() => {
+                              if (
+                                field.label === "Maximum User Message Length" &&
+                                !field.value
+                              ) {
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  maxMessageLength: 200,
+                                }));
+                                setErrors((prev) => ({
+                                  ...prev,
+                                  maxMessageLength:
+                                    "Maximum User Message Length is required. Defaulting to 200.",
+                                }));
+                              }
+                            }}
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          {errors?.maxMessageLength &&
+                            field.label === "Maximum User Message Length" && (
+                              <p className="text-red-500 text-sm mt-1">
+                                {errors.maxMessageLength}
+                              </p>
+                            )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-          )}
-          <button
-            onClick={handleSaveSettings}
-            disabled={loading}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              loading
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-500 hover:bg-blue-600 text-white"
-            }`}
-          >
-            {loading ? "Saving..." : "Save Changes"}
-          </button>
-        </div>
-      </div>
-      <ToastContainer position="top-right" autoClose={3000} />
+            ))}
 
-      <div className="grid grid-cols-1 gap-6">
-        {/* Settings Panel */}
-        <div className="space-y-6">
-          {sections.map((section) => (
-            <div
-              key={section.title}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-gray-900 dark:text-white"
-            >
-              <div className="flex items-center space-x-2 mb-4">
-                <section.icon className="w-5 h-5 text-blue-500" />
-                <h2 className="dark:text-white">{section.title}</h2>
-                {section.title === "Chat Interface Behavior" && (
-                  <div className="relative group">
-                    <span className="text-gray-500 hover:text-blue-500 cursor-pointer">
-                      ℹ️
-                    </span>
-                    <div className="absolute left-0 top-7 w-64 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg">
-                      Some settings like <strong>Chatbot Position</strong> and{" "}
-                      <strong>Appearance Mode</strong> define how the chatbot
-                      integrates with your website. These settings are not
-                      reflected in the preview pane but will be visible on your
-                      live site.
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-4">
-                {section.fields.map((field) => (
-                  <div key={field.label}>
-                    {field.label === "Maximum User Message Length" ? (
-                      <label className="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        <span>Maximum User Message Length</span>
-                        <span className="text-xs italic text-gray-500">
-                          Max limit 1000
-                        </span>
-                      </label>
-                    ) : (
-                      <label
-                        className={`block text-sm font-medium text-gray-700 dark:text-gray-300 ${
-                          field.type === "slider" ? "mb-5" : "mb-1"
-                        }`}
-                      >
-                        {field.label}
-                      </label>
-                    )}
-                    {field.type === "select" ? (
-                      <select
-                        value={field.value as string}
-                        onChange={field.onChange as React.ChangeEventHandler<HTMLSelectElement>}
-                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        {(field as any).options?.map((option: string) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    ) : field.type === "slider" ? (
-                      <div className="relative w-full">
-                        <input
-                          type="range"
-                          min={(field as any).min}
-                          max={(field as any).max}
-                          step={(field as any).step}
-                          value={field.value as number}
-                          onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
-                          className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: "-20px",
-                            left: `calc(${
-                              (((field.value as number) - (field as any).min) /
-                                ((field as any).max - (field as any).min)) *
-                              100
-                            }% - 10px)`,
-                            transform: "translateX(-50%)",
-                          }}
-                          className="text-sm font-semibold text-gray-900 dark:text-white"
-                        >
-                          {field.value}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="relative">
-                        <input
-                          type={field.type}
-                          value={field.value as string}
-                          min={(field as any).min}
-                          max={(field as any).max}
-                          accept={(field as any).accept}
-                          onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
-                          onBlur={() => {
-                            // Check if value is empty when losing focus
-                            if (
-                              field.label === "Maximum User Message Length" &&
-                              !field.value
-                            ) {
-                              setSettings((prev) => ({
-                                ...prev,
-                                maxMessageLength: 200, // default value
-                              }));
-                              setErrors((prev) => ({
-                                ...prev,
-                                maxMessageLength:
-                                  "Maximum User Message Length is required. Defaulting to 200.",
-                              }));
-                            }
-                          }}
-                          className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        {errors?.maxMessageLength &&
-                          field.label === "Maximum User Message Length" && (
-                            <p className="text-red-500 text-sm mt-1">
-                              {errors.maxMessageLength}
-                            </p>
-                          )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+            {/* Preview Button */}
+            <div className="flex justify-center mt-8">
+              <button
+                onClick={() => setShowPreview(!showPreview)}
+                className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md"
+              >
+                <MessageCircle className="w-5 h-5" />
+                {showPreview ? "Hide Preview" : "Show Preview"}
+              </button>
             </div>
-          ))}
+          </div>
         </div>
       </div>
+      
+      {isConfirmOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-lg font-semibold mb-4">Confirm Deletion</h2>
+            <p>Do you wish to delete this bot?</p>
+            <div className="mt-4 flex justify-end">
+              <button
+                className="bg-gray-300 text-black px-4 py-2 rounded mr-2"
+                onClick={() => setIsConfirmOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="bg-red-600 text-white px-4 py-2 rounded"
+                onClick={handleDeleteBot}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <ToastContainer position="top-right" autoClose={3000} />
 
       {/* Floating Preview Toggle Button */}
       <button
@@ -1185,7 +1289,15 @@ export const ChatbotCustomization = () => {
                   ${showPreview ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
         style={{ backgroundColor: settings.botColor }}
       >
-        <MessageCircle className="w-6 h-6 text-white" />
+        {settings.icon ? (
+          <img 
+            src={settings.icon} 
+            alt="Bot" 
+            className="w-6 h-6 rounded-full object-cover" 
+          />
+        ) : (
+          <MessageCircle className="w-6 h-6 text-white" />
+        )}
       </button>
 
       {/* Popup Preview Panel */}
