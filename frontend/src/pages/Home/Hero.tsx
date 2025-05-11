@@ -5,7 +5,7 @@ export default function Hero() {
   return (
     <>
       <Box
-        minHeight={'100vh'}
+        mt={'50px'}
         sx={{
           backgroundImage: 'url(/images/dot-bg.png)',
           backgroundPosition: 'center',
@@ -23,7 +23,7 @@ export default function Hero() {
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
           }}
-          minHeight={'100vh'}
+          minHeight={'80vh'}
         >
           <Box
             display={'flex'}
@@ -35,13 +35,47 @@ export default function Hero() {
             color={'#fff'}
             px={2}
           >
-            <Typography variant='h2' fontWeight={600} fontSize={['32px', '60px']}>
+            <Typography
+              variant='h2'
+              fontWeight={600}
+              fontSize={['32px', '60px']}
+              sx={{
+                background: '-webkit-linear-gradient(#FFF, #959595)',
+                backgroundClip: 'text',
+                textFillColor: 'transparent',
+              }}
+            >
               Create Custom AI Agents.
             </Typography>
-            <Typography variant='h3' fontWeight={600} fontSize={['28px', '56px']}>
-              Train on your {' '}
-              <span style={{ color: '#779BFD' }}> {' '} website content</span>
-            </Typography>
+            <Box
+              display={'flex'}
+              flexWrap={'wrap'}
+                justifyContent={'center'}
+                alignItems={'center'}
+               gap={[1, 2]}
+            >
+              <Typography
+                variant='h3'
+                fontWeight={600}
+                fontSize={['28px', '56px']}
+                sx={{
+                  background: '-webkit-linear-gradient(#FFF, #959595)',
+                  backgroundClip: 'text',
+                  textFillColor: 'transparent',
+                }}
+              >
+                Train on your{' '}
+              </Typography>
+
+              <Typography
+                variant='h3'
+                color={'#779BFD'}
+                fontWeight={600}
+                fontSize={['28px', '56px']}
+              >
+                website content
+              </Typography>
+            </Box>
             <Typography variant='h6' color='#B4B4B4' mt={2} mb={3}>
               Build, personalize, and deploy AI-powered chatbots effortlessly
             </Typography>
@@ -56,6 +90,8 @@ export default function Hero() {
                 height: '62px',
                 minWidth: '220px',
                 textTransform: 'capitalize',
+                background:
+                  'linear-gradient(180deg,rgba(90, 108, 242, 1) 0%, rgba(75, 52, 152, 1) 100%);',
               }}
             >
               Get started for free

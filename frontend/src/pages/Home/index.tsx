@@ -5,18 +5,18 @@ import { Facebook, Apple } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import HomeHeader from './Header';
 import Hero from './Hero';
+import DashboardPreview from './DashboardPreview';
+import StartBuilding from './StartBuilding';
 
 export default function HomePage() {
   return (
     <Box>
       <HomeHeader/>
       <Hero/>
-
+      <DashboardPreview/>
+      <StartBuilding/>
     </Box>
   );
 }
 
-const StyledImage = styled('img')(() => ({
-  maxWidth: '100%',
-  maxHeight: '100%',
-}));
+

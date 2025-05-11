@@ -38,9 +38,9 @@ export default function HomeHeader(props: Props) {
     <Box onClick={handleDrawerToggle} sx={{  textAlign: 'center' }}>
       <Box sx={{ my: 2 }}>
         <StyledImage
-                  src='/images/logo.png'
-                  sx={{ margin: 'auto', borderRadius: '16px', maxWidth: 180 }}
-                />
+          src='/images/logo.png'
+          sx={{ margin: 'auto', borderRadius: '16px', maxWidth: 180 }}
+        />
       </Box>
       <Divider />
       <List>
@@ -96,7 +96,9 @@ export default function HomeHeader(props: Props) {
                     ))}
                 </Box>
                 <Box display={'flex'} gap={[1, 3]}>
-                    <Button variant='contained' sx={{  color: '#fff', fontSize: '16px', textTransform: 'capitalize', borderRadius: '40px' }}>
+                    <Button variant='contained' sx={{  color: '#fff', fontSize: '16px', textTransform: 'capitalize', borderRadius: '40px', 
+                        background: 'linear-gradient(180deg,rgba(90, 108, 242, 1) 0%, rgba(75, 52, 152, 1) 100%)',
+                     }}>
                         Try Free
                     </Button>
                     <Button  variant='outlined' sx={{ fontSize: '16px', color: '#fff', textTransform: 'capitalize', borderColor: '#FFF', borderRadius: '40px' }}>
@@ -119,7 +121,7 @@ export default function HomeHeader(props: Props) {
           sx={{
             display: { xs: 'block', sm: 'none' },
             
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, backgroundColor: '#20266F', color: '#fff' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, backgroundColor: '#101035', color: '#fff' },
           }}
         >
           {drawer}
