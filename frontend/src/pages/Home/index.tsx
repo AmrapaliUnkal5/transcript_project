@@ -7,6 +7,7 @@ import HomeHeader from './Header';
 import Hero from './Hero';
 import DashboardPreview from './DashboardPreview';
 import StartBuilding from './StartBuilding';
+import BotDataControl from './BotDataControl';
 
 export default function HomePage() {
   return (
@@ -14,6 +15,7 @@ export default function HomePage() {
       <HomeHeader/>
       <Hero/>
       <DashboardPreview/>
+      <BotDataControl/>
       <StartBuilding/>
     </Box>
   );
