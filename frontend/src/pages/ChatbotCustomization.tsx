@@ -416,38 +416,48 @@ const [messageUsage, setMessageUsage] = useState({
   }, [selectedBot, setLoading]);
 
   useEffect(() => {
-    const fetchMessageData = async () => {
+    const fetchInitialUsage = async () => {
       try {
         const response = await authApi.getUserMessageCount();
-        console.log("Message usage response:", response); // Debug log
+        const baseUsed = response.base_plan.used;
+        const addonUsed = response.addons.used;
+        const totalLimit= response.addons.total_limit + response.base_plan.limit
         
-        // Map the backend response to frontend state
         setMessageUsage({
-          totalUsed: response.total_messages_used,
-          basePlan: {
-            limit: response.base_plan.limit,
-            used: response.base_plan.used,
-            remaining: response.base_plan.remaining
-          },
-          addons: {
-            totalLimit: response.addons.total_limit,
-            used: response.addons.used,
-            remaining: response.addons.remaining,
-            items: response.addons.items || []
-          },
-          effectiveRemaining: response.effective_remaining
+          totalUsed: baseUsed + addonUsed,
+          baseUsed,
+          baseRemaining: Math.max(0, baseMessageLimit - baseUsed),
+          addonUsed,
+          addonRemaining: Math.max(0, addonMessageLimit - addonUsed),
+          //effectiveRemaining: Math.max(0, totalMessageLimit - (baseUsed + addonUsed)),
+          totalLimit:response.addons.total_limit,
+          remaining:response.addons.remaining,
+          effectiveRemaining: response.effective_remaining,
+          totaloveralllimit: response.addons.total_limit + response.base_plan.limit,
+          addonused:response.addons.used,
+          addonremaining: response.addons.remaining,
+          baseplanremaining:response.base_plan.remaining
         });
-        
+  
+        // Initialize addon usage tracking
+        if (response.addons.items) {
+          const initialAddonUsage: Record<number, number> = {};
+          response.addons.items.forEach(addon => {
+            initialAddonUsage[addon.addon_id] = addon.used || 0;
+          });
+          setAddonUsage(initialAddonUsage);
+        }
       } catch (error) {
-        console.error("Failed to fetch message data:", error);
-        toast.error("Failed to load message usage data");
+        console.error("Failed to fetch message usage:", error);
       }
     };
+  
     if (user?.user_id) {
-      fetchMessageData();
+      fetchInitialUsage();
     }
-  }, [user, getPlanById])
+  }, [user, baseMessageLimit, addonMessageLimit, totalMessageLimit]);
 
+  
 // Check localStorage if no selected bot in state
 useEffect(() => {
   if (!selectedBot) {
