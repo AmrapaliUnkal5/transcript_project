@@ -119,6 +119,11 @@ export const Welcome = () => {
     chat_messages_used: 0,
     total_bots: 0,
     total_storage_used: "0",
+    message_limits: {
+      base_plan: 0,
+      addons: 0,
+      total: 0
+    }
   });
 
   const userPlanId = user?.subscription_plan_id || 1;
@@ -245,6 +250,8 @@ const storagelimit = userPlan.storage_limit;
 //const chat_messages_used = userPlan.message_limit;
 console.log("effectiveMessageLimit",effectiveMessageLimit)
 const chat_messages_used = effectiveMessageLimit
+const total_message_limit = usageMetrics.message_limits.total;
+console.log("total_message_limit=>",total_message_limit)
 
 const usedBytes = convertToBytes(usageMetrics.total_storage_used);
 const limitBytes = convertToBytes(storagelimit);
@@ -634,7 +641,7 @@ const storageUsagePercent = Math.min(
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 {/* {usageMetrics.chat_messages_used} / {chat_messages_used} */}
                 {formatNumberWithCommas(usageMetrics.chat_messages_used)} /{" "}
-                {formatNumberWithCommas(chat_messages_used)}
+                {formatNumberWithCommas(total_message_limit)}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
@@ -642,7 +649,7 @@ const storageUsagePercent = Math.min(
                 className="bg-green-500 h-3 rounded-full"
                 style={{
                   width: `${Math.min(
-                    (usageMetrics.chat_messages_used / chat_messages_used) *
+                    (usageMetrics.chat_messages_used / total_message_limit) *
                       100,
                     100
                   ).toFixed(2)}%`,
