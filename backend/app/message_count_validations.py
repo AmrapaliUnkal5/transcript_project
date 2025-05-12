@@ -16,16 +16,17 @@ async def get_user_msgusage(
     db: Session = Depends(get_db)
 ):
     try:
-        # Get the total message count from all bots
-        total_msg_used = db.query(func.sum(Bot.message_count)).filter(
-            Bot.user_id == current_user["user_id"]
-        ).scalar() or 0
 
-        # Update user's total_message_count if different
-        user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
-        if user and total_msg_used != user.total_message_count:
-            user.total_message_count = total_msg_used
-            db.commit()
+        # Get user with current total count
+        user = db.query(User).filter(
+            User.user_id == current_user["user_id"]
+        ).first()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        total_msg_used = user.total_message_count or 0
+        print("total_msg_used=>", total_msg_used)
 
         # Get base plan limits
         user_subscription = db.query(UserSubscription).filter(
@@ -82,7 +83,11 @@ async def get_user_msgusage(
         
         # Calculate remaining messages
         base_remaining = max(base_message_limit - total_msg_used, 0)
-        effective_remaining = max(0, (base_message_limit + additional_messages) - total_msg_used)
+        print("base_message_limit=>",base_message_limit)
+        print("additional_messages=>",additional_messages)
+        print("total_msg_used=>",total_msg_used)
+        print("addon_used=>",addon_used )
+        effective_remaining = max(0, (base_message_limit + additional_messages) - (total_msg_used+addon_used ))
 
         return {
             "total_messages_used": total_msg_used,

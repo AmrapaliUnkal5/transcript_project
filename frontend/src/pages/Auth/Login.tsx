@@ -267,33 +267,46 @@ export const Login = () => {
   return (
     <DarkGBox bgcolor="#f2f1ef" minHeight={"100vh"} >
       <Box bgcolor={"#000"}>
-        <Box maxWidth={1180} mx={"auto"} borderRadius={4} py={2} px={3}>
-        <Box display={'flex'} gap={1} alignItems="center">
-          {/* Logo with fallback */}
-          <Box
-            component="img"
-            src="/images/dummy/Evolra-AI-Logo_Transparent.png" 
-            alt="Evolra AI Logo"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none'; // Hide broken image
-              console.error('Failed to load logo:', target.src);
-            }}
-            sx={{ 
-              height: 40,
-              width: 'auto',
-              maxWidth: 150 // 
-            }}
-          />
-          {/* Fallback text if image fails */}
-          {!logoLoaded && (
-            <Typography variant="h6" color="#4dc4ff">
-              Evolra AI
-            </Typography>
-          )}
-        </Box>  
-      </Box>
-    </Box>
+  <Box 
+    maxWidth={1180} 
+    mx={"auto"} 
+    borderRadius={4} 
+    py={0} // Increased padding to accommodate larger logo
+    px={3}
+    sx={{
+      minHeight: 20, // Set a fixed height for the header
+      display: 'flex',
+      alignItems: 'center' // Vertically center the logo
+    }}
+  >
+    <Box display={'flex'} gap={1} alignItems="center">
+      {/* Logo with fallback */}
+      <Box
+        component="img"
+        src="/images/dummy/Evolra-AI-Logo_Transparent.png" 
+        alt="Evolra AI Logo"
+        onError={(e) => {
+          const target = e.target as HTMLImageElement;
+          target.style.display = 'none'; // Hide broken image
+          setLogoLoaded(false);
+          console.error('Failed to load logo:', target.src);
+        }}
+        sx={{ 
+          height: 80, // Increased logo size
+          width: 'auto',
+          maxWidth: 200,
+          objectFit: 'contain'
+        }}
+      />
+      {/* Fallback text if image fails */}
+      {!logoLoaded && (
+        <Typography variant="h6" color="#4dc4ff">
+          Evolra AI
+        </Typography>
+      )}
+    </Box>  
+  </Box>
+</Box>
       <Box maxWidth={1180} mx={"auto"} borderRadius={4} py={2} px={3}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 7 }}>
@@ -684,6 +697,3 @@ const DarkGBox = styled(Box)(() => ({
 }));
 
 export default Login;
-
-
-
