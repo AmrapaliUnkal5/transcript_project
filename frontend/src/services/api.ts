@@ -556,6 +556,12 @@ export const authApi = {
     return response.data; // API response format: { message: "Session ended successfully", end_time: "timestamp" }
   },
 
+  checkUserSubscription: async (userId: number) => {
+  const response = await api.get(`/check-user-subscription/${userId}`);
+  return response.data; // Expected format: { exists: true/false }
+  },
+
+
   getUserUsage: async (): Promise<UserUsageResponse> => {
     const response = await api.get('/user/usage');
     return response.data;
