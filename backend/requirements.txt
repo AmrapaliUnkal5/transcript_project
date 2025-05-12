@@ -42,6 +42,7 @@ yt-dlp
 youtube-transcript-api
 langchain_community
 aiofiles
+apify-client>=1.4.0
 
 # Task Queue and Monitoring
 celery>=5.3.0

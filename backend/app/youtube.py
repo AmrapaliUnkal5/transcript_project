@@ -12,12 +12,15 @@ from app.dependency import get_current_user
 from app.notifications import add_notification
 from dotenv import load_dotenv
 import traceback
+from apify_client import ApifyClient
 
 # Load environment variables
 load_dotenv()
 
 # Get cookie path from environment variable or use default
 COOKIE_PATH = os.getenv("YOUTUBE_COOKIE_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "cookies", "youtube_cookies.json"))
+# Get Apify API token from environment variable
+APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN", "")
 
 def get_yt_dlp_options(base_opts=None):
     if base_opts is None:
@@ -73,15 +76,70 @@ def get_video_urls(channel_url):
                 detail="The provided URL is not a valid YouTube video or playlist. Please ensure the URL points to a YouTube video or playlist.",
             )
 
+def get_transcript_with_apify(video_url):
+    """Fetches transcript from a YouTube video using Apify."""
+    try:
+        # Extract video ID from URL
+        if "youtu.be/" in video_url:
+            video_id = video_url.split("youtu.be/")[-1].split("?")[0]
+        elif "v=" in video_url:
+            video_id = video_url.split("v=")[-1].split("&")[0]
+        else:
+            print(f"⚠️ Could not extract video ID from URL: {video_url}")
+            return None
+        
+        # Initialize the ApifyClient with API token
+        if not APIFY_API_TOKEN:
+            print("⚠️ Apify API token not set in environment variables")
+            return None
+        
+        client = ApifyClient(APIFY_API_TOKEN)
+        
+        # Prepare the Actor input with the YouTube video URL
+        run_input = {
+            "youtubeUrl": [
+                {"url": video_url}
+            ]
+        }
+        
+        # Run the Actor and wait for it to finish
+        run = client.actor("dz_omar/youtube-transcript-extractor").call(run_input=run_input)
+        
+        # Fetch the transcript from the dataset
+        transcript_text = ""
+        for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+            if item.get("videoId") == video_id and "transcript" in item:
+                # Extract text from transcript segments
+                transcript_segments = item.get("transcript", [])
+                transcript_text = " ".join([segment.get("text", "") for segment in transcript_segments])
+                break
+        
+        if not transcript_text:
+            print(f"⚠️ No transcript found for video {video_id}")
+            return None
+            
+        return transcript_text
+    except Exception as e:
+        print(f"⚠️ Error getting transcript with Apify for {video_url}: {e}")
+        return None
 
 def get_video_transcript(video_url):
     """Fetches transcript from a YouTube video."""
     print("get_video_transcript")
-    video_id = video_url.split("v=")[-1]
     
+    # First try using Apify (works on AWS)
+    transcript = get_transcript_with_apify(video_url)
+    if transcript:
+        return transcript
+    
+    # Fallback to YouTube Transcript API if Apify fails
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
-        return " ".join([entry["text"] for entry in transcript])
+        video_id = video_url.split("v=")[-1]
+        if "youtu.be/" in video_url:
+            video_id = video_url.split("youtu.be/")[-1].split("?")[0]
+        
+        transcript_data = YouTubeTranscriptApi.get_transcript(video_id)
+        return " ".join([entry["text"] for entry in transcript_data])
     except Exception as e:
         print(f"⚠️ Could not fetch transcript for {video_url}: {e}")
         return None
