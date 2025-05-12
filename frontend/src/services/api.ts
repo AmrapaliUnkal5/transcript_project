@@ -277,6 +277,13 @@ export const authApi = {
     const response = await api.post("/auth/google", { credential });
     return response.data;
   },
+  
+  facebookLogin: async (accessToken: string) => {
+  const response = await api.post("/auth/facebook", {
+    access_token: accessToken
+  });
+  return response.data;
+  },
 
   getWebsiteNodes: async (websiteUrl: string) => {
     const response = await api.get(`/get_nodes`, { params: { website_url: websiteUrl } });
