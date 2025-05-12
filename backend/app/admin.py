@@ -21,6 +21,8 @@ from app.utils.verify_password import verify_password
 from app.utils.reembedding_utils import reembed_all_files, reembed_all_bot_data
 import asyncio
 from sqlalchemy.inspection import inspect
+from sqlalchemy.orm import Session  # Make sure this is imported from your database configuration
+from app.database import SessionLocal 
 
 # Admin Authentication Backend
 class AdminAuth(AuthenticationBackend):
@@ -50,6 +52,7 @@ class AdminAuth(AuthenticationBackend):
 
 # Initialize Admin Panel
 authentication_backend = AdminAuth(secret_key="SECRET_KEY")
+
 
 # Model Views
 class UserAdmin(ModelView, model=User):
@@ -319,6 +322,7 @@ class AddonAdmin(ModelView, model=Addon):
     column_filters = ["name", "price", "created_at"]
 
 class UserSubscriptionAdmin(ModelView, model=UserSubscription):
+    
     column_list = [
         UserSubscription.id,
         UserSubscription.user_id,
@@ -339,7 +343,7 @@ class UserSubscriptionAdmin(ModelView, model=UserSubscription):
     form_columns = [
         UserSubscription.id,
         UserSubscription.user_id,
-        UserSubscription.subscription_plan_id,
+        "subscription_plan",
         UserSubscription.amount,
         UserSubscription.currency,
         UserSubscription.payment_date,
@@ -355,6 +359,7 @@ class UserSubscriptionAdmin(ModelView, model=UserSubscription):
         UserSubscription.created_at,
         UserSubscription.updated_at
     ]
+
 
 class TeamMemberAdmin(ModelView, model=TeamMember):
     column_list = [
