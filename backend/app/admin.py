@@ -21,8 +21,6 @@ from app.utils.verify_password import verify_password
 from app.utils.reembedding_utils import reembed_all_files, reembed_all_bot_data
 import asyncio
 from sqlalchemy.inspection import inspect
-from sqlalchemy.orm import Session  # Make sure this is imported from your database configuration
-from app.database import SessionLocal 
 
 # Admin Authentication Backend
 class AdminAuth(AuthenticationBackend):
