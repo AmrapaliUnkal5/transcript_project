@@ -78,21 +78,27 @@ def get_video_urls(channel_url):
 
 def get_transcript_with_apify(video_url):
     """Fetches transcript from a YouTube video using Apify."""
+    print(f"🔍 Starting Apify transcript retrieval for URL: {video_url}")
     try:
         # Extract video ID from URL
         if "youtu.be/" in video_url:
             video_id = video_url.split("youtu.be/")[-1].split("?")[0]
+            print(f"📌 Extracted video ID from youtu.be URL: {video_id}")
         elif "v=" in video_url:
             video_id = video_url.split("v=")[-1].split("&")[0]
+            print(f"📌 Extracted video ID from youtube.com URL: {video_id}")
         else:
-            print(f"⚠️ Could not extract video ID from URL: {video_url}")
+            print(f"⚠️ Could not extract video ID from URL format: {video_url}")
             return None
         
         # Initialize the ApifyClient with API token
         if not APIFY_API_TOKEN:
-            print("⚠️ Apify API token not set in environment variables")
+            print("⚠️ Apify API token not set in environment variables. Please add APIFY_API_TOKEN to your .env file")
             return None
+        else:
+            print(f"✅ Using Apify API token: {APIFY_API_TOKEN[:4]}...{APIFY_API_TOKEN[-4:] if len(APIFY_API_TOKEN) > 8 else ''}")
         
+        print(f"🔄 Initializing Apify client")
         client = ApifyClient(APIFY_API_TOKEN)
         
         # Prepare the Actor input with the YouTube video URL
@@ -101,47 +107,78 @@ def get_transcript_with_apify(video_url):
                 {"url": video_url}
             ]
         }
+        print(f"📋 Prepared Apify actor input: {run_input}")
         
         # Run the Actor and wait for it to finish
+        print(f"🚀 Starting Apify actor 'dz_omar/youtube-transcript-extractor'")
         run = client.actor("dz_omar/youtube-transcript-extractor").call(run_input=run_input)
+        print(f"✅ Apify actor run completed with ID: {run.get('id')}")
+        print(f"📊 Dataset ID: {run.get('defaultDatasetId')}")
         
         # Fetch the transcript from the dataset
+        print(f"🔄 Fetching transcript data from Apify dataset")
         transcript_text = ""
+        items_found = 0
+        
+        print(f"🔄 Iterating through dataset items")
         for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+            items_found += 1
+            print(f"📄 Processing dataset item #{items_found}")
+            print(f"📄 Item video ID: {item.get('videoId')}, Expected: {video_id}")
+            
+            if "transcript" not in item:
+                print(f"⚠️ No transcript field in item #{items_found}")
+            else:
+                print(f"✅ Found transcript field in item #{items_found}")
+                transcript_segments = item.get("transcript", [])
+                print(f"📊 Transcript contains {len(transcript_segments)} segments")
+            
             if item.get("videoId") == video_id and "transcript" in item:
                 # Extract text from transcript segments
                 transcript_segments = item.get("transcript", [])
                 transcript_text = " ".join([segment.get("text", "") for segment in transcript_segments])
+                print(f"✅ Extracted transcript text for video {video_id} with {len(transcript_segments)} segments and {len(transcript_text)} characters")
                 break
         
         if not transcript_text:
-            print(f"⚠️ No transcript found for video {video_id}")
+            print(f"⚠️ No matching transcript found for video {video_id} in {items_found} dataset items")
             return None
-            
+        
+        print(f"🎉 Successfully retrieved transcript with {len(transcript_text.split())} words")
         return transcript_text
     except Exception as e:
-        print(f"⚠️ Error getting transcript with Apify for {video_url}: {e}")
+        print(f"❌ Error getting transcript with Apify for {video_url}")
+        print(f"❌ Exception type: {type(e).__name__}")
+        print(f"❌ Exception message: {str(e)}")
+        print(f"❌ Exception details:", traceback.format_exc())
         return None
 
 def get_video_transcript(video_url):
     """Fetches transcript from a YouTube video."""
-    print("get_video_transcript")
+    print("⭐ Starting get_video_transcript for URL:", video_url)
     
     # First try using Apify (works on AWS)
+    print("🔄 Attempting to get transcript using Apify")
     transcript = get_transcript_with_apify(video_url)
     if transcript:
+        print(f"✅ Successfully retrieved transcript using Apify ({len(transcript.split())} words)")
         return transcript
     
     # Fallback to YouTube Transcript API if Apify fails
+    print("🔄 Apify failed, falling back to YouTube Transcript API")
     try:
         video_id = video_url.split("v=")[-1]
         if "youtu.be/" in video_url:
             video_id = video_url.split("youtu.be/")[-1].split("?")[0]
         
+        print(f"🔍 Extracting transcript for video ID: {video_id} using YouTube Transcript API")
         transcript_data = YouTubeTranscriptApi.get_transcript(video_id)
-        return " ".join([entry["text"] for entry in transcript_data])
+        transcript = " ".join([entry["text"] for entry in transcript_data])
+        print(f"✅ Successfully retrieved transcript using YouTube Transcript API ({len(transcript.split())} words)")
+        return transcript
     except Exception as e:
-        print(f"⚠️ Could not fetch transcript for {video_url}: {e}")
+        print(f"❌ Could not fetch transcript for {video_url} using either method")
+        print(f"❌ YouTube API error: {type(e).__name__} - {str(e)}")
         return None
     
 
