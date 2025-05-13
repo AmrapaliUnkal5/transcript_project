@@ -67,10 +67,16 @@ def process_youtube_videos(self, bot_id: int, video_urls: list):
         stored_videos = result.get("stored_videos", [])
         for video in stored_videos:
             try:
+                # Extract video_id safely from the video dictionary
+                video_id = video.get("video_id", None)
+                if not video_id:
+                    logger.warning(f"⚠️ Missing video_id in stored video data: {video}")
+                    continue
+                
                 # Find video in database to get transcript
                 video_record = db.query(YouTubeVideo).filter(
                     YouTubeVideo.bot_id == bot_id,
-                    YouTubeVideo.video_id == video.get("video_id")
+                    YouTubeVideo.video_id == video_id
                 ).first()
                 
                 if video_record and video_record.transcript:
@@ -80,14 +86,14 @@ def process_youtube_videos(self, bot_id: int, video_urls: list):
                         "id": f"youtube_{video_id}",  # Consistent ID format
                         "source": "youtube",          # Source type for retrieval
                         "video_id": video_id,         # Original source ID
-                        "title": video_record.title,
-                        "url": video_record.url,
-                        "file_name": video_record.title,  # For consistency across sources
+                        "title": video_record.video_title,
+                        "url": video_record.video_url,
+                        "file_name": video_record.video_title,  # For consistency across sources
                         "bot_id": bot_id              # Always include bot_id
                     }
                     
                     # Add the document to the vector database
-                    logger.info(f"Adding YouTube transcript to vector database for video: {video_record.title}")
+                    logger.info(f"Adding YouTube transcript to vector database for video: {video_record.video_title}")
                     add_document(bot_id, text=video_record.transcript, metadata=metadata, user_id=user_id)
                     
                     # Update the database record to mark embedding as complete
@@ -95,16 +101,19 @@ def process_youtube_videos(self, bot_id: int, video_urls: list):
                     video_record.last_embedded = datetime.now()
                     db.commit()
                     
-                    logger.info(f"✅ YouTube video transcript embedded successfully: {video_record.title}")
+                    logger.info(f"✅ YouTube video transcript embedded successfully: {video_record.video_title}")
                 else:
-                    logger.warning(f"⚠️ No transcript found for video ID: {video.get('video_id')}")
+                    logger.warning(f"⚠️ No transcript found for video ID: {video_id}")
             except Exception as embed_error:
                 logger.exception(f"❌ Error embedding YouTube transcript: {str(embed_error)}")
                 
                 # Update the video record if available
-                if video_record:
-                    video_record.embedding_status = "failed"
-                    db.commit()
+                if 'video_record' in locals() and video_record:
+                    try:
+                        video_record.embedding_status = "failed"
+                        db.commit()
+                    except Exception as update_error:
+                        logger.exception(f"❌ Error updating embedding status: {str(update_error)}")
         
         # Get success/failure counts
         success_count = len(result.get("stored_videos", []))
