@@ -126,18 +126,23 @@ def get_transcript_with_apify(video_url):
             print(f"📄 Processing dataset item #{items_found}")
             print(f"📄 Item video ID: {item.get('videoId')}, Expected: {video_id}")
             
-            if "transcript" not in item:
-                print(f"⚠️ No transcript field in item #{items_found}")
-            else:
-                print(f"✅ Found transcript field in item #{items_found}")
-                transcript_segments = item.get("transcript", [])
-                print(f"📊 Transcript contains {len(transcript_segments)} segments")
+            # Debug the actual response structure
+            print(f"📊 Item keys: {list(item.keys())}")
             
-            if item.get("videoId") == video_id and "transcript" in item:
-                # Extract text from transcript segments
-                transcript_segments = item.get("transcript", [])
-                transcript_text = " ".join([segment.get("text", "") for segment in transcript_segments])
-                print(f"✅ Extracted transcript text for video {video_id} with {len(transcript_segments)} segments and {len(transcript_text)} characters")
+            # Check for transcriptText (the actual field in the response)
+            if "transcriptText" in item:
+                print(f"✅ Found transcriptText field in item #{items_found}")
+                transcript_text = item.get("transcriptText", "")
+                print(f"📊 Transcript length: {len(transcript_text)} characters")
+            elif "hasTranscript" in item:
+                print(f"📊 hasTranscript field value: {item.get('hasTranscript')}")
+            else:
+                print(f"⚠️ No transcript field in item #{items_found}")
+            
+            # Match by video ID and check if we have transcript text
+            if item.get("videoId") == video_id and "transcriptText" in item:
+                transcript_text = item.get("transcriptText", "")
+                print(f"✅ Extracted transcript text for video {video_id} with {len(transcript_text)} characters")
                 break
         
         if not transcript_text:
