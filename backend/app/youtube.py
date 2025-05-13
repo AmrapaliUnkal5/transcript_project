@@ -26,7 +26,21 @@ def get_yt_dlp_options(base_opts=None):
     if base_opts is None:
         base_opts = {}
 
+    # Default options to help avoid bot detection
+    base_opts.update({
+        "quiet": True,
+        "no_warnings": False,  # Show warnings for debugging
+        "skip_download": True,
+        "nocheckcertificate": True,
+        "ignoreerrors": False,
+        "logtostderr": False,
+        "geo_bypass": True,
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    })
+
+    # Try to use cookies file if it exists
     if os.path.exists(COOKIE_PATH):
+        print(f"✅ Using YouTube cookies from: {COOKIE_PATH}")
         base_opts["cookies"] = COOKIE_PATH
     
     return base_opts
@@ -37,66 +51,100 @@ YOUTUBE_REGEX = re.compile(
 )
 
 def get_video_urls(channel_url):
-    """Fetches all video URLs from a given YouTube channel."""
-    is_single_video = "watch?v=" in channel_url or "youtu.be/" in channel_url # Check if it's a single video URL
-   
-    is_playlist = "list=" in channel_url  # Check if it's a playlist URL
+    """Fetches video URL(s) from a given YouTube video or playlist."""
+    is_single_video = "watch?v=" in channel_url or "youtu.be/" in channel_url
+    is_playlist = "list=" in channel_url
+    
     print("is_single_video", is_single_video)
+    print("is_playlist", is_playlist)
+    
     # Check if it's a valid video or playlist URL
-    # Validate YouTube URL (only allow videos & playlists)
     if not YOUTUBE_REGEX.match(channel_url):
         raise HTTPException(
             status_code=400, 
             detail="Invalid YouTube URL. Please provide a valid video or playlist URL."
         )
+    
+    # For single videos, don't use yt-dlp at all - just return the URL directly
+    if is_single_video and not is_playlist:
+        print(f"✅ Processing single video URL: {channel_url}")
+        # Just return the original URL for single videos
+        return [channel_url]
+    
+    # Only use yt-dlp for playlists
     ydl_opts = get_yt_dlp_options({
         "quiet": True,
         "skip_download": True,
-        "force_generic_extractor": True
+        "force_generic_extractor": True,
+        "extract_flat": True  # Always use extract_flat for playlists
     })
-    # If it's a single video, remove extract_flat (needed for full metadata)
-    if is_single_video and not is_playlist:
-        ydl_opts["extract_flat"] = False
-    else:
-        ydl_opts["extract_flat"] = True
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            print(f"🔍 Fetching playlist videos from: {channel_url}")
             info = ydl.extract_info(channel_url, download=False)
-            
-            if is_single_video and not is_playlist:
-                # Handle single video
-                video_url = info.get("webpage_url")
-                return [video_url] if video_url else []
-            else:
-                # Handle playlist
-                return [entry['url'] for entry in info.get('entries', []) if 'url' in entry]
+            # Handle playlist
+            video_urls = [entry['url'] for entry in info.get('entries', []) if 'url' in entry]
+            print(f"✅ Found {len(video_urls)} videos in playlist")
+            return video_urls
+    
+    except yt_dlp.utils.DownloadError as e:
+        error_str = str(e)
+        print(f"⚠️ YouTube download error: {error_str}")
         
-        except Exception as e:
+        if "Sign in to confirm you're not a bot" in error_str:
             raise HTTPException(
                 status_code=400,
-                detail="The provided URL is not a valid YouTube video or playlist. Please ensure the URL points to a YouTube video or playlist.",
+                detail="YouTube bot protection triggered. Please try with a direct video URL instead of a playlist."
             )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not process the YouTube playlist. Please try using individual video URLs instead."
+            )
+    except Exception as e:
+        print(f"❌ Error processing YouTube URL: {type(e).__name__}: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail="Error processing the YouTube URL. Please ensure it's a valid video or playlist URL."
+        )
 
 def get_transcript_with_apify(video_url):
     """Fetches transcript from a YouTube video using Apify."""
     print(f"🔍 Starting Apify transcript retrieval for URL: {video_url}")
     try:
-        # Extract video ID from URL
+        # Extract video ID from URL (handle all formats)
+        video_id = None
+        
         if "youtu.be/" in video_url:
-            video_id = video_url.split("youtu.be/")[-1].split("?")[0]
+            # Format: https://youtu.be/VIDEO_ID
+            video_id = video_url.split("youtu.be/")[-1].split("?")[0].split("#")[0]
             print(f"📌 Extracted video ID from youtu.be URL: {video_id}")
-        elif "v=" in video_url:
-            video_id = video_url.split("v=")[-1].split("&")[0]
-            print(f"📌 Extracted video ID from youtube.com URL: {video_id}")
+        elif "youtube.com/watch" in video_url and "v=" in video_url:
+            # Format: https://www.youtube.com/watch?v=VIDEO_ID
+            video_id = video_url.split("v=")[-1].split("&")[0].split("#")[0]
+            print(f"📌 Extracted video ID from youtube.com/watch URL: {video_id}")
+        elif "youtube.com/embed/" in video_url:
+            # Format: https://www.youtube.com/embed/VIDEO_ID
+            video_id = video_url.split("embed/")[-1].split("?")[0].split("#")[0]
+            print(f"📌 Extracted video ID from embed URL: {video_id}")
+        elif "youtube.com/v/" in video_url:
+            # Format: https://www.youtube.com/v/VIDEO_ID
+            video_id = video_url.split("v/")[-1].split("?")[0].split("#")[0]
+            print(f"📌 Extracted video ID from youtube.com/v URL: {video_id}")
         else:
             print(f"⚠️ Could not extract video ID from URL format: {video_url}")
-            return None
+            return None, None
+        
+        # Video ID sanity check
+        if not video_id or len(video_id) < 8:
+            print(f"⚠️ Invalid video ID extracted: {video_id}")
+            return None, None
         
         # Initialize the ApifyClient with API token
         if not APIFY_API_TOKEN:
             print("⚠️ Apify API token not set in environment variables. Please add APIFY_API_TOKEN to your .env file")
-            return None
+            return None, None
         else:
             print(f"✅ Using Apify API token: {APIFY_API_TOKEN[:4]}...{APIFY_API_TOKEN[-4:] if len(APIFY_API_TOKEN) > 8 else ''}")
         

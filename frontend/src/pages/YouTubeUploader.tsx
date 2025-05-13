@@ -124,9 +124,22 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       console.error("Error fetching videos:", error);
 
       if (error.response?.status === 400) {
-        setError(
-          "Invalid YouTube URL. Please enter a valid YouTube video or playlist URL."
-        );
+        // Check for specific YouTube bot protection error
+        const errorDetail = error.response?.data?.detail || "";
+        
+        if (errorDetail.includes("bot protection") || errorDetail.includes("Sign in to confirm")) {
+          setError(
+            "YouTube bot protection triggered. Please use a direct video URL instead of a playlist."
+          );
+        } else if (errorDetail.includes("playlist")) {
+          setError(
+            "Could not process the YouTube playlist. Please try using individual video URLs instead."
+          );
+        } else {
+          setError(
+            "Invalid YouTube URL. Please enter a valid YouTube video or playlist URL."
+          );
+        }
       } else if (error.response?.status === 404) {
         setError("No videos found in the provided link.");
       } else {
