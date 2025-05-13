@@ -277,6 +277,13 @@ export const authApi = {
     const response = await api.post("/auth/google", { credential });
     return response.data;
   },
+  
+  facebookLogin: async (accessToken: string) => {
+  const response = await api.post("/auth/facebook", {
+    access_token: accessToken
+  });
+  return response.data;
+  },
 
   getWebsiteNodes: async (websiteUrl: string) => {
     const response = await api.get(`/get_nodes`, { params: { website_url: websiteUrl } });
@@ -450,13 +457,13 @@ export const authApi = {
     });
   },
 
-  deleteScrapedUrl: async (botId: number, url: string) => {
+deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
     return await api.delete(`/chatbot/bot/${botId}/scraped-urls`, {
-      params: { url: url },
+      params: { url: url,
+        word_count:wordcount
+      },
     });
   },
-
-
   submitIssueRequest: async (data: FormData) => {
     const response = await api.post('/submit-issue-request', data, {
       headers: {
@@ -555,6 +562,12 @@ export const authApi = {
     const response = await api.put(`/chat/interactions/${interaction_id}/end`);
     return response.data; // API response format: { message: "Session ended successfully", end_time: "timestamp" }
   },
+
+  checkUserSubscription: async (userId: number) => {
+  const response = await api.get(`/check-user-subscription/${userId}`);
+  return response.data; // Expected format: { exists: true/false }
+  },
+
 
   getUserUsage: async (): Promise<UserUsageResponse> => {
     const response = await api.get('/user/usage');

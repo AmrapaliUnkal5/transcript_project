@@ -51,7 +51,7 @@ def get_user_by_email(db: Session, email: str):
 
 def get_bot_by_id(db: Session, bot_id: int):
     """Fetch bot settings by bot_id"""
-    return db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    return db.query(Bot).filter(Bot.bot_id == bot_id, Bot.status != 'Deleted').first()
 
 def create_bot(db: Session, bot_data: BotCreate):
     """Insert bot settings if not existing"""

@@ -51,6 +51,7 @@ class AdminAuth(AuthenticationBackend):
 # Initialize Admin Panel
 authentication_backend = AdminAuth(secret_key="SECRET_KEY")
 
+
 # Model Views
 class UserAdmin(ModelView, model=User):
     column_list = [
@@ -319,6 +320,7 @@ class AddonAdmin(ModelView, model=Addon):
     column_filters = ["name", "price", "created_at"]
 
 class UserSubscriptionAdmin(ModelView, model=UserSubscription):
+    
     column_list = [
         UserSubscription.id,
         UserSubscription.user_id,
@@ -339,7 +341,7 @@ class UserSubscriptionAdmin(ModelView, model=UserSubscription):
     form_columns = [
         UserSubscription.id,
         UserSubscription.user_id,
-        UserSubscription.subscription_plan_id,
+        "subscription_plan",
         UserSubscription.amount,
         UserSubscription.currency,
         UserSubscription.payment_date,
@@ -355,6 +357,7 @@ class UserSubscriptionAdmin(ModelView, model=UserSubscription):
         UserSubscription.created_at,
         UserSubscription.updated_at
     ]
+
 
 class TeamMemberAdmin(ModelView, model=TeamMember):
     column_list = [

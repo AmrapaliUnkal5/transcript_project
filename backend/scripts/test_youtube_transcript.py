@@ -12,6 +12,14 @@ import re
 from urllib.parse import urlparse, parse_qs
 import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound, _errors
+from apify_client import ApifyClient
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Get Apify API token from environment variable
+APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN", "")
 
 # Configure logger
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -82,6 +90,72 @@ def check_video_accessibility(video_url):
             except Exception as transcript_error:
                 logger.error(f"❌ Fallback method also failed: {str(transcript_error)}")
         
+        return False
+
+def test_apify_transcript(video_url):
+    """Test retrieving transcript from a YouTube video using Apify"""
+    logger.info(f"\n===== Testing Apify transcript retrieval for {video_url} =====")
+    
+    # Extract video ID from URL
+    if "youtu.be/" in video_url:
+        video_id = video_url.split("youtu.be/")[-1].split("?")[0]
+    elif "v=" in video_url:
+        video_id = video_url.split("v=")[-1].split("&")[0]
+    else:
+        logger.error(f"❌ Could not extract video ID from URL: {video_url}")
+        return None
+    
+    logger.info(f"Video ID: {video_id}")
+    
+    # Check if Apify token is available
+    if not APIFY_API_TOKEN:
+        logger.error("❌ Apify API token not set in environment variables")
+        return None
+    
+    try:
+        # Initialize the ApifyClient with API token
+        client = ApifyClient(APIFY_API_TOKEN)
+        
+        # Prepare the Actor input with the YouTube video URL
+        run_input = {
+            "youtubeUrl": [
+                {"url": video_url}
+            ]
+        }
+        
+        logger.info("Starting Apify actor to extract transcript...")
+        
+        # Run the Actor and wait for it to finish
+        run = client.actor("dz_omar/youtube-transcript-extractor").call(run_input=run_input)
+        
+        logger.info(f"Apify run completed. Dataset ID: {run['defaultDatasetId']}")
+        
+        # Fetch the transcript from the dataset
+        transcript_found = False
+        for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+            if item.get("videoId") == video_id and "transcript" in item:
+                transcript_segments = item.get("transcript", [])
+                transcript_text = " ".join([segment.get("text", "") for segment in transcript_segments])
+                
+                logger.info(f"✅ Successfully retrieved transcript using Apify with {len(transcript_segments)} segments")
+                
+                # Print a sample
+                sample_segments = transcript_segments[:5]
+                sample_text = " ".join([segment.get("text", "") for segment in sample_segments])
+                logger.info("\nSample transcript text:")
+                logger.info(f"{sample_text}...\n")
+                
+                transcript_found = True
+                break
+        
+        if not transcript_found:
+            logger.error("❌ No transcript found in Apify response")
+            return False
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Error using Apify to retrieve transcript: {str(e)}")
         return False
 
 def test_get_transcript(video_url):
@@ -177,8 +251,25 @@ def main():
         
         # Check if video is accessible first
         if check_video_accessibility(url):
-            # Then test transcript retrieval
-            test_get_transcript(url)
+            # Test both transcript methods
+            logger.info("\n" + "-" * 40)
+            logger.info("TESTING YOUTUBE TRANSCRIPT API")
+            logger.info("-" * 40)
+            yt_api_result = test_get_transcript(url)
+            
+            logger.info("\n" + "-" * 40)
+            logger.info("TESTING APIFY TRANSCRIPT EXTRACTION")
+            logger.info("-" * 40)
+            apify_result = test_apify_transcript(url)
+            
+            if yt_api_result and apify_result:
+                logger.info("\n✅ BOTH METHODS SUCCEEDED")
+            elif yt_api_result:
+                logger.info("\n⚠️ ONLY YOUTUBE TRANSCRIPT API SUCCEEDED")
+            elif apify_result:
+                logger.info("\n⚠️ ONLY APIFY METHOD SUCCEEDED")
+            else:
+                logger.info("\n❌ BOTH METHODS FAILED")
         
         logger.info("\n" + "=" * 60)
 
