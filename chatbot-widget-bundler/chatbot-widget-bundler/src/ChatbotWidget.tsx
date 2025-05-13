@@ -33,6 +33,18 @@ interface BotSettings {
   window_bg_color?: string;
   welcome_message?: string;
   input_bg_color?: string;
+
+  // New customization fields
+  header_bg_color?: string;
+  header_text_color?: string;
+  chat_text_color?: string;
+  user_text_color?: string;
+  button_color?: string;
+  button_text_color?: string;
+  timestamp_color?: string;
+  border_radius?: string;
+  border_color?: string;
+  chat_font_family?: string;
 }
 
 interface ChatbotWidgetProps {
@@ -63,10 +75,15 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     const [isBotTyping, setIsBotTyping] = useState(false); // New state for typing animation
     const [currentBotMessage, setCurrentBotMessage] = useState<string>("");
     const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
+    const [welcomeMessageIndex, setWelcomeMessageIndex] = useState<
+      number | null
+    >(null);
     //const [showWelcomeBubble] = useState(true);
     const [usageError, setUsageError] = useState("");
     const [isSendDisabled, setIsSendDisabled] = useState(false);
+    const [hasWelcomeBeenShown, setHasWelcomeBeenShown] = useState(false);
+    const chatContainerRef = useRef<HTMLDivElement | null>(null);
+    const [hasWhiteLabeling, setHasWhiteLabeling] = useState(false);
 
     useEffect(() => {
       const fetchBotSettings = async () => {
@@ -84,22 +101,69 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
       fetchBotSettings();
     }, [botId]);
-    useEffect(() => {
-      if (botSettings?.welcome_message && !welcomeMessage) {
-        let displayed = "";
 
-        let index = 0;
-        const typeInterval = setInterval(() => {
-          if (index < (botSettings?.welcome_message?.length ?? 0)) {
-            displayed += botSettings.welcome_message?.[index] ?? "";
-            setWelcomeMessage(displayed);
-            index++;
-          } else {
-            clearInterval(typeInterval);
-          }
-        }, 30); // Typing speed
+    //check add ons // Check White-Labeling Addon
+    useEffect(() => {
+      const checkWhiteLabelingAddon = async () => {
+        try {
+          // Call the API that checks if the user has the White-Labeling addon
+          const response = await axios.get(
+            `${baseDomain}/api/user/addon/white-labeling-check`,
+            {
+              params: { bot_id: botId },
+            }
+          );
+          console.log("White-Labeling response", response);
+          setHasWhiteLabeling(response.data.hasWhiteLabeling);
+        } catch (error) {
+          console.error("Error checking White-Labeling addon", error);
+          setHasWhiteLabeling(false); // Default to false in case of error
+        }
+      };
+
+      if (botId) {
+        checkWhiteLabelingAddon();
       }
-    }, [botSettings, welcomeMessage]);
+    }, [botId]); // Re-run if userId changes
+
+    useEffect(() => {
+      if (
+        botSettings?.welcome_message &&
+        !hasWelcomeBeenShown &&
+        messages.length === 0
+      ) {
+        const welcomeMsg = {
+          sender: "bot" as const, // make sure TypeScript infers the literal
+          message: botSettings.welcome_message,
+          reaction: undefined,
+        };
+        setMessages([welcomeMsg]);
+        setWelcomeMessageIndex(0);
+        setHasWelcomeBeenShown(true);
+      }
+    }, [botSettings, hasWelcomeBeenShown, messages.length]);
+
+    // useEffect(() => {
+    //   if (
+    //     botSettings?.welcome_message &&
+    //     !welcomeMessage &&
+    //     !hasWelcomeBeenShown
+    //   ) {
+    //     let displayed = "";
+
+    //     let index = 0;
+    //     const typeInterval = setInterval(() => {
+    //       if (index < (botSettings?.welcome_message?.length ?? 0)) {
+    //         displayed += botSettings.welcome_message?.[index] ?? "";
+    //         setWelcomeMessage(displayed);
+    //         index++;
+    //       } else {
+    //         clearInterval(typeInterval);
+    //         setHasWelcomeBeenShown(true);
+    //       }
+    //     }, 30); // Typing speed
+    //   }
+    // }, [botSettings, welcomeMessage, hasWelcomeBeenShown]);
 
     // Attach unload listener and idle timer
     useEffect(() => {
@@ -147,9 +211,25 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       };
     }, []);
 
+    useEffect(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+      }
+    }, [messages, isBotTyping]);
+
+    // const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+    // useEffect(() => {
+    //   chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // }, [messages]);
+
     const sendMessage = async () => {
       const trimmedMessage = inputMessage.trim();
       if (!trimmedMessage || !botSettings?.user_id) return;
+
       const quotaResponse = await axios.get(
         `${baseDomain}/api/usage/messages/check`,
         {
@@ -164,14 +244,26 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         return;
       }
 
+      console.log(
+        "quotaResponse.data.hasWhiteLabelling",
+        quotaResponse.data.hasWhiteLabelling
+      );
+
       // Clear error if they are allowed again (if this check is ever reused)
       setUsageError("");
       setIsSendDisabled(false);
 
-      setMessages((prev) => [
-        ...prev,
-        { sender: "user", message: trimmedMessage },
-      ]);
+      setMessages((prev) => {
+        const updatedMessages =
+          welcomeMessageIndex !== null
+            ? prev.filter((_, idx) => idx !== welcomeMessageIndex)
+            : prev;
+        setWelcomeMessageIndex(null);
+        return [
+          ...updatedMessages,
+          { sender: "user", message: trimmedMessage },
+        ];
+      });
       setInputMessage("");
       resetIdleTimer();
 
@@ -354,6 +446,16 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       window_bg_color,
       appearance,
       input_bg_color,
+      header_bg_color,
+      header_text_color,
+      user_text_color,
+      chat_text_color,
+      button_color,
+      button_text_color,
+      timestamp_color,
+      chat_font_family,
+      border_radius,
+      border_color,
     } = botSettings;
 
     const [vertical, horizontal] = (position || "bottom-right").split("-");
@@ -384,7 +486,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     // };
 
     const widgetStyle: React.CSSProperties = {
-      fontFamily: font_style || "Arial, sans-serif",
+      fontFamily: chat_font_family || font_style,
       fontSize: font_size ? `${font_size}px` : "14px",
       position: "fixed",
       zIndex: 2147483647,
@@ -406,12 +508,12 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         : {
             ...(vertical === "top" ? { top: "110px" } : { bottom: "90px" }),
             ...(horizontal === "left" ? { left: "20px" } : { right: "20px" }),
-            width: "400px",
+            width: "380px",
             maxWidth: "100dvw",
-            height: "720px",
+            height: "600px",
             maxHeight: "84dvh",
             backgroundColor: window_bg_color || "#F9FAFB",
-            border: `1px solid ${bot_color || "rgb(229, 231, 235)"}`,
+            border: `1px solid ${border_color || "#E5E7EB"}`,
             borderRadius: "12px",
             boxShadow:
               "rgba(0, 0, 0, 0.2) 5px 5px 25px -5px, rgba(0, 0, 0, 0.1) 0px 8px 10px -6px",
@@ -419,8 +521,8 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     };
 
     const headerStyle: React.CSSProperties = {
-      backgroundColor: bot_color || "#007bff",
-      color: "#fff",
+      backgroundColor: header_bg_color || "#3B82F6",
+      color: header_text_color || "#fff",
       padding: "10px",
       display: "flex",
       alignItems: "center",
@@ -436,16 +538,29 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
     const chatBodyStyle: React.CSSProperties = {
       flex: 1,
+      display: "flex",
+      flexDirection: "column",
       padding: "10px",
       overflowY: "auto",
       backgroundColor: window_bg_color || "#f9f9f9",
+      height: "calc(100% - 120px)",
     };
 
     const inputStyle: React.CSSProperties = {
       display: "flex",
-      borderTop: "1px solid #ddd",
-      padding: "8px",
-      background: input_bg_color || "#fff",
+
+      padding: "16px", // equivalent to p-4
+      borderTop: `1px solid ${border_color || "#E5E7EB"}`,
+      alignItems: "center",
+      backgroundColor: "#374151",
+      gap: "0.5rem", // similar to spacing between input and button in Tailwind
+    };
+
+    const timestampStyle: React.CSSProperties = {
+      fontSize: "11px",
+      marginTop: "4px",
+      textAlign: "right",
+      color: timestamp_color || "#9CA3AF",
     };
 
     // const inputBoxStyle: React.CSSProperties = {
@@ -457,33 +572,13 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     // };
 
     return (
-      <div style={widgetStyle}>
-        {/* {botSettings?.welcome_message && showWelcomeBubble && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "80px",
-            right: "20px",
-            backgroundColor: "#fff",
-            borderRadius: "16px",
-            padding: "10px 14px",
-            boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-            maxWidth: "250px",
-            fontSize: "14px",
-            lineHeight: "1.4",
-            zIndex: 999,
-            animation: "fadeIn 0.5s ease-in-out",
-          }}
-        >
-          {botSettings.welcome_message}
-        </div>
-      )} */}
+      <div ref={chatContainerRef} style={widgetStyle}>
         <div
           style={{
             position: "absolute",
             top: "10px",
             right: "10px",
-            fontSize: "16px",
+            fontSize: chat_font_family ? `${font_size}px` : "14px",
             color: "#fff",
             cursor: "pointer",
             zIndex: 1,
@@ -501,67 +596,50 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         </div>
 
         <div style={chatBodyStyle}>
-          {welcomeMessage && (
-            <div
-              style={{
-                backgroundColor: bot_color || "#f0f0f0",
-                padding: "10px 14px",
-                borderRadius: "16px",
-                maxWidth: "80%",
-                margin: "10px auto",
-                color: "#333",
-                fontStyle: "italic",
-                fontSize: "15px",
-                boxShadow: "0 2px 6px rgba(0, 0, 0, 0.05)",
-                textAlign: "center",
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {welcomeMessage}
-            </div>
-          )}
-          {messages.map((msg, index) => (
-            <div
-              key={index}
-              style={{
-                display: "flex",
-                justifyContent:
-                  msg.sender === "user" ? "flex-end" : "flex-start",
-                marginBottom: "8px",
-                margin: "6px 0",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: msg.sender === "user" ? "flex-end" : "flex-start",
-                }}
-              >
+          <div style={{ marginTop: "auto" }}>
+            {messages.map((msg, index) => (
+              <div key={index} style={{ marginBottom: "16px" }}>
+                {/* Message Bubble */}
                 <div
                   style={{
                     padding: "12px",
-                    borderRadius: "12px",
+                    borderRadius:
+                      border_radius === "rounded-full"
+                        ? "20px"
+                        : border_radius || "12px",
                     maxWidth: "80%",
                     backgroundColor:
                       msg.sender === "user"
                         ? user_color || "#3b82f6"
                         : bot_color || "#e5e7eb",
-                    color: msg.sender === "user" ? "#fff" : "#111827",
+                    color:
+                      msg.sender === "user"
+                        ? user_text_color || "#ffffff"
+                        : chat_text_color || "#111827",
                     fontSize: font_size ? `${font_size}px` : "14px",
-                    fontFamily: font_style || "Arial, sans-serif",
+                    fontFamily: chat_font_family || font_style,
                     wordBreak: "break-word",
+                    marginLeft: msg.sender === "user" ? "auto" : "0px",
+                    marginRight: msg.sender === "user" ? "0px" : "auto",
                   }}
                 >
-                  {msg.message}
+                  <div>{msg.message}</div>
+                  <div style={timestampStyle}>
+                    {new Date().toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
                 </div>
-                {/* 👍👎 Reactions - only show for bot messages */}
-                {msg.sender === "bot" && (
+
+                {/* Reaction Buttons - Only for Bot */}
+                {msg.sender === "bot" && index !== welcomeMessageIndex && (
                   <div
                     style={{
                       marginTop: "4px",
                       display: "flex",
-                      padding: "0pxss",
+                      gap: "8px",
+                      marginLeft: "6px",
                     }}
                   >
                     <button
@@ -570,7 +648,9 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                         background: "none",
                         border: "none",
                         cursor: "pointer",
-                        color: msg.reaction === "like" ? "#22c55e" : "#6b7280", // red if selected, gray otherwise
+                        color: msg.reaction === "like" ? "#22c55e" : "#6b7280",
+                        padding: "4px",
+                        borderRadius: "50%",
                       }}
                     >
                       <ThumbsUp size={16} />
@@ -582,7 +662,9 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                         border: "none",
                         cursor: "pointer",
                         color:
-                          msg.reaction === "dislike" ? "#ef4444" : "#6b7280", // red if selected, gray otherwise
+                          msg.reaction === "dislike" ? "#ef4444" : "#6b7280",
+                        padding: "4px",
+                        borderRadius: "50%",
                       }}
                     >
                       <ThumbsDown size={16} />
@@ -590,132 +672,130 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                   </div>
                 )}
               </div>
-            </div>
-          ))}
-
-          {/* Bot is Typing */}
-          {isBotTyping && (
-            <div
-              className="mr-auto my-2"
-              style={{
-                textAlign: "left",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              {currentBotMessage === "" ? (
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "8px 7px",
-                    borderRadius: "16px",
-                    maxWidth: "200px",
-                    minHeight: "32px",
-                    width: "fit-content",
-                    backgroundColor: bot_color || "#e9ecef",
-                    fontFamily: font_style || "Arial, sans-serif",
-                    fontSize: font_size ? `${font_size}px` : "14px",
-                  }}
-                >
-                  <span
-                    style={{
-                      width: "6px",
-                      height: "6px",
-                      backgroundColor: "#555",
-                      borderRadius: "50%",
-                      margin: "0 2px",
-                      animation: "bounce 1.4s infinite ease-in-out both",
-                      animationDelay: "0s",
-                    }}
-                  >
-                    &nbsp;
-                  </span>
-                  <span
-                    style={{
-                      width: "6px",
-                      height: "6px",
-                      backgroundColor: "#555",
-                      borderRadius: "50%",
-                      margin: "0 2px",
-                      animation: "bounce 1.4s infinite ease-in-out both",
-                      animationDelay: "0.2s",
-                    }}
-                  >
-                    &nbsp;
-                  </span>
-                  <span
-                    style={{
-                      width: "6px",
-                      height: "6px",
-                      backgroundColor: "#555",
-                      borderRadius: "50%",
-                      margin: "0 2px",
-                      animation: "bounce 1.4s infinite ease-in-out both",
-                      animationDelay: "0.4s",
-                    }}
-                  >
-                    &nbsp;
-                  </span>
-                </div>
-              ) : (
-                <div
-                  className="mr-auto rounded-lg max-w-[80%] p-3"
-                  style={{
-                    backgroundColor: "transparent",
-                    fontFamily: font_style || "Arial, sans-serif",
-                    fontSize: font_size ? `${font_size}px` : "14px",
-                  }}
-                >
-                  {currentBotMessage}
-                  <span
+            ))}
+            {/* <div ref={chatEndRef} /> */}
+            {/* Bot is Typing */}
+            {isBotTyping && (
+              <div
+                className="mr-auto my-2"
+                style={{
+                  textAlign: "left",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                {currentBotMessage === "" ? (
+                  <div
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
-                      marginLeft: "4px",
+                      justifyContent: "center",
+                      padding: "8px 7px",
+                      borderRadius: "16px",
+                      maxWidth: "200px",
+                      minHeight: "32px",
+                      width: "fit-content",
+                      backgroundColor: bot_color || "#e9ecef",
+                      fontFamily: chat_font_family || font_style,
+                      fontSize: font_size ? `${font_size}px` : "14px",
                     }}
                   >
                     <span
                       style={{
-                        height: "6px",
                         width: "6px",
+                        height: "6px",
                         backgroundColor: "#555",
                         borderRadius: "50%",
                         margin: "0 2px",
                         animation: "bounce 1.4s infinite ease-in-out both",
                         animationDelay: "0s",
                       }}
-                    ></span>
+                    >
+                      &nbsp;
+                    </span>
                     <span
                       style={{
-                        height: "6px",
                         width: "6px",
+                        height: "6px",
                         backgroundColor: "#555",
                         borderRadius: "50%",
                         margin: "0 2px",
                         animation: "bounce 1.4s infinite ease-in-out both",
                         animationDelay: "0.2s",
                       }}
-                    ></span>
+                    >
+                      &nbsp;
+                    </span>
                     <span
                       style={{
-                        height: "6px",
                         width: "6px",
+                        height: "6px",
                         backgroundColor: "#555",
                         borderRadius: "50%",
                         margin: "0 2px",
                         animation: "bounce 1.4s infinite ease-in-out both",
                         animationDelay: "0.4s",
                       }}
-                    ></span>
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* {isBotTyping && (
+                    >
+                      &nbsp;
+                    </span>
+                  </div>
+                ) : (
+                  <div
+                    className="mr-auto rounded-lg max-w-[80%] p-3"
+                    style={{
+                      backgroundColor: "transparent",
+                      fontFamily: chat_font_family || font_style,
+                      fontSize: font_size ? `${font_size}px` : "14px",
+                    }}
+                  >
+                    {currentBotMessage}
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        marginLeft: "4px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          height: "6px",
+                          width: "6px",
+                          backgroundColor: "#555",
+                          borderRadius: "50%",
+                          margin: "0 2px",
+                          animation: "bounce 1.4s infinite ease-in-out both",
+                          animationDelay: "0s",
+                        }}
+                      ></span>
+                      <span
+                        style={{
+                          height: "6px",
+                          width: "6px",
+                          backgroundColor: "#555",
+                          borderRadius: "50%",
+                          margin: "0 2px",
+                          animation: "bounce 1.4s infinite ease-in-out both",
+                          animationDelay: "0.2s",
+                        }}
+                      ></span>
+                      <span
+                        style={{
+                          height: "6px",
+                          width: "6px",
+                          backgroundColor: "#555",
+                          borderRadius: "50%",
+                          margin: "0 2px",
+                          animation: "bounce 1.4s infinite ease-in-out both",
+                          animationDelay: "0.4s",
+                        }}
+                      ></span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* {isBotTyping && (
           <div
             style={{
               margin: "6px 0",
@@ -735,9 +815,8 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             </span>
           </div>
         )} */}
-
-          {/* Show current bot message as the bot types */}
-          {/* {currentBotMessage && !isBotTyping && (
+            {/* Show current bot message as the bot types */}
+            {/* {currentBotMessage && !isBotTyping && (
           <div
             style={{
               margin: "6px 0",
@@ -760,21 +839,23 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             </span>
           </div>
         )} */}
-
-          <div ref={messagesEndRef} />
+            <div ref={messagesEndRef} />
+          </div>
         </div>
         {/* "Powered by Elvora" footer */}
-        <div
-          style={{
-            textAlign: "right",
-            color: "#6b7280", // Tailwind gray-500
-            fontSize: "12px",
-            padding: "12px 10px",
-            fontStyle: "italic",
-          }}
-        >
-          Powered by Evolra AI
-        </div>
+        {!hasWhiteLabeling && (
+          <div
+            style={{
+              textAlign: "right",
+              color: "#6b7280", // Tailwind gray-500
+              fontSize: "12px",
+              padding: "12px 10px",
+              fontStyle: "italic",
+            }}
+          >
+            Powered by Evolra AI
+          </div>
+        )}
         {usageError && (
           <div
             style={{
@@ -797,13 +878,17 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             type="text"
             style={{
               flexGrow: 1,
-              padding: "0.5rem",
-              border: "1px solid #d1d5db",
-              borderRadius: "0.5rem",
+              padding: "0.5rem 0.75rem", // similar to Tailwind `p-2`
+              border: `1px solid ${border_color || "#d1d5db"}`,
+              borderRadius:
+                border_radius === "rounded-full"
+                  ? "20px"
+                  : border_radius || "8px",
               backgroundColor: input_bg_color || "#ffffff",
-              color: "#111827",
+              color: chat_text_color || "#111827",
               outline: "none",
-              fontSize: "1rem",
+              fontSize: font_size,
+              transition: "border-color 0.2s ease",
             }}
             placeholder="Type a message..."
             value={inputMessage}
@@ -822,12 +907,20 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             style={{
               marginLeft: "0.5rem",
               padding: "0.5rem 1rem",
-              backgroundColor: "#3b82f6", // tailwind blue-500
-              color: "white",
-              borderRadius: "0.5rem",
-              cursor: "pointer",
+              lineHeight: "1.5rem",
+              backgroundColor: button_color || "#3b82f6", // tailwind blue-500
+              color: button_text_color || "#ffffff",
+              borderRadius:
+                border_radius === "rounded-full"
+                  ? "20px"
+                  : border_radius || "8px",
+              cursor:
+                !inputMessage.trim() || isSendDisabled
+                  ? "not-allowed"
+                  : "pointer", // disabled:cursor-not-allowed
               border: "none",
-              transition: "background-color 0.2s ease",
+              transition: "opacity 0.2s ease",
+              opacity: !inputMessage.trim() || isSendDisabled ? 0.7 : 1,
               fontWeight: "500",
             }}
             onMouseOver={(e) => {
