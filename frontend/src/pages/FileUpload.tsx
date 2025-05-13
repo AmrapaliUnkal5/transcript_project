@@ -60,7 +60,7 @@ export const FileUpload = () => {
   //   ? "websitescraping"
   //   : "websiteSub");
   const [youtubeVideos, setYoutubeVideos] = useState<
-    { video_url: string; video_title: string }[]
+    { video_url: string; video_title: string; video_id: string; transcript_count?: number }[]
   >([]);
   const { loading, setLoading } = useLoader();
   const [currentPage, setCurrentPage] = useState(1);
@@ -396,13 +396,36 @@ export const FileUpload = () => {
       }
       console.log("Deleting videoId:", videoId);
 
-      await authApi.deleteVideo(selectedBot?.id, videoId);
+      // Find the video in the youtubeVideos array to get the transcript_count
+      const videoToDelete = youtubeVideos.find(v => v.video_url === confirmDelete);
+      const wordCount = videoToDelete?.transcript_count || 0;
+      
+      console.log("Deleting video with word count:", wordCount);
+
+      // Delete the video and pass the word count
+      const response = await authApi.deleteVideo(selectedBot?.id, videoId, wordCount);
+      
+      if (response?.data?.words_removed) {
+        toast.success(`Video deleted successfully. ${response.data.words_removed} words removed.`);
+        
+        // Update the user usage statistics if possible
+        try {
+          const apiUsage = await authApi.getUserUsage();
+          setUserUsage((prev) => ({
+            ...prev,
+            globalWordsUsed: apiUsage.totalWordsUsed,
+          }));
+        } catch (error) {
+          console.error("Failed to refresh user usage after video deletion:", error);
+        }
+      }
 
       setYoutubeVideos((prevVideos) =>
         prevVideos.filter((video) => video.video_url !== confirmDelete)
       );
     } catch (error) {
       console.error("Error deleting video:", error);
+      toast.error("Failed to delete YouTube video.");
     } finally {
       setConfirmDelete(null);
     }

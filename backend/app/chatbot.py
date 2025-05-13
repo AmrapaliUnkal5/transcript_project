@@ -681,7 +681,8 @@ def get_bot_videos(request: Request, bot_id: int, db: Session = Depends(get_db))
             YouTubeVideoResponse(
                 video_id=video.video_id,
                 video_title=video.video_title,
-                video_url=video.video_url
+                video_url=video.video_url,
+                transcript_count=video.transcript_count or 0
             )
             for video in videos
         ]
@@ -697,7 +698,7 @@ def get_bot_videos(request: Request, bot_id: int, db: Session = Depends(get_db))
 
 
 @router.delete("/bot/{bot_id}/videos")
-def soft_delete_video(request: Request, bot_id: int, video_id: str = Query(...), db: Session = Depends(get_db),current_user: UserOut = Depends(get_current_user)):
+def soft_delete_video(request: Request, bot_id: int, video_id: str = Query(...), word_count: int = Query(0), db: Session = Depends(get_db), current_user: UserOut = Depends(get_current_user)):
     """Soft deletes a YouTube video from a bot's knowledge base."""
     request_id = getattr(request.state, "request_id", "unknown")
     
@@ -717,23 +718,39 @@ def soft_delete_video(request: Request, bot_id: int, video_id: str = Query(...),
                           extra={"request_id": request_id, "bot_id": bot_id, "video_id": video_id})
             raise HTTPException(status_code=404, detail="Video not found")
         
+        # Get the transcript count from the video if word_count parameter wasn't provided
+        transcript_count = word_count if word_count > 0 else (video.transcript_count or 0)
+        
         # Soft delete the video in the database
         video.is_deleted = True
+        
+        # Update bot and user word counts
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        if bot:
+            bot.word_count = max(0, (bot.word_count or 0) - transcript_count)
+        
+        user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
+        if user:
+            user.total_words_used = max(0, (user.total_words_used or 0) - transcript_count)
+        
         db.commit()
         
         # Delete from ChromaDB
         delete_video_from_chroma(bot_id, video_id)
         user_youtube = current_user["user_id"]
-        print("user_youtube",user_youtube)
+        print("user_youtube", user_youtube)
         
         # Add notification
-        notification_text = f"Video '{video.video_title}' was removed from bot {bot_id}'s knowledge base."
-        add_notification(db, "Video Removed", notification_text,bot_id, user_youtube)
+        notification_text = f"Video '{video.video_title}' was removed from bot {bot_id}'s knowledge base. {transcript_count} words removed."
+        add_notification(db, "Video Removed", notification_text, bot_id, user_youtube)
         
         logger.info(f"Video deleted successfully", 
-                   extra={"request_id": request_id, "bot_id": bot_id, "video_id": video_id})
+                   extra={"request_id": request_id, "bot_id": bot_id, "video_id": video_id, "words_removed": transcript_count})
         
-        return {"message": "Video deleted successfully"}
+        return {
+            "message": "Video deleted successfully", 
+            "words_removed": transcript_count
+        }
     except Exception as e:
         logger.exception(f"Error deleting video", 
                         extra={"request_id": request_id, "bot_id": bot_id, 

@@ -465,6 +465,7 @@ class YouTubeVideoResponse(BaseModel):
     video_id: str
     video_title: str
     video_url: str
+    transcript_count: Optional[int] = 0
 
 class WordCloudResponse(BaseModel):
     words: List[Dict[str, Union[str, int]]]

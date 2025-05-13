@@ -451,9 +451,12 @@ export const authApi = {
     const response = await api.get(`/scraped-urls/${botId}`);  // API endpoint to fetch scraped URLs
     return response.data;
   },
-  deleteVideo: async (botId: number, videoId: string) => {
+  deleteVideo: async (botId: number, videoId: string, wordCount: number = 0) => {
     return await api.delete(`/chatbot/bot/${botId}/videos`, {
-      params: { video_id: videoId },  // Pass video_id as query param
+      params: { 
+        video_id: videoId,
+        word_count: wordCount
+      },
     });
   },
 
