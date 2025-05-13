@@ -457,13 +457,13 @@ export const authApi = {
     });
   },
 
-  deleteScrapedUrl: async (botId: number, url: string) => {
+deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
     return await api.delete(`/chatbot/bot/${botId}/scraped-urls`, {
-      params: { url: url },
+      params: { url: url,
+        word_count:wordcount
+      },
     });
   },
-
-
   submitIssueRequest: async (data: FormData) => {
     const response = await api.post('/submit-issue-request', data, {
       headers: {

@@ -264,6 +264,7 @@ class ScrapeRequest(BaseModel):
 class PageData(BaseModel):
     url: str
     title: str | None  # Allowing None if the title is missing
+    Word_Counts: int
 
 class EmbeddingModelBase(BaseModel):
     name: str
