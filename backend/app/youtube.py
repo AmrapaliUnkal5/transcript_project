@@ -145,7 +145,7 @@ def get_transcript_with_apify(video_url):
                 transcript_text = item.get("transcriptText", "")
                 # Save all metadata from Apify
                 video_metadata = {
-                    "video_id": item.get("videoId"),
+                    "video_id": item.get("videoId", ""),
                     "video_title": item.get("Video_title", "Untitled Video"),
                     "video_url": item.get("VideoURL", video_url),
                     "channel_id": item.get("channel", {}).get("id"),
@@ -153,14 +153,15 @@ def get_transcript_with_apify(video_url):
                     "upload_date": item.get("published_Date"),
                     "views": item.get("Views", "0"),
                     "likes": item.get("likes", "0"),
-                    "description": item.get("Description"),
-                    "thumbnail_url": item.get("thumbnail"),
+                    "description": item.get("Description", ""),
+                    "thumbnail_url": item.get("thumbnail", ""),
                     "duration": None,  # Not provided by Apify but kept for consistency
                     "is_playlist": False,
                     "playlist_id": None,
                     "playlist_name": None
                 }
                 print(f"✅ Extracted transcript text and metadata for video {video_id}")
+                print(f"📊 Metadata keys: {list(video_metadata.keys())}")
                 break
         
         if not transcript_text:
@@ -322,20 +323,47 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
                     except Exception as e:
                         print(f"⚠️ Error parsing date: {e}")
                 
+                # Parse view count
+                view_count = 0
+                try:
+                    views_str = str(video_metadata.get("views", "0"))
+                    # Remove commas, 'views' text, and get first part
+                    views_str = views_str.replace(",", "").split()[0]
+                    view_count = int(views_str)
+                except (ValueError, IndexError) as e:
+                    print(f"⚠️ Error parsing view count: {e}")
+                    
+                # Parse likes
+                likes = 0
+                try:
+                    likes_str = str(video_metadata.get("likes", "0"))
+                    # Handle "K" suffix
+                    if "K" in likes_str:
+                        likes_str = likes_str.replace("K", "").replace(",", "")
+                        likes = int(float(likes_str) * 1000)
+                    elif "M" in likes_str:
+                        likes_str = likes_str.replace("M", "").replace(",", "")
+                        likes = int(float(likes_str) * 1000000)
+                    else:
+                        likes_str = likes_str.replace(",", "")
+                        likes = int(likes_str)
+                except (ValueError, IndexError) as e:
+                    print(f"⚠️ Error parsing likes: {e}")
+                
                 video_data = {
-                    "video_id": video_metadata.get("video_id"),
+                    "video_id": video_metadata.get("video_id", extracted_video_id),
                     "video_title": video_metadata.get("video_title", "Untitled Video"),
                     "video_url": video_metadata.get("video_url", video_url),
                     "channel_id": video_metadata.get("channel_id"),
                     "channel_name": video_metadata.get("channel_name", "Unknown Channel"),
-                    "duration": video_metadata.get("duration"),
+                    "duration": video_metadata.get("duration", 0),
                     "upload_date": upload_date,
                     "is_playlist": video_metadata.get("is_playlist", False),
                     "playlist_id": video_metadata.get("playlist_id"),
                     "playlist_name": video_metadata.get("playlist_name"),
-                    "view_count": video_metadata.get("views", "0").replace(",", "").split()[0] if isinstance(video_metadata.get("views"), str) else 0,
-                    "likes": video_metadata.get("likes", "0").replace("K", "000").replace(",", "") if isinstance(video_metadata.get("likes"), str) else 0,
-                    "description": video_metadata.get("description"),
+                    "view_count": view_count,
+                    "likes": likes,
+                    "description": video_metadata.get("description", ""),
                     "thumbnail_url": video_metadata.get("thumbnail_url"),
                     "bot_id": bot_id,
                     "transcript_count": word_count_transcript,
