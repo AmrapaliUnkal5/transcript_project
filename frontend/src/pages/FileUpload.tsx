@@ -246,10 +246,15 @@ export const FileUpload = () => {
             Object.keys(responseyoutube || {})
           );
 
-          // Check if the response is from background processing
-          if (responseyoutube.status === "processing") {
+          // Check if the response indicates processing started in the background
+          if (responseyoutube && responseyoutube.message && (
+              responseyoutube.message.includes("processing started") || 
+              responseyoutube.message.includes("Video processing") ||
+              responseyoutube.message.includes("background") ||
+              responseyoutube.status === "processing"
+            )) {
             toast.info(
-              `${responseyoutube.video_count} YouTube videos are being processed in the background. You will be notified when complete.`
+              "YouTube videos are being processed in the background. You will be notified when complete."
             );
 
             // Clear selected videos since they're being processed
@@ -394,7 +399,7 @@ export const FileUpload = () => {
       await authApi.deleteVideo(selectedBot?.id, videoId);
 
       setYoutubeVideos((prevVideos) =>
-        prevVideos.filter((url) => url !== confirmDelete)
+        prevVideos.filter((video) => video.video_url !== confirmDelete)
       );
     } catch (error) {
       console.error("Error deleting video:", error);
