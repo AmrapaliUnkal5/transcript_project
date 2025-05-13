@@ -414,7 +414,7 @@ export const authApi = {
     const response = await api.post("/resend-verification-email", { token });
     return response.data;
   },
-  fetchVideosFromPlaylist: async (youtubeUrl: string) => {
+  fetchVideosFromYouTube: async (youtubeUrl: string) => {
     const response = await api.post("/chatbot/fetch-videos", { url: youtubeUrl }); // Change 'playlist_url' to 'url'
     return response.data; // Returns list of video details
   },

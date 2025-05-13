@@ -41,7 +41,7 @@ def get_video_urls(channel_url):
     is_single_video = "watch?v=" in channel_url or "youtu.be/" in channel_url # Check if it's a single video URL
    
     is_playlist = "list=" in channel_url  # Check if it's a playlist URL
-    print("is_single_video",is_single_video)
+    print("is_single_video", is_single_video)
     # Check if it's a valid video or playlist URL
     # Validate YouTube URL (only allow videos & playlists)
     if not YOUTUBE_REGEX.match(channel_url):
@@ -62,13 +62,15 @@ def get_video_urls(channel_url):
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
-
             info = ydl.extract_info(channel_url, download=False)
-            if is_single_video:
-                return [info.get("webpage_url")]
             
-            return [entry['url'] for entry in info.get('entries', []) if 'url' in entry]
-            
+            if is_single_video and not is_playlist:
+                # Handle single video
+                video_url = info.get("webpage_url")
+                return [video_url] if video_url else []
+            else:
+                # Handle playlist
+                return [entry['url'] for entry in info.get('entries', []) if 'url' in entry]
         
         except Exception as e:
             raise HTTPException(

@@ -558,10 +558,10 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
 
 @router.post("/process_youtube")
 def process_youtube(request: Request, bot_id: int, channel_url: str, db: Session = Depends(get_db)):
-    """Extracts video transcripts from a YouTube channel and stores them in ChromaDB for the bot using Celery."""
+    """Extracts video transcripts from a YouTube video or playlist and stores them in ChromaDB for the bot using Celery."""
     request_id = getattr(request.state, "request_id", "unknown")
     
-    logger.info(f"Processing YouTube channel/video", 
+    logger.info(f"Processing YouTube video or playlist", 
                extra={"request_id": request_id, "bot_id": bot_id, "url": channel_url})
     
     # Valid YouTube URL patterns
@@ -573,7 +573,7 @@ def process_youtube(request: Request, bot_id: int, channel_url: str, db: Session
     if not youtube_regex.match(channel_url):
         logger.warning(f"Invalid YouTube URL provided", 
                       extra={"request_id": request_id, "bot_id": bot_id, "url": channel_url})
-        raise HTTPException(status_code=400, detail="Invalid YouTube channel or playlist URL.")
+        raise HTTPException(status_code=400, detail="Invalid YouTube URL. Please provide a valid YouTube video or playlist URL.")
     
     try:
         # Fetch video URLs
