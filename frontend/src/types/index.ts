@@ -85,6 +85,18 @@ export interface BotSettings {
   windowBgColor: string;
   welcomeMessage: string;
   inputBgColor: string;
+
+   // ✅ Add new customization fields
+  headerBgColor: string;
+  headerTextColor: string;
+  chatTextColor: string;
+  userTextColor: string;
+  buttonColor: string;
+  buttonTextColor: string;
+  timestampColor: string;
+  borderRadius: string;
+  borderColor: string;
+  chatFontFamily: string;
 }
 
 export interface ApiFile {

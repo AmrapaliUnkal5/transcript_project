@@ -164,3 +164,33 @@ def check_message_limit(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error checking message limit: {str(e)}")
+    
+
+@router.get("/api/user/addon/white-labeling-check")
+def check_white_labeling_addon(bot_id: int, db: Session = Depends(get_db)):
+    try:
+
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        
+        if not bot:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        
+        user_id = bot.user_id
+        # Check if the user has the White-Labeling addon
+        white_label_addon = db.query(UserAddon).join(Addon).filter(
+            UserAddon.user_id == user_id,
+            Addon.id == 2,  #  2 for whte labeling
+            UserAddon.is_active == True,
+            or_(
+                UserAddon.expiry_date == None,
+                UserAddon.expiry_date >= datetime.utcnow()
+            )
+        ).first()
+
+        if white_label_addon:
+            return {"hasWhiteLabeling": True}
+        else:
+            return {"hasWhiteLabeling": False}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking White-Labeling addon: {str(e)}")
