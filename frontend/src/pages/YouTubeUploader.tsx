@@ -174,8 +174,13 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       const data = await authApi.scrapeYoutubeVideos(selectedVideos, selectedBot?.id);
       console.log("YouTube scraping result:", data);
 
-      if (data.message === "YouTube scraping completed") {
-        toast.success("YouTube videos processed successfully!");
+      // Check if the message indicates processing has started (accept any message that indicates success)
+      if (data && data.message && (
+          data.message.includes("processing started") || 
+          data.message.includes("Video processing") ||
+          data.message.includes("YouTube content")
+        )) {
+        toast.success("YouTube videos are being processed. You'll be notified when complete.");
         setScrapeSuccess(true);
         setRefreshKeyState(prev => prev + 1); // Trigger a refresh
         setSelectedVideos([]);
@@ -188,6 +193,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
           });
         }
       } else {
+        console.error("Unexpected API response:", data);
         toast.error("Failed to process YouTube videos. Please try again.");
       }
     } catch (error) {
