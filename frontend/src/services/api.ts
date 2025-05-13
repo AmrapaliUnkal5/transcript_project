@@ -614,6 +614,16 @@ deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
     }
   },
 
+  getWordCloud: async (params: { bot_id: number }) => {
+    try {
+      const response = await api.get(`/chat/analytics/word_cloud/${params.bot_id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching FAQ data:', error);
+      throw error;
+    }
+  },
+
   fetchAddons: async (): Promise<AddonPlan[]> => {
     try {
       const response = await api.get('/subscriptionaddons/');

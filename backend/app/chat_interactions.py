@@ -3,15 +3,16 @@ from chromadb import logger
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Bot, Interaction, ChatMessage, User
+from app.models import Bot, Interaction, ChatMessage, User, WordCloudData
 from pydantic import BaseModel
 from app.vector_db import retrieve_similar_docs
 from app.chatbot import generate_response  
 from datetime import datetime, timezone
-from app.schemas import FAQResponse
+from app.schemas import FAQResponse, WordCloudResponse
 import threading 
 from app.clustering import PGClusterer
 from app.utils.logger import get_module_logger
+from app.word_cloud_processor import WordCloudProcessor
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -85,6 +86,16 @@ def update_message_counts(bot_id: int, user_id: int):
     finally:
         db.close()
 
+def async_update_word_cloud(bot_id: int, message_text: str):
+    """Background thread to update word cloud"""
+    db = next(get_db())
+    try:
+        WordCloudProcessor.update_word_cloud(bot_id, message_text, db)
+        logger.info(f"✅ Updated word cloud for bot {bot_id}")
+    except Exception as e:
+        logger.warning(f"⚠️ Error in word cloud update: {str(e)}")
+    finally:
+        db.close()
 
 @router.post("/send_message")
 def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
@@ -120,6 +131,13 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
             target=async_cluster_question,
             args=(interaction.bot_id, request.message_text,user_message.message_id)
         ).start()
+
+        print("Word cloud thread started")
+        threading.Thread(
+            target=async_update_word_cloud,
+            args=(interaction.bot_id, request.message_text)
+        ).start()
+        
 
     # ✅ Retrieve context using vector database
     similar_docs = retrieve_similar_docs(interaction.bot_id, request.message_text)
@@ -244,3 +262,31 @@ def force_save_clusters():
     """Manual endpoint to save cluster state"""
     pg_clusterer.save_cluster_state()
     return {"status": "Cluster state saved successfully"}
+
+@router.get("/analytics/word_cloud/{bot_id}", response_model=WordCloudResponse)
+def get_word_cloud(bot_id: int, limit: int = 50, db: Session = Depends(get_db)):
+    """Get word cloud data for a specific bot"""
+    try:
+        word_cloud = db.query(WordCloudData).filter_by(bot_id=bot_id).first()
+        
+        if not word_cloud or not word_cloud.word_frequencies:
+            return {"words": []}
+            
+        # Sort by frequency and limit results
+        sorted_words = sorted(
+            word_cloud.word_frequencies.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )[:limit]
+        
+        # Format for the frontend
+        words = [{"text": word, "value": count} for word, count in sorted_words]
+        
+        return {"words": words}
+        
+    except Exception as e:
+        logger.error(f"Error getting word cloud for bot {bot_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving word cloud: {str(e)}"
+        )
