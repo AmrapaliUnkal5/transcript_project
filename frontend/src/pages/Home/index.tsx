@@ -8,6 +8,7 @@ import Hero from './Hero';
 import DashboardPreview from './DashboardPreview';
 import StartBuilding from './StartBuilding';
 import BotDataControl from './BotDataControl';
+import ExperienceAdvantage from './ExperienceAdvantage';
 
 export default function HomePage() {
   return (
@@ -15,8 +16,10 @@ export default function HomePage() {
       <HomeHeader/>
       <Hero/>
       <DashboardPreview/>
+      <ExperienceAdvantage/>
       <BotDataControl/>
       <StartBuilding/>
+      
     </Box>
   );
 }
