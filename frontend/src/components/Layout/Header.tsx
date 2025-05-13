@@ -58,11 +58,14 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
     >
       {/* Left Section: Logo/Image */}
       <div className="flex items-center space-x-4">
+        <a href="https://evolra.ai/" target="_blank" rel="noopener noreferrer">
         <img
-          src="https://cdn.pixabay.com/photo/2017/09/26/13/42/apple-2788662_1280.jpg"
-          alt="Logo"
-          className="h-10 w-auto"
-        />
+        src="https://cdn.pixabay.com/photo/2017/09/26/13/42/apple-2788662_1280.jpg"
+        alt="Logo"
+        className="h-10 w-auto"
+      />
+    </a>
+
       </div>
 
       <div className="flex-1" />
@@ -124,13 +127,20 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
           <HelpCircle color={isDark ? "white" : "black"} className="w-5 h-5" />
         </button>*/}
 
+       <button
+         onClick={() => window.open("/report-issue", "_blank")}
+          className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white"
+          title="Have doubts? Ask here!">Help</button>
+
+        {/*
         <button
           onClick={() => navigate("/report-issue")}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
           title="Have doubts? Ask here!"
         >
           Help
-        </button>
+        </button> */}
+       
 
         {/* Notifications Button */}
 

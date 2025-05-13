@@ -1239,9 +1239,7 @@ const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.stora
             ) : currentStep === steps.length - 1 ? (
               "Finish"
             ) : (
-              <>
-                <ArrowRight className="w-5 h-5 ml-2" /> Next
-              </>
+              <>Next <ArrowRight className="w-5 h-5 ml-2" /></>
             )}
           </button>
         </div>

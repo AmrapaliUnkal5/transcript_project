@@ -687,8 +687,7 @@ export const Login = () => {
                       <div className="text-center">
                         <Link
                           to="/signup"
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          rel="noopener noreferrer" 
                           className="font-medium text-blue-600 hover:text-blue-500"
                         >
                           Don't have an account? Sign up
