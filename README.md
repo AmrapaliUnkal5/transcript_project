@@ -160,7 +160,7 @@ The chatbot application uses Celery for background processing of resource-intens
 ### Supported Async Tasks
 
 1. **YouTube Video Processing**
-   - Extracts transcripts from YouTube videos
+   - Extracts transcripts from YouTube videos using Apify API
    - Processes and stores them in ChromaDB for search
    - Sends notifications on completion
 
@@ -248,7 +248,6 @@ The project includes ready-to-use scripts for Ubuntu in the `backend/scripts` di
 
 1. **Install Redis**
    - Download Redis for Windows from https://github.com/tporadowski/redis/releases
-   - Install and start the Redis service
 
 2. **Start Celery Worker**
    ```bash
@@ -285,6 +284,52 @@ The project includes ready-to-use scripts for Ubuntu in the `backend/scripts` di
 2. **API Endpoint**: `POST /scrape-async` with payload containing bot_id and selected_nodes (URLs)
 3. **Background Process**: Websites are scraped, content extracted, and added to the knowledge base
 4. **Notifications**: System notifies users when scraping completes
+
+## 🎬 YouTube Transcript Extraction
+
+The application supports extraction of transcripts from YouTube videos for use in the chatbot's knowledge base.
+
+### Apify Integration
+
+The system uses Apify's YouTube Transcript Extractor to reliably retrieve transcripts, which works across various environments including AWS servers where YouTube's official API might be blocked.
+
+#### Setup Requirements
+
+1. **Get an Apify API Token**:
+   - Create an account at [Apify](https://apify.com)
+   - Generate an API token from your Apify dashboard
+
+2. **Configure Environment**:
+   - Add your Apify API token to the `.env` file:
+   ```
+   APIFY_API_TOKEN=your-apify-api-token
+   ```
+
+3. **Install Dependencies**:
+   - The `apify-client` package is included in `requirements.txt`
+   - Ensure it's installed with: `pip install apify-client>=1.4.0`
+
+#### Testing the Transcript Extraction
+
+To verify the transcript extraction is working correctly, use the provided test script:
+
+```bash
+cd backend
+source venv/bin/activate
+python scripts/test_youtube_transcript.py https://www.youtube.com/watch?v=VIDEO_ID
+```
+
+The script will test both the YouTube Transcript API and the Apify method, allowing you to confirm which method works in your environment.
+
+#### Fallback Mechanism
+
+The system uses a smart fallback approach:
+
+1. First attempts to extract transcripts using Apify (works on all environments)
+2. If Apify fails, falls back to the YouTube Transcript API (may not work on AWS)
+3. Error handling ensures robust operation even if both methods fail
+
+This dual approach ensures maximum reliability for transcript extraction across all hosting environments.
 
 ## 💡 Final Recommendations
 * Keep `.env` configurations secure

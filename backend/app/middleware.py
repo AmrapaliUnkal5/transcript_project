@@ -34,7 +34,7 @@ class RoleBasedAccessMiddleware(BaseHTTPMiddleware):
             if request.method == "OPTIONS":
                 return await call_next(request)
             # Bypass authentication for certain endpoints (like login, register)
-            EXEMPT_ENDPOINTS = ["/auth/google","/login", "/register", "/forgot-password", "/reset-password","/uploads_bot/","/uploads", "/scrape", "/get_nodes","/captcha","/validate-captcha","/verify-email","/resend-verification-email", "/subscriptionplans"] 
+            EXEMPT_ENDPOINTS = ["/auth/google","/login", "/register", "/forgot-password", "/reset-password","/uploads_bot/","/uploads", "/scrape", "/get_nodes","/captcha","/validate-captcha","/verify-email","/resend-verification-email", "/subscriptionplans","/auth/facebook"] 
             if any(request.url.path.startswith(endpoint) for endpoint in EXEMPT_ENDPOINTS):
                 return await call_next(request)
 
