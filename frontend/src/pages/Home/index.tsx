@@ -11,7 +11,8 @@ import BotDataControl from './BotDataControl';
 import ExperienceAdvantage from './ExperienceAdvantage';
 import KeyBenefits from './KeyBenefits';
 import Plans from './Plans';
-// import Footer from './Footer';
+import Footer from './Footer';
+//import { Enterprise } from './Enterprise';
 
 export default function HomePage() {
   return (
@@ -24,7 +25,7 @@ export default function HomePage() {
       <Plans/>
       <BotDataControl/>
       <StartBuilding/>
-      {/* <Footer/> */}
+      <Footer/> 
       
     </Box>
   );
