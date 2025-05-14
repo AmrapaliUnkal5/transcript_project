@@ -64,7 +64,13 @@ export const Login = () => {
 
   useEffect(() => {
     fetchCaptcha();
-  }, []);
+    
+    // Check for account deletion success in query params
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('deleted') === 'true') {
+      setSuccessMessage('Your account has been successfully deleted.');
+    }
+  }, [location.search]);
 
   //facebook - start
   useEffect(() => {

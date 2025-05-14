@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User, Globe, Bell, Shield, Key, Users } from "lucide-react";
+import { User, Globe, Bell, Shield, Key, Users, AlertTriangle } from "lucide-react";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
 import { authApi, UserUpdate } from "../services/api";
@@ -34,6 +34,8 @@ export const Settings = () => {
     [key: string]: string;
   }>({});
   const { updateUser } = useAuth();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [settings, setSettings] = useState({
     name: "",
@@ -348,6 +350,29 @@ export const Settings = () => {
         setChangingPassword(false);
         setLoading(false);
       }
+    }
+  };
+
+  // Handle account deletion
+  const handleDeleteAccount = async () => {
+    if (!showDeleteModal) {
+      setShowDeleteModal(true);
+      return;
+    }
+    
+    try {
+      setDeleteLoading(true);
+      await authApi.deleteAccount();
+      // Clear auth data and redirect to login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login?deleted=true';
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast.error("Failed to delete account. Please try again.");
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -808,6 +833,27 @@ export const Settings = () => {
             </div>
           </div>
         </div>
+
+        {/* Delete Account Section */}
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mt-6">
+          <div className="flex items-center mb-4">
+            <AlertTriangle className="w-5 h-5 mr-2 text-red-500" />
+            <h2 className="text-lg font-semibold text-white">Delete Account</h2>
+          </div>
+          <div className="space-y-4">
+            <p className="text-gray-400">
+              Deleting your account will permanently remove all your data from our system. This includes your profile information, subscriptions, bots, files, chat messages, and all other associated data. This action cannot be undone.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={handleDeleteAccount}
+                className="px-4 py-2 rounded-md bg-red-500 hover:bg-red-600 text-white"
+              >
+                Delete Account
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -819,6 +865,47 @@ export const Settings = () => {
         Account Settings
       </h1>
       <ToastContainer position="top-right" autoClose={3000} />
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md mx-auto">
+            <h3 className="text-xl font-bold text-red-500 mb-4">Confirm Account Deletion</h3>
+            <p className="text-gray-700 dark:text-gray-300 mb-6">
+              This will permanently delete your account and all associated data:
+              <ul className="list-disc pl-6 mt-2">
+                <li>User information and subscription</li>
+                <li>All chatbots and their settings</li>
+                <li>YouTube transcripts and scraped web content</li>
+                <li>Uploaded files and documents</li>
+                <li>Chat messages and conversation history</li>
+                <li>Team members and collaborations</li>
+                <li>Analytics, word clouds, and other data</li>
+              </ul>
+              <strong className="block mt-4 text-red-500">This action cannot be undone.</strong>
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 rounded-md bg-gray-300 hover:bg-gray-400 text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteLoading}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  deleteLoading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-red-500 hover:bg-red-600 text-white"
+                }`}
+              >
+                {deleteLoading ? "Deleting..." : "Yes, Delete My Account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {renderTabMenu()}
       {renderTabContent()}

@@ -434,6 +434,10 @@ export const authApi = {
     const response = await api.put('/user/me', data); // Update user details
     return response.data;
   },
+  deleteAccount: async () => {
+    const response = await api.delete('/user/delete-account');
+    return response.data;
+  },
 
   fetchVideosForBot: async (botId: number) => {
     const response = await api.get(`/chatbot/bot/${botId}/videos`);

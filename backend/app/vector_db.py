@@ -905,3 +905,80 @@ def delete_url_from_chroma(bot_id: int, url: str):
         logger.error(f"Website document deletion failed", 
                     extra={"bot_id": bot_id, "url": url, "error": str(e)})
         return False
+
+
+def delete_bot_collections(bot_id: int):
+    """Deletes all Chroma collections for a specific bot."""
+    logger.info(f"Starting Chroma collection deletion for bot {bot_id}")
+    
+    try:
+        # List all collections
+        collections = chroma_client.list_collections()
+        
+        # Safely determine if we're using new or old API
+        try:
+            # First, assume we're using the new API (v0.6.0+)
+            is_new_api = all(isinstance(item, str) for item in collections) if collections else True
+            
+            if not is_new_api:
+                # Try to get collection names using old API style
+                try:
+                    if collections and len(collections) > 0:
+                        test_name = collections[0].name
+                        logger.debug("Using old ChromaDB API style (pre-0.6.0)")
+                        bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
+                    else:
+                        bot_collections = []
+                except Exception as e:
+                    logger.debug(f"Error checking collection type: {str(e)}")
+                    logger.debug("Defaulting to new ChromaDB API style (0.6.0+)")
+                    bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
+            else:
+                logger.debug("Using new ChromaDB API style (0.6.0+)")
+                bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
+        except Exception as e:
+            logger.warning(f"Error determining ChromaDB API version: {str(e)}")
+            bot_collections = [name for name in collections if f"bot_{bot_id}_" in name] if isinstance(collections, list) else []
+        
+        if not bot_collections:
+            logger.warning(f"No collections found for bot {bot_id}")
+            return False
+            
+        logger.info(f"Found {len(bot_collections)} collections for bot {bot_id}: {bot_collections}")
+        
+        # Delete each collection
+        for collection_name in bot_collections:
+            try:
+                logger.info(f"Deleting collection: {collection_name}")
+                chroma_client.delete_collection(name=collection_name)
+                logger.info(f"Successfully deleted collection {collection_name}")
+            except Exception as e:
+                logger.error(f"Error deleting collection {collection_name}: {str(e)}")
+                continue
+                
+        logger.info(f"Chroma collection deletion completed for bot {bot_id}")
+        return True
+        
+    except Exception as e:
+        error_msg = f"Error deleting Chroma collections for bot {bot_id}: {str(e)}"
+        logger.error(f"Chroma collection deletion failed", 
+                    extra={"bot_id": bot_id, "error": str(e)})
+        return False
+
+
+def delete_user_collections(bot_ids: list):
+    """Deletes all Chroma collections for all bots belonging to a user."""
+    logger.info(f"Starting Chroma collection deletion for user's bots: {bot_ids}")
+    
+    success = True
+    for bot_id in bot_ids:
+        try:
+            result = delete_bot_collections(bot_id)
+            if not result:
+                logger.warning(f"Failed to delete collections for bot {bot_id}")
+                success = False
+        except Exception as e:
+            logger.error(f"Error in delete_bot_collections for bot {bot_id}: {str(e)}")
+            success = False
+            
+    return success
