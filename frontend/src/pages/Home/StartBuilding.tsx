@@ -11,7 +11,7 @@ export default function StartBuilding() {
         gap={3}
         minHeight={[400, 600]}
         sx={{ 
-            backgroundImage: 'url(/images/start-bg.jpg)',
+            backgroundImage: 'url(/images/home/bg-start-building.jpg)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundColor:'#262372'
@@ -25,7 +25,7 @@ export default function StartBuilding() {
         color='#fff'
         textAlign={'center'}
         sx={{
-            background: '-webkit-linear-gradient(#FFF, #959595)',
+            background: 'linear-gradient(180deg, #FFFFFF 46.63%, #959595 100%)',
             backgroundClip: 'text',
             textFillColor: 'transparent',
           }}
@@ -43,21 +43,22 @@ export default function StartBuilding() {
         Build, personalize, and deploy AI-powered chatbots effortlessly
       </Typography>
       <Button
-        variant='outlined'
+        variant='contained'
         color='primary'
         size='large'
         sx={{
           fontSize: '18px',
-          fontWeight: 500,
+          fontWeight: 600,
           borderRadius: '40px',
           height: '62px',
           minWidth: '220px',
           textTransform: 'capitalize',
           borderColor: '#F4F4F6',
-          color: '#F4F4F6',
+          color: '#363636',
+          background: 'linear-gradient(180deg, #F4F4F6 0%, #7C7C7C 100%)',
         }}
       >
-         Let’s get started <EastOutlinedIcon sx={{marginLeft: '10px'}}/>
+         Let&apos;s get started 
       </Button>
     </Box>
   );

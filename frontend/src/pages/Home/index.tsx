@@ -9,7 +9,9 @@ import DashboardPreview from './DashboardPreview';
 import StartBuilding from './StartBuilding';
 import BotDataControl from './BotDataControl';
 import ExperienceAdvantage from './ExperienceAdvantage';
-import Footer from './Footer';
+import KeyBenefits from './KeyBenefits';
+import Plans from './Plans';
+// import Footer from './Footer';
 
 export default function HomePage() {
   return (
@@ -18,9 +20,11 @@ export default function HomePage() {
       <Hero/>
       <DashboardPreview/>
       <ExperienceAdvantage/>
+      <KeyBenefits/>
+      <Plans/>
       <BotDataControl/>
       <StartBuilding/>
-      <Footer/>
+      {/* <Footer/> */}
       
     </Box>
   );
