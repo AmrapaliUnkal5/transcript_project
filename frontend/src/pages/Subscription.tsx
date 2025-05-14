@@ -24,7 +24,13 @@ interface AddonSelectionState {
     selected: boolean;
     quantity: number;
   };
+} 
+
+interface PlanAddonSelection {
+  [planId: number]: AddonSelectionState;
 }
+
+
 
 // Define Addon type
 interface Addon {
@@ -252,7 +258,7 @@ export const Subscription = () => {
   const navigate = useNavigate();
   const [processingPlanId, setProcessingPlanId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedAddons, setSelectedAddons] = useState<AddonSelectionState>({});
+  const [selectedAddons, setSelectedAddons] = useState<PlanAddonSelection>({});
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [currentModalPlan, setCurrentModalPlan] = useState<any>(null);
   const [showDowngradeWarning, setShowDowngradeWarning] = useState(false);
@@ -304,18 +310,37 @@ export const Subscription = () => {
   console.log("currentPlanId in Subscription.tsx page", currentPlanId);
 
   // Toggle addon selection
-  const toggleAddon = (addonId: number) => {
-    setSelectedAddons((prev) => ({
-      ...prev,
+  const toggleAddon = (planId: number, addonId: number) => {
+  setSelectedAddons(prev => ({
+    ...prev,
+    [planId]: {
+      ...prev[planId],
       [addonId]: {
-        ...prev[addonId],
-        selected: !prev[addonId]?.selected,
+        ...prev[planId]?.[addonId],
+        selected: !prev[planId]?.[addonId]?.selected,
       },
-    }));
-  };
+    },
+  }));
+};
 
   // Open modal for add-ons
   const openAddonsModal = async (plan: any) => {
+    setSelectedAddons(prev => {
+    if (!prev[plan.id]) {
+      const initialState: AddonSelectionState = {};
+      addons.forEach(addon => {
+        initialState[addon.id] = {
+          selected: false,
+          quantity: 1,
+        };
+      });
+      return {
+        ...prev,
+        [plan.id]: initialState,
+      };
+    }
+    return prev;
+  });
     if (addons.length === 0) {
       console.log("No addons loaded yet, attempting to load them directly");
       try {
@@ -342,31 +367,37 @@ export const Subscription = () => {
   };
 
   // Increase quantity for an addon
-  const increaseQuantity = (addonId: number) => {
-    setSelectedAddons((prev) => ({
-      ...prev,
+ const increaseQuantity = (planId: number, addonId: number) => {
+  setSelectedAddons(prev => ({
+    ...prev,
+    [planId]: {
+      ...prev[planId],
       [addonId]: {
-        ...prev[addonId],
-        quantity: (prev[addonId]?.quantity || 1) + 1,
+        ...prev[planId]?.[addonId],
+        quantity: (prev[planId]?.[addonId]?.quantity || 1) + 1,
       },
-    }));
-  };
+    },
+  }));
+};
 
   // Decrease quantity for an addon
-  const decreaseQuantity = (addonId: number) => {
-    setSelectedAddons((prev) => {
-      const currentQuantity = prev[addonId]?.quantity || 1;
-      if (currentQuantity <= 1) return prev;
+ const decreaseQuantity = (planId: number, addonId: number) => {
+  setSelectedAddons(prev => {
+    const currentQuantity = prev[planId]?.[addonId]?.quantity || 1;
+    if (currentQuantity <= 1) return prev;
 
-      return {
-        ...prev,
+    return {
+      ...prev,
+      [planId]: {
+        ...prev[planId],
         [addonId]: {
-          ...prev[addonId],
+          ...prev[planId]?.[addonId],
           quantity: currentQuantity - 1,
         },
-      };
-    });
-  };
+      },
+    };
+  });
+};
 
   // Check if an addon allows multiple selection (quantity > 1)
   const allowsMultiple = (addonName: string): boolean => {
@@ -374,49 +405,37 @@ export const Subscription = () => {
   };
 
   // Get selected addon IDs with quantities
-  const getSelectedAddonIds = () => {
-    console.log("DEBUG - Starting getSelectedAddonIds");
-    console.log("DEBUG - Current addonSelection state:", selectedAddons);
-
+  const getSelectedAddonIds = (planId: number) => {
+    const planAddons = selectedAddons[planId] || {};
     const result: number[] = [];
 
-    // Log all addon selection state for debugging
-    Object.keys(selectedAddons).forEach((addonIdStr) => {
+    Object.keys(planAddons).forEach(addonIdStr => {
       const addonId = Number(addonIdStr);
-      const addon = selectedAddons[addonId];
+      const addon = planAddons[addonId];
       console.log(
-        `DEBUG - Addon ID ${addonId}: selected=${addon.selected}, quantity=${addon.quantity}`
-      );
-    });
-
-    Object.keys(selectedAddons).forEach((addonIdStr) => {
-      const addonId = Number(addonIdStr);
-      const addon = selectedAddons[addonId];
+      `DEBUG - Addon ID ${addonId}: selected=${addon.selected}, quantity=${addon.quantity}`
+    );
 
       if (addon.selected) {
-        const addonInfo = addons.find((a) => a.id === addonId);
+        const addonInfo = addons.find(a => a.id === addonId);
         const isMultipleAddon = addonInfo && allowsMultiple(addonInfo.name);
 
-        // For add-ons that allow multiple, add them based on quantity
+
         if (addon.quantity > 1 && isMultipleAddon) {
-          console.log(
-            `DEBUG - Adding ${addon.quantity} instances of addon ID ${addonId}`
-          );
+
           for (let i = 0; i < addon.quantity; i++) {
             result.push(addonId);
           }
-        } else {
-          console.log(`DEBUG - Adding single instance of addon ID ${addonId}`);
+        }
+         else {
           result.push(addonId);
         }
-      } else {
-        console.log(`DEBUG - Skipping addon ID ${addonId} (not selected)`);
-      }
-    });
 
-    console.log("DEBUG - Final selected addon IDs array:", result);
-    return result;
-  };
+      }
+  });
+
+  return result;
+};
 
   const handleSubscribe = async (planId: number) => {
     // Get the current plan ID and the selected plan
@@ -436,7 +455,7 @@ export const Subscription = () => {
       setError(null);
 
       // Get selected addon IDs
-      const addonIds = getSelectedAddonIds();
+      const addonIds = getSelectedAddonIds(planId);
 
       const endpoint = isExpiredPlan ? "renewSubscription" : "createCheckout";
       console.log(
@@ -520,9 +539,8 @@ export const Subscription = () => {
   };
 
   // Get selected addon count for a plan
-  const getSelectedAddonCount = () => {
-    return Object.values(selectedAddons).filter((addon) => addon.selected)
-      .length;
+  const getSelectedAddonCount = (planId: number) => {
+   return Object.values(selectedAddons[planId] || {}).filter(addon => addon.selected).length;
   };
 
   useEffect(() => {
@@ -553,7 +571,7 @@ export const Subscription = () => {
     const planAccent = getPlanAccentColor(plan.name);
     const isCurrent = effectivePlanId === plan.id; //changed
     const hasBadge = planBadges[plan.name as keyof typeof planBadges];
-    const selectedAddonCount = getSelectedAddonCount();
+    const selectedAddonCount = getSelectedAddonCount(plan.id);
     const isExpiredCurrentPlan = isCurrent && isExpiredPlan;
     const isCanceled = user?.subscription_status === "canceled";
     console.log("effectivePlanId", effectivePlanId);
@@ -752,14 +770,18 @@ export const Subscription = () => {
           }`}
           disabled={(isCurrent && !isExpiredPlan) || processingPlanId !== null}
           onClick={() => {
-            if (plan.name.toLowerCase() === "explorer" && !effectivePlanId) {
-              navigate("/create-bot");
-            } else {
-              handleSubscribe(plan.id);
-            }
+                if (plan.name.toLowerCase() === "enterprise") {
+            navigate("/customersupport"); // Redirect to Customer Support
+          } else if (plan.name.toLowerCase() === "explorer" && !effectivePlanId) {
+            navigate("/create-bot");
+          } else {
+            handleSubscribe(plan.id);
+          }
           }}
         >
-          {plan.name.toLowerCase() === "explorer" && !effectivePlanId ? (
+          {plan.name.toLowerCase() === "enterprise" ? (
+    "Contact Us" // Changed from "Subscribe" to "Contact Us"
+  ) : plan.name.toLowerCase() === "explorer" && !effectivePlanId ? (
             "Continue with Free Plan"
           ) : isCurrent ? (
             isExpiredPlan ? (
@@ -996,10 +1018,10 @@ export const Subscription = () => {
               planName={currentModalPlan.name}
               planId={currentModalPlan.id}
               addons={addons}
-              selectedAddons={selectedAddons}
-              toggleAddon={toggleAddon}
-              increaseQuantity={increaseQuantity}
-              decreaseQuantity={decreaseQuantity}
+              selectedAddons={selectedAddons[currentModalPlan.id] || {}}
+              toggleAddon={(addonId) => toggleAddon(currentModalPlan.id, addonId)}
+              increaseQuantity={(addonId) => increaseQuantity(currentModalPlan.id, addonId)}
+              decreaseQuantity={(addonId) => decreaseQuantity(currentModalPlan.id, addonId)}
               allowsMultiple={allowsMultiple}
               formatPrice={formatPrice}
               planAccent={getPlanAccentColor(currentModalPlan.name)}
