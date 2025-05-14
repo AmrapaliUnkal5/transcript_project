@@ -15,8 +15,9 @@ export const Enterprise = () => {
       
             <Box
               px={[2, 6]}
+              position={"relative"}
               pt={"50px"}
-              pb={5}
+              pb={18}
               border={"solid 1.5px #8B96D661"}
               borderRadius={'20px'}
               sx={{
@@ -179,7 +180,18 @@ export const Enterprise = () => {
                   </Grid>
                 </Grid>
               </Box>
-              <Box display={"flex"} justifyContent={"center"} my={2}>
+              <Box display={"flex"}   justifyContent={"center"} pt={10} pb={5}
+              sx={{
+                position:"absolute" ,
+                borderRadius: "0px 0px 20px 20px",
+                bottom:"1px",               
+                left:0,                 
+                right:0,
+                background:
+                  "linear-gradient(180deg, rgba(39, 22, 78, 0.06) 0%, rgba(27, 14, 59, 0.758706) 23.83%, #170B33 96.63%)",
+              }}
+              
+              >
                 <Button
                   variant="contained"
                   color="primary"

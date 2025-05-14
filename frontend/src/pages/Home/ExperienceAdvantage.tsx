@@ -53,10 +53,14 @@ export default function ExperienceAdvantage() {
             rowSpacing={5}
             columnSpacing={{ xs: 2, sm: 2, md: 8 }}
           >
-            <Grid item md={4}>
+            <Grid item md={4}  textAlign={["center", "left"]}>
               <StyledImage
                 src="/images/icons/icon-thumb.png"
-                sx={{ width: "74px", height: "74px", marginBottom:['25px', '40px']}}
+                sx={{
+                  width: "74px",
+                  height: "74px",
+                  margin: ["auto", "unset"],
+                }}
               />
 
               <Typography
@@ -64,9 +68,9 @@ export default function ExperienceAdvantage() {
                 fontWeight={600}
                 fontSize={"22px"}
                 mb={2}
+                mt={[3, 5]}
                 lineHeight={1.4}
               >
-                
                 Elevate Your Customer Experience
               </Typography>
 
@@ -76,10 +80,42 @@ export default function ExperienceAdvantage() {
               </Typography>
             </Grid>
 
-            <Grid item md={4}>
+            <Grid item md={4} textAlign={["center", "left"]}>
               <StyledImage
                 src="/images/icons/icon-growth.png"
-                sx={{ width: "74px", height: "74px", marginBottom: ['25px', '40px']}}
+                sx={{
+                  width: "74px",
+                  height: "74px",
+                  margin: ["auto", "unset"],
+                }}
+              />
+
+              <Typography
+                variant="h3"
+                fontWeight={600}
+                fontSize={"22px"}
+                mt={[3, 5]}
+                mb={2}
+                lineHeight={1.4}
+              >
+                Accelerated Customer Assistance
+              </Typography>
+
+              <Typography variant="body1" color={"#9F9F9F"}>
+                Cut support time by 70% with bots that work 24/7—freeing your
+                team for empathetic, high- impact interactions. 
+              </Typography>
+            </Grid>
+
+            <Grid item md={4}  textAlign={["center", "left"]}>
+              <StyledImage
+                src="/images/icons/icon-speed.png"
+                sx={{
+                  width: "74px",
+                  height: "74px",
+
+                  margin: ["auto", "unset"],
+                }}
               />
 
               <Typography
@@ -87,33 +123,15 @@ export default function ExperienceAdvantage() {
                 fontWeight={600}
                 fontSize={"22px"}
                 mb={2}
+                mt={[3, 5]}
                 lineHeight={1.4}
               >
-             Accelerated Customer Assistance
+                Designed to Handle Any Demand
               </Typography>
 
               <Typography variant="body1" color={"#9F9F9F"}>
-              Cut support time by 70% with bots that work 24/7—freeing your team for empathetic, high- impact interactions. 
-              </Typography>
-            </Grid>
-
-            <Grid item md={4}><StyledImage
-                src="/images/icons/icon-speed.png"
-                sx={{ width: "74px", height: "74px", marginBottom: ['25px', '40px'] }}
-              />
-
-              <Typography
-                variant="h3"
-                fontWeight={600}
-                fontSize={ "22px"}
-                mb={2}
-                lineHeight={1.4}
-              >
-              Designed to Handle Any Demand
-              </Typography>
-
-              <Typography variant="body1" color={"#9F9F9F"}>
-                Maintain consistent performance during traffic spikes, seasonal rushes, or growth phases, scaling effortlessly.
+                Maintain consistent performance during traffic spikes, seasonal
+                rushes, or growth phases, scaling effortlessly.
               </Typography>
             </Grid>
           </Grid>
