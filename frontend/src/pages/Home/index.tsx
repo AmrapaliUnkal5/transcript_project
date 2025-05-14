@@ -10,6 +10,7 @@ import StartBuilding from './StartBuilding';
 import BotDataControl from './BotDataControl';
 import ExperienceAdvantage from './ExperienceAdvantage';
 import KeyBenefits from './KeyBenefits';
+import Footer from './Footer';
 
 export default function HomePage() {
   return (
@@ -21,6 +22,7 @@ export default function HomePage() {
       <KeyBenefits/>
       <BotDataControl/>
       <StartBuilding/>
+      <Footer/>
       
     </Box>
   );
