@@ -58,11 +58,9 @@ function Footer() {
           </Grid>
           <Grid item xs={12} sm={12} md={4}>
             <Typography
-              sx={{
-                fontSize: "16px",
-
-                color: "#6B6B6B",
-              }}
+              fontSize={"16px"}
+              color="#6B6B6B "
+              textAlign={["left", "center"]}
             >
               hello@evolra.ai
             </Typography>
