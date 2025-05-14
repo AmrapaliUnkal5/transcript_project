@@ -83,7 +83,7 @@ export default function Plans() {
               rowSpacing={3}
               columnSpacing={{ xs: 2, sm: 2, md: 3 }}
             >
-              <Grid item sm={4}>
+              <Grid item xs={12} sm={4}>
                 <Box
                   px={'20px'}
                   pt={'30px'}
@@ -159,7 +159,7 @@ export default function Plans() {
                   </Button>
                 </Box>
               </Grid>
-              <Grid item sm={4}>
+              <Grid item xs={12} sm={4}>
               <Box
                   px={'20px'}
                   pt={'30px'}
@@ -235,7 +235,7 @@ export default function Plans() {
                   </Button>
                 </Box>
               </Grid>
-              <Grid item sm={4}>
+              <Grid item xs={12} sm={4}>
                 <Box
                   px={'20px'}
                   pt={'30px'}
