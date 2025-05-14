@@ -12,6 +12,7 @@ import ExperienceAdvantage from './ExperienceAdvantage';
 import KeyBenefits from './KeyBenefits';
 import Plans from './Plans';
 import Footer from './Footer';
+import FAQ from './FAQ';
 //import { Enterprise } from './Enterprise';
 
 export default function HomePage() {
@@ -24,6 +25,7 @@ export default function HomePage() {
       <KeyBenefits/>
       <Plans/>
       <BotDataControl/>
+      <FAQ/>
       <StartBuilding/>
       <Footer/> 
       
