@@ -10,6 +10,7 @@ from app.utils.verify_password import verify_password
 from passlib.context import CryptContext
 from datetime import datetime, timezone
 from app.notifications import add_notification
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter()
 
@@ -161,3 +162,13 @@ def change_password(
 )
 
     return {"message": "Password updated successfully"}
+
+
+@router.get("/check-user-subscription/{user_id}")
+def check_user_subscription(user_id: int, db: Session = Depends(get_db)):
+    subscription = (
+        db.query(UserSubscription)
+        .filter_by(user_id=user_id, subscription_plan_id=1)
+        .first()
+    )
+    return {"exists": bool(subscription)}

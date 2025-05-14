@@ -4,6 +4,9 @@ from typing import Optional
 
 # Load environment variables from the .env file
 GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID")
+FACEBOOK_APP_ID = config("FACEBOOK_APP_ID")
+FACEBOOK_APP_SECRET = config("FACEBOOK_APP_SECRET")
+REDIRECT_URI = config("REDIRECT_URI")
 SQLALCHEMY_DATABASE_URL = config("DATABASE_URL")
 # SMTP configuration using decouple
 SMTP_CONFIG = {

@@ -12,12 +12,15 @@ from app.dependency import get_current_user
 from app.notifications import add_notification
 from dotenv import load_dotenv
 import traceback
+from apify_client import ApifyClient
 
 # Load environment variables
 load_dotenv()
 
 # Get cookie path from environment variable or use default
 COOKIE_PATH = os.getenv("YOUTUBE_COOKIE_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "cookies", "youtube_cookies.json"))
+# Get Apify API token from environment variable
+APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN", "")
 
 def get_yt_dlp_options(base_opts=None):
     if base_opts is None:
@@ -73,18 +76,136 @@ def get_video_urls(channel_url):
                 detail="The provided URL is not a valid YouTube video or playlist. Please ensure the URL points to a YouTube video or playlist.",
             )
 
+def get_transcript_with_apify(video_url):
+    """Fetches transcript from a YouTube video using Apify."""
+    print(f"🔍 Starting Apify transcript retrieval for URL: {video_url}")
+    try:
+        # Extract video ID from URL
+        if "youtu.be/" in video_url:
+            video_id = video_url.split("youtu.be/")[-1].split("?")[0]
+            print(f"📌 Extracted video ID from youtu.be URL: {video_id}")
+        elif "v=" in video_url:
+            video_id = video_url.split("v=")[-1].split("&")[0]
+            print(f"📌 Extracted video ID from youtube.com URL: {video_id}")
+        else:
+            print(f"⚠️ Could not extract video ID from URL format: {video_url}")
+            return None
+        
+        # Initialize the ApifyClient with API token
+        if not APIFY_API_TOKEN:
+            print("⚠️ Apify API token not set in environment variables. Please add APIFY_API_TOKEN to your .env file")
+            return None
+        else:
+            print(f"✅ Using Apify API token: {APIFY_API_TOKEN[:4]}...{APIFY_API_TOKEN[-4:] if len(APIFY_API_TOKEN) > 8 else ''}")
+        
+        print(f"🔄 Initializing Apify client")
+        client = ApifyClient(APIFY_API_TOKEN)
+        
+        # Prepare the Actor input with the YouTube video URL
+        run_input = {
+            "youtubeUrl": [
+                {"url": video_url}
+            ]
+        }
+        print(f"📋 Prepared Apify actor input: {run_input}")
+        
+        # Run the Actor and wait for it to finish
+        print(f"🚀 Starting Apify actor 'dz_omar/youtube-transcript-extractor'")
+        run = client.actor("dz_omar/youtube-transcript-extractor").call(run_input=run_input)
+        print(f"✅ Apify actor run completed with ID: {run.get('id')}")
+        print(f"📊 Dataset ID: {run.get('defaultDatasetId')}")
+        
+        # Fetch the transcript from the dataset
+        print(f"🔄 Fetching transcript data from Apify dataset")
+        transcript_text = ""
+        video_metadata = {}
+        items_found = 0
+        
+        print(f"🔄 Iterating through dataset items")
+        for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+            items_found += 1
+            print(f"📄 Processing dataset item #{items_found}")
+            print(f"📄 Item video ID: {item.get('videoId')}, Expected: {video_id}")
+            
+            # Debug the actual response structure
+            print(f"📊 Item keys: {list(item.keys())}")
+            
+            # Check for transcriptText (the actual field in the response)
+            if "transcriptText" in item:
+                print(f"✅ Found transcriptText field in item #{items_found}")
+                transcript_text = item.get("transcriptText", "")
+                print(f"📊 Transcript length: {len(transcript_text)} characters")
+            elif "hasTranscript" in item:
+                print(f"📊 hasTranscript field value: {item.get('hasTranscript')}")
+            else:
+                print(f"⚠️ No transcript field in item #{items_found}")
+            
+            # Match by video ID and check if we have transcript text
+            if item.get("videoId") == video_id and "transcriptText" in item:
+                transcript_text = item.get("transcriptText", "")
+                # Save all metadata from Apify
+                video_metadata = {
+                    "video_id": item.get("videoId", ""),
+                    "video_title": item.get("Video_title", "Untitled Video"),
+                    "video_url": item.get("VideoURL", video_url),
+                    "channel_id": item.get("channel", {}).get("id"),
+                    "channel_name": item.get("channel", {}).get("name", "Unknown Channel"),
+                    "upload_date": item.get("published_Date"),
+                    "views": item.get("Views", "0"),
+                    "likes": item.get("likes", "0"),
+                    "description": item.get("Description", ""),
+                    "thumbnail_url": item.get("thumbnail", ""),
+                    "duration": None,  # Not provided by Apify but kept for consistency
+                    "is_playlist": False,
+                    "playlist_id": None,
+                    "playlist_name": None
+                }
+                print(f"✅ Extracted transcript text and metadata for video {video_id}")
+                print(f"📊 Metadata keys: {list(video_metadata.keys())}")
+                break
+        
+        if not transcript_text:
+            print(f"⚠️ No matching transcript found for video {video_id} in {items_found} dataset items")
+            return None, None
+        
+        print(f"🎉 Successfully retrieved transcript with {len(transcript_text.split())} words")
+        return transcript_text, video_metadata
+    except Exception as e:
+        print(f"❌ Error getting transcript with Apify for {video_url}")
+        print(f"❌ Exception type: {type(e).__name__}")
+        print(f"❌ Exception message: {str(e)}")
+        print(f"❌ Exception details:", traceback.format_exc())
+        return None, None
 
 def get_video_transcript(video_url):
     """Fetches transcript from a YouTube video."""
-    print("get_video_transcript")
-    video_id = video_url.split("v=")[-1]
+    print("⭐ Starting get_video_transcript for URL:", video_url)
     
+    # First try using Apify (works on AWS)
+    print("🔄 Attempting to get transcript using Apify")
+    transcript, metadata = get_transcript_with_apify(video_url)
+    if transcript:
+        print(f"✅ Successfully retrieved transcript using Apify ({len(transcript.split())} words)")
+        return transcript, metadata
+    
+    # Fallback to YouTube Transcript API if Apify fails
+    print("🔄 Apify failed, falling back to YouTube Transcript API")
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
-        return " ".join([entry["text"] for entry in transcript])
+        video_id = video_url.split("v=")[-1]
+        if "youtu.be/" in video_url:
+            video_id = video_url.split("youtu.be/")[-1].split("?")[0]
+        
+        print(f"🔍 Extracting transcript for video ID: {video_id} using YouTube Transcript API")
+        transcript_data = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript = " ".join([entry["text"] for entry in transcript_data])
+        print(f"✅ Successfully retrieved transcript using YouTube Transcript API ({len(transcript.split())} words)")
+        
+        # YouTube Transcript API doesn't provide metadata, return None for metadata
+        return transcript, None
     except Exception as e:
-        print(f"⚠️ Could not fetch transcript for {video_url}: {e}")
-        return None
+        print(f"❌ Could not fetch transcript for {video_url} using either method")
+        print(f"❌ YouTube API error: {type(e).__name__} - {str(e)}")
+        return None, None
     
 
 from app.vector_db import add_document
@@ -106,8 +227,14 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
     failed_videos = []
 
     for video_url in video_urls:
-        transcript = get_video_transcript(video_url)
-
+        transcript_result = get_video_transcript(video_url)
+        
+        # Updated to handle the new return value format
+        if isinstance(transcript_result, tuple) and len(transcript_result) == 2:
+            transcript, video_metadata = transcript_result
+        else:
+            transcript, video_metadata = transcript_result, None
+        
         if not transcript:
             reason = "Transcript retrieval failed"
             print(f"⚠️ {reason} for {video_url}")
@@ -117,7 +244,7 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
 
         try:
             # Generate ChromaDB ID
-            video_id = hashlib.md5(video_url.encode()).hexdigest()
+            video_id = video_metadata.get("video_id") if video_metadata else hashlib.md5(video_url.encode()).hexdigest()
             metadata = {
                 "id": video_id,
                 "source": "YouTube",
@@ -127,14 +254,21 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
             # Attempt storing in ChromaDB
             add_document(bot_id, text=transcript, metadata=metadata)
 
-            # Extract video info with yt_dlp
-            ydl_opts = get_yt_dlp_options({"quiet": True})
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(video_url, download=False)
-
-            # Check for duplicates
+            # Check for duplicates using the video ID from metadata or extracted from URL
+            if not video_metadata:
+                # If we don't have metadata from Apify, extract video ID from URL
+                if "youtu.be/" in video_url:
+                    extracted_video_id = video_url.split("youtu.be/")[-1].split("?")[0]
+                elif "v=" in video_url:
+                    extracted_video_id = video_url.split("v=")[-1].split("&")[0]
+                else:
+                    extracted_video_id = hashlib.md5(video_url.encode()).hexdigest()
+            else:
+                extracted_video_id = video_metadata.get("video_id")
+            
+            # Check for existing video
             existing_video = db.query(YouTubeVideo).filter(
-                YouTubeVideo.video_id == info.get("id"),
+                YouTubeVideo.video_id == extracted_video_id,
                 YouTubeVideo.bot_id == bot_id,
                 YouTubeVideo.is_deleted == False
             ).first()
@@ -170,28 +304,97 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
                 send_failure_notification(db, bot_id, video_url, reason)
                 continue
 
-            # Save video to database
-            video_data = {
-                "video_id": info.get("id"),
-                "video_title": info.get("title", "Untitled Video"),
-                "video_url": video_url,
-                "channel_id": info.get("channel_id", None),
-                "channel_name": info.get("uploader", "Unknown Channel"),
-                "duration": info.get("duration", 0),
-                "upload_date": datetime.strptime(info.get("upload_date", "19700101"), "%Y%m%d") if info.get("upload_date") else None,
-                "is_playlist": "playlist" in info.get("_type", ""),
-                "playlist_id": info.get("playlist_id", None),
-                "playlist_name": info.get("playlist_title", None),
-                "view_count": info.get("view_count", 0),
-                "likes": info.get("like_count", 0),
-                "description": info.get("description", None),
-                "thumbnail_url": info.get("thumbnail", None) if isinstance(info.get("thumbnail"), str) else None,
-                "bot_id": bot_id,
-                "transcript_count": word_count_transcript,
-                "transcript": transcript,
-                "embedding_status": "pending"
-            }
+            # Prepare video data for database using metadata from Apify if available
+            if video_metadata:
+                # Use metadata from Apify
+                print(f"✅ Using metadata from Apify for video: {video_metadata.get('video_title')}")
+                
+                # Parse upload date if available
+                upload_date = None
+                if video_metadata.get("upload_date"):
+                    try:
+                        # Attempt to parse various date formats
+                        date_str = video_metadata.get("upload_date", "")
+                        if "," in date_str:  # Format like "May 31, 2024"
+                            upload_date = datetime.strptime(date_str, "%b %d, %Y")
+                        else:
+                            # Handle other date formats as needed
+                            print(f"⚠️ Unrecognized date format: {date_str}")
+                    except Exception as e:
+                        print(f"⚠️ Error parsing date: {e}")
+                
+                # Parse view count
+                view_count = 0
+                try:
+                    views_str = str(video_metadata.get("views", "0"))
+                    # Remove commas, 'views' text, and get first part
+                    views_str = views_str.replace(",", "").split()[0]
+                    view_count = int(views_str)
+                except (ValueError, IndexError) as e:
+                    print(f"⚠️ Error parsing view count: {e}")
+                    
+                # Parse likes
+                likes = 0
+                try:
+                    likes_str = str(video_metadata.get("likes", "0"))
+                    # Handle "K" suffix
+                    if "K" in likes_str:
+                        likes_str = likes_str.replace("K", "").replace(",", "")
+                        likes = int(float(likes_str) * 1000)
+                    elif "M" in likes_str:
+                        likes_str = likes_str.replace("M", "").replace(",", "")
+                        likes = int(float(likes_str) * 1000000)
+                    else:
+                        likes_str = likes_str.replace(",", "")
+                        likes = int(likes_str)
+                except (ValueError, IndexError) as e:
+                    print(f"⚠️ Error parsing likes: {e}")
+                
+                video_data = {
+                    "video_id": video_metadata.get("video_id", extracted_video_id),
+                    "video_title": video_metadata.get("video_title", "Untitled Video"),
+                    "video_url": video_metadata.get("video_url", video_url),
+                    "channel_id": video_metadata.get("channel_id"),
+                    "channel_name": video_metadata.get("channel_name", "Unknown Channel"),
+                    "duration": video_metadata.get("duration", 0),
+                    "upload_date": upload_date,
+                    "is_playlist": video_metadata.get("is_playlist", False),
+                    "playlist_id": video_metadata.get("playlist_id"),
+                    "playlist_name": video_metadata.get("playlist_name"),
+                    "view_count": view_count,
+                    "likes": likes,
+                    "description": video_metadata.get("description", ""),
+                    "thumbnail_url": video_metadata.get("thumbnail_url"),
+                    "bot_id": bot_id,
+                    "transcript_count": word_count_transcript,
+                    "transcript": transcript,
+                    "embedding_status": "pending"
+                }
+            else:
+                # Create minimal video data when metadata isn't available
+                print(f"⚠️ No metadata available from Apify, creating minimal record")
+                video_data = {
+                    "video_id": extracted_video_id,
+                    "video_title": "YouTube Video",
+                    "video_url": video_url,
+                    "channel_id": None,
+                    "channel_name": "Unknown Channel",
+                    "duration": 0,
+                    "upload_date": None,
+                    "is_playlist": False,
+                    "playlist_id": None,
+                    "playlist_name": None,
+                    "view_count": 0,
+                    "likes": 0,
+                    "description": None,
+                    "thumbnail_url": None,
+                    "bot_id": bot_id,
+                    "transcript_count": word_count_transcript,
+                    "transcript": transcript,
+                    "embedding_status": "pending"
+                }
 
+            print(f"📝 Saving video data to database: {video_data['video_title']}")
             new_video = YouTubeVideo(**video_data)
             db.add(new_video)
             db.commit()

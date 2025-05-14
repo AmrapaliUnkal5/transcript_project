@@ -744,7 +744,15 @@ def soft_delete_video(request: Request, bot_id: int, video_id: str = Query(...),
 
 
 @router.delete("/bot/{bot_id}/scraped-urls")
-def soft_delete_scraped_url(request: Request, bot_id: int, url: str = Query(...), db: Session = Depends(get_db),current_user: UserOut = Depends(get_current_user)):
+def soft_delete_scraped_url(
+    request: Request, 
+    bot_id: int, 
+    url: str = Query(...),
+    word_count: int = Query(...), 
+    db: Session = Depends(get_db),
+    current_user: UserOut = Depends(get_current_user)
+):
+ 
     """Soft deletes a scraped URL from a bot's knowledge base."""
     request_id = getattr(request.state, "request_id", "unknown")
     
@@ -769,6 +777,16 @@ def soft_delete_scraped_url(request: Request, bot_id: int, url: str = Query(...)
         
         # Soft delete the scraped node in the database
         scraped_node.is_deleted = True
+
+        # Update bot and user word counts
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        if bot:
+            bot.word_count = max(0, (bot.word_count or 0) - word_count)
+        
+        user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
+        if user:
+            user.total_words_used = max(0, (user.total_words_used or 0) - word_count)
+        
         db.commit()
         
         # Delete from ChromaDB
@@ -781,7 +799,7 @@ def soft_delete_scraped_url(request: Request, bot_id: int, url: str = Query(...)
         logger.info(f"Scraped URL deleted successfully", 
                    extra={"request_id": request_id, "bot_id": bot_id, "url": decoded_url})
         
-        return {"message": "Scraped URL deleted successfully"}
+        return {"message": "Scraped URL deleted successfully", "words_removed": word_count}
     except Exception as e:
         logger.exception(f"Error deleting scraped URL", 
                         extra={"request_id": request_id, "bot_id": bot_id, 

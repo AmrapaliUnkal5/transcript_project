@@ -360,6 +360,9 @@ class SubscriptionPlan(Base):
     default_embedding_model = relationship("EmbeddingModel", foreign_keys=[default_embedding_model_id], backref="subscription_plans_embedding")
     default_llm_model = relationship("LLMModel", foreign_keys=[default_llm_model_id], backref="subscription_plans_llm")
 
+    def __str__(self):
+        return self.name
+
 class Addon(Base):
     __tablename__ = "addons"
 

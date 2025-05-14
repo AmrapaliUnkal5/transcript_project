@@ -31,10 +31,12 @@ const WebScrapingTab: React.FC = () => {
     null
   );
   const [isProcessing, setIsProcessing] = useState(false);
+  
   const location = useLocation();
   
   // Check if we're in create bot flow
   const isCreateBotFlow = location.pathname.includes('/create-bot');
+  
   
   // Reset toast flag when component unmounts or when not in create bot flow
   useEffect(() => {
@@ -49,8 +51,8 @@ const WebScrapingTab: React.FC = () => {
   }, [isCreateBotFlow]);
 
   const [scrapedUrls, setScrapedUrls] = useState<
-    { id: number; url: string; title: string }[]
-  >([]);
+  { id: number; url: string; title: string; wordCount?: number }[]
+>([]);
 
   // ✅ Move fetchScrapedUrls outside of useEffect so it can be reused
   const fetchScrapedUrls = async () => {
@@ -69,6 +71,7 @@ const WebScrapingTab: React.FC = () => {
           id: index + 1,
           url: item.url,
           title: item.title || "No Title",
+          wordCount: item.Word_Counts // Add word count from response
         }));
 
         console.log("Formatted URLs:", formattedUrls);
@@ -97,11 +100,14 @@ const WebScrapingTab: React.FC = () => {
     }
   }, [selectedBot?.id]);
 
-  // Handle delete confirmation
-  const handleDeleteClick = (url: string) => {
-    setUrlToDelete(url); // Set URL to delete
-    setIsModalOpen(true); // Open modal
-  };
+  const handleDeleteClick = (url: string, wordCount: number) => {
+  setUrlToDelete(url);
+  setWordCountToDelete(wordCount); // Set the word count
+  setIsModalOpen(true);
+};
+  // Add new state
+const [wordCountToDelete, setWordCountToDelete] = useState(0);
+
 
   // Handle actual delete
   const confirmDelete = async () => {
@@ -109,7 +115,7 @@ const WebScrapingTab: React.FC = () => {
 
     try {
       setLoading(true);
-      await authApi.deleteScrapedUrl(selectedBot.id, urlToDelete);
+      await authApi.deleteScrapedUrl(selectedBot.id, urlToDelete,wordCountToDelete);
       toast.success("URL deleted successfully!");
       fetchScrapedUrls(); // Refresh list
       setScrapedWebsiteUrl(null);
@@ -120,6 +126,7 @@ const WebScrapingTab: React.FC = () => {
       setLoading(false);
       setIsModalOpen(false); // Close modal
       setUrlToDelete(null);
+      setWordCountToDelete(0);
     }
   };
 
@@ -430,6 +437,9 @@ const WebScrapingTab: React.FC = () => {
                       URL
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Word Count
+                  </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -454,8 +464,12 @@ const WebScrapingTab: React.FC = () => {
                         </a>
                       </td>
                       <td className="border border-gray-300 px-4 py-2 text-center">
+        {item.wordCount?.toLocaleString() || "N/A"}
+      </td>
+
+                      <td className="border border-gray-300 px-4 py-2 text-center">
                         <button
-                          onClick={() => handleDeleteClick(item.url)}
+                          onClick={() => handleDeleteClick(item.url, item.wordCount || 0)}
                           className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
                           disabled={loading || isProcessing}
                         >

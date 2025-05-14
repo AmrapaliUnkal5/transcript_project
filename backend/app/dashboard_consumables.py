@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from app.models import Addon, User, Bot, Interaction,  ChatMessage, File, UserAddon #Rating,
+from sqlalchemy import func, or_
+from app.models import Addon, User, Bot, Interaction,  ChatMessage, File, UserAddon, UserSubscription #Rating,
 from app.database import get_db
 from app.dependency import get_current_user
 from datetime import datetime, timedelta, timezone
@@ -198,7 +198,39 @@ def get_usage_metrics(
         ).scalar() or 0
 
         chat_messages_used = (user.total_message_count + total_initial_count) or 0
+
+        #Get message limits (base plan + addons)
+        user_subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "active"
+        ).order_by(UserSubscription.expiry_date.desc()).first()
+
+        base_message_limit = 0
+        if user_subscription and user_subscription.subscription_plan:
+            base_message_limit = user_subscription.subscription_plan.message_limit or 0
+        
+        # Calculate additional messages from active addons
+        additional_messages = 0
+        if user_subscription:
+           
+            active_addons = db.query(UserAddon).join(Addon).filter(
+                UserAddon.user_id == current_user["user_id"],
+                UserAddon.addon_id == 3,  # Message addon
+                UserAddon.is_active == True,
+                or_(
+                    UserAddon.expiry_date == None,
+                    UserAddon.expiry_date >= datetime.utcnow()
+                )
+            ).order_by(UserAddon.id.asc()).all()
+
             
+            print("Active addons=>",active_addons)
+            for addon in active_addons:
+                if addon.addon and addon.addon.additional_message_limit:
+                    additional_messages += addon.addon.additional_message_limit
+
+        total_message_limit = base_message_limit + additional_messages
+
 
         # 5. Total storage used (parse file sizes and sum up)
         total_bytes_used = 0
@@ -222,7 +254,12 @@ def get_usage_metrics(
             "total_words_used": total_words_used,
             "chat_messages_used": chat_messages_used,
             "total_bots": total_bots,
-            "total_storage_used":total_storage_used
+            "total_storage_used":total_storage_used,
+            "message_limits": {
+                "base_plan": base_message_limit,
+                "addons": additional_messages,
+                "total": total_message_limit
+            }
         }
 
     except Exception as e:
@@ -231,7 +268,7 @@ def get_usage_metrics(
             detail=f"Server error: {str(e)}"
         )
     
-
+        
 
 def convert_to_bytes(size_str):
     """

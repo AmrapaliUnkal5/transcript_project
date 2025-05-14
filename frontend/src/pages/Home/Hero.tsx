@@ -1,5 +1,7 @@
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
+import Typical from 'react-typical';
+
 
 export default function Hero() {
   return (
@@ -73,7 +75,11 @@ export default function Hero() {
                 fontWeight={600}
                 fontSize={['28px', '56px']}
               >
-                website content
+                <Typical
+                  steps={['website content', 2000, 'amazing features', 2000, 'great design', 2000]}
+                  loop={Infinity}
+                  wrapper="span"
+                />
               </Typography>
             </Box>
             <Typography variant='h6' color='#B4B4B4' mt={2} mb={3}>

@@ -6,17 +6,29 @@ declare global {
 
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { AlertCircle, Facebook, Apple,} from "lucide-react";
+import { AlertCircle, Facebook, Apple } from "lucide-react";
 import { authApi } from "../../services/api";
 import { AxiosError } from "axios";
 import { useAuth } from "../../context/AuthContext";
 //import axios from "axios";
-import { Box, styled, TextField, Typography,IconButton, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions, Button } from "@mui/material";
+import {
+  Box,
+  styled,
+  TextField,
+  Typography,
+  IconButton,
+  InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+} from "@mui/material";
 import Grid from "@mui/material/Grid2";
 import { RefreshCcw } from "lucide-react"; // Import Lucide icon
 import { useLoader } from "../../context/LoaderContext";
-import { Visibility, VisibilityOff } from "@mui/icons-material"; 
-import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
+import { Visibility, VisibilityOff } from "@mui/icons-material";
+import SmartToyOutlinedIcon from "@mui/icons-material/SmartToyOutlined";
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -40,47 +52,159 @@ export const Login = () => {
   // Math CAPTCHA states
   const [openCaptchaModal, setOpenCaptchaModal] = useState(false);
   const [targetLink, setTargetLink] = useState("");
-  const [mathCaptcha, setMathCaptcha] = useState({ 
-      question: '', 
-      answer: 0,
-      imageUrl: '' 
-    });
-  const [userAnswer, setUserAnswer] = useState('');
+  const [mathCaptcha, setMathCaptcha] = useState({
+    question: "",
+    answer: 0,
+    imageUrl: "",
+  });
+  const [userAnswer, setUserAnswer] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+  const facebookAppId =
+    import.meta.env.VITE_FACEBOOK_APP_ID || "1311708846552842";
 
-
-   useEffect(() => {
+  useEffect(() => {
     fetchCaptcha();
   }, []);
+
+  //facebook - start
+  useEffect(() => {
+    // Load Facebook SDK
+    const loadFacebookSDK = () => {
+      if (document.getElementById("facebook-jssdk")) return;
+
+      const script = document.createElement("script");
+      script.id = "facebook-jssdk";
+      script.src = "https://connect.facebook.net/en_US/sdk.js";
+      script.async = true;
+      script.defer = true;
+      document.body.appendChild(script);
+
+      script.onload = () => {
+        (window as any).FB.init({
+          appId: facebookAppId, // Replace with your Facebook App ID
+          cookie: true,
+          xfbml: true,
+          version: "v17.0",
+        });
+
+        // Ensure the SDK is loaded before checking login status
+        (window as any).FB.getLoginStatus((response: any) => {
+          statusChangeCallback(response);
+        });
+      };
+    };
+
+    loadFacebookSDK();
+  }, []);
+
+  // Handle login status response
+  const statusChangeCallback = (response: any) => {
+    console.log("Login status:", response);
+    setStatus(response.status);
+  };
+
+  // Login Function
+  const handleFacebookLogin = () => {
+    (window as any).FB.login(
+      (response: any) => {
+        if (response.authResponse) {
+          console.log("User logged in:", response);
+          statusChangeCallback(response);
+          // Now that the user is authenticated with Facebook, pass the access token to your backend
+          const { accessToken } = response.authResponse;
+          facebookLogin(accessToken);
+        } else {
+          console.log("User cancelled login or did not fully authorize.");
+        }
+      },
+      { scope: "public_profile,email" }
+    );
+  };
+
+  const facebookLogin = async (accessToken: string) => {
+    try {
+      const response = await authApi.facebookLogin(accessToken);
+
+      //const { access_token, user } = response.data;
+      fetchUserProfile();
+
+      // After receiving the JWT token, you can log the user in and redirect to the appropriate page
+      login(response.access_token, response.user);
+
+      const from = location.state?.from?.pathname || "/";
+      navigate(from, { replace: true });
+    } catch (error) {
+      console.error("Error during Facebook login:", error);
+      // Handle error - notify the user
+    }
+  };
+
+  // const handleFacebookLogout = () => {
+  //   (window as any).FB.logout(function (response: any) {
+  //     console.log("User logged out", response);
+  //     setStatus("logged out");
+  //   });
+  // };
+
+  const fetchUserProfile = () => {
+    (window as any).FB.api(
+      "/me",
+      { fields: "id,name,email,picture" },
+      function (response: any) {
+        if (response && !response.error) {
+          console.log("User Profile:", response);
+          const profilePictureUrl = response.picture?.data?.url; // Fetch the profile picture URL
+
+          if (profilePictureUrl) {
+            console.log("Profile Picture URL:", profilePictureUrl);
+            // Now you can use the profile picture URL in your app (for example, update the UI)
+          }
+        } else {
+          console.error("Error fetching profile:", response.error);
+        }
+      }
+    );
+  };
+  //facebook - end
 
   // Generate math question and create an image representation
   const generateMathQuestion = () => {
     const num1 = Math.floor(Math.random() * 10) + 1; // 1-10
     const num2 = Math.floor(Math.random() * 10) + 1; // 1-10
-    const operators = ['+', '-', '*'];
+    const operators = ["+", "-", "*"];
     const operator = operators[Math.floor(Math.random() * operators.length)];
-    
+
     let answer;
-    switch(operator) {
-      case '+': answer = num1 + num2; break;
-      case '-': answer = num1 - num2; break;
-      case '*': answer = num1 * num2; break;
-      default: answer = num1 + num2;
+    switch (operator) {
+      case "+":
+        answer = num1 + num2;
+        break;
+      case "-":
+        answer = num1 - num2;
+        break;
+      case "*":
+        answer = num1 * num2;
+        break;
+      default:
+        answer = num1 + num2;
     }
-    
+
     // Create a canvas image for the math question
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     canvas.width = 200;
     canvas.height = 80;
-    const ctx = canvas.getContext('2d');
-    
+    const ctx = canvas.getContext("2d");
+
     if (ctx) {
       // Background
-      ctx.fillStyle = '#f5f5f5';
+      ctx.fillStyle = "#f5f5f5";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
+
       // Random noise
       for (let i = 0; i < 100; i++) {
-        ctx.fillStyle = `rgba(${Math.random() * 100}, ${Math.random() * 100}, ${Math.random() * 100}, 0.05)`;
+        ctx.fillStyle = `rgba(${Math.random() * 100}, ${Math.random() * 100}, ${
+          Math.random() * 100
+        }, 0.05)`;
         ctx.fillRect(
           Math.random() * canvas.width,
           Math.random() * canvas.height,
@@ -88,18 +212,18 @@ export const Login = () => {
           Math.random() * 10
         );
       }
-      
+
       // Text styling
-      ctx.font = 'bold 36px Arial';
-      ctx.fillStyle = '#333';
-      ctx.textAlign = 'center';
-      
+      ctx.font = "bold 36px Arial";
+      ctx.fillStyle = "#333";
+      ctx.textAlign = "center";
+
       // Draw the equation
       const equation = `${num1} ${operator} ${num2} = ?`;
       ctx.fillText(equation, canvas.width / 2, canvas.height / 2 + 10);
-      
+
       // Add some distortion
-      ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+      ctx.strokeStyle = "rgba(0,0,0,0.1)";
       for (let i = 0; i < 5; i++) {
         ctx.beginPath();
         ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
@@ -107,13 +231,13 @@ export const Login = () => {
         ctx.stroke();
       }
     }
-    
+
     const imageUrl = canvas.toDataURL();
-    
+
     setMathCaptcha({
       question: `${num1} ${operator} ${num2}`,
       answer,
-      imageUrl
+      imageUrl,
     });
   };
 
@@ -121,12 +245,12 @@ export const Login = () => {
   const verifyCaptcha = () => {
     if (parseInt(userAnswer) === mathCaptcha.answer) {
       setOpenCaptchaModal(false);
-      window.open(targetLink, '_blank');
-      setCaptchaError('');
+      window.open(targetLink, "_blank");
+      setCaptchaError("");
     } else {
-      setCaptchaError('Incorrect answer. Please try again.');
+      setCaptchaError("Incorrect answer. Please try again.");
       generateMathQuestion();
-      setUserAnswer('');
+      setUserAnswer("");
     }
   };
 
@@ -136,8 +260,8 @@ export const Login = () => {
     setTargetLink(link);
     generateMathQuestion();
     setOpenCaptchaModal(true);
-    setUserAnswer('');
-    setCaptchaError('');
+    setUserAnswer("");
+    setCaptchaError("");
   };
 
   const fetchCaptcha = async () => {
@@ -177,7 +301,7 @@ export const Login = () => {
     }
   };
 
-   useEffect(() => {
+  useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
@@ -196,7 +320,7 @@ export const Login = () => {
 
         window.google.accounts.id.renderButton(
           document.getElementById("g_signin"),
-          { theme: "outline", size: "large", text: "none" }
+          { theme: "outline", size: "large", text: "none", width: "200" }
         );
       }
     };
@@ -265,63 +389,81 @@ export const Login = () => {
   };
 
   return (
-    <DarkGBox bgcolor="#f2f1ef" minHeight={"100vh"} >
+    <DarkGBox bgcolor="#f2f1ef" minHeight={"100vh"}>
       <Box bgcolor={"#000"}>
-        <Box maxWidth={1180} mx={"auto"} borderRadius={4} py={2} px={3}>
-        <Box display={'flex'} gap={1} alignItems="center">
-          {/* Logo with fallback */}
-          <Box
-            component="img"
-            src="/images/dummy/Evolra-AI-Logo_Transparent.png" 
-            alt="Evolra AI Logo"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none'; // Hide broken image
-              console.error('Failed to load logo:', target.src);
-            }}
-            sx={{ 
-              height: 40,
-              width: 'auto',
-              maxWidth: 150 // 
-            }}
-          />
-          {/* Fallback text if image fails */}
-          {!logoLoaded && (
-            <Typography variant="h6" color="#4dc4ff">
-              Evolra AI
-            </Typography>
-          )}
-        </Box>  
+        <Box
+          maxWidth={1180}
+          mx={"auto"}
+          borderRadius={4}
+          py={0} // Increased padding to accommodate larger logo
+          px={3}
+          sx={{
+            minHeight: 20, // Set a fixed height for the header
+            display: "flex",
+            alignItems: "center", // Vertically center the logo
+          }}
+        >
+          <Box display={"flex"} gap={1} alignItems="center">
+            {/* Logo with fallback */}
+            <Box
+              component="img"
+              src="/images/dummy/Evolra-AI-Logo_Transparent.png"
+              alt="Evolra AI Logo"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = "none"; // Hide broken image
+                setLogoLoaded(false);
+                console.error("Failed to load logo:", target.src);
+              }}
+              sx={{
+                height: 80, // Increased logo size
+                width: "auto",
+                maxWidth: 200,
+                objectFit: "contain",
+              }}
+            />
+            {/* Fallback text if image fails */}
+            {!logoLoaded && (
+              <Typography variant="h6" color="#4dc4ff">
+                Evolra AI
+              </Typography>
+            )}
+          </Box>
+        </Box>
       </Box>
-    </Box>
       <Box maxWidth={1180} mx={"auto"} borderRadius={4} py={2} px={3}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 7 }}>
-            <LightGBox p={'1px'} borderRadius={4}>
-            <Box 
-                px={5} 
-                py={2} 
+            <LightGBox p={"1px"} borderRadius={4}>
+              <Box
+                px={5}
+                py={2}
                 borderRadius={4}
                 sx={{
-                  position: 'relative',
-                  overflow: 'hidden',
-                  minHeight: '74vh',
-                  display: 'flex',
-                  flexDirection: 'column'
+                  position: "relative",
+                  overflow: "hidden",
+                  minHeight: "74vh",
+                  display: "flex",
+                  flexDirection: "column",
                 }}
               >
-                <Typography variant="h6" mb={3} color="#FFF" sx={{ position: 'relative', zIndex: 2 }}>
+                <Typography
+                  variant="h6"
+                  mb={3}
+                  color="#FFF"
+                  sx={{ position: "relative", zIndex: 2 }}
+                >
                   {/* Check me */}
                 </Typography>
-                <Box 
+                <Box
                   textAlign={"center"}
                   sx={{
-                    position: 'absolute',
+                    position: "absolute",
                     top: 0,
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    zIndex: 1
+                    zIndex: 1,
                   }}
                 >
                   <video
@@ -330,9 +472,9 @@ export const Login = () => {
                     muted
                     playsInline
                     style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
                     }}
                   >
                     <source src="/images/dummy/gif.mp4" type="video/mp4" />
@@ -396,21 +538,25 @@ export const Login = () => {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            aria-label="toggle password visibility"
-                            onClick={handleClickShowPassword}
-                            edge="end"
-                          >
-                            {showPassword ? <Visibility /> : <VisibilityOff />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                   <div className="mt-4 flex items-center space-x-2">
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              aria-label="toggle password visibility"
+                              onClick={handleClickShowPassword}
+                              edge="end"
+                            >
+                              {showPassword ? (
+                                <Visibility />
+                              ) : (
+                                <VisibilityOff />
+                              )}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                    <div className="mt-4 flex items-center space-x-2">
                       <img
                         src={captchaImage}
                         alt="CAPTCHA"
@@ -439,8 +585,8 @@ export const Login = () => {
                         {captchaError}
                       </p>
                     )}
-                    </Grid>
-                  
+                  </Grid>
+
                   {/* <Grid size={12}>
                     <StyledImage
                       src="/images/temp/captcha.png"
@@ -470,8 +616,8 @@ export const Login = () => {
                       <div className="text-sm">
                         <Link
                           to="/forgot-password"
-                          target="_blank"  
-                          rel="noopener noreferrer" 
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="font-medium text-blue-600 hover:text-blue-500"
                         >
                           Forgot your password?
@@ -506,31 +652,43 @@ export const Login = () => {
                         </div>
                       </div>
                     </Box>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div id="g_signin" className="w-full"></div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div
+                        id="g_signin"
+                        className="w-full overflow-hidden"
+                      ></div>
 
                       <button
                         type="button"
-                        onClick={() => handleSocialLogin("facebook")}
+                        onClick={handleFacebookLogin}
+                        style={{
+                          padding: "10px",
+                          backgroundColor: "white",
+                          color: "#1877F2",
+                          border: "none",
+                          borderRadius: "4px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "8px",
+                        }}
                         className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
                         <Facebook className="w-5 h-5" />
                       </button>
 
-                      <button
+                      {/* <button
                         type="button"
                         onClick={() => handleSocialLogin("apple")}
                         className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-                      >
-                        <Apple className="w-5 h-5" />
-                      </button>
+                      ></button> */}
                     </div>
                     <Box mt={3}>
                       <div className="text-center">
                         <Link
                           to="/signup"
-                          target="_blank"  
-                          rel="noopener noreferrer" 
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="font-medium text-blue-600 hover:text-blue-500"
                         >
                           Don't have an account? Sign up
@@ -553,8 +711,8 @@ export const Login = () => {
                   <Typography variant="body2">
                     <Link
                       to="/faq"
-                      target="_blank"  
-                      rel="noopener noreferrer" 
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       {" "}
@@ -576,8 +734,8 @@ export const Login = () => {
                     <Link
                       to="#"
                       onClick={handleProtectedLinkClick("/customersupport")}
-                      target="_blank"  
-                      rel="noopener noreferrer"  
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       {" "}
@@ -600,8 +758,8 @@ export const Login = () => {
                     <Link
                       to="#"
                       onClick={handleProtectedLinkClick("/demo")}
-                      target="_blank"  
-                      rel="noopener noreferrer" 
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       {" "}
@@ -615,26 +773,29 @@ export const Login = () => {
         </Box>
       </Box>
       {/* Math CAPTCHA Modal */}
-      <Dialog open={openCaptchaModal} onClose={() => setOpenCaptchaModal(false)}>
+      <Dialog
+        open={openCaptchaModal}
+        onClose={() => setOpenCaptchaModal(false)}
+      >
         <DialogTitle>Verify you're human</DialogTitle>
         <DialogContent>
           <Typography variant="body1" gutterBottom>
             Please solve the math problem below to continue:
           </Typography>
-          
+
           <Box display="flex" justifyContent="center" my={3}>
-            <img 
-              src={mathCaptcha.imageUrl} 
-              alt="Math CAPTCHA" 
-              style={{ 
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                padding: '10px',
-                background: '#f9f9f9'
+            <img
+              src={mathCaptcha.imageUrl}
+              alt="Math CAPTCHA"
+              style={{
+                border: "1px solid #ddd",
+                borderRadius: "4px",
+                padding: "10px",
+                background: "#f9f9f9",
               }}
             />
           </Box>
-          
+
           <TextField
             value={userAnswer}
             onChange={(e) => setUserAnswer(e.target.value)}
@@ -644,7 +805,7 @@ export const Login = () => {
             label="Enter the answer"
             autoFocus
             onKeyPress={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === "Enter") {
                 verifyCaptcha();
               }
             }}
@@ -657,16 +818,12 @@ export const Login = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenCaptchaModal(false)}>Cancel</Button>
-          <Button 
-            onClick={verifyCaptcha}
-            color="primary"
-            variant="contained"
-          >
+          <Button onClick={verifyCaptcha} color="primary" variant="contained">
             Verify & Continue
           </Button>
         </DialogActions>
       </Dialog>
-      </DarkGBox>
+    </DarkGBox>
   );
 };
 
@@ -676,14 +833,12 @@ const StyledImage = styled("img")(() => ({
 }));
 
 const LightGBox = styled(Box)(() => ({
-  background: "linear-gradient(108.14deg, rgb(242, 246, 249) 0%, rgb(233, 243, 247) 9.47%, rgb(226, 240, 247) 20.52%, rgb(219, 235, 247) 36.84%, rgb(211, 225, 247) 51.58%, rgb(213, 222, 247) 68.94%, rgb(219, 221, 242) 83.15%, rgb(221, 220, 240) 101.05%);",
+  background:
+    "linear-gradient(108.14deg, rgb(242, 246, 249) 0%, rgb(233, 243, 247) 9.47%, rgb(226, 240, 247) 20.52%, rgb(219, 235, 247) 36.84%, rgb(211, 225, 247) 51.58%, rgb(213, 222, 247) 68.94%, rgb(219, 221, 242) 83.15%, rgb(221, 220, 240) 101.05%);",
 }));
 
 const DarkGBox = styled(Box)(() => ({
-  background: 'linear-gradient(180deg, #000 0%, #181e4a 35%, #000 100%)',
+  background: "linear-gradient(180deg, #000 0%, #181e4a 35%, #000 100%)",
 }));
 
 export default Login;
-
-
-
