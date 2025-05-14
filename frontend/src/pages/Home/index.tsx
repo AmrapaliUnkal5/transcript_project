@@ -13,7 +13,7 @@ import KeyBenefits from './KeyBenefits';
 import Plans from './Plans';
 import Footer from './Footer';
 import FAQ from './FAQ';
-//import { Enterprise } from './Enterprise';
+import { Enterprise } from './Enterprise';
 
 export default function HomePage() {
   return (
@@ -24,6 +24,7 @@ export default function HomePage() {
       <ExperienceAdvantage/>
       <KeyBenefits/>
       <Plans/>
+      <Enterprise/>
       <BotDataControl/>
       <FAQ/>
       <StartBuilding/>
