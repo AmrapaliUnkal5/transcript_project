@@ -523,7 +523,7 @@ export const Subscription = () => {
       // Short timeout to ensure logs are sent before redirect
       setTimeout(() => {
         // Redirect to Zoho's hosted checkout page
-        window.location.href = checkoutUrl;
+        window.open(checkoutUrl, '_blank');
       }, 100);
     } catch (error) {
       console.error("DEBUG - Error creating subscription checkout:", error);
