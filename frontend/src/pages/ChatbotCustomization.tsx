@@ -1567,22 +1567,17 @@ export const ChatbotCustomization = () => {
                        ${
                          settings.appearance === "Popup"
                            ? "w-[380px] h-[600px]"
-                           : "w-screen h-screen top-0 left-0"//"w-full h-full"
+                           : "w-screen h-screen top-0 left-0"
                        }`}
         >
           <div
             className="bg-white dark:bg-gray-800 rounded-lg shadow-xl flex flex-col h-full overflow-hidden"
             style={{
               borderRadius:
-              settings.appearance === "Full Screen" 
-            ? "0" 
-                :settings.borderRadius === "rounded-full"
+                settings.borderRadius === "rounded-full"
                   ? "20px"
                   : settings.borderRadius,
               border: `1px solid ${settings.borderColor}`,
-              width: settings.appearance === "Full Screen" ? "100%" : "auto",
-        height: settings.appearance === "Full Screen" ? "100%" : "auto",
-        margin: settings.appearance === "Full Screen" ? "0" : "auto",
             }}
           >
             {/* Preview Header */}
@@ -1624,12 +1619,10 @@ export const ChatbotCustomization = () => {
             {/* Chat Window */}
             <div
               ref={chatContainerRef}
-              className="relative flex-grow overflow-y-auto flex flex-col"
-        style={{
-          backgroundColor: settings.windowBgColor,
-          fontFamily: settings.chatFontFamily || settings.fontStyle,
-          height: settings.appearance === "Full Screen" ? "calc(100vh - 120px)" : "auto",
-          overflowX: 'hidden'
+              className="relative rounded-lg p-4 flex-grow overflow-y-auto flex flex-col"
+              style={{
+                backgroundColor: settings.windowBgColor,
+                fontFamily: settings.chatFontFamily || settings.fontStyle,
               }}
             >
               {/* Bot Header */}
@@ -1666,9 +1659,6 @@ export const ChatbotCustomization = () => {
                           settings.borderRadius === "rounded-full"
                             ? "20px"
                             : settings.borderRadius,
-                            wordBreak: 'break-word',       // Add this
-                            overflowWrap: 'break-word',     // Add this
-                            whiteSpace: 'pre-wrap'
                       }}
                     >
                       <div>{msg.text}</div>
