@@ -98,7 +98,8 @@ const AddonsModal = ({
   formatPrice,
   planAccent,
 }: AddonsModalProps) => {
-  if (!isOpen) return null;
+  // Check if modal should be shown and selectedAddons is properly initialized
+  if (!isOpen || !selectedAddons) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
@@ -295,15 +296,32 @@ export const Subscription = () => {
 
   // Initialize addon selection state when addons change
   useEffect(() => {
-    const initialState: AddonSelectionState = {};
-    addons.forEach((addon) => {
-      initialState[addon.id] = {
-        selected: false,
-        quantity: 1,
-      };
-    });
-    setSelectedAddons(initialState);
-  }, [addons]);
+    // Initialize empty state object with plan IDs as keys
+    const initialState: PlanAddonSelection = {};
+    
+    // Only do this if plans and addons are available
+    if (plans && plans.length > 0 && addons && addons.length > 0) {
+      // Create an entry for each plan
+      plans.forEach(plan => {
+        // Create an empty object for each plan
+        const planAddons: AddonSelectionState = {};
+        
+        // Initialize each addon with default values
+        addons.forEach(addon => {
+          planAddons[addon.id] = {
+            selected: false,
+            quantity: 1,
+          };
+        });
+        
+        // Add the plan's addons to the state
+        initialState[plan.id] = planAddons;
+      });
+      
+      setSelectedAddons(initialState);
+      console.log("DEBUG - Initialized addon selection state:", initialState);
+    }
+  }, [addons, plans]);
 
   // Determine current plan based on user's subscription
   const currentPlanId = user?.subscription_plan_id;
@@ -326,21 +344,26 @@ export const Subscription = () => {
   // Open modal for add-ons
   const openAddonsModal = async (plan: any) => {
     setSelectedAddons(prev => {
-    if (!prev[plan.id]) {
-      const initialState: AddonSelectionState = {};
-      addons.forEach(addon => {
-        initialState[addon.id] = {
-          selected: false,
-          quantity: 1,
+      // Only initialize addons for this plan if they don't exist yet
+      if (!prev[plan.id]) {
+        const planAddons: AddonSelectionState = {};
+        
+        // Initialize each addon with default values
+        addons.forEach(addon => {
+          planAddons[addon.id] = {
+            selected: false,
+            quantity: 1,
+          };
+        });
+        
+        return {
+          ...prev,
+          [plan.id]: planAddons,
         };
-      });
-      return {
-        ...prev,
-        [plan.id]: initialState,
-      };
-    }
-    return prev;
-  });
+      }
+      return prev;
+    });
+    
     if (addons.length === 0) {
       console.log("No addons loaded yet, attempting to load them directly");
       try {
@@ -412,6 +435,13 @@ export const Subscription = () => {
     Object.keys(planAddons).forEach(addonIdStr => {
       const addonId = Number(addonIdStr);
       const addon = planAddons[addonId];
+      
+      // Check if addon exists before trying to access its properties
+      if (!addon) {
+        console.log(`DEBUG - Addon ID ${addonId}: not found in selections`);
+        return;
+      }
+      
       console.log(
       `DEBUG - Addon ID ${addonId}: selected=${addon.selected}, quantity=${addon.quantity}`
     );
