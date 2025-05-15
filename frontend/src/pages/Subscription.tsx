@@ -773,7 +773,7 @@ export const Subscription = () => {
         </ul>
 
         {/* Add-ons Button (now opens modal) */}
-        {addons.length > 0 && (
+        {plan.name.toLowerCase() !== "enterprise" && plan.name.toLowerCase() !== "explorer" && addons.length > 0 && (
           <button
             onClick={() => openAddonsModal(plan)}
             className={`text-${planAccent}-600 hover:text-${planAccent}-800 dark:text-${planAccent}-400 dark:hover:text-${planAccent}-300 font-medium text-sm flex items-center justify-center w-full border border-${planAccent}-400 rounded-md py-2 mt-6 transition-colors hover:bg-${planAccent}-50 dark:hover:bg-${planAccent}-900/20`}
