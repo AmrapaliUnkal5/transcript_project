@@ -60,7 +60,7 @@ export const Login = () => {
   const [userAnswer, setUserAnswer] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const facebookAppId =
-    import.meta.env.VITE_FACEBOOK_APP_ID || "1311708846552842";
+    import.meta.env.VITE_FACEBOOK_APP_ID || "1750392469193619";
 
   useEffect(() => {
     fetchCaptcha();
