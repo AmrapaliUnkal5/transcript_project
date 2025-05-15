@@ -33,6 +33,7 @@ Chatbot/
   * `ffmpeg` (Required for YouTube video processing)
   * `playwright` (Required for web scraping)
   * `redis` (Required for background processing)
+  * `tesseract-ocr` (Required for image text extraction)
 
 #### Installation Steps
 1. Navigate to backend directory
@@ -43,20 +44,23 @@ Chatbot/
 2. Install **system dependencies**
    * **Ubuntu/Debian**:
      ```bash
-     sudo apt update && sudo apt install -y ffmpeg redis-server
+     sudo apt update && sudo apt install -y ffmpeg redis-server tesseract-ocr
      ```
    * **macOS (Homebrew)**:
      ```bash
-     brew install ffmpeg redis
+     brew install ffmpeg redis tesseract
      ```
    * **Windows**:
      1. Download ffmpeg
      2. Extract and **add** `ffmpeg/bin` to your system `PATH`
      3. Download and install Redis for Windows from https://github.com/tporadowski/redis/releases
-     4. Verify installation:
+     4. Download and install Tesseract from https://github.com/UB-Mannheim/tesseract/wiki
+     5. Add Tesseract installation directory to your system `PATH`
+     6. Verify installation:
         ```bash
         ffmpeg -version
         redis-cli --version
+        tesseract --version
         ```
 
 3. Create virtual environment
@@ -94,7 +98,8 @@ Chatbot/
 #### Troubleshooting
 * **Import Error**: Ensure you're in the backend directory
 * **Module Not Found**: Verify PYTHONPATH and project structure
-* `ffmpeg` Not Found: Ensure it's installed and added to `PATH`
+* `ffmpeg` Not Found:
+  * Install `ffmpeg` using commands above
 * **Playwright Issues**: Run `playwright install` again
 
 ### Frontend Setup
@@ -146,6 +151,10 @@ Chatbot/
   * Install `ffmpeg` using commands above
 * **Redis Connection Error**:
   * Ensure Redis server is running
+* **Tesseract OCR Error** ("tesseract is not installed or it's not in your PATH"):
+  * Install tesseract-ocr using the commands above
+  * Verify with `tesseract --version`
+  * For Windows, ensure Tesseract is in your PATH
 
 ### Frontend
 * **API Data Fetching**:
