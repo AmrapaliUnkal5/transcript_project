@@ -186,7 +186,8 @@ class AddonService:
         addon_data = {
             "customer": {
                 "display_name": user_data.get("name", ""),
-                "email": user_data.get("email", "")
+                "email": user_data.get("email", ""),
+                "mobile": user_data.get("phone_no") or "8104048480"  # Use mobile instead of phone with default
             },
             "addons": [
                 {
@@ -198,10 +199,7 @@ class AddonService:
             "cancel_url": f"{zoho_service.get_frontend_url()}/account/add-ons"
         }
         
-        # Add customer fields if they exist
-        if user_data.get("phone_no"):
-            addon_data["customer"]["phone"] = user_data.get("phone_no")
-        
+        # Add company name if it exists
         if user_data.get("company_name"):
             addon_data["customer"]["company_name"] = user_data.get("company_name")
         
