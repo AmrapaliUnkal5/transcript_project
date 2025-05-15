@@ -35,7 +35,7 @@ export default function ExperienceAdvantage() {
           <Typography
             variant="h2"
             fontWeight={600}
-            fontSize={["32px", "60px"]}
+            fontSize={["30px", "60px"]}
             sx={{
               background: "-webkit-linear-gradient(#FFF, #959595)",
               backgroundClip: "text",
@@ -66,7 +66,7 @@ export default function ExperienceAdvantage() {
               <Typography
                 variant="h3"
                 fontWeight={600}
-                fontSize={"22px"}
+                fontSize={["20px", "22px"]}
                 mb={2}
                 mt={[3, 5]}
                 lineHeight={1.4}
@@ -74,7 +74,8 @@ export default function ExperienceAdvantage() {
                 Elevate Your Customer Experience
               </Typography>
 
-              <Typography variant="body1" color={"#9F9F9F"}>
+              <Typography variant="body1" color={"#9F9F9F"}  sx={{
+    fontSize: ['14px', '16px'], }}>
                 Enhance customer satisfaction with AI-driven assistance that
                 ensures quick, accurate, and engaging interactions. 
               </Typography>
@@ -93,7 +94,7 @@ export default function ExperienceAdvantage() {
               <Typography
                 variant="h3"
                 fontWeight={600}
-                fontSize={"22px"}
+                fontSize={["20px", "22px"]}
                 mt={[3, 5]}
                 mb={2}
                 lineHeight={1.4}
@@ -101,7 +102,8 @@ export default function ExperienceAdvantage() {
                 Accelerated Customer Assistance
               </Typography>
 
-              <Typography variant="body1" color={"#9F9F9F"}>
+              <Typography variant="body1" color={"#9F9F9F"}  sx={{
+    fontSize: ['14px', '16px'], }}>
                 Cut support time by 70% with bots that work 24/7—freeing your
                 team for empathetic, high- impact interactions. 
               </Typography>
@@ -121,7 +123,7 @@ export default function ExperienceAdvantage() {
               <Typography
                 variant="h3"
                 fontWeight={600}
-                fontSize={"22px"}
+                fontSize={["20px", "22px"]}
                 mb={2}
                 mt={[3, 5]}
                 lineHeight={1.4}
@@ -129,7 +131,8 @@ export default function ExperienceAdvantage() {
                 Designed to Handle Any Demand
               </Typography>
 
-              <Typography variant="body1" color={"#9F9F9F"}>
+              <Typography variant="body1" color={"#9F9F9F"} sx={{
+    fontSize: ['14px', '16px'], }}>
                 Maintain consistent performance during traffic spikes, seasonal
                 rushes, or growth phases, scaling effortlessly.
               </Typography>
