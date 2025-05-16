@@ -9,9 +9,9 @@ router = APIRouter()
 def send_email_notification(demo_request: DemoRequest, attachments: List[dict] = None):
     """Function to send email in the background based on request type."""
     try:
-        print("Data Received=>",demo_request)
+        print("Data Received=>", demo_request)
         if demo_request.requestType == "demo":
-            # Draft email for demo request
+            # Draft internal email
             email_body = f"""
 New Demo Request Received:
 
@@ -21,10 +21,18 @@ Country: {demo_request.country}
 Company: {demo_request.company or "Not provided"}
 Phone: {demo_request.phone or "Not provided"}
 """
-
             subject = "New Demo Request"
+            confirmation_subject = "Thank You for Requesting a Demo"
+            confirmation_body = f"""
+Dear {demo_request.name},
+
+Thank you for requesting a demo. Our team will reach out to you shortly.
+
+Best regards,
+Evolra.AI
+"""
+
         elif demo_request.requestType == "support":
-            # Draft email for customer support request
             email_body = f"""
 New Customer Support Request Received:
 
@@ -35,22 +43,40 @@ Company: {demo_request.company or "Not provided"}
 Phone: {demo_request.phone or "Not provided"}
 Description: {demo_request.description or "Not provided"}
 """
-
             subject = "New Customer Support Request"
+            confirmation_subject = "We Received Your Support Request"
+            confirmation_body = f"""
+Dear {demo_request.name},
+
+Thank you for reaching out to customer support. We have received your query and will get back to you shortly.
+
+Best regards,
+Evolra.AI
+"""
+
         else:
             raise ValueError("Invalid request type. Must be 'demo' or 'support'.")
 
-        # Send the email with attachments (if any)
+        # 1st email to internal team
         send_email(
             to_email=SMTP_CONFIG["demo_email"],
             subject=subject,
             body=email_body,
-            attachments=attachments  
+            attachments=attachments
+        )
+
+        # 2nd email to user (confirmation)
+        send_email(
+            to_email=demo_request.email,
+            subject=confirmation_subject,
+            body=confirmation_body
         )
 
     except Exception as e:
-        print(f"Failed to send email: {str(e)}") 
+        print(f"Failed to send email: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+
+
 
 @router.post("/submit-demo-request")
 async def submit_demo_request(
