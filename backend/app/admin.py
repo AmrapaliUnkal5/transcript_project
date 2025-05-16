@@ -306,6 +306,73 @@ class SubscriptionPlanAdmin(ModelView, model=SubscriptionPlan):
             "label": "Default LLM Model"
         }
     }
+    
+    async def on_model_change(self, data, model, is_created, request):
+        """
+        When the default_embedding_model_id changes, trigger reembedding for affected bots.
+        
+        This will identify all bots using this subscription plan that don't have their own
+        embedding model set, and reembed their data with the new model.
+        """
+        try:
+            print(f"🔍 SubscriptionPlanAdmin.on_model_change called - is_created: {is_created}")
+            print(f"🔍 Model data: {model.__dict__}")
+            print(f"🔍 Form data: {data}")
+            
+            # Only trigger reembedding if this is an update (not a new creation)
+            if not is_created:
+                # Get the session from the request
+                session = request.state.db
+                
+                # Check if default_embedding_model has changed by comparing form data with model data
+                new_embedding_model_id = data.get('default_embedding_model')
+                old_embedding_model_id = model.default_embedding_model_id
+                
+                print(f"🔄 Default embedding model comparison:")
+                print(f"   - Old value (from model): {old_embedding_model_id}")
+                print(f"   - New value (from form): {new_embedding_model_id}")
+                
+                # Only process if there is an actual change in embedding model
+                if new_embedding_model_id is not None and str(old_embedding_model_id) != str(new_embedding_model_id):
+                    print(f"🔄 Default embedding model changed for subscription plan {model.id}.")
+                    print(f"   - From: {old_embedding_model_id}")
+                    print(f"   - To: {new_embedding_model_id}")
+                    
+                    # First, complete the parent method to save the model change
+                    await super().on_model_change(data, model, is_created, request)
+                    
+                    # Convert string ID to integer if needed
+                    try:
+                        new_embedding_model_id_int = int(new_embedding_model_id)
+                    except (ValueError, TypeError):
+                        print(f"⚠️ Could not convert new embedding model ID to int: {new_embedding_model_id}")
+                        return
+                    
+                    # Set old_embedding_model_id to None if it was None before
+                    old_embedding_model_id_int = int(old_embedding_model_id) if old_embedding_model_id is not None else None
+                    
+                    # Import the Celery task here to avoid circular imports
+                    from app.celery_tasks import reembed_bots_for_subscription_plan
+                    
+                    # Submit the Celery task to reembed affected bots
+                    task = reembed_bots_for_subscription_plan.delay(
+                        subscription_plan_id=model.id,
+                        old_embedding_model_id=old_embedding_model_id_int or 0,  # Use 0 if None
+                        new_embedding_model_id=new_embedding_model_id_int
+                    )
+                    
+                    print(f"✅ Scheduled reembedding task for subscription plan {model.id}")
+                    print(f"✅ Task ID: {task.id}")
+                else:
+                    print(f"⏩ No change in default embedding model for subscription plan {model.id}. Skipping reembedding.")
+                    await super().on_model_change(data, model, is_created, request)
+            else:
+                print(f"⏩ New subscription plan created. No need for reembedding.")
+                await super().on_model_change(data, model, is_created, request)
+        except Exception as e:
+            print(f"❌ Error in SubscriptionPlanAdmin.on_model_change: {str(e)}")
+            # Still call parent method to ensure the model is saved
+            await super().on_model_change(data, model, is_created, request)
 
 class AddonAdmin(ModelView, model=Addon):
     column_list = [
