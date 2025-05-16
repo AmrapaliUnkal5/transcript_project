@@ -9,7 +9,7 @@ from app.models import (
     UserAuthProvider, ChatMessage, 
     DemoRequest, EmbeddingModel, LLMModel, SubscriptionPlan,
     Addon, UserSubscription, TeamMember, InteractionReaction, ScrapedNode, 
-    WebsiteDB, YouTubeVideo, Notification, Cluster, ClusteredQuestion
+    WebsiteDB, WordCloudData, YouTubeVideo, Notification, Cluster, ClusteredQuestion
 )
 from sqlalchemy.orm import Session
 import jwt
@@ -671,6 +671,37 @@ class UserAddonAdmin(ModelView, model=UserAddon):
         UserAddon.initial_count
     ]
 
+class WordCloudDataAdmin(ModelView, model=WordCloudData):
+    column_list = [
+        WordCloudData.bot_id,
+        WordCloudData.word_frequencies,
+        WordCloudData.last_updated
+    ]
+    column_searchable_list = [WordCloudData.bot_id]
+    column_filters = ["bot_id", "last_updated"]
+    
+    # Customize the word_frequencies display
+    column_formatters = {
+        "word_frequencies": lambda m, a: f"{len(m.word_frequencies)} words" if m.word_frequencies else "Empty"
+    }
+    
+    # Add form columns to include all fields
+    form_columns = [
+        WordCloudData.bot_id,
+        WordCloudData.word_frequencies,
+        WordCloudData.last_updated
+    ]
+    
+    # # Make word_frequencies read-only in the form since it's managed by the system
+    # form_widget_args = {
+    #     "word_frequencies": {
+    #         "readonly": True
+    #     },
+    #     "last_updated": {
+    #         "readonly": True
+    #     }
+    #}
+
 def init(app: FastAPI):
     admin = Admin(app=app, engine=engine, authentication_backend=authentication_backend)
     app.mount("/admin", admin)
@@ -700,3 +731,4 @@ def init(app: FastAPI):
     admin.add_view(ClusterAdmin)
     admin.add_view(ClusteredQuestionAdmin)
     admin.add_view(UserAddonAdmin) 
+    admin.add_view(WordCloudDataAdmin) 
