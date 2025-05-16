@@ -691,16 +691,6 @@ class WordCloudDataAdmin(ModelView, model=WordCloudData):
         WordCloudData.word_frequencies,
         WordCloudData.last_updated
     ]
-    
-    # # Make word_frequencies read-only in the form since it's managed by the system
-    # form_widget_args = {
-    #     "word_frequencies": {
-    #         "readonly": True
-    #     },
-    #     "last_updated": {
-    #         "readonly": True
-    #     }
-    #}
 
 def init(app: FastAPI):
     admin = Admin(app=app, engine=engine, authentication_backend=authentication_backend)
