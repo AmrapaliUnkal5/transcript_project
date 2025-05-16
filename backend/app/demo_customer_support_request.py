@@ -29,7 +29,7 @@ Dear {demo_request.name},
 Thank you for requesting a demo. Our team will reach out to you shortly.
 
 Best regards,
-[Your Company Name]
+Evolra.AI
 """
 
         elif demo_request.requestType == "support":
@@ -51,7 +51,7 @@ Dear {demo_request.name},
 Thank you for reaching out to customer support. We have received your query and will get back to you shortly.
 
 Best regards,
-[Your Company Name]
+Evolra.AI
 """
 
         else:
