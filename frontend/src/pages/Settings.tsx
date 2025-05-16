@@ -280,11 +280,11 @@ export const Settings = () => {
           company_name: settings.company_name,
           phone_no: settings.phone_no,
         });
-        toast.success("Changes saved successfully!"); // Success toast
+        toast.success("Your profile information has been updated successfully!"); // Success toast
         //alert("Changes saved successfully");
       } catch (error) {
         console.error("Error saving changes:", error);
-        toast.error("Failed to save changes. Please try again."); // Error toast
+        toast.error("We couldn't save your changes. Please try again."); // Error toast
       } finally {
         setSaving(false);
         setLoading(false);

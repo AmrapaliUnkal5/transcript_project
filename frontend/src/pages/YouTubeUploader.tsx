@@ -180,7 +180,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
           data.message.includes("Video processing") ||
           data.message.includes("YouTube content")
         )) {
-        toast.success("YouTube videos are being processed. You'll be notified when complete.");
+        toast.success("Your YouTube videos are being processed. We'll notify you when they're ready.");
         setScrapeSuccess(true);
         setRefreshKeyState(prev => prev + 1); // Trigger a refresh
         setSelectedVideos([]);
@@ -198,7 +198,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       }
     } catch (error) {
       console.error("Error processing YouTube videos:", error);
-      toast.error("An error occurred while processing videos. Please try again.");
+      toast.error("We couldn't process your YouTube videos. Please try again.");
     } finally {
       setGlobalLoading(false);
     }

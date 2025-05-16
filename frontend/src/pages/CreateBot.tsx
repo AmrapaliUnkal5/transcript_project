@@ -475,7 +475,7 @@ const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.stora
       ) {
         throw new Error("DUPLICATE_NAME");
       }
-      throw new Error("Failed to create bot entry. Please try again.");
+      throw new Error("We couldn't create your bot. Please try again.");
     }
   };
 
@@ -729,10 +729,10 @@ const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.stora
             satisfaction: 0,
           });
 
-          toast.success("Bot status updated to Active!");
+          toast.success("Your bot is now ready to use!");
         } catch (error) {
           console.error("Error updating bot status:", error);
-          toast.error("Failed to activate bot.");
+          toast.error("We couldn't activate your bot. Please try again.");
         }
       }
 
@@ -763,7 +763,7 @@ const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.stora
         toast.success("Bot name updated successfully");
         return true;
       } else {
-        toast.error("Failed to update bot name");
+        toast.error("We couldn't update your bot name");
         return false;
       }
     } catch (error: any) {
@@ -774,9 +774,9 @@ const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.stora
         error.response?.data?.detail ===
         "A bot with this name already exists for the user"
       ) {
-        toast.error(error.response.data.detail);
+        toast.error("A bot with this name already exists. Please choose a different name.");
       } else {
-        toast.error("An error occurred while updating the bot name.");
+        toast.error("We couldn't update your bot name. Please try again.");
       }
       return false;
     }

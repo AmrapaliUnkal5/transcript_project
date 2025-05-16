@@ -254,7 +254,7 @@ export const FileUpload = () => {
               responseyoutube.status === "processing"
             )) {
             toast.info(
-              "YouTube videos are being processed in the background. You will be notified when complete."
+              "Your YouTube videos are being processed. We'll notify you when they're ready."
             );
 
             // Clear selected videos since they're being processed

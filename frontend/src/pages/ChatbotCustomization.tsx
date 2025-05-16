@@ -809,13 +809,13 @@ export const ChatbotCustomization = () => {
     if (!botToDelete) return;
     try {
       await authApi.deletebot(Number(botToDelete), { status: "Deleted" });
-      toast.success("Bot deleted successfully!");
+      toast.success("Your bot has been successfully deleted!");
       setIsConfirmOpen(false);
       localStorage.removeItem("selectedBotId");
       setTimeout(() => navigate("/"), 3000);
     } catch (error) {
       console.error("Failed to delete bot:", error);
-      toast.error("Failed to delete bot.");
+      toast.error("Unable to delete your bot. Please try again.");
     }
   };
 
@@ -828,10 +828,10 @@ export const ChatbotCustomization = () => {
       } else {
         await saveBotSettings(settings, userId, setLoading);
       }
-      toast.success("Settings saved successfully!");
+      toast.success("Your bot settings have been saved!");
     } catch (error) {
       console.error(error);
-      toast.error("Failed to save settings.");
+      toast.error("Unable to save your bot settings. Please try again.");
     }
   };
 

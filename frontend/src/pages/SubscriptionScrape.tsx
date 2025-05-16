@@ -223,7 +223,7 @@ const SubscriptionScrape: React.FC = () => {
       console.log("Scraping response:", response);
 
       toast.info(
-        "Web scraping has started. You will be notified when it's complete."
+        "Your website content is being prepared. You'll receive a notification when it's ready to use."
       );
 
       localStorage.setItem("isScraped", "1"); // added for createbot.tsx page
@@ -353,8 +353,7 @@ const SubscriptionScrape: React.FC = () => {
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-start space-x-2">
             <Info size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-blue-700">
-              Web scraping is in progress. You will be notified when it's
-              complete.
+              Your website content is being prepared. You'll receive a notification when it's ready to use.
             </p>
           </div>
         )}
