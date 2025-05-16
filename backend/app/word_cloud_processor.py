@@ -13,9 +13,11 @@ import nltk
 try:
     nltk.data.find('corpora/stopwords')
     nltk.data.find('tokenizers/punkt')
+    nltk.data.find('tokenizers/punkt_tab')
 except LookupError:
     nltk.download('stopwords')
     nltk.download('punkt')
+    nltk.download('punkt_tab')
 
 logger = get_module_logger(__name__)
 
