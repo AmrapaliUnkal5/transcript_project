@@ -8,9 +8,9 @@ export default function Hero() {
       <Box
         mt={"50px"}
         sx={{
-          backgroundImage: "url(/images/dot-bg.png)",
+         // backgroundImage: "url(/images/dot-bg.png)",
           backgroundPosition: "center",
-          backgroundColor: "#101035",
+          //backgroundColor: "#101035",
         }}
       >
         <Box
@@ -19,7 +19,7 @@ export default function Hero() {
           justifyContent="center"
           alignItems="center"
           sx={{
-            backgroundImage: "url(/images/hero-bg.png)",
+          //  backgroundImage: "url(/images/hero-bg.png)",
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",

@@ -17,8 +17,17 @@ export default function OurPlans() {
   return (
     <Box>
       <HomeHeader/>
-      <Hero/>
-      <PricePlans/>
+      <Box
+        sx={{
+          backgroundImage: "url(/images/home/op-hero-bg.png)",
+          backgroundSize: 'contain',
+         // backgroundPosition: "center",
+         backgroundRepeat: 'no-repeat',
+          backgroundColor: "#101035",
+        }}>
+        <Hero/>
+        <PricePlans/>
+      </Box>
       <Enterprise/>
       <CustomizeExperience/>
       <AddonExperience/>

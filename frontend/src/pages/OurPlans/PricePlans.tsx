@@ -23,7 +23,7 @@ export default function PricePlans() {
         color={"#fff"}
         py={5}
         sx={{
-          backgroundColor: "#101035",
+         // backgroundColor: "#101035",
           xs: "324px", // phones
           md: "508px",
         }}
