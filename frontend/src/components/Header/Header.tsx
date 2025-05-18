@@ -24,7 +24,14 @@ interface Props {
 }
 
 const drawerWidth = 240;
-const navItems = ["Home", "Our Plans", "Our Services", "Contact Us"];
+//const navItems = ["Home", "Our Plans", "Our Services", "Contact Us"];
+const navItems = [
+    { label: 'Home', id: 1, url: '/home' },
+    { label: 'Our Plans', id: 2, url: '/our-plans'},
+    { label: 'Our Services', id: 3, url: '/home' },
+    { label: 'Contact Us', id: 4, url: '/home'},
+];
+
 
 export default function HomeHeader(props: Props) {
   const { window } = props;
@@ -45,9 +52,9 @@ export default function HomeHeader(props: Props) {
       <Divider />
       <List>
         {navItems.map((item) => (
-          <ListItem key={item} disablePadding>
+          <ListItem key={item.id} disablePadding>
             <ListItemButton sx={{ textAlign: "left" }}>
-              <ListItemText primary={item} />
+              <ListItemText primary={item.label} />
             </ListItemButton>
           </ListItem>
         ))}
@@ -97,14 +104,15 @@ export default function HomeHeader(props: Props) {
               <Box sx={{ display: { xs: "none", sm: "flex" } }} gap={[1, 2]}>
                 {navItems.map((item) => (
                   <Button
-                    key={item}
+                    key={item.id}
                     sx={{
                       color: "#CDCDCD",
                       fontSize: "16px",
                       textTransform: "capitalize",
                     }}
+                    href={item.url}
                   >
-                    {item}
+                    {item.label}
                   </Button>
                 ))}
               </Box>
