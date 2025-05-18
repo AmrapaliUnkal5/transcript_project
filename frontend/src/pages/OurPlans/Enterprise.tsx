@@ -48,7 +48,7 @@ export const Enterprise = () => {
 
           <Box display="flex" alignItems="center" justifyContent="center" gap={1} mb={[4, 8]}>
   <StyledImage
-    src="/images/add_circle.png" // Replace with your logo path
+    src="/images/icons/icon-add-circle.png" // Replace with your logo path
     sx={{
       width: "25px",
       height: "25px",

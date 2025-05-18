@@ -13,6 +13,7 @@ import { Enterprise } from './Enterprise';
 import CustomizeExperience from './CustomizeExperience';
 import PricePlans from './PricePlans';
 import AddonExperience from './AddonExperience';
+import { OurplanTable} from './OurplanTable';
 
 
 
@@ -26,8 +27,11 @@ export default function OurPlans() {
       <CustomizeExperience/>
       <AddonExperience/>
       
+      <OurplanTable/>
       <FAQ/>
+      
       <Footer/> 
+
       
     </Box>
   );

@@ -54,7 +54,7 @@ export default function AddonExperience() {
                 }}
               >
                 <StyledImage
-                  src="/images/Rectangle-icon.png"
+                  src="/images/icons/icon-rectangle-v.png"
                   sx={{
                     width: "63px",
                     height: "63px",
@@ -100,7 +100,7 @@ export default function AddonExperience() {
                         lineHeight={1.5}
                         mb={1}
                       >
-                        $9.99
+                        $5
                       </Typography>
                       <Typography
                         variant="h6"
@@ -144,7 +144,7 @@ export default function AddonExperience() {
                 }}
               >
                 <StyledImage
-                  src="/images/Rectangle-icon.png"
+                  src="/images/icons/icon-rectangle-v.png"
                   sx={{
                     width: "63px",
                     height: "63x",
@@ -190,7 +190,7 @@ export default function AddonExperience() {
                       lineHeight={1.5}
                       mb={1}
                     >
-                      $9.99
+                      $5
                     </Typography>
                     <Typography
                       variant="h6"
@@ -232,7 +232,7 @@ export default function AddonExperience() {
                 }}
               >
                 <StyledImage
-                  src="/images/Rectangle-icon.png"
+                  src="/images/icons/icon-rectangle-v.png"
                   sx={{
                     width: "63px",
                     height: "63px",
@@ -305,134 +305,188 @@ export default function AddonExperience() {
               </Box>
             </Grid>
 
-            <Grid item md={4} textAlign={["center", "left"]}>
-              <StyledImage
-                src="/images/Rectangle-icon.png"
+            <Grid item  xs={12} sm={12} md={4} textAlign={["center", "left"]}>
+              <Box
+                px={2}
+                py={3}
                 sx={{
-                  width: "63px",
-                  height: "63px",
+                  background:
+                    "linear-gradient(135deg, #54479D99 0%, #47359014 100%)",
+                  borderWidth: 1,
+                  borderColor: "#8B96D661",
 
-                  margin: ["auto", "unset"],
-                }}
-              />
-
-              <Typography
-                variant="h3"
-                fontWeight={600}
-                fontSize={["20px", "22px"]}
-                mb={2}
-                mt={[3, 5]}
-                lineHeight={1.4}
-              >
-                Additional Word Capacity
-              </Typography>
-
-              <Typography
-                variant="body1"
-                color={"#9F9F9F"}
-                sx={{
-                  fontSize: ["14px", "16px"],
+                  borderRadius: "12px",
+                  // width: "364px",
+                  // height: "407px",
                 }}
               >
-                Expand your knowledge base with an additional 1 million grounded
-                words.
-              </Typography>
+                <StyledImage
+                  src="/images/icons/icon-rectangle-v.png"
+                  sx={{
+                    width: "63px",
+                    height: "63px",
+                    margin: ["auto", "unset"],
+                  }}
+                />
 
-              <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
                 <Typography
                   variant="h3"
                   fontWeight={600}
-                  fontSize={"30px"}
-                  lineHeight={1.5}
-                  mb={1}
+                  fontSize={["20px", "22px"]}
+                  mb={2}
+                  mt={[3, 5]}
+                  lineHeight={1.4}
                 >
-                  $9.99
-                </Typography>
-                <Typography variant="h6" fontWeight={"400"} fontSize={"14px"}>
-                  /month
+                  Additional Word Capacity
                 </Typography>
 
-                <Button
+                <Typography
+                  variant="body1"
+                  color={"#9F9F9F"}
                   sx={{
-                    bgcolor: "#fff",
-                    color: "#2E2B9C",
-                    textTransform: "none",
-                    borderRadius: "20px",
-                    px: 3,
-                    width: "96px",
-                    height: "52px",
-                    ml: "79px",
+                    fontSize: ["14px", "16px"],
                   }}
+                  minHeight={128}
                 >
-                  Get
-                </Button>
-              </Box>
+                  Expand your knowledge base with an additional 1 million grounded words.
+                </Typography>
+
+                <Box
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  width="100%"
+                >
+                  
+                    <Box display={"flex"} alignItems={"center"} gap={1}>
+                      <Typography
+                        variant="h3"
+                        fontWeight={600}
+                        fontSize={"30px"}
+                        lineHeight={1.5}
+                        mb={1}
+                      >
+                        $5
+                      </Typography>
+                      <Typography
+                        variant="h6"
+                        fontWeight={"400"}
+                        fontSize={"14px"}
+                      >
+                        /month
+                      </Typography>
+                    </Box>
+
+                    <Button
+                      sx={{
+                        bgcolor: "#fff",
+                        color: "#2E2B9C",
+                        textTransform: "none",
+                        borderRadius: "20px",
+                        px: 3,
+                        width: "96px",
+                        height: "52px",
+                      }}
+                    >
+                      Get
+                    </Button>
+                  </Box>
+                </Box>
+              
             </Grid>
 
-            <Grid item md={4} textAlign={["center", "left"]}>
-              <StyledImage
-                src="/images/Rectangle-icon.png"
+
+            <Grid item  xs={12} sm={12} md={4} textAlign={["center", "left"]}>
+              <Box
+                px={2}
+                py={3}
                 sx={{
-                  width: "63px",
-                  height: "63px",
+                  background:
+                    "linear-gradient(135deg, #54479D99 0%, #47359014 100%)",
+                  borderWidth: 1,
+                  borderColor: "#8B96D661",
 
-                  margin: ["auto", "unset"],
-                }}
-              />
-
-              <Typography
-                variant="h3"
-                fontWeight={600}
-                fontSize={["20px", "22px"]}
-                mb={2}
-                mt={[3, 5]}
-                lineHeight={1.4}
-              >
-                Additional AI Admin Users
-              </Typography>
-
-              <Typography
-                variant="body1"
-                color={"#9F9F9F"}
-                sx={{
-                  fontSize: ["14px", "16px"],
+                  borderRadius: "12px",
+                  // width: "364px",
+                  // height: "407px",
                 }}
               >
-                Remove the "Powered by Evolra AI" branding from your widget for
-                a completely seamless brand experience
-              </Typography>
+                <StyledImage
+                  src="/images/icons/icon-rectangle-v.png"
+                  sx={{
+                    width: "63px",
+                    height: "63px",
+                    margin: ["auto", "unset"],
+                  }}
+                />
 
-              <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
                 <Typography
                   variant="h3"
                   fontWeight={600}
-                  fontSize={"30px"}
-                  lineHeight={1.5}
-                  mb={1}
+                  fontSize={["20px", "22px"]}
+                  mb={2}
+                  mt={[3, 5]}
+                  lineHeight={1.4}
                 >
-                  $9.99
-                </Typography>
-                <Typography variant="h6" fontWeight={"400"} fontSize={"14px"}>
-                  /month
+                 Additional AI Admin Users
                 </Typography>
 
-                <Button
+                <Typography
+                  variant="body1"
+                  color={"#9F9F9F"}
                   sx={{
-                    bgcolor: "#fff",
-                    color: "#2E2B9C",
-                    textTransform: "none",
-                    borderRadius: "20px",
-                    px: 3,
-                    width: "96px",
-                    height: "52px",
-                    ml: "79px",
+                    fontSize: ["14px", "16px"],
                   }}
+                  minHeight={128}
                 >
-                  Get
-                </Button>
-              </Box>
+                  Remove the "Powered by Evolra AI" branding from your widget for a completely seamless brand experience
+                </Typography>
+
+                <Box
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  width="100%"
+                >
+                  
+                    <Box display={"flex"} alignItems={"center"} gap={1}>
+                      <Typography
+                        variant="h3"
+                        fontWeight={600}
+                        fontSize={"30px"}
+                        lineHeight={1.5}
+                        mb={1}
+                      >
+                        $5
+                      </Typography>
+                      <Typography
+                        variant="h6"
+                        fontWeight={"400"}
+                        fontSize={"14px"}
+                      >
+                        /month
+                      </Typography>
+                    </Box>
+
+                    <Button
+                      sx={{
+                        bgcolor: "#fff",
+                        color: "#2E2B9C",
+                        textTransform: "none",
+                        borderRadius: "20px",
+                        px: 3,
+                        width: "96px",
+                        height: "52px",
+                      }}
+                    >
+                      Get
+                    </Button>
+                  </Box>
+                </Box>
+              
             </Grid>
-          </Grid>
+
+            </Grid>
         </Box>
       </Container>
     </Box>

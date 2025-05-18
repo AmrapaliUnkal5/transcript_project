@@ -45,7 +45,7 @@ export default function PricePlans() {
                   borderRadius={3}
                   sx={{
                     background:
-                      "linear-gradient(148.01deg, #172041 54.39%, #1D1C56 78.52%)",
+                      "linear-gradient(148.01deg, #070417)",
                   }}
                 >
                   <Typography
@@ -175,7 +175,7 @@ export default function PricePlans() {
                   pt={"30px"}
                   pb={"56px"}
                   minHeight={480}
-                  border={"solid 1.5px #29277C"}
+                  border={"solid 1.5px linear-gradient(148.01deg, #4644B3 74.39%, #000000 78.52%) "}
                   borderRadius={3}
                   sx={{
                     background:
@@ -310,7 +310,7 @@ export default function PricePlans() {
                   pt={"30px"}
                   pb={"56px"}
                   minHeight={480}
-                  border={"solid 1.5px "}
+                  // border={"solid 1.5px "}
                   borderRadius={3}
                   sx={{
                     background:
@@ -481,7 +481,7 @@ export default function PricePlans() {
                   pt={"30px"}
                   pb={"56px"}
                   minHeight={480}
-                  border={"solid 1.5px #29277C"}
+                  border={"solid 1.5px  linear-gradient(148.01deg, #4644B3 80.39%, #000000 40.52%) "}
                   borderRadius={3}
                   sx={{
                     background:
