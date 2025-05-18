@@ -13,13 +13,13 @@ export default function DashboardPreview() {
     >
       <StyledImage
         src="/images/ndashboard-view.png"
-        sx={{ margin: "auto", maxwidth: 1140 , width:"100%" }}
+        sx={{ margin: "auto", maxWidth: 1140, width:"100%" }}
       />
     </Box>
   );
 }
 
 const StyledImage = styled("img")(() => ({
-  maxWidth: "100%",
+ maxWidth: "100%",
   maxHeight: "100%",
 }));
