@@ -60,7 +60,7 @@ export const OurplanTable = () => {
 
         <Box display={["none", "block"]}>
         <TableContainer
-          component={Paper}
+          // component={Paper}
           sx={{
             backgroundPosition: "center",
             backgroundColor: "#101035",
