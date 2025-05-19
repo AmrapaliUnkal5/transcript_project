@@ -11,7 +11,7 @@ import BotDataControl from './BotDataControl';
 import ExperienceAdvantage from './ExperienceAdvantage';
 import KeyBenefits from './KeyBenefits';
 import Plans from './Plans';
-import Footer from './Footer';
+import Footer from '../../components/Footer/Footer';
 import FAQ from './FAQ';
 import { Enterprise } from './Enterprise';
 import HomeHeader from '../../components/Header/Header';

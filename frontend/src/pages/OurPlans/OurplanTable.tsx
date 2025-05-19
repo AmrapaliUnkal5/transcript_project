@@ -1,6 +1,8 @@
 import React from "react";
 import { Box, Button, Typography } from "@mui/material";
 import Typical from "react-typical";
+import Divider from '@mui/material/Divider';
+
 import { styled } from "@mui/material/styles";
 import {
   Table,
@@ -56,7 +58,7 @@ export const OurplanTable = () => {
           </>
         </Box>
       </Box>
-      <Box px={12} py={10}>
+      <Box px={1} py={0.5}>
 
         <Box display={["none", "block"]}>
         <TableContainer
@@ -397,7 +399,342 @@ export const OurplanTable = () => {
         </TableContainer>
         </Box>
         <Box display={["block", "none"]}>
-          "MObile Table"
+          <Box  textAlign="left"  py={2}>
+      <Typography
+  fontSize="20px"
+  fontWeight={600}
+  color="#959494"
+ textAlign="left"
+ marginLeft={2}
+
+>
+  Price
+</Typography>
+
+
+
+<TableContainer
+  sx={{
+    backgroundColor: "#101035",
+    "& td, & th": {
+      borderBottom: "none",
+      
+    },
+  }}
+>
+  <Table
+   
+  >
+    <TableHead>
+      <TableRow sx={{
+      "& td": {
+        paddingBottom: "1px", // Half of the desired 10px gap
+      },
+    }}>
+        <TableCell
+          sx={{ fontSize: "12px", color:" #A0A0A0" }}
+        >
+         Free
+        </TableCell>
+        <TableCell
+             sx={{ fontSize: "12px", fontWeight: 400, color:" #A0A0A0" }}
+        >
+          Starter
+        </TableCell>
+        <TableCell
+             sx={{ fontSize: "12px", fontWeight: 400, color:" #A0A0A0" }}
+        >
+          Growth
+        </TableCell>
+      </TableRow>
+    </TableHead>
+    <TableBody sx={{
+      "& td": {
+        paddingTop: "0px", // The other half
+      },
+    }}>
+      <TableRow>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}>$0</TableCell>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}>$14.99</TableCell>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}>$24.99</TableCell>
+      </TableRow>
+      
+    </TableBody>
+
+    <TableHead>
+      <TableRow sx={{
+      "& td": {
+        paddingBottom: "1px", // Half of the desired 10px gap
+      },
+    }}>
+        <TableCell
+          sx={{ fontSize: "12px", color:" #A0A0A0" }}
+        >
+        Professional
+        </TableCell>
+        <TableCell
+             sx={{ fontSize: "12px", fontWeight: 400, color:" #A0A0A0" }}
+        >
+          Enterprise
+        </TableCell>
+        
+      </TableRow>
+    </TableHead>
+    <TableBody sx={{
+      "& td": {
+        paddingTop: "0px", // The other half
+      },
+    }}>
+      <TableRow>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}>$54.99</TableCell>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}>Custom pricing</TableCell>
+       
+      </TableRow>
+      
+    </TableBody>
+  </Table>
+  <Divider
+  sx={{
+    width: '90%',         // or '100%' if full width is preferred
+    mx: 'auto',           // centers it horizontally
+    mt:1.5,                // optional: margin top for spacing
+    borderBottom: 1,
+    borderColor: '#3D3D3D',
+}}
+/>
+</TableContainer>
+
+          </Box>
+          <Box  textAlign="left"  py={2}>
+      <Typography
+  fontSize="20px"
+  fontWeight={600}
+  color="#959494"
+ textAlign="left"
+ marginLeft={2}
+
+>
+  Chatbots
+</Typography>
+
+
+
+<TableContainer
+  sx={{
+    backgroundColor: "#101035",
+    "& td, & th": {
+      borderBottom: "none",
+      
+    },
+  }}
+>
+  <Table
+   
+  >
+    <TableHead>
+      <TableRow sx={{
+      "& td": {
+        paddingBottom: "1px", // Half of the desired 10px gap
+      },
+    }}>
+        <TableCell
+          sx={{ fontSize: "12px", color:" #A0A0A0" }}
+        >
+         Free
+        </TableCell>
+        <TableCell
+             sx={{ fontSize: "12px", fontWeight: 400, color:" #A0A0A0" }}
+        >
+          Starter
+        </TableCell>
+        <TableCell
+             sx={{ fontSize: "12px", fontWeight: 400, color:" #A0A0A0" }}
+        >
+          Growth
+        </TableCell>
+      </TableRow>
+    </TableHead>
+    <TableBody sx={{
+      "& td": {
+        paddingTop: "0px", // The other half
+      },
+    }}>
+      <TableRow>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}>1</TableCell>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}>1</TableCell>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}>2</TableCell>
+      </TableRow>
+      
+    </TableBody>
+
+    <TableHead>
+      <TableRow sx={{
+      "& td": {
+        paddingBottom: "1px", // Half of the desired 10px gap
+      },
+    }}>
+        <TableCell
+          sx={{ fontSize: "12px", color:" #A0A0A0" }}
+        >
+        Professional
+        </TableCell>
+        <TableCell
+             sx={{ fontSize: "12px", fontWeight: 400, color:" #A0A0A0" }}
+        >
+          Enterprise
+        </TableCell>
+        
+      </TableRow>
+    </TableHead>
+    <TableBody sx={{
+      "& td": {
+        paddingTop: "0px", // The other half
+      },
+    }}>
+      <TableRow>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}>5</TableCell>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}>Custom </TableCell>
+       
+      </TableRow>
+      
+    </TableBody>
+  </Table>
+  <Divider
+  sx={{
+    width: '90%',         // or '100%' if full width is preferred
+    mx: 'auto',           // centers it horizontally
+    mt:1.5,                // optional: margin top for spacing
+    borderBottom: 1,
+    borderColor: '#3D3D3D',
+}}
+/>
+</TableContainer>
+
+          </Box>
+
+          <Box  textAlign="left"  py={2}>
+      <Typography
+  fontSize="20px"
+  fontWeight={600}
+  color="#959494"
+ textAlign="left"
+ marginLeft={2}
+
+>
+  YouTube grounding
+</Typography>
+
+
+
+<TableContainer
+  sx={{
+    backgroundColor: "#101035",
+    "& td, & th": {
+      borderBottom: "none",
+      
+    },
+  }}
+>
+  <Table
+   
+  >
+    <TableHead>
+      <TableRow sx={{
+      "& td": {
+        paddingBottom: "1px", // Half of the desired 10px gap
+      },
+    }}>
+        <TableCell
+          sx={{ fontSize: "12px", color:" #A0A0A0" }}
+        >
+         Free
+        </TableCell>
+        <TableCell
+             sx={{ fontSize: "12px", fontWeight: 400, color:" #A0A0A0" }}
+        >
+          Starter
+        </TableCell>
+        <TableCell
+             sx={{ fontSize: "12px", fontWeight: 400, color:" #A0A0A0" }}
+        >
+          Growth
+        </TableCell>
+      </TableRow>
+    </TableHead>
+    <TableBody sx={{
+      "& td": {
+        paddingTop: "0px", // The other half
+      },
+    }}>
+      <TableRow>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}><Box display="flex" justifyContent="left">
+                    <StyledImage
+                      src="/images/icons/icon-cancel.png" // Use a different icon if needed
+                      sx={{ width: "24px", height: "24px", marginBottom: 0 }}
+                    />
+                  </Box></TableCell>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}><Box display="flex" justifyContent="left">
+                    <StyledImage
+                      src="/images/icons/icon-check.png" // Use a different icon if needed
+                      sx={{ width: "24px", height: "24px", marginBottom: 0 }}
+                    />
+                  </Box></TableCell>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}><Box display="flex" justifyContent="left">
+                    <StyledImage
+                      src="/images/icons/icon-check.png" // Use a different icon if needed
+                      sx={{ width: "24px", height: "24px", marginBottom: 0 }}
+                    />
+                  </Box></TableCell>
+      </TableRow>
+      
+    </TableBody>
+
+    <TableHead>
+      <TableRow sx={{
+      "& td": {
+        paddingBottom: "1px", // Half of the desired 10px gap
+      },
+    }}>
+        <TableCell
+          sx={{ fontSize: "12px", color:" #A0A0A0" }}
+        >
+        Professional
+        </TableCell>
+        <TableCell
+             sx={{ fontSize: "12px", fontWeight: 400, color:" #A0A0A0" }}
+        >
+          Enterprise
+        </TableCell>
+        
+      </TableRow>
+    </TableHead>
+    <TableBody sx={{
+      "& td": {
+        paddingTop: "0px", // The other half
+      },
+    }}>
+      <TableRow>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}><Box display="flex" justifyContent="left">
+                    <StyledImage
+                      src="/images/icons/icon-check.png" // Use a different icon if needed
+                      sx={{ width: "24px", height: "24px", marginBottom: 0 }}
+                    />
+                  </Box></TableCell>
+        <TableCell sx={{ fontSize: "14px", fontWeight: 400,color:"white" }}><Box display="flex" justifyContent="left">
+                    <StyledImage
+                      src="/images/icons/icon-check.png" // Use a different icon if needed
+                      sx={{ width: "24px", height: "24px", marginBottom: 0 }}
+                    />
+                  </Box></TableCell>
+       
+      </TableRow>
+      
+    </TableBody>
+  </Table>
+  
+</TableContainer>
+
+          </Box>
         </Box>
       </Box>
     </Box>

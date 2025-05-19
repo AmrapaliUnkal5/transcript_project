@@ -2,7 +2,7 @@ import { Box, styled, } from '@mui/material';
 import React from 'react';
 
 import Hero from './Hero';
-import Footer from './Footer';
+import Footer from '../../components/Footer/Footer';
 import FAQ from './FAQ';
 import { Enterprise } from './Enterprise';
 import CustomizeExperience from './CustomizeExperience';
