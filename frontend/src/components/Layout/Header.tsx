@@ -98,27 +98,6 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
           {isDark ? <Sun color={isDark ? "white" : "black"} className="w-5 h-5" /> : <Moon color={isDark ? "white" : "black"} className="w-5 h-5" />}
         </button>{/* Help/Doubt Button */}
 
-        <button
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
-          title="Notifications"
-        >
-          Our Services
-        </button>
-
-        <button
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
-          title="Notifications"
-        >
-          Our Plans
-        </button>
-
-        <button
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
-          title="Notifications"
-        >
-          About Us
-        </button>
-
         {/*<button
           onClick={() => navigate("/report-issue")}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"

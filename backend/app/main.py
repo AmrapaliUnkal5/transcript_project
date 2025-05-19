@@ -394,7 +394,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     }
 
 # Account Information API
-@app.get("/account", response_model=RegisterResponse)
+@app.get("/account")
 def get_account_info(email: str, db: Session = Depends(get_db)):
     """
     Fetch and display account information based on the username.
@@ -404,40 +404,63 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
         
     # Get the user's active subscription
-    subscription = db.query(UserSubscription).filter(
+    user_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == db_user.user_id,
-        UserSubscription.status == "active"
+        UserSubscription.status.not_in(["pending", "cancelled","failed"])
     ).order_by(UserSubscription.payment_date.desc()).first()
     
     # Get subscription plan ID if available
-    subscription_plan_id = None
-    if subscription:
-        subscription_plan_id = subscription.subscription_plan_id
+    subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else None
     
-    # Get list of addon plan IDs
-    addon_plan_ids = []
+    # Get list of addon plan IDs and message addon
     user_addons = db.query(UserAddon).filter(
         UserAddon.user_id == db_user.user_id,
-        UserAddon.is_active == True
+        UserAddon.status == "active"
     ).all()
     
-    if user_addons:
-        addon_plan_ids = [ua.addon_id for ua in user_addons]
+    addon_plan_ids = [ua.addon_id for ua in user_addons] if user_addons else []
     
-    return RegisterResponse(
-        message="Successfull retrival",
-        user=UserOut(
-            email=db_user.email,
-            role=db_user.role,
-            company_name=db_user.company_name,
-            name=db_user.name,
-            user_id=db_user.user_id,
-            phone_no=db_user.phone_no,
-            communication_email=db_user.communication_email,
-            total_words_used=db_user.total_words_used,
-            subscription_plan_id=subscription_plan_id
-        )
-    )
+    # Get message addon (ID 5) details if exists
+    message_addon = db.query(UserAddon).filter(
+        UserAddon.user_id == db_user.user_id,
+        UserAddon.addon_id == 5,
+        UserAddon.is_active == True
+    ).order_by(UserAddon.expiry_date.desc()).first()
+    
+    # Generate a fresh token with updated user information
+    token_data = {"sub": db_user.email,
+                 "role": db_user.role, 
+                 "user_id": db_user.user_id,
+                 "name": db_user.name,  
+                 "company_name": db_user.company_name,  
+                 "phone_no": db_user.phone_no,
+                 "subscription_plan_id": subscription_plan_id,
+                 "total_words_used": db_user.total_words_used,
+                 "addon_plan_ids": addon_plan_ids,
+                 "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
+                 "subscription_status": user_subscription.status if user_subscription else "new",
+                }
+    
+    access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    
+    return {
+        "message": "Successful retrieval",
+        "access_token": access_token,
+        "user": {
+            "email": db_user.email,
+            "role": db_user.role,
+            "company_name": db_user.company_name,
+            "name": db_user.name,
+            "user_id": db_user.user_id,
+            "phone_no": db_user.phone_no,
+            "communication_email": db_user.communication_email,
+            "total_words_used": db_user.total_words_used,
+            "subscription_plan_id": subscription_plan_id,
+            "addon_plan_ids": addon_plan_ids,
+            "message_addon_expiry": message_addon.expiry_date.isoformat() if message_addon and message_addon.expiry_date else 'Not Available',
+            "subscription_status": user_subscription.status if user_subscription else "new",
+        }
+    }
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):

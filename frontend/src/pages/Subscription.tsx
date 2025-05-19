@@ -17,6 +17,7 @@ import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { useAuth } from "../context/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { authApi, subscriptionApi } from "../services/api";
+import { toast } from "react-toastify";
 
 // Interface for addon selection state
 interface AddonSelectionState {
@@ -274,9 +275,10 @@ export const Subscription = () => {
     useState<any>(null);
   const [showPendingNotification, setShowPendingNotification] = useState(false);
   const [effectivePlanId, setEffectivePlanId] = useState<number | null>(null);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
 
   useEffect(() => {
-    // Check URL params for expired or canceled status
+    // Check URL params for expired or cancelled status
     const params = new URLSearchParams(window.location.search);
     setIsExpiredPlan(params.get("isExpired") === "true");
   }, []);
@@ -525,8 +527,15 @@ export const Subscription = () => {
         // Redirect to Zoho's hosted checkout page
         window.open(checkoutUrl, '_blank');
       }, 100);
-    } catch (error) {
+    } catch (error: any) {
       console.error("DEBUG - Error creating subscription checkout:", error);
+      
+      // Check if this is the phone number required error
+      if (error.name === "PhoneNumberRequiredError") {
+        setShowPhoneModal(true);
+        return;
+      }
+      
       let errorMessage =
         "Failed to set up subscription. Please try again later.";
 
@@ -603,7 +612,7 @@ export const Subscription = () => {
     const hasBadge = planBadges[plan.name as keyof typeof planBadges];
     const selectedAddonCount = getSelectedAddonCount(plan.id);
     const isExpiredCurrentPlan = isCurrent && isExpiredPlan;
-    const isCanceled = user?.subscription_status === "canceled";
+    const isCancelled = user?.subscription_status === "cancelled";
     console.log("effectivePlanId", effectivePlanId);
 
     return (
@@ -815,7 +824,7 @@ export const Subscription = () => {
             "Continue with Free Plan"
           ) : isCurrent ? (
             isExpiredPlan ? (
-              isCanceled ? (
+              isCancelled ? (
                 "Subscribe Again"
               ) : (
                 "Renew Plan"
@@ -987,6 +996,28 @@ export const Subscription = () => {
     );
   };
 
+  const PhoneNumberRequiredModal = () => (
+    showPhoneModal ? (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md mx-auto text-center">
+          <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Phone Number Required</h3>
+          <p className="text-gray-700 dark:text-gray-300 mb-6">
+            A phone number is required to subscribe. Please go to your <b>Account</b> page, add your phone number, and then return here to subscribe.
+          </p>
+          <button
+            onClick={() => {
+              setShowPhoneModal(false);
+              navigate('/myaccount');
+            }}
+            className="px-4 py-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white"
+          >
+            Go to Account Page
+          </button>
+        </div>
+      </div>
+    ) : null
+  );
+
   return (
     <div className="space-y-8 px-4 py-6 max-w-7xl mx-auto">
       <div className="flex flex-col">
@@ -1085,6 +1116,7 @@ export const Subscription = () => {
           </a>
         </div>
       )}
+      <PhoneNumberRequiredModal />
     </div>
   );
 };

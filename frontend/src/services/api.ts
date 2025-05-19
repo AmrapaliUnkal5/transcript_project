@@ -823,6 +823,14 @@ export const subscriptionApi = {
       if (error.response) {
         console.error("DEBUG - API - Error response status:", error.response.status);
         console.error("DEBUG - API - Error response data:", error.response.data);
+        
+        // Check if this is the phone number required error
+        if (error.response.status === 422 && error.response.data?.detail === "phone_number_required") {
+          // Create a special error object with a type property
+          const phoneRequiredError = new Error(error.response.data.message || "Phone number is required for subscription");
+          phoneRequiredError.name = "PhoneNumberRequiredError";
+          throw phoneRequiredError;
+        }
       }
       
       if (error.request) {
