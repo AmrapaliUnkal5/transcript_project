@@ -33,5 +33,5 @@ class Settings(BaseSettings):
     SERVER_URL: str = config("SERVER_URL")  # Add the SERVER_URL here
     HUGGINGFACE_API_KEY: Optional[str] = HUGGINGFACE_API_KEY  # Use Optional to handle None values
     OPENAI_API_KEY: Optional[str] = OPENAI_API_KEY  # Add OpenAI API key
-   
+    WIDGET_API_URL:str =config("WIDGET_API_URL")
 settings = Settings()

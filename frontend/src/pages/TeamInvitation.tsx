@@ -25,7 +25,7 @@ export const TeamInvitation = () => {
       await authApi.respondToInvitation(invitation_token, response);
       setStatus("success");
       setTimeout(() => {
-        navigate("/dashboard"); // or '/teams'
+        navigate("/login"); // or '/teams'
       }, 2000);
     } catch (error) {
       console.error(error);

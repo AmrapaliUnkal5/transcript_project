@@ -105,10 +105,12 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       setLoading(true);
       setError(null); // Clear previous errors
       console.log(youtubeUrl);
+      setVideoUrls([]);
+      setSelectedVideos([]);
       const response = await authApi.fetchVideosFromYouTube(youtubeUrl);
       if (response?.video_urls) {
         const updatedUrls = Array.from(
-          new Set([...videoUrls, ...response.video_urls])
+          new Set([...response.video_urls])
         ); // Avoid duplicates
         setVideoUrls(updatedUrls);
         //setVideoUrls(updatedUrls);

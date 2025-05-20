@@ -296,6 +296,7 @@ export const ChatbotCustomization = () => {
     borderRadius: "50%",
     objectFit: "cover",
   };
+  const [hasWhiteLabeling, setHasWhiteLabeling] = useState(false);
 
   const [showPreview, setShowPreview] = useState(false);
   const [activeTab, setActiveTab] = useState("identity");
@@ -339,6 +340,29 @@ export const ChatbotCustomization = () => {
       chat.scrollTop = chat.scrollHeight;
     }
   }, [messages]);
+
+  //check add ons // Check White-Labeling Addon
+    useEffect(() => {
+      const checkWhiteLabelingAddon = async () => {
+        if (!selectedBot?.id) {
+          console.error("Bot ID is missing.");
+          return;
+        }
+        try {
+      const responselabel = await authApi.checkWhiteLabelingAddon(selectedBot?.id);
+      
+          console.log("White-Labeling response", responselabel);
+          setHasWhiteLabeling(responselabel.hasWhiteLabeling);
+        } catch (error) {
+          console.error("Error checking White-Labeling addon", error);
+          setHasWhiteLabeling(false); // Default to false in case of error
+        }
+      };
+
+      if (botId) {
+        checkWhiteLabelingAddon();
+      }
+    }, [botId]); // Re-run if userId changes
 
   useEffect(() => {
     const fetchMessageData = async () => {
@@ -1779,9 +1803,25 @@ export const ChatbotCustomization = () => {
                       }}
                     ></span>
                   </span>
+                  
                 </div>
+                
               )}
+               {!hasWhiteLabeling && (
+              <div
+            style={{
+              textAlign: "right",
+              color: "#6b7280", // Tailwind gray-500
+              fontSize: "12px",
+              padding: "12px 10px",
+              fontStyle: "italic",
+            }}
+          >
+            Powered by Evolra AI
+          </div>
+          )}
             </div>
+            
 
             {/* Chat Input */}
             <div

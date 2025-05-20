@@ -48,9 +48,10 @@ interface BotSettings {
 }
 
 interface ChatbotWidgetProps {
-  botId: number;
+  botId: string;
   closeWidget: () => void; // Function to close the widget
   baseDomain: string;
+  appearance?: string;
 }
 
 export interface ChatbotWidgetHandle {
@@ -58,8 +59,10 @@ export interface ChatbotWidgetHandle {
 }
 
 const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
-  ({ botId, closeWidget, baseDomain }, ref) => {
+  ({ botId, closeWidget, baseDomain, appearance: widgetAppearance  }, ref) => {
+    
     const [botSettings, setBotSettings] = useState<BotSettings | null>(null);
+    const effectiveAppearance = widgetAppearance || botSettings?.appearance;
     const [messages, setMessages] = useState<
       {
         sender: "user" | "bot";
@@ -85,12 +88,31 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     const chatContainerRef = useRef<HTMLDivElement | null>(null);
     const [hasWhiteLabeling, setHasWhiteLabeling] = useState(false);
 
+    // At top level of your component
+    const userIdRef = useRef<string | null>(null);
+//This is to create the unique userId for first and save in his local storage, it will be saved in his
+    useEffect(() => {
+      let storedUserId = localStorage.getItem("botUserId");
+      if (!storedUserId) {
+        storedUserId = crypto.randomUUID();  // or use a hash based on IP/device/etc.
+        localStorage.setItem("botUserId", storedUserId);
+      }
+      userIdRef.current = storedUserId;
+      console.log("User ID:", userIdRef.current);
+    }, []);
+
     useEffect(() => {
       const fetchBotSettings = async () => {
         console.log("baseDomain", baseDomain);
         try {
+          console.log("botId",botId)
           const response = await axios.get<BotSettings>(
-            `${baseDomain}/botsettings/bot/${botId}`
+            `${baseDomain}/widget/bot`, // No botId in URL
+            {
+              headers: {
+                Authorization: `Bot ${botId}`,
+              },
+            }
           );
           console.log("response", response);
           setBotSettings(response.data);
@@ -108,11 +130,13 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         try {
           // Call the API that checks if the user has the White-Labeling addon
           const response = await axios.get(
-            `${baseDomain}/api/user/addon/white-labeling-check`,
-            {
-              params: { bot_id: botId },
-            }
-          );
+        `${baseDomain}/api/user/addon/white-labeling-check`,
+        {
+          headers: {
+            Authorization: `Bot ${botId}`, // Securely send botId
+          },
+        }
+      );
           console.log("White-Labeling response", response);
           setHasWhiteLabeling(response.data.hasWhiteLabeling);
         } catch (error) {
@@ -167,18 +191,29 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
     // Attach unload listener and idle timer
     useEffect(() => {
-      const handleBeforeUnload = () => {
-        endSession();
-      };
+  const sendEndRequest = () => {
+    if (!sessionIdRef.current) return;
 
-      window.addEventListener("beforeunload", handleBeforeUnload);
-      resetIdleTimer(); // start on mount
+    fetch(
+      `${baseDomain}/widget/interactions/${sessionIdRef.current}/end`,
+      {
+        method: "PUT",
+        keepalive: true,
+      }
+    );
+    sessionIdRef.current = null;
+  };
 
-      return () => {
-        window.removeEventListener("beforeunload", handleBeforeUnload);
-        if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
-      };
-    }, []);
+  // Only use pagehide — fired reliably on tab close, back, reload
+  window.addEventListener("pagehide", sendEndRequest);
+
+  resetIdleTimer(); // keep your idle timeout
+
+  return () => {
+    window.removeEventListener("pagehide", sendEndRequest);
+    if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
+  };
+}, [baseDomain]);
 
     useEffect(() => {
       const style = document.createElement("style");
@@ -228,14 +263,17 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
     const sendMessage = async () => {
       const trimmedMessage = inputMessage.trim();
-      if (!trimmedMessage || !botSettings?.user_id) return;
+      if (!trimmedMessage) return;
+      console.log("I am here sendMessage")
 
       const quotaResponse = await axios.get(
-        `${baseDomain}/api/usage/messages/check`,
-        {
-          params: { user_id: botSettings.user_id },
-        }
-      );
+      `${baseDomain}/api/usage/messages/check`,
+      {
+        headers: {
+          Authorization: `Bot ${botId}`, // ✅ Securely send botId in header
+        },
+      }
+    );
       if (!quotaResponse.data.canSendMessage) {
         setUsageError(
           "We are facing technical issue. Kindly reach out to website admin for assistance."
@@ -266,14 +304,17 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       });
       setInputMessage("");
       resetIdleTimer();
+      console.log("Current session ID:", sessionIdRef.current); // Debug log
 
       try {
-        if (!sessionIdRef.current) {
+          if (!sessionIdRef.current) {
           const startResponse = await axios.post(
-            `${baseDomain}/chat/start_chat`,
+            `${baseDomain}/widget/start_chat`,
+            {session_id: userIdRef.current }, // Empty body since backend doesn't require anything in the body
             {
-              bot_id: botId,
-              user_id: botSettings.user_id,
+              headers: {
+                Authorization: `Bot ${botId}`, // Bot ID passed in header
+              },
             }
           );
           sessionIdRef.current = startResponse.data.interaction_id;
@@ -293,7 +334,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         //   setCurrentBotMessage(dots);
         // }, 500);
 
-        const response = await axios.post(`${baseDomain}/chat/send_message`, {
+        const response = await axios.post(`${baseDomain}/widget/send_message`, {
           interaction_id: sessionIdRef.current,
           sender: "user",
           message_text: trimmedMessage,
@@ -305,6 +346,14 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
         const botReply = response.data.message;
         const botMessageId = response.data.message_id; // make sure backend sends this
+        // ✅ Handle backend error gracefully
+        if (response.data.error) {
+          setUsageError(
+            "We are facing a technical issue. Kindly reach out to the website admin for assistance."
+          );
+          setIsSendDisabled(true);
+          return;
+        }
 
         // Simulate character-by-character typing effect for the bot's reply
         let index = 0;
@@ -359,17 +408,17 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
       try {
         const response1 = await fetch(
-          `${baseDomain}/botsettings/interactions/reaction`,
+          `${baseDomain}/widget/interactions/reaction`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Accept: "application/json",
+              Authorization: `Bot ${botId}`, // Securely send botId
             },
             body: JSON.stringify({
               interaction_id: interaction_id,
-              session_id: `${messageId}-${index}`,
-              bot_id: botId,
+              session_id: userIdRef.current,
               reaction: type,
               message_id: messageId,
             }),
@@ -407,7 +456,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       if (sessionIdRef.current) {
         try {
           await axios.put(
-            `${baseDomain}/chat/interactions/${sessionIdRef.current}/end`
+            `${baseDomain}/widget/interactions/${sessionIdRef.current}/end`
           );
           console.log("Session ended successfully");
         } catch (err) {
@@ -444,7 +493,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       user_color,
       position,
       window_bg_color,
-      appearance,
+      
       input_bg_color,
       header_bg_color,
       header_text_color,
@@ -452,7 +501,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       chat_text_color,
       button_color,
       button_text_color,
-      timestamp_color,
+      
       chat_font_family,
       border_radius,
       border_color,
@@ -494,7 +543,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       flexDirection: "column",
       overflow: "hidden",
 
-      ...(appearance === "Full Screen"
+      ...(effectiveAppearance === "Full Screen"
         ? {
             top: 0,
             left: 0,
@@ -556,12 +605,12 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       gap: "0.5rem", // similar to spacing between input and button in Tailwind
     };
 
-    const timestampStyle: React.CSSProperties = {
-      fontSize: "11px",
-      marginTop: "4px",
-      textAlign: "right",
-      color: timestamp_color || "#9CA3AF",
-    };
+    // const timestampStyle: React.CSSProperties = {
+    //   fontSize: "11px",
+    //   marginTop: "4px",
+    //   textAlign: "right",
+    //   color: timestamp_color || "#9CA3AF",
+    // };
 
     // const inputBoxStyle: React.CSSProperties = {
     //   flex: 1,
@@ -573,6 +622,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
     return (
       <div ref={chatContainerRef} style={widgetStyle}>
+        {effectiveAppearance !== "Full Screen" && (
         <div
           style={{
             position: "absolute",
@@ -590,11 +640,12 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         >
           ✕
         </div>
+       )}
         <div style={headerStyle}>
           {bot_icon && <img src={bot_icon} alt="Bot Icon" style={iconStyle} />}
           <strong>{bot_name}</strong>
         </div>
-
+ 
         <div style={chatBodyStyle}>
           <div style={{ marginTop: "auto" }}>
             {messages.map((msg, index) => (
@@ -624,7 +675,10 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                   }}
                 >
                   <div>{msg.message}</div>
-                  <div style={timestampStyle}>
+                  <div style={{fontSize: "11px",marginTop: "4px",textAlign: "right",color:
+      msg.sender === "user"
+        ? user_text_color || "#ffffff"
+        : chat_text_color || "#111827",}}>
                     {new Date().toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -937,6 +991,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
               isSendDisabled ||
               inputMessage.length > MAX_USER_MESSAGE_LENGTH
             }
+            
           >
             Send
           </button>
