@@ -104,7 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         
         // Redirect logged-in users from root path to welcome
         if (location.pathname === "/") {
-          navigate("/nosidebar/welcome");
+          navigate("/dashboard/welcome");
         }
       } catch (error) {
         console.error("Error parsing user data:", error);

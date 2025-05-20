@@ -299,7 +299,7 @@ const storageUsagePercent = Math.min(
       setIsModalOpen(true);
       return;
     }
-    navigate("/nosidebar/create-bot");
+    navigate("/dashboard/create-bot");
 
     //navigate("/Options");
   };
@@ -434,9 +434,9 @@ const storageUsagePercent = Math.min(
 
     const handleBuildBotClick = () => {
       if (isFreePlan) {
-        navigate("/nosidebar/Options"); // Free plan users go to Options
+        navigate("/dashboard/Options"); // Free plan users go to Options
       } else {
-        navigate("/nosidebar/create-bot"); // All other plans go directly to create-bot
+        navigate("/dashboard/create-bot"); // All other plans go directly to create-bot
       }
     };
 
@@ -498,7 +498,7 @@ const storageUsagePercent = Math.min(
                   Close
                 </button>
                 <button
-                  onClick={() => navigate("/nosidebar/subscription")}
+                  onClick={() => navigate("/dashboard/subscription")}
                   className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                 >
                   Upgrade Plan

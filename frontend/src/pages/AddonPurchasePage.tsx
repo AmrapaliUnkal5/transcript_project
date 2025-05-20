@@ -83,7 +83,7 @@ export const AddonPurchasePage: React.FC = () => {
             You need an active paid subscription to purchase add-ons. Free plans are not eligible for add-on purchases.
           </p>
           <button
-            onClick={() => navigate('/nosidebar/subscription')}
+            onClick={() => navigate('/dashboard/subscription')}
             className="mt-4 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors"
           >
             View Subscription Plans
@@ -107,7 +107,7 @@ export const AddonPurchasePage: React.FC = () => {
           </p>
           <div className="mt-4 flex space-x-4">
             <button
-              onClick={() => navigate('/nosidebar/subscription')}
+              onClick={() => navigate('/dashboard/subscription')}
               className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors"
             >
               View Subscription Plans

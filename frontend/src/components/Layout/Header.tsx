@@ -154,7 +154,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
             <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-200 dark:border-gray-700 z-50">
               <button
                 onClick={() => {
-                  navigate("/nosidebar/subscription");
+                  navigate("/dashboard/subscription");
                   setDropdownOpen(false);
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -169,7 +169,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
               </button>
               <button
                 onClick={() => {
-                  navigate("/nosidebar/account/add-ons");
+                  navigate("/dashboard/account/add-ons");
                   setDropdownOpen(false);
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -184,7 +184,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
               </button>
               <button
                 onClick={() => {
-                  navigate("/nosidebar/myaccount");
+                  navigate("/dashboard/myaccount");
                   setDropdownOpen(false);
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"

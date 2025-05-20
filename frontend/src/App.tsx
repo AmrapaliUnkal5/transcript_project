@@ -71,7 +71,7 @@ function App() {
                 
                 {/* NoSidebar layout for specific pages */}
                 <Route
-                  path="/nosidebar"
+                  path="/dashboard"
                   element={
                     <ProtectedRoute>
                       <NoSidebarLayout />
@@ -96,7 +96,6 @@ function App() {
                     </ProtectedRoute>
                   }
                 >
-                  <Route index element={<Welcome />} />
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="chatbot" element={<ChatbotCustomization />} />
                   <Route path="upload" element={<FileUpload />} />
