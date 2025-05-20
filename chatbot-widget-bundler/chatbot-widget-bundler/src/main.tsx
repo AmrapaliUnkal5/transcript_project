@@ -1,12 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import ChatIcon from "./ChatIcon";
-import { jwtDecode } from "jwt-decode";
+// import { jwtDecode } from "jwt-decode";
 
-interface BotTokenPayload {
-  bot_id: number;
-  exp?: number; // optional, in case you later include expiry again
-}
+// interface BotTokenPayload {
+//   bot_id: string;
+//   exp?: number; // optional, in case you later include expiry again
+// }
 
 const validPositions = [
   "top-left",
@@ -19,14 +19,15 @@ type PositionType = (typeof validPositions)[number];
 // Get the script tag that loaded this bundle
 const currentScript = document.currentScript as HTMLScriptElement;
 // Define allowed positions
+const appearance = currentScript?.getAttribute("data-appearance") || "";
 
 // Get botId and optional avatar image from data attributes
 //const botId = parseInt(currentScript?.getAttribute("data-bot-id") || "1", 10);
 
 // Get the token from data attributes
 const token = currentScript?.getAttribute("data-token") || "";
-const decoded: BotTokenPayload = jwtDecode<BotTokenPayload>(token);
-const botId = decoded.bot_id;
+// const decoded: BotTokenPayload = jwtDecode<BotTokenPayload>(token);
+// const botId = decoded.bot_id;
 
 // Decode the token to get the bot_id
 const getCleanAttribute = (
@@ -37,7 +38,7 @@ const getCleanAttribute = (
 
 const avatarUrl =
   getCleanAttribute(currentScript?.getAttribute("data-avatar-url")) ||
-  "https://cdn-icons-png.flaticon.com/512/4712/4712027.png";
+  "https://images.unsplash.com/photo-1531379410502-63bfe8cdaf6f?w=200&h=200&fit=crop&crop=faces";
 const rawPosition =
   currentScript?.getAttribute("data-position") || "bottom-right";
 const position: PositionType = validPositions.includes(
@@ -60,11 +61,12 @@ const root = ReactDOM.createRoot(container);
 root.render(
   <React.StrictMode>
     <ChatIcon
-      botId={botId}
+      botId={token}
       avatarUrl={avatarUrl}
       position={position}
       welcomeMessage={welcomeMessage}
       basedomain={basedomain}
+      appearance={appearance}
     />
   </React.StrictMode>
 );

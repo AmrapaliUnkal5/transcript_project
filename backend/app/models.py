@@ -106,6 +106,7 @@ class Bot(Base):
     border_radius = Column(String, nullable=True, default="12px")
     border_color = Column(String, nullable=True, default="#E5E7EB")
     chat_font_family = Column(String, nullable=True, default="Inter")
+    selected_domain = Column(String, nullable=True)
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")
@@ -290,7 +291,7 @@ class InteractionReaction(Base):
                         index=True
 )
 
-    __table_args__ = (UniqueConstraint("interaction_id", "session_id", name="unique_user_reaction"),)
+    #__table_args__ = (UniqueConstraint("interaction_id", "session_id", name="unique_user_reaction"),)
 
     #interaction = relationship("Interaction", back_populates="reactions")
 

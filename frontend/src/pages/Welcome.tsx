@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Bot, ArrowRight, TrendingUp, Settings } from "lucide-react";
+import { Bot, ArrowRight, TrendingUp, Settings, Trash2 } from "lucide-react";
 import { Legend } from "recharts";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -19,6 +19,7 @@ import Loader from "../components/Loader";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { Lock } from "lucide-react";
+import { toast } from "react-toastify";
 
 const SubscriptionExpiredOverlay = () => {
   const { user } = useAuth();
@@ -125,6 +126,9 @@ export const Welcome = () => {
       total: 0
     }
   });
+
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [botToDelete, setBotToDelete] = useState<number | null>(null);
 
   const userPlanId = user?.subscription_plan_id || 1;
   const userPlan = getPlanById(userPlanId);
@@ -467,6 +471,48 @@ const storageUsagePercent = Math.min(
     );
   };
 
+  const handleDeleteBot = async () => {
+  if (!botToDelete) return;
+  try {
+    setLoading(true);
+    await authApi.deletebot(botToDelete, { status: "Deleted" });
+    setIsDeleteConfirmOpen(false);
+    
+    // Refresh all data including usage metrics
+    const [botResponse, metrics] = await Promise.all([
+      authApi.getBotSettingsByUserId(userId!),
+      authApi.getUsageMetrics()
+    ]);
+
+    // Update bot list
+    const extractedBots = botResponse.map((botObj) => {
+      const botId = Object.keys(botObj)[0];
+      const botData = botObj[botId];
+      return {
+        id: Number(botId),
+        name: botData.bot_name,
+        status: botData.status,
+        conversations: botData.conversation_count_today,
+        satisfaction: {
+          likes: botData.satisfaction?.likes || 0,
+          dislikes: botData.satisfaction?.dislikes || 0,
+        },
+      };
+    });
+    
+    setBots(extractedBots);
+    setHasBots(extractedBots.length > 0);
+    
+    // Update usage metrics
+    setUsageMetrics(metrics);
+  } catch (error) {
+    console.error("Failed to delete bot:", error);
+    toast.error("Unable to delete your bot. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
   const ExistingUserDashboard = () => (
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-8">
@@ -515,7 +561,7 @@ const storageUsagePercent = Math.min(
             key={bot.id}
             onClick={() => {
               setSelectedBot(bot); // ✅ Store selected bot
-              navigate("/dashboard/chatbot"); // ✅ Navigate after setting context
+              navigate("/dashboard/upload"); // ✅ Navigate after setting context
             }}
             className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 cursor-pointer 
              transition transform hover:shadow-2xl hover:scale-105 hover:ring-2 hover:ring-blue-400"
@@ -533,13 +579,14 @@ const storageUsagePercent = Math.min(
                 </div>
               </div>
               <button
-                onClick={() => {
-                  setSelectedBot(bot); // ✅ Store selected bot
-                  navigate("/dashboard/chatbot"); // ✅ Navigate after setting context
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setBotToDelete(bot.id);
+                  setIsDeleteConfirmOpen(true);
                 }}
-                className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                className="text-red-500 hover:text-red-700 dark:hover:text-red-400"
               >
-                <Settings className="w-5 h-5" />
+                <Trash2 className="w-5 h-5" />
               </button>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -710,6 +757,29 @@ const storageUsagePercent = Math.min(
           <div className="h-96 overflow-hidden">{renderGraph()}</div>
         </div>
       </div>
+      {/* Delete confirmation modal - matches chatbotcustomization.tsx */}
+      {isDeleteConfirmOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-lg font-semibold mb-4">Confirm Deletion</h2>
+            <p>Do you wish to delete this bot?</p>
+            <div className="mt-4 flex justify-end">
+              <button
+                className="bg-gray-300 text-black px-4 py-2 rounded mr-2"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="bg-red-600 text-white px-4 py-2 rounded"
+                onClick={handleDeleteBot}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 

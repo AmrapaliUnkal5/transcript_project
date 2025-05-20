@@ -5,11 +5,12 @@ import { ChevronDown } from "lucide-react";
 
 // TypeScript-safe prop types
 interface ChatIconProps {
-  botId: number;
+  botId: string;
   avatarUrl?: string;
   position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   welcomeMessage?: string; // optional
   basedomain: string;
+  appearance?: string;
 }
 
 const ChatIcon: React.FC<ChatIconProps> = ({
@@ -18,12 +19,27 @@ const ChatIcon: React.FC<ChatIconProps> = ({
   position,
   welcomeMessage,
   basedomain,
+  appearance,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const chatbotRef = useRef<{ endSession: () => Promise<void> }>(null);
+  
   const [showWelcome] = useState(true);
   const [hover, setHover] = useState(false);
   const baseDomain = basedomain;
+  if (appearance === "Full Screen") {
+  return (
+    <ChatbotWidget
+      ref={chatbotRef}
+      botId={botId}
+      closeWidget={() => {}} // No close button needed
+      baseDomain={basedomain}
+      appearance="Full Screen"
+    />
+  );
+}
+
+
 
   const getPositionStyles = (
     position: ChatIconProps["position"]
@@ -102,6 +118,7 @@ const ChatIcon: React.FC<ChatIconProps> = ({
     top: "10px",
     right: "10px",
   };
+  
 
   const welcomeTooltipStyles: React.CSSProperties = {
     backgroundColor: "white",
@@ -136,6 +153,7 @@ const ChatIcon: React.FC<ChatIconProps> = ({
       }
     })(),
   };
+  
 
   return (
     <>

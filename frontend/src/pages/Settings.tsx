@@ -543,7 +543,7 @@ export const Settings = () => {
               />
             </div>
 
-            <div>
+            {/* <div>
               <label
                 htmlFor="communication_email"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
@@ -563,7 +563,7 @@ export const Settings = () => {
                   {errors.communication_email}
                 </p>
               )}
-            </div>
+            </div> */}
 
             <div className="flex justify-end">
               <button

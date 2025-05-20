@@ -268,6 +268,28 @@ export const authApi = {
     return response.data;
   },
 
+  updateBotDomain: async (botId: number, selectedDomain: string) => {
+  const response = await api.put("/widget/bots/update-domain", {
+    bot_id: botId,
+    selected_domain: selectedDomain,
+  });
+  return response.data;
+  },
+
+  getBotDomain: async (botId: number) => {
+    const response = await api.get(`widget/bots/${botId}/domain`);
+    return response.data;
+  },
+
+  checkWhiteLabelingAddon: async (botId: number) => {
+  const response = await api.get("/addon/white-labeling-check", {
+    params: {
+      bot_id: botId,
+    },
+  });
+  return response.data;
+},
+
   updateAvatar: async (data: uploadAvatar) => {
     const response = await api.put("/update-avatar/", data);
     return response.data;

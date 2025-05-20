@@ -59,7 +59,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
       {/* Left Section: Logo/Image */}
       <div className="flex items-center space-x-4">
         <a 
-          onClick={() => navigate("/welcome")} 
+          onClick={() => navigate("/dashboard/welcome")} 
           className="cursor-pointer"
         >
           <img
