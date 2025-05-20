@@ -7,13 +7,13 @@ export const PrivacyPolicy = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <div className="mb-8">
-          <Link
+          {/* <Link
             to="/signup"
             className="inline-flex items-center text-sm text-blue-600 hover:text-blue-500"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Sign Up
-          </Link>
+          </Link> */}
         </div>
        
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg px-8 py-6">
@@ -23,7 +23,7 @@ export const PrivacyPolicy = () => {
          
           <div className="prose dark:prose-invert max-w-none">
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Last updated: March 15, 2024
+              Last updated: May 15, 2025
             </p>
 
             <section className="mb-8">

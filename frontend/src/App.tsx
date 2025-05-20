@@ -32,6 +32,10 @@ import { SubscriptionPlanProvider } from "./context/SubscriptionPlanContext";
 import { ScriptGeneratePage } from "./pages/ScriptGeneratePage";
 import { TeamInvitation } from "./pages/TeamInvitation.tsx";
 import { AddonPurchasePage } from "./pages/AddonPurchasePage";
+import HomePage from "./pages/Home/index.tsx";
+import OurPlans from "./pages/OurPlans/index.tsx";
+
+
 
 function App() {
   return (
@@ -45,7 +49,9 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/home" element={<LoginHome />} />
+                <Route path="/home" element={<HomePage />} />
+                <Route path="/our-plans" element={<OurPlans />} />
+                <Route path="/login-home" element={<LoginHome />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/demo" element={<Demo />} />
