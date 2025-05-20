@@ -296,8 +296,7 @@ export const Login = () => {
         const res = await authApi.googleLogin(response.credential);
         console.log(res);
         login(res.access_token, res.user);
-        const from = location.state?.from?.pathname || "/";
-        navigate(from, { replace: true });
+        navigate("/dashboard/welcome", { replace: true });
       } catch (error) {
         console.error("Error during Google authentication:", error);
         setError("Google authentication failed");
@@ -371,8 +370,8 @@ export const Login = () => {
       const response = await authApi.login({ email, password });
       login(response.access_token, response.user);
 
-      const from = location.state?.from?.pathname || "/";
-      navigate(from, { replace: true });
+      // Redirect to welcome page after login
+      navigate("/dashboard/welcome", { replace: true });
     } catch (err) {
       if (err instanceof AxiosError) {
         setError(err.response?.data?.detail || "An unexpected error occurred");
@@ -415,22 +414,29 @@ export const Login = () => {
               component="img"
               src="/images/dummy/Evolra-AI-Logo_Transparent.png"
               alt="Evolra AI Logo"
+              onClick={() => navigate("/")}
+              sx={{
+                height: 80, // Increased logo size
+                width: "auto",
+                maxWidth: 200,
+                objectFit: "contain",
+                cursor: "pointer" // Add cursor pointer to indicate it's clickable
+              }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.style.display = "none"; // Hide broken image
                 setLogoLoaded(false);
                 console.error("Failed to load logo:", target.src);
               }}
-              sx={{
-                height: 80, // Increased logo size
-                width: "auto",
-                maxWidth: 200,
-                objectFit: "contain",
-              }}
             />
             {/* Fallback text if image fails */}
             {!logoLoaded && (
-              <Typography variant="h6" color="#4dc4ff">
+              <Typography 
+                variant="h6" 
+                color="#4dc4ff"
+                onClick={() => navigate("/")}
+                sx={{ cursor: "pointer" }}
+              >
                 Evolra AI
               </Typography>
             )}

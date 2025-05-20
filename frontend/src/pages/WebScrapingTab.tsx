@@ -35,7 +35,7 @@ const WebScrapingTab: React.FC = () => {
   const location = useLocation();
   
   // Check if we're in create bot flow
-  const isCreateBotFlow = location.pathname.includes('/create-bot');
+  const isCreateBotFlow = location.pathname.includes('/dashboard/create-bot');
   
   
   // Reset toast flag when component unmounts or when not in create bot flow

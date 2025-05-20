@@ -14,6 +14,7 @@ import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import { styled } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 interface Props {
   /**
@@ -26,16 +27,17 @@ interface Props {
 const drawerWidth = 240;
 //const navItems = ["Home", "Our Plans", "Our Services", "Contact Us"];
 const navItems = [
-    { label: 'Home', id: 1, url: '/home' },
+    { label: 'Home', id: 1, url: '/' },
     { label: 'Our Plans', id: 2, url: '/our-plans'},
-    { label: 'Our Services', id: 3, url: '/home' },
-    { label: 'Contact Us', id: 4, url: '/home'},
+    { label: 'Our Services', id: 3, url: '/' },
+    { label: 'Contact Us', id: 4, url: '/'},
 ];
 
 
 export default function HomeHeader(props: Props) {
   const { window } = props;
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const navigate = useNavigate();
 
   const handleDrawerToggle = () => {
     setMobileOpen((prevState) => !prevState);
@@ -73,16 +75,22 @@ export default function HomeHeader(props: Props) {
         sx={{ backgroundColor: "#101035", color: "#fff" }}
       >
         <Toolbar>
-          <StyledImage
-            src="/images/logo.png"
-            sx={{
-              display: { xs: "block", sm: "none" },
-              width: "134px",
-    height: "21px",
-    m: '22px 0 22px 0px'
-             
+          <Box
+            onClick={() => navigate("/")}
+            sx={{ 
+              cursor: "pointer",
+              display: { xs: "block", sm: "none" }
             }}
-          />
+          >
+            <StyledImage
+              src="/images/logo.png"
+              sx={{
+                width: "134px",
+                height: "21px",
+                m: '22px 0 22px 0px'
+              }}
+            />
+          </Box>
 
           <Box
             display={"flex"}
@@ -90,7 +98,10 @@ export default function HomeHeader(props: Props) {
             alignItems={"center"}
             width={"100%"}
           >
-            <Box>
+            <Box 
+              onClick={() => navigate("/")} 
+              sx={{ cursor: "pointer" }}
+            >
               <StyledImage
                 src="/images/logo.png"
                 sx={{
@@ -119,6 +130,7 @@ export default function HomeHeader(props: Props) {
               <Box display={"flex"} gap={[1, 3]}>
                 <Button
                   variant="contained"
+                  href="/signup"
                   sx={{
                     color: "#fff",
                     fontSize: "16px",
@@ -132,6 +144,7 @@ export default function HomeHeader(props: Props) {
                 </Button>
                 <Button
                   variant="outlined"
+                  href="/login"
                   sx={{
                     fontSize: "16px",
                     color: "#fff",

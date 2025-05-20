@@ -29,7 +29,7 @@ numpy
 schedule
 apscheduler
 PyPDF2>=3.0.0
-langdetect
+lingua-language-detector
 nltk
 
 # For LLM Part

@@ -58,14 +58,16 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
     >
       {/* Left Section: Logo/Image */}
       <div className="flex items-center space-x-4">
-        <a href="https://evolra.ai/" target="_blank" rel="noopener noreferrer">
-        <img
-        src="https://cdn.pixabay.com/photo/2017/09/26/13/42/apple-2788662_1280.jpg"
-        alt="Logo"
-        className="h-10 w-auto"
-      />
-    </a>
-
+        <a 
+          onClick={() => navigate("/dashboard/welcome")} 
+          className="cursor-pointer"
+        >
+          <img
+            src="/images/logo.png"
+            alt="Logo"
+            className="h-8 w-auto"
+          />
+        </a>
       </div>
 
       <div className="flex-1" />
@@ -154,7 +156,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
             <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-200 dark:border-gray-700 z-50">
               <button
                 onClick={() => {
-                  navigate("/subscription");
+                  navigate("/dashboard/subscription");
                   setDropdownOpen(false);
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -169,7 +171,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
               </button>
               <button
                 onClick={() => {
-                  navigate("/account/add-ons");
+                  navigate("/dashboard/account/add-ons");
                   setDropdownOpen(false);
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -184,7 +186,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
               </button>
               <button
                 onClick={() => {
-                  navigate("/myaccount");
+                  navigate("/dashboard/myaccount");
                   setDropdownOpen(false);
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"

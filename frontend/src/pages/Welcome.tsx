@@ -303,7 +303,7 @@ const storageUsagePercent = Math.min(
       setIsModalOpen(true);
       return;
     }
-    navigate("/create-bot");
+    navigate("/dashboard/create-bot");
 
     //navigate("/Options");
   };
@@ -438,9 +438,9 @@ const storageUsagePercent = Math.min(
 
     const handleBuildBotClick = () => {
       if (isFreePlan) {
-        navigate("/Options"); // Free plan users go to Options
+        navigate("/dashboard/Options"); // Free plan users go to Options
       } else {
-        navigate("/create-bot"); // All other plans go directly to create-bot
+        navigate("/dashboard/create-bot"); // All other plans go directly to create-bot
       }
     };
 
@@ -544,7 +544,7 @@ const storageUsagePercent = Math.min(
                   Close
                 </button>
                 <button
-                  onClick={() => navigate("/subscription")}
+                  onClick={() => navigate("/dashboard/subscription")}
                   className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                 >
                   Upgrade Plan
@@ -561,7 +561,7 @@ const storageUsagePercent = Math.min(
             key={bot.id}
             onClick={() => {
               setSelectedBot(bot); // ✅ Store selected bot
-              navigate("/upload"); // ✅ Navigate after setting context
+              navigate("/dashboard/upload"); // ✅ Navigate after setting context
             }}
             className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 cursor-pointer 
              transition transform hover:shadow-2xl hover:scale-105 hover:ring-2 hover:ring-blue-400"

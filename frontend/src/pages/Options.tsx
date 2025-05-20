@@ -28,7 +28,7 @@ export const PlanSelection = () => {
           }`}
           onClick={() => {
             handleSelect("explorer");
-            navigate("/create-bot");
+            navigate("/dashboard/create-bot");
           }}
         >
           <div className="flex items-center mb-6">
@@ -71,7 +71,7 @@ export const PlanSelection = () => {
           }`}
           onClick={() => {
             handleSelect("subscription");
-            navigate("/subscription");
+            navigate("/dashboard/subscription");
           }}
         >
           <div className="flex items-center mb-6">
