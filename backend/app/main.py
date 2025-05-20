@@ -328,7 +328,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     
     user_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == subscription_user_id,
-        UserSubscription.status != "pending"
+        UserSubscription.status.notin_(["pending", "failed", "cancelled"])
     ).order_by(UserSubscription.payment_date.desc()).first()
 
     logger.debug("User subscription: %s", user_subscription)
@@ -562,7 +562,7 @@ def login_for_access_token(
 
     user_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == user.user_id,
-        UserSubscription.status != "pending"
+        UserSubscription.status.notin_(["pending", "failed", "cancelled"])
     ).order_by(UserSubscription.payment_date.desc()).first()
 
     logger.info(f"User subscription: {user_subscription}")

@@ -479,7 +479,7 @@ def update_word_count_for_bot(transcript: str, bot_id: int, db: Session) -> dict
     if not user:
         return {"status": "error", "message": "User not found."}
     
-    user_subscription = db.query(UserSubscription).filter(UserSubscription.user_id == user.user_id).first()
+    user_subscription = db.query(UserSubscription).filter(UserSubscription.user_id == user.user_id,UserSubscription.status.notin_(["pending", "failed", "cancelled"])).order_by(UserSubscription.payment_date.desc()).first()
     subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
     
     subscription_plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == subscription_plan_id).first()

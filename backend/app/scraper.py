@@ -372,7 +372,7 @@ def update_word_counts(db: Session, bot_id: int, word_count: int):
 
     # Update user's total words used
     user = db.query(User).filter(User.user_id == bot.user_id).first()
-    user_subscription = db.query(UserSubscription).filter(UserSubscription.user_id == user.user_id).first()
+    user_subscription = db.query(UserSubscription).filter(UserSubscription.user_id == user.user_id,UserSubscription.status.notin_(["pending", "failed", "cancelled"])).order_by(UserSubscription.payment_date.desc()).first()
     subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
     
     subscription_plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == subscription_plan_id).first()

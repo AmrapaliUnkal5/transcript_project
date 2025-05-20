@@ -111,7 +111,7 @@ async def google_auth(request: Request, payload: TokenPayload, db: Session = Dep
 
         user_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == user.user_id,
-        UserSubscription.status != "pending"
+        UserSubscription.status.notin_(["pending", "failed", "cancelled"])
         ).order_by(UserSubscription.payment_date.desc()).first()
 
         # Get message addon (ID 5) details if exists
@@ -268,7 +268,7 @@ async def facebook_login(
         # Subscription
         user_subscription = db.query(UserSubscription).filter(
             UserSubscription.user_id == subscription_user_id,
-            UserSubscription.status != "pending"
+            UserSubscription.status.notin_(["pending", "failed", "cancelled"])
         ).order_by(UserSubscription.payment_date.desc()).first()
 
         subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
