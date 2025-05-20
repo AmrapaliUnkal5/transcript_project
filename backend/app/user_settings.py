@@ -72,7 +72,12 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
             "status": "Active"
         }
     
-  
+    # Get user's authentication providers
+    auth_providers = []
+    user_auth_providers = db.query(UserAuthProvider).filter(UserAuthProvider.user_id == logged_in_id).all()
+    
+    if user_auth_providers:
+        auth_providers = [provider.provider_name for provider in user_auth_providers]
 
     # Construct the response with additional fields
     return {
@@ -80,11 +85,11 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
         "name": user.name,  # Ensure `name` is included
         "email": user.email,
         "role": user.role,
-        "phone_no":user.phone_no,
+        "phone_no": user.phone_no,
         "company_name": user.company_name,  #  Ensure this is included
         "communication_email": user.communication_email,  # Ensure this is included
-        "subscription": subscription_data
-        
+        "subscription": subscription_data,
+        "auth_providers": auth_providers
     }
 
 @router.put("/user/me", response_model=UserOut)
