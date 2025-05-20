@@ -97,6 +97,7 @@ export interface BotSettings {
   borderRadius: string;
   borderColor: string;
   chatFontFamily: string;
+   userTimestampColor: string,
 }
 
 export interface ApiFile {
