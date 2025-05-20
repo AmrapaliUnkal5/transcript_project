@@ -58,14 +58,16 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
     >
       {/* Left Section: Logo/Image */}
       <div className="flex items-center space-x-4">
-        <a href="https://evolra.ai/" target="_blank" rel="noopener noreferrer">
-        <img
-        src="https://cdn.pixabay.com/photo/2017/09/26/13/42/apple-2788662_1280.jpg"
-        alt="Logo"
-        className="h-10 w-auto"
-      />
-    </a>
-
+        <a 
+          onClick={() => navigate("/welcome")} 
+          className="cursor-pointer"
+        >
+          <img
+            src="/images/logo.png"
+            alt="Logo"
+            className="h-8 w-auto"
+          />
+        </a>
       </div>
 
       <div className="flex-1" />

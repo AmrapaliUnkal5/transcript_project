@@ -414,22 +414,29 @@ export const Login = () => {
               component="img"
               src="/images/dummy/Evolra-AI-Logo_Transparent.png"
               alt="Evolra AI Logo"
+              onClick={() => navigate("/")}
+              sx={{
+                height: 80, // Increased logo size
+                width: "auto",
+                maxWidth: 200,
+                objectFit: "contain",
+                cursor: "pointer" // Add cursor pointer to indicate it's clickable
+              }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.style.display = "none"; // Hide broken image
                 setLogoLoaded(false);
                 console.error("Failed to load logo:", target.src);
               }}
-              sx={{
-                height: 80, // Increased logo size
-                width: "auto",
-                maxWidth: 200,
-                objectFit: "contain",
-              }}
             />
             {/* Fallback text if image fails */}
             {!logoLoaded && (
-              <Typography variant="h6" color="#4dc4ff">
+              <Typography 
+                variant="h6" 
+                color="#4dc4ff"
+                onClick={() => navigate("/")}
+                sx={{ cursor: "pointer" }}
+              >
                 Evolra AI
               </Typography>
             )}

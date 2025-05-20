@@ -14,6 +14,7 @@ import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import { styled } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 interface Props {
   /**
@@ -36,6 +37,7 @@ const navItems = [
 export default function HomeHeader(props: Props) {
   const { window } = props;
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const navigate = useNavigate();
 
   const handleDrawerToggle = () => {
     setMobileOpen((prevState) => !prevState);
@@ -73,16 +75,22 @@ export default function HomeHeader(props: Props) {
         sx={{ backgroundColor: "#101035", color: "#fff" }}
       >
         <Toolbar>
-          <StyledImage
-            src="/images/logo.png"
-            sx={{
-              display: { xs: "block", sm: "none" },
-              width: "134px",
-    height: "21px",
-    m: '22px 0 22px 0px'
-             
+          <Box
+            onClick={() => navigate("/")}
+            sx={{ 
+              cursor: "pointer",
+              display: { xs: "block", sm: "none" }
             }}
-          />
+          >
+            <StyledImage
+              src="/images/logo.png"
+              sx={{
+                width: "134px",
+                height: "21px",
+                m: '22px 0 22px 0px'
+              }}
+            />
+          </Box>
 
           <Box
             display={"flex"}
@@ -90,7 +98,10 @@ export default function HomeHeader(props: Props) {
             alignItems={"center"}
             width={"100%"}
           >
-            <Box>
+            <Box 
+              onClick={() => navigate("/")} 
+              sx={{ cursor: "pointer" }}
+            >
               <StyledImage
                 src="/images/logo.png"
                 sx={{
