@@ -73,6 +73,7 @@ const saveBotSettings = async (
     button_color: settings.buttonColor,
     button_text_color: settings.buttonTextColor,
     timestamp_color: settings.timestampColor,
+    user_timestamp_color: settings.userTimestampColor,
     border_radius: settings.borderRadius,
     border_color: settings.borderColor,
     chat_font_family: settings.chatFontFamily,
@@ -169,6 +170,7 @@ export interface BotSettings {
   borderRadius: string;
   borderColor: string;
   chatFontFamily: string;
+  userTimestampColor: string;
 }
 
 export const ChatbotCustomization = () => {
@@ -176,8 +178,6 @@ export const ChatbotCustomization = () => {
   const { user, refreshUserData } = useAuth();
   //const [botToDelete, setBotToDelete] = useState<string | null>(null);
   const userId = user?.user_id;
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [botToDelete, setBotToDelete] = useState<number | null>(null);
   const navigate = useNavigate();
   const { selectedBot, setSelectedBot } = useBot(); // Get setSelectedBot from context
   if (!userId) {
@@ -267,7 +267,8 @@ export const ChatbotCustomization = () => {
     userTextColor: "#FFFFFF",
     buttonColor: "#3B82F6",
     buttonTextColor: "#FFFFFF",
-    timestampColor: "#9CA3AF",
+    timestampColor: "#1F2937", 
+    userTimestampColor: "#FFFFFF",
     borderRadius: "12px",
     borderColor: "#E5E7EB",
     chatFontFamily: "Inter",
@@ -408,7 +409,8 @@ export const ChatbotCustomization = () => {
             userTextColor: response.user_text_color || "#FFFFFF",
             buttonColor: response.button_color || "#3B82F6",
             buttonTextColor: response.button_text_color || "#FFFFFF",
-            timestampColor: response.timestamp_color || "#9CA3AF",
+            timestampColor: response.chat_text_color || "#1F2937", // Match chat text color
+            userTimestampColor: response.user_text_color || "#FFFFFF",
             borderRadius: response.border_radius || "12px",
             borderColor: response.border_color || "#E5E7EB",
             chatFontFamily: response.chat_font_family || "Inter",
@@ -805,20 +807,6 @@ export const ChatbotCustomization = () => {
     }, baseTypingSpeed);
   };
 
-  const handleDeleteBot = async () => {
-    if (!botToDelete) return;
-    try {
-      await authApi.deletebot(Number(botToDelete), { status: "Deleted" });
-      toast.success("Your bot has been successfully deleted!");
-      setIsConfirmOpen(false);
-      localStorage.removeItem("selectedBotId");
-      setTimeout(() => navigate("/"), 3000);
-    } catch (error) {
-      console.error("Failed to delete bot:", error);
-      toast.error("Unable to delete your bot. Please try again.");
-    }
-  };
-
   const handleSaveSettings = async () => {
     try {
       if (!userId) return;
@@ -914,11 +902,26 @@ export const ChatbotCustomization = () => {
   };
 
   const handleChange = <K extends keyof BotSettings>(
-    field: K,
-    value: BotSettings[K]
-  ) => {
-    setSettings((prev) => ({ ...prev, [field]: value }));
-  };
+  field: K,
+  value: BotSettings[K]
+) => {
+  setSettings((prev) => {
+    const newSettings = { ...prev, [field]: value };
+    
+    // Two-way synchronization between text colors and timestamp colors
+    if (field === 'chatTextColor') {
+      newSettings.timestampColor = value as string;
+    } else if (field === 'timestampColor') {
+      newSettings.chatTextColor = value as string;
+    } else if (field === 'userTextColor') {
+      newSettings.userTimestampColor = value as string;
+    } else if (field === 'userTimestampColor') {
+      newSettings.userTextColor = value as string;
+    }
+    
+    return newSettings;
+  });
+};
 
   const tabOptions = [
     { id: "identity", label: "Bot Identity", icon: MessageSquare },
@@ -966,12 +969,7 @@ export const ChatbotCustomization = () => {
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
             handleChange("name", e.target.value),
         },
-        {
-          label: "Bot Avatar",
-          type: "file",
-          accept: "image/*",
-          onChange: handleFileChange,
-        },
+        
         {
           label: "Welcome Message",
           type: "text",
@@ -979,39 +977,17 @@ export const ChatbotCustomization = () => {
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
             handleChange("welcomeMessage", e.target.value),
         },
+
+        {
+          label: "Bot Avatar",
+          type: "file",
+          accept: "image/*",
+          onChange: handleFileChange,
+        },
       ],
     },
     {
       title: "Typography",
-      icon: Type,
-      fields: [
-        {
-          label: "UI Font Family",
-          type: "select",
-          value: settings.fontStyle,
-          options: [
-            "Inter",
-            "Roboto",
-            "Open Sans",
-            "Lato",
-            "Poppins",
-            "Montserrat",
-          ],
-          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-            handleChange("fontStyle", e.target.value),
-        },
-        {
-          label: "Font Size",
-          type: "select",
-          value: settings.fontSize,
-          options: ["12px", "14px", "16px", "18px", "20px"],
-          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-            handleChange("fontSize", e.target.value),
-        },
-      ],
-    },
-    {
-      title: "Typography Advanced",
       icon: Type,
       fields: [
         {
@@ -1030,6 +1006,15 @@ export const ChatbotCustomization = () => {
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("chatFontFamily", e.target.value),
         },
+    
+        {
+          label: "Font Size",
+          type: "select",
+          value: settings.fontSize,
+          options: ["12px", "14px", "16px", "18px", "20px"],
+          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
+            handleChange("fontSize", e.target.value),
+        },
       ],
     },
     {
@@ -1044,19 +1029,20 @@ export const ChatbotCustomization = () => {
             handleChange("botColor", e.target.value),
         },
         {
-          label: "Bot Message Text",
-          type: "color",
-          value: settings.chatTextColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("chatTextColor", e.target.value),
-        },
-        {
           label: "User Message Background",
           type: "color",
           value: settings.userColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
             handleChange("userColor", e.target.value),
         },
+        {
+          label: "Bot Message Text",
+          type: "color",
+          value: settings.chatTextColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("chatTextColor", e.target.value),
+        },
+        
         {
           label: "User Message Text",
           type: "color",
@@ -1065,12 +1051,19 @@ export const ChatbotCustomization = () => {
             handleChange("userTextColor", e.target.value),
         },
         {
-          label: "Timestamp Color",
-          type: "color",
-          value: settings.timestampColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("timestampColor", e.target.value),
-        },
+      label: "Bot Timestamp Color",
+      type: "color",
+      value: settings.timestampColor,
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+        handleChange("timestampColor", e.target.value),
+    },
+    {
+      label: "User Timestamp Color",
+      type: "color",
+      value: settings.userTimestampColor,
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+        handleChange("userTimestampColor", e.target.value),
+    },
       ],
     },
     {
@@ -1121,26 +1114,7 @@ export const ChatbotCustomization = () => {
         },
       ],
     },
-    {
-      title: "Window Appearance",
-      icon: Palette,
-      fields: [
-        {
-          label: "Window Background Color",
-          type: "color",
-          value: settings.windowBgColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("windowBgColor", e.target.value),
-        },
-        {
-          label: "Input Box Background Color",
-          type: "color",
-          value: settings.inputBgColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("inputBgColor", e.target.value),
-        },
-      ],
-    },
+
     {
       title: "Layout & Borders",
       icon: Move,
@@ -1201,6 +1175,23 @@ export const ChatbotCustomization = () => {
           onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
             handleChange("temperature", parseFloat(e.target.value));
           },
+          // Add tooltip for this field
+      tooltip: (
+        <div className="relative group inline-block ml-2">
+          <span className="text-gray-500 hover:text-blue-500 cursor-pointer">
+            ℹ️
+          </span>
+          <div className="absolute left-0 top-7 w-64 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg z-10">
+            Controls response creativity:
+            <ul className="mt-1 list-disc pl-4">
+              <li><strong>0</strong>: Precise, deterministic answers</li>
+              <li><strong>0.5</strong>: Balanced mix of accuracy and creativity</li>
+              <li><strong>1</strong>: Maximum creativity and randomness</li>
+            </ul>
+            Higher values produce more detailed, varied responses, while lower values give more specific, focused answers.
+          </div>
+        </div>
+      )
         },
       ],
     },
@@ -1232,7 +1223,7 @@ export const ChatbotCustomization = () => {
               Customizing: {selectedBot.name}
             </h1>
             <div className="flex items-center gap-4">
-              <button
+              {/* <button
                 onClick={() => {
                   setBotToDelete(botId);
                   setIsConfirmOpen(true);
@@ -1245,7 +1236,7 @@ export const ChatbotCustomization = () => {
                 }`}
               >
                 Delete
-              </button>
+              </button> */}
               <button
                 onClick={handleSaveSettings}
                 disabled={loading}
@@ -1298,16 +1289,6 @@ export const ChatbotCustomization = () => {
                   </h2>
                   {section.title === "Chat Interface Behavior" && (
                     <div className="relative group">
-                      <span className="text-gray-500 hover:text-blue-500 cursor-pointer">
-                        ℹ️
-                      </span>
-                      <div className="absolute left-0 top-7 w-64 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg z-10">
-                        Some settings like <strong>Chatbot Position</strong> and{" "}
-                        <strong>Appearance Mode</strong> define how the chatbot
-                        integrates with your website. These settings are not
-                        reflected in the preview pane but will be visible on
-                        your live site.
-                      </div>
                     </div>
                   )}
                 </div>
@@ -1328,6 +1309,7 @@ export const ChatbotCustomization = () => {
                           }`}
                         >
                           {field.label}
+                          {field.tooltip && field.tooltip}
                         </label>
                       )}
 
@@ -1499,29 +1481,6 @@ export const ChatbotCustomization = () => {
         </div>
       </div>
 
-      {isConfirmOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg">
-            <h2 className="text-lg font-semibold mb-4">Confirm Deletion</h2>
-            <p>Do you wish to delete this bot?</p>
-            <div className="mt-4 flex justify-end">
-              <button
-                className="bg-gray-300 text-black px-4 py-2 rounded mr-2"
-                onClick={() => setIsConfirmOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="bg-red-600 text-white px-4 py-2 rounded"
-                onClick={handleDeleteBot}
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <ToastContainer position="top-right" autoClose={3000} />
 
       {/* Floating Preview Toggle Button */}
@@ -1663,16 +1622,19 @@ export const ChatbotCustomization = () => {
                     >
                       <div>{msg.text}</div>
                       <div
-                        className="text-xs mt-1 text-right"
-                        style={{ color: settings.timestampColor }}
-                      >
-                        {new Date().toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </div>
-                    </div>
-
+    className="text-xs mt-1 text-right"
+    style={{ 
+      color: msg.sender === "user" 
+        ? settings.userTimestampColor 
+        : settings.timestampColor 
+    }}
+  >
+    {new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}
+  </div>
+</div>
                     {/* Reaction Buttons BELOW the bubble, only for bot */}
                     {msg.sender === "bot" && (
                       <div className="flex gap-2 mt-1 ml-2">

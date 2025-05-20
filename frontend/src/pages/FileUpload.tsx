@@ -1100,6 +1100,27 @@ export const FileUpload = () => {
               </div>
             ) : null}
           </div>
+          
+          
+          <div className="flex justify-end">
+          <button
+            onClick={handleSave}
+            disabled={isSaveDisabled || isSaving}
+            className={`px-10 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed ${
+            isSaving ? "opacity-75" : ""
+          }`}
+        >
+          {isSaving ? (
+          <>
+          <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+        {existingFiles.length > 0 ? "Re-Training..." : "Saving..."}
+      </>
+    ) : (
+      existingFiles.length > 0 ? "Re-Train" : "Save"
+    )}
+        </button>
+      </div>
+
 
           {/* Files Table */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
@@ -1189,7 +1210,7 @@ export const FileUpload = () => {
             </div>
           </div>
 
-          <button
+          {/* <button
             onClick={handleSave}
             disabled={isSaveDisabled || isSaving}
             className={`px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed ${
@@ -1204,7 +1225,7 @@ export const FileUpload = () => {
             ) : (
               "Save"
             )}
-          </button>
+          </button> */}
         </>
       )}
 
@@ -1231,6 +1252,22 @@ export const FileUpload = () => {
               setIsVideoSelected={setIsVideoSelected}
             />
 
+            <div className="p-4">
+              <button
+                onClick={handleFinish}
+                className="px-8 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                disabled={!isVideoSelected || isVideoProcessing}
+              >
+                {isVideoProcessing ? (
+                  <span className="flex items-center">
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </span>
+                ) : (
+                  "SAVE"
+                )}
+              </button>
+            </div>
             <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1313,23 +1350,6 @@ export const FileUpload = () => {
                   </button>
                 ))}
               </div>
-            </div>
-            {/* PROCESS Button */}
-            <div className="p-4">
-              <button
-                onClick={handleFinish}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                disabled={!isVideoSelected || isVideoProcessing}
-              >
-                {isVideoProcessing ? (
-                  <span className="flex items-center">
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Processing...
-                  </span>
-                ) : (
-                  "SAVE"
-                )}
-              </button>
             </div>
           </div>
         </div>
