@@ -1571,12 +1571,26 @@ export const ChatbotCustomization = () => {
                 color: settings.headerTextColor,
               }}
             >
-              <h2
-                className="text-lg font-semibold"
-                style={{ color: settings.headerTextColor }}
-              >
-                Preview
-              </h2>
+              <div className="flex items-center gap-2">
+                {settings.icon && (
+                  <img 
+                    src={settings.icon} 
+                    alt="Bot Icon" 
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                    }} 
+                  />
+                )}
+                <h2
+                  className="text-lg font-semibold flex items-center"
+                  style={{ color: settings.headerTextColor }}
+                >
+                  {settings.name} <span className="text-xs ml-2 opacity-70">(preview)</span>
+                </h2>
+              </div>
               <div className="flex items-center space-x-4">
                 <div className="flex flex-col space-y-1 text-sm bg-opacity-20 bg-white px-3 py-2 rounded-lg">
                   <div
@@ -1608,15 +1622,7 @@ export const ChatbotCustomization = () => {
                 fontFamily: settings.chatFontFamily || settings.fontStyle,
               }}
             >
-              {/* Bot Header */}
-              <div style={headerStyle}>
-                {settings.icon && (
-                  <img src={settings.icon} alt="Bot Icon" style={iconStyle} />
-                )}
-                <strong style={{ color: settings.headerTextColor }}>
-                  {settings.name}
-                </strong>
-              </div>
+              {/* Content directly starts with messages now */}
               <div className="flex-1"></div>
               {messages.length > 0 ? (
                 messages.map((msg, index) => (
