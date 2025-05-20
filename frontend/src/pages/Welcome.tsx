@@ -299,7 +299,7 @@ const storageUsagePercent = Math.min(
       setIsModalOpen(true);
       return;
     }
-    navigate("/create-bot");
+    navigate("/nosidebar/create-bot");
 
     //navigate("/Options");
   };
@@ -434,9 +434,9 @@ const storageUsagePercent = Math.min(
 
     const handleBuildBotClick = () => {
       if (isFreePlan) {
-        navigate("/Options"); // Free plan users go to Options
+        navigate("/nosidebar/Options"); // Free plan users go to Options
       } else {
-        navigate("/create-bot"); // All other plans go directly to create-bot
+        navigate("/nosidebar/create-bot"); // All other plans go directly to create-bot
       }
     };
 
@@ -498,7 +498,7 @@ const storageUsagePercent = Math.min(
                   Close
                 </button>
                 <button
-                  onClick={() => navigate("/subscription")}
+                  onClick={() => navigate("/nosidebar/subscription")}
                   className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                 >
                   Upgrade Plan
@@ -515,7 +515,7 @@ const storageUsagePercent = Math.min(
             key={bot.id}
             onClick={() => {
               setSelectedBot(bot); // ✅ Store selected bot
-              navigate("/chatbot"); // ✅ Navigate after setting context
+              navigate("/dashboard/chatbot"); // ✅ Navigate after setting context
             }}
             className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 cursor-pointer 
              transition transform hover:shadow-2xl hover:scale-105 hover:ring-2 hover:ring-blue-400"
@@ -535,7 +535,7 @@ const storageUsagePercent = Math.min(
               <button
                 onClick={() => {
                   setSelectedBot(bot); // ✅ Store selected bot
-                  navigate("/chatbot"); // ✅ Navigate after setting context
+                  navigate("/dashboard/chatbot"); // ✅ Navigate after setting context
                 }}
                 className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
               >

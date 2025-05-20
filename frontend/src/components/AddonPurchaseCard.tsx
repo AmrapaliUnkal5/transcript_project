@@ -219,7 +219,7 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
                 </div>
               </div>
               <Link
-                to="/subscription"
+                to="/nosidebar/subscription"
                 className="block w-full bg-blue-500 hover:bg-blue-600 text-white rounded-md py-2 px-4 text-center font-medium transition-colors"
               >
                 View Subscription Plans

@@ -26,10 +26,10 @@ interface Props {
 const drawerWidth = 240;
 //const navItems = ["Home", "Our Plans", "Our Services", "Contact Us"];
 const navItems = [
-    { label: 'Home', id: 1, url: '/home' },
+    { label: 'Home', id: 1, url: '/' },
     { label: 'Our Plans', id: 2, url: '/our-plans'},
-    { label: 'Our Services', id: 3, url: '/home' },
-    { label: 'Contact Us', id: 4, url: '/home'},
+    { label: 'Our Services', id: 3, url: '/' },
+    { label: 'Contact Us', id: 4, url: '/'},
 ];
 
 
@@ -119,6 +119,7 @@ export default function HomeHeader(props: Props) {
               <Box display={"flex"} gap={[1, 3]}>
                 <Button
                   variant="contained"
+                  href="/signup"
                   sx={{
                     color: "#fff",
                     fontSize: "16px",
@@ -132,6 +133,7 @@ export default function HomeHeader(props: Props) {
                 </Button>
                 <Button
                   variant="outlined"
+                  href="/login"
                   sx={{
                     fontSize: "16px",
                     color: "#fff",

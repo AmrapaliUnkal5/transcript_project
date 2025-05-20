@@ -812,7 +812,7 @@ export const Subscription = () => {
                 if (plan.name.toLowerCase() === "enterprise") {
             navigate("/customersupport"); // Redirect to Customer Support
           } else if (plan.name.toLowerCase() === "explorer" && !effectivePlanId) {
-            navigate("/create-bot");
+            navigate("/nosidebar/create-bot");
           } else {
             handleSubscribe(plan.id);
           }
@@ -1007,7 +1007,7 @@ export const Subscription = () => {
           <button
             onClick={() => {
               setShowPhoneModal(false);
-              navigate('/myaccount');
+              navigate('/nosidebar/myaccount');
             }}
             className="px-4 py-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white"
           >

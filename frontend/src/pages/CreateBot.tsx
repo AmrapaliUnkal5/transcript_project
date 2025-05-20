@@ -739,7 +739,7 @@ const storageUsagePercentage = Math.min(100, (totalStorageUsed / userUsage.stora
       setTimeout(() => {
         localStorage.removeItem("youtube_video_urls");
         localStorage.removeItem("selected_videos");
-        navigate("/chatbot");
+        navigate("/dashboard/chatbot");
       }, 7000);
     } catch (error) {
       console.error("Error creating bot:", error);

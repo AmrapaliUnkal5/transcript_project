@@ -13,10 +13,10 @@ import {
 import { authApi } from "../../services/api";
 
 const navItems = [
-  { path: "/chatbot", icon: MessageSquare, label: "Chatbot Customization" },
-  { path: "/upload", icon: Upload, label: "Knowledge Base" },
-  { path: "/performance", icon: BarChart2, label: "Analytics" },
-  { path: "/script-generate", icon: Code, label: "Script Generate" }, // New item here
+  { path: "chatbot", icon: MessageSquare, label: "Chatbot Customization" },
+  { path: "upload", icon: Upload, label: "Knowledge Base" },
+  { path: "performance", icon: BarChart2, label: "Analytics" },
+  { path: "script-generate", icon: Code, label: "Script Generate" },
 ];
 
 export const Sidebar = () => {

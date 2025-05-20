@@ -296,8 +296,7 @@ export const Login = () => {
         const res = await authApi.googleLogin(response.credential);
         console.log(res);
         login(res.access_token, res.user);
-        const from = location.state?.from?.pathname || "/";
-        navigate(from, { replace: true });
+        navigate("/nosidebar/welcome", { replace: true });
       } catch (error) {
         console.error("Error during Google authentication:", error);
         setError("Google authentication failed");
@@ -371,8 +370,8 @@ export const Login = () => {
       const response = await authApi.login({ email, password });
       login(response.access_token, response.user);
 
-      const from = location.state?.from?.pathname || "/";
-      navigate(from, { replace: true });
+      // Redirect to welcome page after login
+      navigate("/nosidebar/welcome", { replace: true });
     } catch (err) {
       if (err instanceof AxiosError) {
         setError(err.response?.data?.detail || "An unexpected error occurred");

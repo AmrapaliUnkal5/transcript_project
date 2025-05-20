@@ -122,11 +122,11 @@ export const Dashboard = () => {
               {
                 title: "Customize Bot",
                 icon: MessageSquare,
-                route: "/chatbot",
+                route: "/dashboard/chatbot",
               },
-              { title: "Upload Files", icon: BarChart2, route: "/upload" },
-              { title: "View Reports", icon: Star, route: "/performance" },
-              { title: "Settings", icon: Clock, route: "/settings" },
+              { title: "Upload Files", icon: BarChart2, route: "/dashboard/upload" },
+              { title: "View Reports", icon: Star, route: "/dashboard/performance" },
+              { title: "Settings", icon: Clock, route: "/dashboard/settings" },
             ].map((action) => (
               <Link
                 key={action.title}
