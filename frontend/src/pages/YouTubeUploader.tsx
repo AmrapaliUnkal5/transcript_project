@@ -105,7 +105,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       setLoading(true);
       setError(null); // Clear previous errors
       console.log(youtubeUrl);
-      const response = await authApi.fetchVideosFromPlaylist(youtubeUrl);
+      const response = await authApi.fetchVideosFromYouTube(youtubeUrl);
       if (response?.video_urls) {
         const updatedUrls = Array.from(
           new Set([...videoUrls, ...response.video_urls])
@@ -117,16 +117,29 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       } else {
         console.error("Invalid response format:", response);
         setError(
-          "No videos found. Ensure the link is a valid playlist or video."
+          "No videos found. Ensure the link is a valid YouTube video or playlist."
         );
       }
     } catch (error: any) {
       console.error("Error fetching videos:", error);
 
       if (error.response?.status === 400) {
-        setError(
-          "Invalid YouTube URL. Please enter a valid video or playlist URL."
-        );
+        // Check for specific YouTube bot protection error
+        const errorDetail = error.response?.data?.detail || "";
+        
+        if (errorDetail.includes("bot protection") || errorDetail.includes("Sign in to confirm")) {
+          setError(
+            "YouTube bot protection triggered. Please use a direct video URL instead of a playlist."
+          );
+        } else if (errorDetail.includes("playlist")) {
+          setError(
+            "Could not process the YouTube playlist. Please try using individual video URLs instead."
+          );
+        } else {
+          setError(
+            "Invalid YouTube URL. Please enter a valid YouTube video or playlist URL."
+          );
+        }
       } else if (error.response?.status === 404) {
         setError("No videos found in the provided link.");
       } else {
@@ -161,8 +174,13 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       const data = await authApi.scrapeYoutubeVideos(selectedVideos, selectedBot?.id);
       console.log("YouTube scraping result:", data);
 
-      if (data.message === "YouTube scraping completed") {
-        toast.success("YouTube videos processed successfully!");
+      // Check if the message indicates processing has started (accept any message that indicates success)
+      if (data && data.message && (
+          data.message.includes("processing started") || 
+          data.message.includes("Video processing") ||
+          data.message.includes("YouTube content")
+        )) {
+        toast.success("Your YouTube videos are being processed. We'll notify you when they're ready.");
         setScrapeSuccess(true);
         setRefreshKeyState(prev => prev + 1); // Trigger a refresh
         setSelectedVideos([]);
@@ -175,11 +193,12 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
           });
         }
       } else {
+        console.error("Unexpected API response:", data);
         toast.error("Failed to process YouTube videos. Please try again.");
       }
     } catch (error) {
       console.error("Error processing YouTube videos:", error);
-      toast.error("An error occurred while processing videos. Please try again.");
+      toast.error("We couldn't process your YouTube videos. Please try again.");
     } finally {
       setGlobalLoading(false);
     }
@@ -231,7 +250,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       <div className="flex gap-2">
         <input
           type="text"
-          placeholder="Enter YouTube video or playlist URL"
+          placeholder="Enter YouTube video URL or playlist URL"
           value={youtubeUrl}
           className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
           onChange={(e) => setYoutubeUrl(e.target.value)}

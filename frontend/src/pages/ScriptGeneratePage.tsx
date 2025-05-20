@@ -29,6 +29,16 @@ export const ScriptGeneratePage = () => {
     windowBgColor: "#F9FAFB",
     welcomeMessage: "Hi there! How can I help you today?",
     inputBgColor: "#FFFFFF",
+    headerBgColor: "#3B82F6",
+    headerTextColor: "#FFFFFF",
+    chatTextColor: "#1F2937",
+    userTextColor: "#FFFFFF",
+    buttonColor: "#3B82F6",
+    buttonTextColor: "#FFFFFF",
+    timestampColor: "#9CA3AF",
+    borderRadius: "12px",
+    borderColor: "#E5E7EB",
+    chatFontFamily: "Inter",
   });
   const navigate = useNavigate();
 
@@ -75,6 +85,18 @@ export const ScriptGeneratePage = () => {
             welcomeMessage:
               response.welcome_message || "Hi there! How can I help you today?",
             inputBgColor: response.input_bg_color || "#FFFFFF",
+
+                    // ✅ Add these new fields
+            headerBgColor: response.header_bg_color || "#3B82F6",
+            headerTextColor: response.header_text_color || "#FFFFFF",
+            chatTextColor: response.chat_text_color || "#1F2937",
+            userTextColor: response.user_text_color || "#FFFFFF",
+            buttonColor: response.button_color || "#3B82F6",
+            buttonTextColor: response.button_text_color || "#FFFFFF",
+            timestampColor: response.timestamp_color || "#9CA3AF",
+            borderRadius: response.border_radius || "12px",
+            borderColor: response.border_color || "#E5E7EB",
+            chatFontFamily: response.chat_font_family || "Inter",
           });
         }
       } catch (error) {
@@ -138,7 +160,7 @@ export const ScriptGeneratePage = () => {
 
   return (
     <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">Copy Script</h2>
+      <h2 className="text-xl font-bold mb-4 text-white">Copy Script</h2>
       <textarea
         value={scriptContent}
         readOnly

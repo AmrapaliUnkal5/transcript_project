@@ -743,13 +743,13 @@ def format_subscription_data_for_hosted_page(
             "plan_code": plan_code,
             "quantity": 1  # Required by Zoho Billing
         },
-        "redirect_url": f"{frontend_url}/dashboard",  # Redirect to dashboard after successful payment
+        "redirect_url": f"{frontend_url}/",  # Redirect to dashboard after successful payment
         "cancel_url": f"{frontend_url}/subscription"  # Redirect back to subscription page if cancelled
     }
     
-    # Only add these fields if they have values
-    if user_data.get("phone_no"):
-        subscription_data["customer"]["phone"] = user_data.get("phone_no")
+    # Add phone number/mobile - using mobile instead of phone for Zoho
+    # Use default number if not present
+    subscription_data["customer"]["mobile"] = user_data.get("phone_no") or "9081726354"
     
     if user_data.get("company_name"):
         subscription_data["customer"]["company_name"] = user_data.get("company_name")

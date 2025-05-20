@@ -5,6 +5,11 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { authApi } from "../services/api";
 import { IssueRequestData, FileUploadInterface } from "../types";
+import { useEffect } from "react";
+
+
+
+
 
 export const ReportIssue = () => {
   const [formData, setFormData] = useState<IssueRequestData>({
@@ -142,11 +147,15 @@ export const ReportIssue = () => {
   };
 
   const handleGoBack = () => {
+  if (window.history.length > 1) {
     navigate(-1);
-  };
+  } else {
+    navigate("/"); // fallback route
+  }
+};
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white py-12 px-4 sm:px-6 lg:px-8">
       <ToastContainer position="top-right" autoClose={5000} />
       {isSubmitted ? (
         <div className="text-center">
@@ -156,8 +165,8 @@ export const ReportIssue = () => {
           </p>
         </div>
       ) : (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 p-6">
-          <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
+        <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white py-12 px-4 sm:px-6 lg:px-8">
+          <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
             <button
               onClick={handleGoBack}
               className="flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 mb-4"
@@ -166,13 +175,13 @@ export const ReportIssue = () => {
               <span className="text-sm font-medium">Back</span>
             </button>
 
-            <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-6">
+            <h2 className="block text-sm font-medium text-gray-300 mb-2">
               Report an Issue
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="issueType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="issueType" className="block text-sm font-medium text-gray-300 mb-2">
                   Issue Type *
                 </label>
                 <select
@@ -181,7 +190,7 @@ export const ReportIssue = () => {
                   value={formData.issueType}
                   onChange={handleChange}
                   required
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="w-full p-3 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-700 text-white"
                 >
                   {ISSUE_TYPES.map((type) => (
                     <option key={type.value} value={type.value}>
@@ -192,7 +201,7 @@ export const ReportIssue = () => {
               </div>
 
               <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">
                   Describe the issue *
                 </label>
                 <textarea
@@ -203,7 +212,7 @@ export const ReportIssue = () => {
                   onChange={handleChange}
                   required
                   maxLength={MAX_DESCRIPTION_LENGTH}
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="w-full p-3 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-700 text-white"
                   rows={4}
                 />
                 <div className="text-right text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -212,7 +221,7 @@ export const ReportIssue = () => {
               </div>
 
               <div>
-                <label htmlFor="file" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="file" className="block text-sm font-medium text-gray-300 mb-2">
                   Attach files or screenshots (Max Size 2MB)
                 </label>
                 <div className="flex items-center gap-2">

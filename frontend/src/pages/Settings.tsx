@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { User, Globe, Bell, Shield, Key, Users } from "lucide-react";
+import { User, Globe, Bell, Shield, Key, Users, AlertTriangle } from "lucide-react";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
-import { authApi, UserUpdate } from "../services/api";
+import { authApi, UserUpdate, subscriptionApi } from "../services/api";
 import TeamManagement from "../components/TeamManagement";
 import { ToastContainer, toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
 import { Eye, EyeOff } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export const Settings = () => {
   // Retrieve user data from localStorage
@@ -33,7 +34,11 @@ export const Settings = () => {
   const [passwordErrors, setPasswordErrors] = useState<{
     [key: string]: string;
   }>({});
-  const { updateUser } = useAuth();
+  const { updateUser, refreshUserData } = useAuth();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [settings, setSettings] = useState({
     name: "",
@@ -270,19 +275,15 @@ export const Settings = () => {
           communication_email: settings.communication_email,
           phone_no: settings.phone_no,
         };
-        //console.log("userUpdateData", userUpdateData);
         await authApi.updateUserDetails(userUpdateData); // Update user details
-        // Update the user in context and localStorage
-        updateUser({
-          name: settings.name,
-          company_name: settings.company_name,
-          phone_no: settings.phone_no,
-        });
-        toast.success("Changes saved successfully!"); // Success toast
-        //alert("Changes saved successfully");
+        
+        // Refresh user data from backend to get the latest information
+        await refreshUserData();
+        
+        toast.success("Your profile information has been updated successfully!"); // Success toast
       } catch (error) {
         console.error("Error saving changes:", error);
-        toast.error("Failed to save changes. Please try again."); // Error toast
+        toast.error("We couldn't save your changes. Please try again."); // Error toast
       } finally {
         setSaving(false);
         setLoading(false);
@@ -348,6 +349,29 @@ export const Settings = () => {
         setChangingPassword(false);
         setLoading(false);
       }
+    }
+  };
+
+  // Handle account deletion
+  const handleDeleteAccount = async () => {
+    if (!showDeleteModal) {
+      setShowDeleteModal(true);
+      return;
+    }
+    
+    try {
+      setDeleteLoading(true);
+      await authApi.deleteAccount();
+      // Clear auth data and redirect to login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login?deleted=true';
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast.error("Failed to delete account. Please try again.");
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -466,7 +490,7 @@ export const Settings = () => {
                 name="name"
                 value={settings.name}
                 onChange={handleInputChange}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 border ${errors.name ? "border-red-500" : "border-gray-300"} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
               />
             </div>
 
@@ -479,61 +503,10 @@ export const Settings = () => {
                 name="email"
                 value={settings.email}
                 disabled
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 border ${errors.email ? "border-red-500" : "border-gray-300"} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
               />
             </div>
             {/* Phone Number */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Phone Number
-              </label>
-              <input
-                type="text"
-                name="phone_no"
-                pattern="[0-9]*"
-                inputMode="numeric"
-                onChange={handleInputChange}
-                value={settings.phone_no || ""}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            {/* Company Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Company Name
-              </label>
-              <input
-                type="text"
-                id="company_name"
-                name="company_name"
-                value={settings.company_name}
-                onChange={handleInputChange}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="communication_email"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                Communication Email
-              </label>
-              <input
-                type="email"
-                id="communication_email"
-                name="communication_email"
-                value={settings.communication_email}
-                onChange={handleInputChange}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-              />
-              {errors.communication_email && (
-                <p className="text-red-500 text-sm mt-1">
-                  {errors.communication_email}
-                </p>
-              )}
-            </div>
-
             <div>
               <label
                 htmlFor="phone_no"
@@ -553,6 +526,42 @@ export const Settings = () => {
               />
               {errors.phone_no && (
                 <p className="text-red-500 text-sm mt-1">{errors.phone_no}</p>
+              )}
+            </div>
+            {/* Company Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Company Name
+              </label>
+              <input
+                type="text"
+                id="company_name"
+                name="company_name"
+                value={settings.company_name}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border ${errors.company_name ? "border-red-500" : "border-gray-300"} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="communication_email"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Communication Email
+              </label>
+              <input
+                type="email"
+                id="communication_email"
+                name="communication_email"
+                value={settings.communication_email}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border ${errors.communication_email ? "border-red-500" : "border-gray-300"} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+              />
+              {errors.communication_email && (
+                <p className="text-red-500 text-sm mt-1">
+                  {errors.communication_email}
+                </p>
               )}
             </div>
 
@@ -808,6 +817,27 @@ export const Settings = () => {
             </div>
           </div>
         </div>
+
+        {/* Delete Account Section */}
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mt-6">
+          <div className="flex items-center mb-4">
+            <AlertTriangle className="w-5 h-5 mr-2 text-red-500" />
+            <h2 className="text-lg font-semibold text-white">Delete Account</h2>
+          </div>
+          <div className="space-y-4">
+            <p className="text-gray-400">
+              Deleting your account will permanently remove all your data from our system. This includes your profile information, subscriptions, bots, files, chat messages, and all other associated data. This action cannot be undone.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={handleDeleteAccount}
+                className="px-4 py-2 rounded-md bg-red-500 hover:bg-red-600 text-white"
+              >
+                Delete Account
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -819,6 +849,47 @@ export const Settings = () => {
         Account Settings
       </h1>
       <ToastContainer position="top-right" autoClose={3000} />
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md mx-auto">
+            <h3 className="text-xl font-bold text-red-500 mb-4">Confirm Account Deletion</h3>
+            <p className="text-gray-700 dark:text-gray-300 mb-6">
+              This will permanently delete your account and all associated data:
+              <ul className="list-disc pl-6 mt-2">
+                <li>User information and subscription</li>
+                <li>All chatbots and their settings</li>
+                <li>YouTube transcripts and scraped web content</li>
+                <li>Uploaded files and documents</li>
+                <li>Chat messages and conversation history</li>
+                <li>Team members and collaborations</li>
+                <li>Analytics, word clouds, and other data</li>
+              </ul>
+              <strong className="block mt-4 text-red-500">This action cannot be undone.</strong>
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 rounded-md bg-gray-300 hover:bg-gray-400 text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteLoading}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  deleteLoading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-red-500 hover:bg-red-600 text-white"
+                }`}
+              >
+                {deleteLoading ? "Deleting..." : "Yes, Delete My Account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {renderTabMenu()}
       {renderTabContent()}

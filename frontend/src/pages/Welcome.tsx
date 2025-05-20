@@ -29,7 +29,7 @@ const SubscriptionExpiredOverlay = () => {
     const state = {
       currentPlanId: user?.subscription_plan_id?.toString() || '',
       fromExpired: 'true',
-      isExpired: (user?.subscription_status === 'expired' || user?.subscription_status === 'canceled').toString(),
+      isExpired: (user?.subscription_status === 'expired' || user?.subscription_status === 'cancelled').toString(),
       returnTo: location.pathname
     };
 
@@ -43,7 +43,7 @@ const SubscriptionExpiredOverlay = () => {
     window.open(`/subscription?${params.toString()}`, '_blank');
   };
 
-  const isCanceled = user?.subscription_status === 'canceled';
+  const isCancelled = user?.subscription_status === 'cancelled';
 
   return (
     <>
@@ -52,18 +52,18 @@ const SubscriptionExpiredOverlay = () => {
           <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl max-w-md text-center">
             <Lock className="w-12 h-12 mx-auto text-red-500 mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              {isCanceled ? 'Subscription Canceled' : 'Subscription Expired'}
+              {isCancelled ? 'Subscription Cancelled' : 'Subscription Expired'}
             </h2>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              {isCanceled 
-                ? 'Your subscription has been canceled. Please subscribe again to continue using our services.' 
+              {isCancelled 
+                ? 'Your subscription has been cancelled. Please subscribe again to continue using our services.' 
                 : 'Your subscription has expired. Please renew to continue using our services.'}
             </p>
             <button
               onClick={handleRenewClick}
               className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              {isCanceled ? 'Subscribe Now' : 'Renew Subscription'}
+              {isCancelled ? 'Subscribe Now' : 'Renew Subscription'}
             </button>
           </div>
         </div>
@@ -156,9 +156,9 @@ const effectiveMessageLimit = (userPlan?.message_limit || 0) +
   // Helper function to determine if user should see the expired subscription popup
   const shouldShowExpiredOverlay = () => {
     // Only show the overlay if:
-    // 1. User has an expired or canceled subscription status AND
+    // 1. User has an expired or cancelled subscription status AND
     // 2. User has a subscription_plan_id (indicating they previously had a subscription)
-    return (user?.subscription_status === 'expired' || user?.subscription_status === 'canceled') 
+    return (user?.subscription_status === 'expired' || user?.subscription_status === 'cancelled') 
            && user?.subscription_plan_id !== undefined;
   };
 

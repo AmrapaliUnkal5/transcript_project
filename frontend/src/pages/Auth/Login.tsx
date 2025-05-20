@@ -60,11 +60,17 @@ export const Login = () => {
   const [userAnswer, setUserAnswer] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const facebookAppId =
-    import.meta.env.VITE_FACEBOOK_APP_ID || "1311708846552842";
+    import.meta.env.VITE_FACEBOOK_APP_ID || "1750392469193619";
 
   useEffect(() => {
     fetchCaptcha();
-  }, []);
+    
+    // Check for account deletion success in query params
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('deleted') === 'true') {
+      setSuccessMessage('Your account has been successfully deleted.');
+    }
+  }, [location.search]);
 
   //facebook - start
   useEffect(() => {
@@ -687,8 +693,7 @@ export const Login = () => {
                       <div className="text-center">
                         <Link
                           to="/signup"
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          rel="noopener noreferrer" 
                           className="font-medium text-blue-600 hover:text-blue-500"
                         >
                           Don't have an account? Sign up

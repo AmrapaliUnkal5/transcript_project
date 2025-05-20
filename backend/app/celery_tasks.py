@@ -26,7 +26,7 @@ The tasks are designed to support immediate user feedback by:
 from app.celery_app import celery_app
 from app.youtube import store_videos_in_chroma, send_failure_notification
 from app.database import get_db
-from app.models import YouTubeVideo, User, Bot, File
+from app.models import YouTubeVideo, User, Bot, File, SubscriptionPlan, UserSubscription, EmbeddingModel
 from sqlalchemy.orm import Session
 import logging
 from app.utils.file_size_validations_utils import process_file_for_knowledge, prepare_file_metadata, insert_file_metadata
@@ -37,6 +37,9 @@ from app.vector_db import add_document, delete_document_from_chroma, delete_vide
 import os
 import hashlib
 import uuid
+import asyncio
+from app.utils.reembedding_utils import reembed_all_bot_data
+import time
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -776,4 +779,168 @@ def process_web_scraping(self, bot_id: int, url_list: list):
             "status": "failed",
             "bot_id": bot_id,
             "error": str(e)
+        } 
+
+@celery_app.task(bind=True, name='reembed_bots_for_subscription_plan', max_retries=3)
+def reembed_bots_for_subscription_plan(self, subscription_plan_id: int, old_embedding_model_id: int, new_embedding_model_id: int):
+    """
+    Celery task to reembed data for all bots affected by a subscription plan embedding model change.
+    
+    This task identifies all bots that:
+    1. Don't have a specific embedding model assigned
+    2. Are owned by users with active subscriptions to the modified plan
+    
+    Args:
+        subscription_plan_id: The ID of the subscription plan that was modified
+        old_embedding_model_id: The previous embedding model ID
+        new_embedding_model_id: The new embedding model ID
+    """
+    try:
+        logger.info(f"🔄 Starting Celery task to reembed bots for subscription plan {subscription_plan_id}")
+        logger.info(f"🔄 Embedding model change: {old_embedding_model_id} -> {new_embedding_model_id}")
+        
+        # Get database session
+        db = next(get_db())
+        
+        # Check if the embedding model IDs are actually different
+        if old_embedding_model_id == new_embedding_model_id:
+            logger.info(f"⏩ Embedding model unchanged. Skipping reembedding.")
+            return {
+                "status": "skipped",
+                "reason": "embedding_model_unchanged",
+                "subscription_plan_id": subscription_plan_id
+            }
+        
+        # Get details of the embedding models
+        old_model = db.query(EmbeddingModel).filter(EmbeddingModel.id == old_embedding_model_id).first()
+        new_model = db.query(EmbeddingModel).filter(EmbeddingModel.id == new_embedding_model_id).first()
+        
+        if not new_model:
+            logger.error(f"❌ New embedding model with ID {new_embedding_model_id} not found")
+            return {
+                "status": "error",
+                "reason": "new_embedding_model_not_found",
+                "subscription_plan_id": subscription_plan_id
+            }
+        
+        logger.info(f"📋 Old embedding model: {old_model.name if old_model else 'None'}")
+        logger.info(f"📋 New embedding model: {new_model.name}")
+        
+        # Get the subscription plan
+        subscription_plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == subscription_plan_id).first()
+        if not subscription_plan:
+            logger.error(f"❌ Subscription plan with ID {subscription_plan_id} not found")
+            return {
+                "status": "error",
+                "reason": "subscription_plan_not_found",
+                "subscription_plan_id": subscription_plan_id
+            }
+        
+        logger.info(f"📋 Subscription plan: {subscription_plan.name}")
+        
+        # Find all active subscriptions to this plan
+        active_subscriptions = db.query(UserSubscription).filter(
+            UserSubscription.subscription_plan_id == subscription_plan_id,
+            UserSubscription.status == "active"
+        ).all()
+        
+        if not active_subscriptions:
+            logger.info(f"⏩ No active subscriptions found for plan {subscription_plan_id}. Skipping reembedding.")
+            return {
+                "status": "completed",
+                "affected_bots": 0,
+                "processed_bots": 0,
+                "subscription_plan_id": subscription_plan_id
+            }
+        
+        logger.info(f"👥 Found {len(active_subscriptions)} active subscriptions to plan {subscription_plan_id}")
+        
+        # Extract user IDs with active subscriptions
+        user_ids = [sub.user_id for sub in active_subscriptions]
+        logger.info(f"👥 User IDs with active subscriptions: {user_ids}")
+        
+        # Find all bots that:
+        # 1. Belong to users with active subscriptions to this plan
+        # 2. Don't have their own specific embedding model (i.e., rely on the plan default)
+        affected_bots = db.query(Bot).filter(
+            Bot.user_id.in_(user_ids),
+            Bot.embedding_model_id.is_(None)
+        ).all()
+        
+        total_affected_bots = len(affected_bots)
+        logger.info(f"🤖 Found {total_affected_bots} bots affected by the embedding model change")
+        
+        if total_affected_bots == 0:
+            logger.info(f"⏩ No affected bots found. Skipping reembedding.")
+            return {
+                "status": "completed",
+                "affected_bots": 0,
+                "processed_bots": 0,
+                "subscription_plan_id": subscription_plan_id
+            }
+        
+        # Process each bot
+        successful_bots = 0
+        failed_bots = 0
+        bot_ids_processed = []
+        
+        for index, bot in enumerate(affected_bots):
+            bot_id = bot.bot_id
+            logger.info(f"🤖 Processing bot {index+1}/{total_affected_bots}: {bot.bot_name} (ID: {bot_id})")
+            
+            try:
+                # Create event loop for async functions
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                try:
+                    # Run the reembedding
+                    results = loop.run_until_complete(reembed_all_bot_data(bot_id, db))
+                    
+                    # Check results
+                    if results.get("error"):
+                        logger.error(f"❌ Error reembedding bot {bot_id}: {results.get('error')}")
+                        failed_bots += 1
+                    else:
+                        logger.info(f"✅ Successfully reembedded bot {bot_id}")
+                        logger.info(f"📊 Results: {results['success_count']} successes, {results['error_count']} errors")
+                        successful_bots += 1
+                        bot_ids_processed.append(bot_id)
+                finally:
+                    loop.close()
+                
+            except Exception as e:
+                logger.exception(f"❌ Error processing bot {bot_id}: {str(e)}")
+                failed_bots += 1
+            
+            # Add a small delay to prevent rate limiting issues with embedding APIs
+            time.sleep(0.5)
+        
+        logger.info(f"\n✅ Reembedding completed for subscription plan {subscription_plan_id}")
+        logger.info(f"📊 Summary:")
+        logger.info(f"   - Total affected bots: {total_affected_bots}")
+        logger.info(f"   - Successfully processed: {successful_bots}")
+        logger.info(f"   - Failed: {failed_bots}")
+        
+        return {
+            "status": "completed",
+            "affected_bots": total_affected_bots,
+            "processed_bots": successful_bots,
+            "failed_bots": failed_bots,
+            "bot_ids_processed": bot_ids_processed,
+            "subscription_plan_id": subscription_plan_id
+        }
+        
+    except Exception as e:
+        logger.exception(f"❌ Error in Celery task for reembedding subscription plan bots: {str(e)}")
+        
+        # Retry task if not max retries
+        if self.request.retries < self.max_retries:
+            logger.info(f"Retrying task... Attempt {self.request.retries + 1} of {self.max_retries}")
+            raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))  # Exponential backoff
+        
+        return {
+            "status": "error",
+            "error": str(e),
+            "subscription_plan_id": subscription_plan_id
         } 
