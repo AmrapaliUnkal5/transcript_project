@@ -8,17 +8,25 @@ from app.database import SessionLocal
 from app.models import LLMModel as LLMModelDB
 from app.config import settings
 from app.utils.model_selection import get_llm_model_for_bot
-from langdetect import detect
+from lingua import Language, LanguageDetectorBuilder
 from app.addon_service import AddonService
 
 # Function to detect language of text
 def detect_language(text):
     """
-    Detect the language of the given text using langdetect.
+    Detect the language of the given text using lingua-language-detector.
     Returns language code (e.g., 'en' for English, 'es' for Spanish, etc.)
     """
     try:
-        return detect(text)
+        # Create language detector with all languages (or you can specify certain languages)
+        detector = LanguageDetectorBuilder.from_all_languages().build()
+        # Detect language
+        detected_language = detector.detect_language_of(text)
+        # Convert lingua Language enum to ISO code string
+        if detected_language:
+            # Convert Language enum value to lowercase ISO code
+            return detected_language.iso_code_639_1.name.lower()
+        return 'en'  # Default to English if no confident detection
     except:
         # If detection fails, default to English
         return 'en'
