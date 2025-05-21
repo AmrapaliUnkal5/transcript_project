@@ -13,6 +13,7 @@ from app.notifications import add_notification
 from dotenv import load_dotenv
 import traceback
 from apify_client import ApifyClient
+from app.utils.upload_knowledge_utils import chunk_text
 
 # Load environment variables
 load_dotenv()
@@ -272,41 +273,24 @@ def send_failure_notification(db: Session, bot_id: int, video_url: str, reason: 
     )
 
 def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
-
     stored_videos = []
     failed_videos = []
-
     for video_url in video_urls:
-        transcript_result = get_video_transcript(video_url)
-        
-        # Updated to handle the new return value format
-        if isinstance(transcript_result, tuple) and len(transcript_result) == 2:
-            transcript, video_metadata = transcript_result
-        else:
-            transcript, video_metadata = transcript_result, None
-        
-        if not transcript:
-            reason = "Transcript retrieval failed"
-            print(f"⚠️ {reason} for {video_url}")
-            failed_videos.append({"video_url": video_url, "reason": reason})
-            send_failure_notification(db, bot_id, video_url, reason)
-            continue
-
         try:
-            # Generate ChromaDB ID
-            video_id = video_metadata.get("video_id") if video_metadata else hashlib.md5(video_url.encode()).hexdigest()
-            metadata = {
-                "id": video_id,
-                "source": "YouTube",
-                "video_url": video_url
-            }
+            # Get transcript and metadata
+            transcript, video_metadata = get_video_transcript(video_url)
+            
+            if not transcript:
+                reason = f"Could not fetch transcript for {video_url}"
+                print(reason)
+                failed_videos.append({"video_url": video_url, "reason": reason})
+                send_failure_notification(db, bot_id, video_url, reason)
+                continue
+                
+            print(f"🎥 Processing transcript with {len(transcript.split())} words from {video_url}")
 
-            # Attempt storing in ChromaDB
-            add_document(bot_id, text=transcript, metadata=metadata)
-
-            # Check for duplicates using the video ID from metadata or extracted from URL
+            # If we don't have metadata from Apify, extract video ID from URL
             if not video_metadata:
-                # If we don't have metadata from Apify, extract video ID from URL
                 if "youtu.be/" in video_url:
                     extracted_video_id = video_url.split("youtu.be/")[-1].split("?")[0]
                 elif "v=" in video_url:
@@ -342,6 +326,27 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
                     "video_title": existing_video.video_title,
                     "transcript_count": existing_video.transcript_count
                 })
+                
+                # Split transcript into chunks before storing in ChromaDB
+                transcript_chunks = chunk_text(transcript)
+                print(f"📄 Split transcript into {len(transcript_chunks)} chunks")
+                
+                # Store each chunk with proper metadata
+                for i, chunk in enumerate(transcript_chunks):
+                    chunk_metadata = {
+                        "id": f"youtube-{existing_video.id}-chunk-{i+1}",
+                        "source": "youtube",
+                        "source_id": existing_video.video_id,
+                        "title": existing_video.video_title,
+                        "url": existing_video.video_url,
+                        "channel_name": existing_video.channel_name,
+                        "chunk_number": i + 1,
+                        "total_chunks": len(transcript_chunks),
+                        "bot_id": bot_id
+                    }
+                    # Store the chunk in ChromaDB
+                    add_document(bot_id, text=chunk, metadata=chunk_metadata)
+                
                 continue
 
             # Enforce word limit
@@ -354,9 +359,9 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
                 send_failure_notification(db, bot_id, video_url, reason)
                 continue
 
-            # Prepare video data for database using metadata from Apify if available
+            # Process metadata and create video record
             if video_metadata:
-                # Use metadata from Apify
+                # Process metadata and create video_data as before
                 print(f"✅ Using metadata from Apify for video: {video_metadata.get('video_title')}")
                 
                 # Parse upload date if available
@@ -454,6 +459,26 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
             event_type = "YOUTUBE_VIDEO_PROCESSED"
             event_data = f"YouTube video '{video_data['video_title']}' processed successfully. {word_count_transcript} words extracted."
             send_success_notification(db, bot_id, event_type, event_data, video_data["video_title"])
+
+            # After saving the video record, chunk and store the transcript
+            transcript_chunks = chunk_text(transcript)
+            print(f"📄 Split transcript into {len(transcript_chunks)} chunks")
+            
+            # Store each chunk with proper metadata
+            for i, chunk in enumerate(transcript_chunks):
+                chunk_metadata = {
+                    "id": f"youtube-{new_video.id}-chunk-{i+1}",
+                    "source": "youtube",
+                    "source_id": new_video.video_id,
+                    "title": new_video.video_title,
+                    "url": new_video.video_url,
+                    "channel_name": new_video.channel_name,
+                    "chunk_number": i + 1,
+                    "total_chunks": len(transcript_chunks),
+                    "bot_id": bot_id
+                }
+                # Store the chunk in ChromaDB
+                add_document(bot_id, text=chunk, metadata=chunk_metadata)
 
         except Exception as e:
             traceback_str = traceback.format_exc()
