@@ -1,10 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { Divider,Typography } from '@mui/material';
+import { Header } from '../../components/Layout/Header';
 
 export const TermsOfService = () => {
   return (
+    
+    
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      
       <div className="max-w-3xl mx-auto">
         <div className="mb-8">
           {/* <Link
@@ -92,6 +97,15 @@ export const TermsOfService = () => {
               </p>
             </section>
           </div>
+          <Divider sx={{ my: 4 }} />
+
+<Typography
+  variant="body2"
+  color="text.secondary"
+  align="center"
+>
+  © {new Date().getFullYear()} All rights reserved. BytePX Technologies Pvt. Ltd.
+</Typography>
         </div>
       </div>
     </div>

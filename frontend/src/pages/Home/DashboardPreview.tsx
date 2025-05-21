@@ -12,7 +12,7 @@ export default function DashboardPreview() {
       }}
     >
       <StyledImage
-        src="/images/ndashboard-view.png"
+        src="/images/home/dashboard-view.png"
         sx={{ margin: "auto", maxWidth: 1140, width:"100%" }}
       />
     </Box>

@@ -69,7 +69,10 @@ export default function MoreFaq() {
         <Container maxWidth='lg'>
           <Box
             px={[1, 10]}
-            py={[2, 10]}
+            // py={[2, 13]}
+            pt={[4,13]}
+            pb={[2,10]}
+           
             sx={{
               backgroundImage: 'url(/images/title-bg.png)',
               backgroundSize: 'contain',
@@ -92,7 +95,7 @@ export default function MoreFaq() {
             </Typography>
           </Box>
 
-          <Box mx={'auto'} maxWidth={550}>
+          <Box mx={'auto'} maxWidth={769}>
             <Accordion
               expanded={expanded === 'panel1'}
               onChange={handleChange('panel1')}
@@ -512,7 +515,7 @@ export default function MoreFaq() {
 
           </Box>
           <Box display={'flex'} justifyContent={'center'} my={5}>
-            <Button
+            {/* <Button
               variant='outlined'
               size='large'
               sx={{
@@ -527,7 +530,7 @@ export default function MoreFaq() {
               }}
             >
               More FAQs
-            </Button>
+            </Button> */}
           </Box>
         </Container>
       </Box>

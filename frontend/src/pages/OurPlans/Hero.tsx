@@ -23,8 +23,12 @@ export default function Hero() {
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
+            minHeight: {
+      xs: 'auto',  // for extra-small screens (phones), no minHeight
+      md: '80vh',  // from medium screens and up, minHeight is 80vh
+    },
           }}
-          minHeight={"80vh"}
+          
         >
           <Box
             display={"flex"}
@@ -37,7 +41,7 @@ export default function Hero() {
             px={2}
           >
             <>
-              {/* For Desktop */}
+            
               <Typography
                 variant="h2"
                 fontWeight={600}
@@ -46,14 +50,14 @@ export default function Hero() {
                 lineHeight={1.5}
                 sx={{
                   mt: "53px",
-                  // Only show on medium and above
+                 
                   background: "-webkit-linear-gradient(#FFF, #959595)",
                   backgroundClip: "text",
                   textFillColor: "transparent",
                 }}
                 textAlign="center"
               >
-              The right plan for every organization
+             The Right Plan For Every Organization
               </Typography>
 
               
@@ -67,7 +71,7 @@ export default function Hero() {
               justifyContent={"center"}
               alignItems={"center"}
               gap={[0.5, 2]}
-              sx={{ mt: '24px' }}
+              sx={{ mt: ['22px','27px'] }}
 
            
             >

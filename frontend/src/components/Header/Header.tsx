@@ -14,6 +14,8 @@ import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import { styled } from "@mui/material";
+import { useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 interface Props {
   /**
@@ -26,12 +28,11 @@ interface Props {
 const drawerWidth = 240;
 //const navItems = ["Home", "Our Plans", "Our Services", "Contact Us"];
 const navItems = [
-    { label: 'Home', id: 1, url: '/home' },
-    { label: 'Our Plans', id: 2, url: '/our-plans'},
-    { label: 'Our Services', id: 3, url: '/home' },
-    { label: 'Contact Us', id: 4, url: '/home'},
+  { label: "Home", id: 1, url: "/home" },
+  { label: "Our Plans", id: 2, url: "/our-plans" },
+  { label: "Our Services", id: 3, url: "/home" },
+  { label: "Contact Us", id: 4, url: "/contact-us" },
 ];
-
 
 export default function HomeHeader(props: Props) {
   const { window } = props;
@@ -49,8 +50,27 @@ export default function HomeHeader(props: Props) {
           sx={{ display: "block", ml: 2, mb: 2, maxWidth: 180 }}
         />
       </Box>
+
       <Divider />
+
+
+
       <List>
+  {navItems.map((item) => (
+    <ListItem key={item.id} disablePadding>
+      <ListItemButton
+        component={Link}
+        to={item.url}
+        onClick={handleDrawerToggle} // Closes drawer after click
+        sx={{ textAlign: "left" }}
+      >
+        <ListItemText primary={item.label} />
+      </ListItemButton>
+    </ListItem>
+  ))}
+</List>
+
+      {/* <List>
         {navItems.map((item) => (
           <ListItem key={item.id} disablePadding>
             <ListItemButton sx={{ textAlign: "left" }}>
@@ -58,9 +78,11 @@ export default function HomeHeader(props: Props) {
             </ListItemButton>
           </ListItem>
         ))}
-      </List>
+      </List> */}
     </Box>
   );
+
+  const location = useLocation();
 
   const container =
     window !== undefined ? () => window().document.body : undefined;
@@ -73,17 +95,19 @@ export default function HomeHeader(props: Props) {
         sx={{ backgroundColor: "#101035", color: "#fff" }}
       >
         <Toolbar>
-          <StyledImage
-            src="/images/logo.png"
-            sx={{
-              display: { xs: "block", sm: "none" },
-              width: "134px",
-    height: "21px",
-    m: '22px 0 22px 0px'
-             
-            }}
-          />
+          <Link to="/home">
+            <StyledImage
+              src="/images/logo.png"
+              sx={{
+                display: { xs: "block", sm: "none" },
+                width: "134px",
+                height: "21px",
+                m: "22px 0 22px 0px",
+              }}
+            />
+          </Link>
 
+        
           <Box
             display={"flex"}
             justifyContent={"space-between"}
@@ -91,18 +115,22 @@ export default function HomeHeader(props: Props) {
             width={"100%"}
           >
             <Box>
-              <StyledImage
-                src="/images/logo.png"
-                sx={{
-                  margin: "auto",
-                  maxWidth: [150, 212],
-                  display: { xs: "none", sm: "block" },
-                }}
-              />
+              <Link to="/home">
+                <StyledImage
+                  src="/images/logo.png"
+                  sx={{
+                    margin: "auto",
+                    maxWidth: [150, 212],
+                    display: { xs: "none", sm: "block" },
+                  }}
+                />
+              </Link>
+
+             
             </Box>
             <Box display={"flex"} gap={[1, 3]}>
               <Box sx={{ display: { xs: "none", sm: "flex" } }} gap={[1, 2]}>
-                {navItems.map((item) => (
+                {/* {navItems.map((item) => (
                   <Button
                     key={item.id}
                     sx={{
@@ -114,7 +142,25 @@ export default function HomeHeader(props: Props) {
                   >
                     {item.label}
                   </Button>
-                ))}
+                ))} */}
+
+                {navItems.map((item) => {
+                  const isActive = location.pathname === item.url;
+
+                  return (
+                    <Button
+                      key={item.id}
+                      sx={{
+                        color: isActive ? "#BAC2FF" : "#CDCDCD", // Only change color
+                        fontSize: "16px",
+                        textTransform: "capitalize",
+                      }}
+                      href={item.url}
+                    >
+                      {item.label}
+                    </Button>
+                  );
+                })}
               </Box>
               <Box display={"flex"} gap={[1, 3]}>
                 <Button

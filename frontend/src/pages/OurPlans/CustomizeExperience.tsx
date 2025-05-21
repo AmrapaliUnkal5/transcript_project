@@ -31,14 +31,15 @@ export default function CustomizeExperience() {
             color={"#fff"}
           >
             <>
-              {/* For Desktop */}
+             
               <Typography
                 variant="h2"
                 fontWeight={600}
                 fontSize={["30px", "48px", "54px"]}
                 maxWidth={["286px", "930px"]}
                 lineHeight={["44px", "75px", "75px"]}
-                mt={"148px"}
+                mt={["74px","148px"]}
+               
                 sx={{
                   background:
                     "linear-gradient(90deg, #FFFFFF 0%, #959595 100%)",
@@ -58,6 +59,7 @@ export default function CustomizeExperience() {
               justifyContent={"center"}
               alignItems={"center"}
               sx={{ mt: ["27px", "47px"] }}
+              
             >
               <Typography
                 variant="body1"
