@@ -42,6 +42,7 @@ pdfplumber
 yt-dlp
 youtube-transcript-api
 langchain_community
+langchain_text_splitters>=0.0.3
 aiofiles
 apify-client>=1.4.0
 

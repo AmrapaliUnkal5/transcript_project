@@ -1,7 +1,7 @@
 from fastapi import HTTPException, UploadFile
 from app.vector_db import retrieve_similar_docs, add_document
 import pdfplumber 
-from typing import Union
+from typing import Union, List, Dict
 import io
 import asyncio
 import os
@@ -13,6 +13,8 @@ import zipfile
 from docx import Document
 import logging
 from app.utils.logger import get_module_logger
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+import tiktoken
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -195,6 +197,41 @@ async def extract_text_from_file(file, filename=None) -> Union[str, None]:
         logger.error(f"❌ Error extracting text from file {filename if filename else 'unknown'}: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Error extracting text: {str(e)}")
 
+def chunk_text(text: str, chunk_size: int = 3000, chunk_overlap: int = 200) -> List[str]:
+    """
+    Chunks text into smaller pieces suitable for embeddings.
+    
+    Args:
+        text: The text to chunk
+        chunk_size: Target size of each chunk in tokens
+        chunk_overlap: Overlap between chunks in tokens
+        
+    Returns:
+        List of text chunks
+    """
+    logger.info(f"🔪 Chunking text of length {len(text)} with chunk_size={chunk_size}, overlap={chunk_overlap}")
+    
+    try:
+        # Initialize the text splitter
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            length_function=lambda text: len(tiktoken.get_encoding("cl100k_base").encode(text)),
+            separators=["\n\n", "\n", ". ", " ", ""]
+        )
+        
+        # Split the text into chunks
+        chunks = text_splitter.split_text(text)
+        
+        logger.info(f"✅ Successfully split text into {len(chunks)} chunks")
+        return chunks
+    
+    except Exception as e:
+        logger.warning(f"⚠️ Error chunking text: {e}")
+        # If chunking fails, return the text as a single chunk
+        logger.info("⚠️ Returning original text as single chunk")
+        return [text]
+
 def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file, user_id: int = None) -> None:
     """
     Validates extracted text and stores it in ChromaDB.
@@ -210,12 +247,22 @@ def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file, user_id: i
         raise HTTPException(status_code=400, detail="No extractable text found in the file.")
 
     # Create a more complete metadata object
-    metadata = {
-        "id": getattr(file, 'filename', 'unknown'),
-        "file_type": getattr(file, 'content_type', os.path.splitext(file.filename)[1] if hasattr(file, 'filename') else 'unknown'),
-        "file_name": getattr(file, 'filename', 'unknown')
-    }
+    file_name = getattr(file, 'filename', 'unknown')
+    file_type = getattr(file, 'content_type', os.path.splitext(file_name)[1] if hasattr(file, 'filename') else 'unknown')
     
-    # Store extracted text in ChromaDB
-    logger.info(f"💾 Storing document in ChromaDB for bot {bot_id}: {metadata['id']}")
-    add_document(bot_id, text, metadata, user_id=user_id)
+    # Split text into chunks for embedding
+    chunks = chunk_text(text)
+    
+    # Store each chunk with metadata
+    for i, chunk in enumerate(chunks):
+        chunk_metadata = {
+            "id": f"{file_name}_{i}" if len(chunks) > 1 else file_name,
+            "file_type": file_type,
+            "file_name": file_name,
+            "chunk_number": i + 1,
+            "total_chunks": len(chunks)
+        }
+        
+        # Store chunk in ChromaDB
+        logger.info(f"💾 Storing chunk {i+1}/{len(chunks)} in ChromaDB for bot {bot_id}: {chunk_metadata['id']}")
+        add_document(bot_id, chunk, chunk_metadata, user_id=user_id)

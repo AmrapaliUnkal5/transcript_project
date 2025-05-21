@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from app.vector_db import add_document
 from app.notifications import add_notification
 from app.utils.logger import get_module_logger
+from app.utils.upload_knowledge_utils import chunk_text
 
 # Function to detect if JavaScript is needed
 def is_js_heavy(url):
@@ -170,19 +171,31 @@ def scrape_selected_nodes(url_list, bot_id, db: Session):
                         bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
                         user_id = bot.user_id if bot else None
                         
-                        if user_id:
-                            logger.info(f"Adding document to vector DB with user_id", 
-                                      extra={"bot_id": bot_id, "url": url, 
-                                            "user_id": user_id})
-                            add_document(bot_id, text=result["text"], metadata=metadata, user_id=user_id)
-                        else:
-                            logger.warning(f"No user_id found for bot, adding document without user context", 
-                                        extra={"bot_id": bot_id, "url": url})
-                            add_document(bot_id, text=result["text"], metadata=metadata)
+                        # Split text into chunks for embedding
+                        text_chunks = chunk_text(result["text"])
+                        logger.info(f"Split text into {len(text_chunks)} chunks", 
+                                  extra={"bot_id": bot_id, "url": url})
                         
-                        logger.info(f"Successfully added document to vector DB", 
+                        # Store each chunk with proper metadata
+                        for i, chunk in enumerate(text_chunks):
+                            chunk_metadata = metadata.copy()
+                            # Add chunk-specific metadata
+                            chunk_metadata["id"] = f"{website_id}_{i}" if len(text_chunks) > 1 else website_id
+                            chunk_metadata["chunk_number"] = i + 1
+                            chunk_metadata["total_chunks"] = len(text_chunks)
+                            
+                            if user_id:
+                                logger.info(f"Adding chunk {i+1}/{len(text_chunks)} to vector DB", 
+                                          extra={"bot_id": bot_id, "url": url, "user_id": user_id})
+                                add_document(bot_id, text=chunk, metadata=chunk_metadata, user_id=user_id)
+                            else:
+                                logger.warning(f"No user_id found for bot, adding chunk without user context", 
+                                            extra={"bot_id": bot_id, "url": url})
+                                add_document(bot_id, text=chunk, metadata=chunk_metadata)
+                        
+                        logger.info(f"Successfully added document chunks to vector DB", 
                                   extra={"bot_id": bot_id, "url": url, 
-                                        "document_id": website_id})
+                                        "document_id": website_id, "chunk_count": len(text_chunks)})
                     except Exception as db_err:
                         logger.error(f"Failed to add document to vector DB", 
                                    extra={"bot_id": bot_id, "url": url, 
