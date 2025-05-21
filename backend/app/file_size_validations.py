@@ -267,7 +267,10 @@ async def delete_file(
     
     # Delete the document from ChromaDB
     try:
-        delete_document_from_chroma(bot.bot_id, str(file.file_id))
+        # Use the unique_file_name (the actual file identifier) instead of database ID
+        # This is the ID that was used when adding to ChromaDB
+        delete_document_from_chroma(bot.bot_id, file.unique_file_name)
+        print(f"Deleting document from ChromaDB with bot_id: {bot.bot_id}, file identifier: {file.unique_file_name}")
     except Exception as e:
         print(f"Error deleting from ChromaDB: {str(e)}")
         # Continue with deletion even if ChromaDB deletion fails
