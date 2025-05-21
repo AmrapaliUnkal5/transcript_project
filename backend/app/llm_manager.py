@@ -5,7 +5,7 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletion
 import requests
 from app.database import SessionLocal
-from app.models import LLMModel as LLMModelDB, BotLLMMapping, Bot
+from app.models import LLMModel as LLMModelDB, Bot
 from app.config import settings
 from app.utils.model_selection import get_llm_model_for_bot
 from lingua import Language, LanguageDetectorBuilder
