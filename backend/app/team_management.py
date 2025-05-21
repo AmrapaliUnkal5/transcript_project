@@ -97,13 +97,29 @@ async def invite_team_member(
     )
 
     # ✅ Check if user with email already exists
+    # existing_member = db.query(User).filter(User.email == invite_data.email).first()
+    # if existing_member:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail="This user already exists. Please provide another email address."
+    #     )
+
     existing_member = db.query(User).filter(User.email == invite_data.email).first()
+
     if existing_member:
-        raise HTTPException(
-            status_code=400,
-            detail="This user already exists. Please provide another email address."
-        )
-    
+        # Check if this user is linked to a team member entry for the current owner
+        existing_invite = db.query(TeamMember).filter(
+            TeamMember.owner_id == owner_id,
+            TeamMember.member_id == existing_member.user_id
+        ).first()
+
+        if existing_member.is_verified:
+            # Fully verified users should not be invited again
+            raise HTTPException(
+                status_code=400,
+                detail="This user is already a verified team member. Please provide another email address."
+            )
+        
     # Invite the team member
     invite_result, error_message = crud.invite_team_member(db, owner_id, team_member_create)
     
@@ -176,7 +192,9 @@ async def respond_to_invitation(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_message
         )
-    send_password_email(db,team_member.member_id)
+    
+    if response.lower() == "accepted":
+        send_password_email(db, team_member.member_id)
     
     return {
         "message": f"Invitation {response} successfully"

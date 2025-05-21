@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from app.database import get_db
 from app.utils.create_access_token import create_access_token
-from .models import Base, User, UserAuthProvider,SubscriptionPlan,UserSubscription, Bot, Interaction, ChatMessage, TeamMember, File, YouTubeVideo, ScrapedNode, InteractionReaction, WebsiteDB, UserAddon, Notification
+from .models import Base, User, UserAuthProvider,SubscriptionPlan,UserSubscription, Bot, Interaction, ChatMessage, TeamMember, File, YouTubeVideo, ScrapedNode, InteractionReaction, WebsiteDB, UserAddon, Notification, WordCloudData
 from app.schemas import UserOut,UserUpdate, ChangePasswordRequest
 from app.dependency import get_current_user
 from app.utils.verify_password import verify_password
@@ -253,6 +253,11 @@ def delete_user_account(db: Session = Depends(get_db), current_user: dict = Depe
             # Delete websites
             db.query(WebsiteDB).filter(
                 WebsiteDB.bot_id.in_(bot_ids)
+            ).delete(synchronize_session=False)
+
+            # Delete word cloud data for bots
+            db.query(WordCloudData).filter(
+                WordCloudData.bot_id.in_(bot_ids)
             ).delete(synchronize_session=False)
             
             # Delete bots
