@@ -478,32 +478,75 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                 
                 # If not a text file or direct extraction failed, use the standard extraction method
                 if file_content_text is None:
-                    # Import the existing text extraction function
-                    from app.utils.upload_knowledge_utils import extract_text_from_file
-                    import asyncio
+                    # Special handling for image files
+                    if original_filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                        logger.info(f"🔍 Image file detected: {original_filename}, using enhanced OCR")
+                        try:
+                            from app.utils.upload_knowledge_utils import extract_text_from_image
+                            
+                            # If we have the original file content
+                            if file_content:
+                                logger.info(f"Using file content for OCR ({len(file_content)} bytes)")
+                                file_content_text = extract_text_from_image(file_content)
+                            else:
+                                # Try to get from the archive
+                                _, ext = os.path.splitext(original_filename)
+                                archive_filename = f"{file_id}_original{ext}"
+                                
+                                # Get user_id for the bot to create path
+                                user_id = None
+                                bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+                                if bot:
+                                    user_id = bot.user_id
+                                
+                                if user_id:
+                                    # Build path to the archive file
+                                    account_dir = os.path.join("uploads", f"account_{user_id}")
+                                    bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
+                                    archive_dir = os.path.join(bot_dir, "archives")
+                                    archive_path = os.path.join(archive_dir, archive_filename)
+                                    
+                                    if os.path.exists(archive_path):
+                                        logger.info(f"Using archive file for OCR: {archive_path}")
+                                        with open(archive_path, 'rb') as f:
+                                            archive_content = f.read()
+                                        file_content_text = extract_text_from_image(archive_content)
+                            
+                            if file_content_text:
+                                logger.info(f"✅ OCR successful: extracted {len(file_content_text)} characters")
+                                text_preview = file_content_text[:100] + "..." if len(file_content_text) > 100 else file_content_text
+                                logger.info(f"Text preview: {text_preview}")
+                            else:
+                                logger.warning("⚠️ OCR extraction failed to produce any text")
+                        except Exception as ocr_err:
+                            logger.error(f"Error during OCR: {str(ocr_err)}")
                     
-                    # Use the same text extraction that's working in the rest of the system
-                    # We need to run the async function in a synchronous context
-                    logger.info(f"Starting text extraction for file: {original_filename}")
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    try:
-                        file_content_text = loop.run_until_complete(
-                            extract_text_from_file(file_content, filename=original_filename)
-                        )
-                        logger.info(f"Text extraction completed successfully")
-                        # Log text length and preview
-                        text_length = len(file_content_text) if file_content_text else 0
-                        text_preview = file_content_text[:100] + "..." if text_length > 100 else file_content_text
-                        logger.info(f"Extracted text length: {text_length} characters")
-                        logger.info(f"Text preview: {text_preview}")
-                    except Exception as extract_error:
-                        logger.error(f"Error during text extraction: {str(extract_error)}")
-                        logger.exception("Text extraction traceback:")
-                        file_content_text = None
-                    finally:
-                        loop.close()
+                    # Standard method for all file types if we still don't have text
+                    if file_content_text is None:
+                        # Import the existing text extraction function
+                        from app.utils.upload_knowledge_utils import extract_text_from_file
+                        import asyncio
                         
+                        # Use the same text extraction that's working in the rest of the system
+                        logger.info(f"Starting text extraction for file: {original_filename}")
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        try:
+                            file_content_text = loop.run_until_complete(
+                                extract_text_from_file(file_content, filename=original_filename)
+                            )
+                            logger.info(f"Text extraction completed successfully")
+                            # Log text length and preview
+                            text_length = len(file_content_text) if file_content_text else 0
+                            text_preview = file_content_text[:100] + "..." if text_length > 100 else file_content_text
+                            logger.info(f"Extracted text length: {text_length} characters")
+                            logger.info(f"Text preview: {text_preview}")
+                        except Exception as extract_err:
+                            logger.error(f"Error during text extraction: {str(extract_err)}")
+                            file_content_text = None
+                        finally:
+                            loop.close()
+                
                 # Add debugging for short text results
                 if file_content_text and len(file_content_text) < 100:
                     logger.warning(f"⚠️ Very short text extracted ({len(file_content_text)} chars). File size is {len(file_content)/1024:.2f} KB")
@@ -535,16 +578,46 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                         file_content_text = file_record.extracted_content
                         logger.info(f"Retrieved {len(file_content_text)} characters from database")
                     else:
-                        # Final fallback - if we have pre-calculated word count but no content,
-                        # create placeholder content with the correct word count
-                        word_count = file_data.get("word_count", 0)
-                        if word_count > 0:
-                            logger.warning(f"⚠️ Creating placeholder content with {word_count} words for {original_filename}")
-                            file_content_text = f"Content from {original_filename} with {word_count} words. " * (word_count // 10 + 1)
-                            logger.info(f"Created {len(file_content_text)} characters of placeholder text")
-                        else:
-                            logger.error(f"Failed to extract content from file and no fallback available")
-                            raise Exception("Failed to extract content from file and no fallback available")
+                        # Try one more time with OCR if it's an image file
+                        if original_filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                            logger.info(f"🔄 Attempting OCR extraction one more time for image file: {original_filename}")
+                            try:
+                                from app.utils.upload_knowledge_utils import extract_text_from_image
+                                # Get the original archived file path
+                                _, ext = os.path.splitext(original_filename)
+                                archive_filename = f"{file_id}_original{ext}"
+                                
+                                # Get user_id for the bot to create path
+                                user_id = None
+                                bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+                                if bot:
+                                    user_id = bot.user_id
+                                
+                                if user_id:
+                                    # Build path to the archive file
+                                    account_dir = os.path.join("uploads", f"account_{user_id}")
+                                    bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
+                                    archive_dir = os.path.join(bot_dir, "archives")
+                                    archive_path = os.path.join(archive_dir, archive_filename)
+                                    
+                                    if os.path.exists(archive_path):
+                                        logger.info(f"Found original image at {archive_path}, attempting OCR")
+                                        with open(archive_path, 'rb') as f:
+                                            image_data = f.read()
+                                        
+                                        # Try OCR with enhanced settings
+                                        file_content_text = extract_text_from_image(image_data)
+                                        if file_content_text:
+                                            logger.info(f"✅ OCR successful on second attempt: extracted {len(file_content_text)} chars")
+                                        else:
+                                            logger.warning("📉 OCR failed on second attempt")
+                            except Exception as ocr_retry_err:
+                                logger.error(f"Error in OCR retry: {str(ocr_retry_err)}")
+                        
+                            # If still no text, raise an error
+                            if not file_content_text:
+                                logger.error(f"Failed to extract content from file and no fallback available")
+                                raise Exception("Failed to extract content from file and no fallback available")
                 
                 # Update the text file with the extracted content
                 if os.path.exists(file_path):
