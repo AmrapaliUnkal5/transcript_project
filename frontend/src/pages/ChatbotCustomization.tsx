@@ -264,7 +264,7 @@ export const ChatbotCustomization = () => {
     headerBgColor: "#3B82F6",
     headerTextColor: "#FFFFFF",
     chatTextColor: "#1F2937",
-    userTextColor: "#FFFFFF",
+    userTextColor: "#121111",
     buttonColor: "#3B82F6",
     buttonTextColor: "#FFFFFF",
     timestampColor: "#1F2937", 
@@ -430,7 +430,7 @@ export const ChatbotCustomization = () => {
             headerBgColor: response.header_bg_color || "#3B82F6",
             headerTextColor: response.header_text_color || "#FFFFFF",
             chatTextColor: response.chat_text_color || "#1F2937",
-            userTextColor: response.user_text_color || "#FFFFFF",
+            userTextColor: response.user_text_color || "#121111",
             buttonColor: response.button_color || "#3B82F6",
             buttonTextColor: response.button_text_color || "#FFFFFF",
             timestampColor: response.chat_text_color || "#1F2937", // Match chat text color
@@ -514,6 +514,13 @@ export const ChatbotCustomization = () => {
       }
     }
   }, [selectedBot, setSelectedBot, navigate]);
+
+  useEffect(() => {
+  // Set welcome message if no messages exist
+  if (messages.length === 0) {
+    setMessages([{ sender: "bot", text: settings.welcomeMessage }]);
+  }
+}, [settings.welcomeMessage]); // Only re-run when welcomeMessage changes
 
   // In ChatbotCustomization.tsx
   const handleRefresh = async () => {
@@ -608,7 +615,7 @@ export const ChatbotCustomization = () => {
       console.error("Failed to end session:", error);
     } finally {
       setInteractionId(null);
-      setMessages([]);
+      setMessages([{ sender: "bot", text: settings.welcomeMessage }]);
       if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
       if (sessionExpiryRef.current) clearTimeout(sessionExpiryRef.current);
     }
@@ -931,6 +938,11 @@ export const ChatbotCustomization = () => {
 ) => {
   setSettings((prev) => {
     const newSettings = { ...prev, [field]: value };
+
+    // When appearance changes to Full Screen, set position to bottom-right
+    if (field === 'appearance' && value === 'Full Screen') {
+      newSettings.position = 'bottom-right';
+    }
     
     // Two-way synchronization between text colors and timestamp colors
     if (field === 'chatTextColor') {
@@ -1179,7 +1191,9 @@ export const ChatbotCustomization = () => {
           value: settings.position,
           options: ["bottom-left", "bottom-right", "top-right"],
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-            handleChange("position", e.target.value),
+          handleChange("position", e.target.value),
+          disabled: settings.appearance === "Full Screen", 
+          disabledStyle: { opacity: 0.3 }, 
         },
         {
           label: "Appearance",
@@ -1343,7 +1357,11 @@ export const ChatbotCustomization = () => {
                           onChange={
                             field.onChange as React.ChangeEventHandler<HTMLSelectElement>
                           }
-                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          disabled={field.disabled} // Add this
+                          className={`w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          field.disabled ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                          style={field.disabled ? field.disabledStyle : {}} 
                         >
                           {(field as any).options?.map((option: string) => (
                             <option key={option} value={option}>
@@ -1666,7 +1684,7 @@ export const ChatbotCustomization = () => {
   </div>
 </div>
                     {/* Reaction Buttons BELOW the bubble, only for bot */}
-                    {msg.sender === "bot" && (
+                    {msg.sender === "bot" && index > 0 &&(
                       <div className="flex gap-2 mt-1 ml-2">
                         <button
                           onClick={() => handleReaction("like", index)}
