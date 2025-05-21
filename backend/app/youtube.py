@@ -277,8 +277,12 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
     failed_videos = []
     for video_url in video_urls:
         try:
-            # Get transcript and metadata
-            transcript, video_metadata = get_video_transcript(video_url)
+            transcript_result = get_video_transcript(video_url)
+            # Updated to handle the new return value format
+            if isinstance(transcript_result, tuple) and len(transcript_result) == 2:
+                transcript, video_metadata = transcript_result
+            else:
+                transcript, video_metadata = transcript_result, None
             
             if not transcript:
                 reason = f"Could not fetch transcript for {video_url}"
