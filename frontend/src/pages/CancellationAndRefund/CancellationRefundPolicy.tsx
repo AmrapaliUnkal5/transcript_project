@@ -102,6 +102,16 @@ const CancellationRefundPolicy = () => {
       </Box>
 
       <Divider sx={{ my: 4 }} />
+
+      
+
+<Typography
+  variant="body2"
+  color="text.secondary"
+  align="center"
+>
+  © {new Date().getFullYear()} All rights reserved. BytePX Technologies Pvt. Ltd.
+</Typography>
     </Container>
   );
 };

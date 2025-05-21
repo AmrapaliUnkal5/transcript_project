@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { Divider,Typography } from '@mui/material';
 
 export const PrivacyPolicy = () => {
   return (
@@ -95,6 +96,16 @@ export const PrivacyPolicy = () => {
                 </a>
               </p>
             </section>
+
+            <Divider sx={{ my: 4 }} />
+
+<Typography
+  variant="body2"
+  color="text.secondary"
+  align="center"
+>
+  © {new Date().getFullYear()} All rights reserved. BytePX Technologies Pvt. Ltd.
+</Typography>
           </div>
         </div>
       </div>

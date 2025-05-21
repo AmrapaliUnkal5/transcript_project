@@ -71,11 +71,18 @@ export default function DataDeletionPolicy() {
 
       <Divider sx={{ my: 4 }} />
 
-      <Box display="flex" justifyContent="center">
-        <Button variant="outlined" color="error">
-          Go to Delete Account
-        </Button>
-      </Box>
+
+
+     
+
+<Typography
+  variant="body2"
+  color="text.secondary"
+  align="center"
+>
+  © {new Date().getFullYear()} All rights reserved. BytePX Technologies Pvt. Ltd.
+</Typography>
+
     </Container>
   );
 }
