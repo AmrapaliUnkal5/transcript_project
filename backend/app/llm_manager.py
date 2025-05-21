@@ -18,8 +18,22 @@ from langchain.memory import ConversationBufferMemory
 # Initialize logger
 logger = get_module_logger(__name__)
 
-# Create a language detector for 20 common languages
-detector = LanguageDetectorBuilder.from_all_languages().build()
+# Create a language detector with common languages instead of all languages
+detector = LanguageDetectorBuilder.from_languages(
+    Language.ENGLISH,
+    Language.SPANISH,
+    Language.FRENCH,
+    Language.GERMAN,
+    Language.ITALIAN,
+    Language.PORTUGUESE,
+    Language.DUTCH,
+    Language.RUSSIAN,
+    Language.ARABIC,
+    Language.HINDI,
+    Language.CHINESE,
+    Language.JAPANESE,
+    Language.KOREAN
+).build()
 
 def detect_language(text):
     """Detect the language of the input text."""
