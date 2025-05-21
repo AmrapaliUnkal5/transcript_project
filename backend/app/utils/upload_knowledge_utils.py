@@ -50,8 +50,41 @@ def extract_text_from_pdf_images(pdf_content: bytes) -> str:
 def extract_text_from_image(image_bytes: bytes) -> str:
     """Extracts text from an image file using OCR."""
     try:
+        logger.info(f"Starting OCR text extraction from image ({len(image_bytes)} bytes)")
         image = Image.open(io.BytesIO(image_bytes))
-        return pytesseract.image_to_string(image)
+        logger.info(f"Image opened successfully: size={image.size}, mode={image.mode}")
+        
+        # Convert to RGB if needed (for images with alpha channel)
+        if image.mode == 'RGBA':
+            logger.info("Converting RGBA image to RGB for better OCR compatibility")
+            background = Image.new('RGB', image.size, (255, 255, 255))
+            background.paste(image, mask=image.split()[3])
+            image = background
+        
+        # Enhance image for better OCR results
+        logger.info("Enhancing image for better OCR results")
+        # Resize if too small
+        if image.width < 1000 or image.height < 1000:
+            factor = max(1000 / image.width, 1000 / image.height)
+            new_size = (int(image.width * factor), int(image.height * factor))
+            logger.info(f"Resizing image from {image.size} to {new_size} for better OCR")
+            image = image.resize(new_size, Image.LANCZOS)
+        
+        # Extract text with pytesseract
+        logger.info("Performing OCR with pytesseract")
+        extracted_text = pytesseract.image_to_string(image)
+        
+        # Check if text was extracted
+        if not extracted_text or len(extracted_text.strip()) < 5:
+            logger.warning("Initial OCR extraction yielded little or no text, trying with enhanced settings")
+            # Try with additional config options
+            extracted_text = pytesseract.image_to_string(
+                image, 
+                config='--psm 3 --oem 3'  # PSM 3: Fully automatic page segmentation, OEM 3: Default neural net
+            )
+        
+        logger.info(f"OCR completed, extracted {len(extracted_text)} characters")
+        return extracted_text
     except Exception as e:
         logger.warning(f"⚠️ Error extracting text from image: {e}")
         return ""
