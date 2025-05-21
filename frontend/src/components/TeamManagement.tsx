@@ -74,8 +74,8 @@ const TeamManagement: React.FC = () => {
       setInvitations(invitationsData || []);
       setIsAdminLimitReached(totalAdminsUsed >= adminUserLimit); // check limit here
     } catch (error) {
-      console.error("Failed to fetch team data:", error);
-      toast.error("Failed to load team data");
+      console.error('Error fetching team data:', error);
+      toast.error("We couldn't load your team information. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -113,7 +113,7 @@ const TeamManagement: React.FC = () => {
       fetchTeamData();
     } catch (error: any) {
       console.error("Failed to send invitation:", error);
-      toast.error(error.response?.data?.detail || "Failed to send invitation");
+      toast.error(error.response?.data?.detail || "We couldn't send the invitation. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -130,8 +130,8 @@ const TeamManagement: React.FC = () => {
       toast.success(`Invitation ${response} successfully`);
       fetchTeamData();
     } catch (error) {
-      console.error(`Failed to ${response} invitation:`, error);
-      toast.error(`Failed to ${response} invitation`);
+      console.error(`Error ${response}ing invitation:`, error);
+      toast.error(`Unable to ${response} invitation. Please try again.`);
     } finally {
       setIsLoading(false);
     }
@@ -144,12 +144,12 @@ const TeamManagement: React.FC = () => {
     setIsLoading(true);
     try {
       await authApi.updateTeamMember(editMemberId, { role: editRole });
-      toast.success("Team member role updated");
+      toast.success("Team member role has been updated");
       setEditMemberId(null);
       fetchTeamData();
     } catch (error) {
-      console.error("Failed to update team member:", error);
-      toast.error("Failed to update team member");
+      console.error('Error updating team member role:', error);
+      toast.error("Unable to update team member role. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -164,11 +164,11 @@ const TeamManagement: React.FC = () => {
     setIsLoading(true);
     try {
       await authApi.removeTeamMember(memberId);
-      toast.success("Team member removed");
+      toast.success("Team member has been removed");
       fetchTeamData();
     } catch (error) {
-      console.error("Failed to remove team member:", error);
-      toast.error("Failed to remove team member");
+      console.error('Error removing team member:', error);
+      toast.error("Unable to remove team member. Please try again.");
     } finally {
       setIsLoading(false);
     }

@@ -185,11 +185,11 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
       
       // Show information about limitations during bot creation if we haven't already
       if (isCreateBotFlow && !hasShownCreateBotInfoToast) {
-        toast.info("Web scraping has started. During bot creation, you can only scrape one website. You will be notified when processing is complete.");
+        toast.info("Your website content is being prepared. You'll receive a notification when it's ready to use.");
         hasShownCreateBotInfoToast = true;
       } else if (!isCreateBotFlow) {
         // Regular info message if not in bot creation flow
-        toast.info("Web scraping has started. You will be notified when it's complete.");
+        toast.info("Your website content is being prepared. You'll receive a notification when it's ready to use.");
       }
       
       setScrapedWebsiteUrl(new URL(websiteUrl).origin);

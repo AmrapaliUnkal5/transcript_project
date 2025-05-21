@@ -60,7 +60,7 @@ export const FileUpload = () => {
   //   ? "websitescraping"
   //   : "websiteSub");
   const [youtubeVideos, setYoutubeVideos] = useState<
-    { video_url: string; video_title: string }[]
+    { video_url: string; video_title: string; video_id: string; transcript_count?: number }[]
   >([]);
   const { loading, setLoading } = useLoader();
   const [currentPage, setCurrentPage] = useState(1);
@@ -246,10 +246,15 @@ export const FileUpload = () => {
             Object.keys(responseyoutube || {})
           );
 
-          // Check if the response is from background processing
-          if (responseyoutube.status === "processing") {
+          // Check if the response indicates processing started in the background
+          if (responseyoutube && responseyoutube.message && (
+              responseyoutube.message.includes("processing started") || 
+              responseyoutube.message.includes("Video processing") ||
+              responseyoutube.message.includes("background") ||
+              responseyoutube.status === "processing"
+            )) {
             toast.info(
-              `${responseyoutube.video_count} YouTube videos are being processed in the background. You will be notified when complete.`
+              "Your YouTube videos are being processed. We'll notify you when they're ready."
             );
 
             // Clear selected videos since they're being processed
@@ -379,6 +384,7 @@ export const FileUpload = () => {
 
   const confirmDeletion = async () => {
     if (!confirmDelete || !selectedBot?.id) {
+      console.log("Missing required data for deletion:", { confirmDelete, botId: selectedBot?.id });
       setConfirmDelete(null);
       return;
     }
@@ -386,18 +392,55 @@ export const FileUpload = () => {
     try {
       const videoId = extractVideoId(confirmDelete);
       if (!videoId) {
-        console.error("Video ID is missing.");
+        console.error("Could not extract video ID from URL:", confirmDelete);
+        toast.error("Failed to delete video: Could not extract video ID from URL.");
+        setConfirmDelete(null);
         return;
       }
-      console.log("Deleting videoId:", videoId);
+      console.log("Deleting videoId:", videoId, "from botId:", selectedBot.id);
 
-      await authApi.deleteVideo(selectedBot?.id, videoId);
+      // Find the video in the youtubeVideos array to get the transcript_count
+      const videoToDelete = youtubeVideos.find(v => v.video_url === confirmDelete);
+      const wordCount = videoToDelete?.transcript_count || 0;
+      
+      console.log("Deleting video with word count:", wordCount);
 
-      setYoutubeVideos((prevVideos) =>
-        prevVideos.filter((url) => url !== confirmDelete)
-      );
-    } catch (error) {
+      // Delete the video and pass the word count
+      console.log("Calling API with params:", { botId: selectedBot.id, videoId, wordCount });
+      const response = await authApi.deleteVideo(selectedBot.id, videoId, wordCount);
+      console.log("Delete API response:", response);
+      
+      if (response?.data?.words_removed) {
+        toast.success(`Video deleted successfully. ${response.data.words_removed} words removed.`);
+        
+        // Update the user usage statistics if possible
+        try {
+          const apiUsage = await authApi.getUserUsage();
+          setUserUsage((prev) => ({
+            ...prev,
+            globalWordsUsed: apiUsage.totalWordsUsed,
+          }));
+          console.log("Updated user usage after deletion");
+        } catch (error) {
+          console.error("Failed to refresh user usage after video deletion:", error);
+        }
+        
+        // Update videos list
+        setYoutubeVideos((prevVideos) => {
+          const newVideos = prevVideos.filter((video) => video.video_url !== confirmDelete);
+          console.log("Updated videos list. Previous count:", prevVideos.length, "New count:", newVideos.length);
+          return newVideos;
+        });
+      } else {
+        console.warn("Unexpected API response format:", response);
+        toast.warning("Video was deleted, but word count may not have been updated correctly.");
+      }
+    } catch (error: any) {
       console.error("Error deleting video:", error);
+      if (error.response) {
+        console.error("API error response:", error.response.status, error.response.data);
+      }
+      toast.error("Failed to delete YouTube video. Please try again.");
     } finally {
       setConfirmDelete(null);
     }
@@ -409,8 +452,25 @@ export const FileUpload = () => {
 
   // Function to extract video ID from URL
   const extractVideoId = (videoUrl: string) => {
-    const urlParams = new URLSearchParams(new URL(videoUrl).search);
-    return urlParams.get("v");
+    try {
+      // Format: youtube.com/watch?v=VIDEO_ID
+      if (videoUrl.includes('youtube.com/watch')) {
+        const urlParams = new URLSearchParams(new URL(videoUrl).search);
+        return urlParams.get('v');
+      }
+      
+      // Format: youtu.be/VIDEO_ID
+      if (videoUrl.includes('youtu.be/')) {
+        const pathname = new URL(videoUrl).pathname;
+        return pathname.split('/')[1]; // Get the ID after the slash
+      }
+      
+      console.error('Unsupported YouTube URL format:', videoUrl);
+      return null;
+    } catch (error) {
+      console.error('Error extracting video ID:', error);
+      return null;
+    }
   };
 
   // Fetch files when the component mounts or when selectedBot changes

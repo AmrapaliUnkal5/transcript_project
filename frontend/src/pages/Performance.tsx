@@ -22,6 +22,8 @@ import Loader from "../components/Loader";
 import { authApi } from "../services/api";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { useNavigate } from "react-router-dom";
+import ReactWordcloud from 'react-wordcloud';
+
 
 interface ConversationData {
   day: string;
@@ -32,6 +34,11 @@ interface FAQData {
   question: string;
   count: number;
   cluster_id: string;
+}
+
+interface WordCloudData {
+  text: string;
+  value: number;
 }
 
 const COLORS = ["#4CAF50", "#F44336", "#2196F3", "#FFC107", "#F44336"];
@@ -91,6 +98,8 @@ export const Performance = () => {
   const hasNoAnalyticsAccess = userPlan?.id === 1; // Free plan
   const hasAdvancedAnalytics = userPlan?.id === 4; // Professional plan
   const [totalConversations, setTotalConversations] = useState(0);
+  //const [wordCloudData, setWordCloudData] = useState<{value: string, count: number}[]>([]);
+  const [wordCloudData, setWordCloudData] = useState<WordCloudData[]>([]);
 
   const getLast7DaysFormatted = () => {
     const days = [];
@@ -265,11 +274,27 @@ export const Performance = () => {
     );
   };
 
+  const fetchWordCloudData = async () => {
+  if (!selectedBot?.id) return;
+
+  try {
+    setLoading(true);
+    const response = await authApi.getWordCloud({
+      bot_id: selectedBot.id,
+    });
+    setWordCloudData(response.words || []);
+  } catch (error) {
+    console.error("Error fetching word cloud data:", error);
+  } finally {
+    setLoading(false);
+  }
+};
   useEffect(() => {
     fetchConversationData();
     fetchSatisfactionData();
     fetchFaqData();
     fetchBillingCycleMetrics();
+    fetchWordCloudData();
   }, [selectedBot?.id]);
 
   if (loading) {
@@ -537,7 +562,47 @@ export const Performance = () => {
               </div>
             )}
           </div>
+
+        {/* Word Cloud Chart - 6th graph */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 h-[420px]">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Word Cloud
+            </h2>
+            <div
+              className={`h-[calc(100%-40px)] overflow-y-auto ${
+                !hasAdvancedAnalytics ? "filter blur-xl" : ""
+              }`}
+            >
+    {wordCloudData.length > 0 ? (
+      <ReactWordcloud
+        words={wordCloudData}
+        options={{
+          rotations: 2,
+          rotationAngles: [-45, 0],
+          fontSizes: [12, 60],
+          deterministic: true,
+        }}
+      />
+              
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No word cloud data available yet
+                  </p>
+                </div>
+              )}
+            </div>
+            {!hasAdvancedAnalytics && (
+              <div className="absolute top-[85%] left-[75%] transform -translate-x-1/2 -translate-y-1/2 z-10">
+                <UpgradeMessage
+                  requiredPlan="Professional"
+                  feature="word cloud analytics"
+                />
+              </div>
+            )}
+          </div>
         </div>
+
 
         {hasNoAnalyticsAccess && (
           <div className="absolute top-[30%] left-[35%] transform -translate-x-1/6 -translate-y-1/16 z-10">

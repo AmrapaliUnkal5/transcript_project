@@ -5,11 +5,13 @@ from app.models import SubscriptionPlan, Addon, UserSubscription, User, UserAddo
 from typing import List, Dict, Any, Optional, Union
 from app.zoho_billing_service import ZohoBillingService, format_subscription_data_for_hosted_page
 from app.dependency import get_current_user
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
 import logging
 import os
 from app.schemas import ZohoCheckoutRequest, ZohoCheckoutResponse
+from app.utils.create_access_token import create_access_token
+from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/zoho", tags=["Zoho Subscriptions"])
 logger = logging.getLogger(__name__)
@@ -120,6 +122,17 @@ async def create_subscription_checkout(
 
         if not user_data["name"]:
             user_data["name"] = user_data["email"].split("@")[0]  # Use part of email as name if not provided
+            
+        # Check if phone number is available - Zoho requires this field
+        if not user_data["phone_no"]:
+            # Return a specific error that the frontend can recognize
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "detail": "phone_number_required",
+                    "message": "Phone number is required for subscription checkout"
+                }
+            )
 
         # Log the attempt to create checkout
         logger.info(f"Creating subscription checkout for plan {plan.name} (ID: {plan.id}) for user {user_id}")
@@ -273,6 +286,8 @@ async def zoho_webhook_handler(request: Request, db: Session = Depends(get_db)):
             await handle_subscription_renewed(payload, db)
         elif event_type == "payment_failed" or event_type == "subscription_payment_failed" or event_type == "hostedpage_payment_failed":
             await handle_payment_failed(payload, db)
+        elif event_type == "payment_success":
+            await handle_payment_success(payload, db)
         else:
             print(f"Unhandled webhook event type: {event_type}")
         
@@ -433,14 +448,71 @@ async def handle_subscription_cancelled(payload: Dict[str, Any], db: Session):
             subscription.auto_renew = False
             subscription.cancellation_reason = subscription_data.get("cancel_reason")
             
+            # Get user ID for token refresh
+            user_id = subscription.user_id
+            
             db.commit()
             logger.info(f"Subscription {zoho_subscription_id} cancelled")
+            
+            # Create fresh token with updated subscription info
+            create_fresh_user_token(db, user_id)
         else:
             logger.error(f"Subscription with ID {zoho_subscription_id} not found in local database")
     
     except Exception as e:
         db.rollback()
         logger.error(f"Error handling subscription_cancelled event: {str(e)}")
+
+# Helper function to create fresh token with updated user data
+def create_fresh_user_token(db: Session, user_id: int):
+    """
+    Create a fresh JWT token with the latest user data from the database
+    """
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        logger.error(f"User with ID {user_id} not found when creating fresh token")
+        return None
+        
+    # Get the user's active subscription
+    user_subscription = db.query(UserSubscription).filter(
+        UserSubscription.user_id == user_id,
+        UserSubscription.status.notin_(["pending", "failed", "cancelled"])
+    ).order_by(UserSubscription.payment_date.desc()).first()
+    
+    subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
+    
+    # Get user's active addons
+    user_addons = db.query(UserAddon).filter(
+        UserAddon.user_id == user_id,
+        UserAddon.status == "active"
+    ).all()
+    
+    addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
+    
+    # Get message addon (ID 5) details if exists
+    message_addon = db.query(UserAddon).filter(
+        UserAddon.user_id == user_id,
+        UserAddon.addon_id == 5,
+        UserAddon.is_active == True
+    ).order_by(UserAddon.expiry_date.desc()).first()
+    
+    # Create token data
+    token_data = {
+        "sub": user.email,
+        "role": user.role,
+        "user_id": user_id,
+        "name": user.name,
+        "company_name": user.company_name,
+        "phone_no": user.phone_no,
+        "subscription_plan_id": subscription_plan_id,
+        "total_words_used": user.total_words_used,
+        "addon_plan_ids": addon_plan_ids,
+        "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
+        "subscription_status": user_subscription.status if user_subscription else "new",
+    }
+    
+    # Create token with standard expiration
+    return create_access_token(data=token_data, expires_delta=timedelta(minutes=120))  # 2 hours token
 
 async def handle_subscription_renewed(payload: Dict[str, Any], db: Session):
     """Handle subscription renewed webhook event"""
@@ -458,6 +530,8 @@ async def handle_subscription_renewed(payload: Dict[str, Any], db: Session):
         if not subscription:
             logger.error(f"Could not find subscription for Zoho subscription ID: {zoho_subscription_id}")
             return {"status": "error", "message": f"No subscription found for ID {zoho_subscription_id}"}
+        
+        user_id = subscription.user_id
         
         # Extract date information
         created_time = payload.get("subscription", {}).get("created_time")
@@ -482,162 +556,102 @@ async def handle_subscription_renewed(payload: Dict[str, Any], db: Session):
         subscription.status = "active"
         subscription.payment_date = payment_date
         subscription.expiry_date = expiry_date
-        subscription.updated_at = datetime.now()
+        
+        # Process addons if applicable
+        addons_data = payload.get("subscription", {}).get("addons", [])
+        for addon_data in addons_data:
+            addon_code = addon_data.get("addon_code")
+            if not addon_code:
+                continue
+                
+            # Find the addon in our system
+            addon = db.query(Addon).filter(Addon.zoho_addon_code == addon_code).first()
+            if not addon:
+                logger.warning(f"Could not find addon with code {addon_code}")
+                continue
+                
+            # Check if the user already has this addon
+            existing_addon = db.query(UserAddon).filter(
+                UserAddon.user_id == subscription.user_id,
+                UserAddon.addon_id == addon.id
+            ).first()
+            
+            if existing_addon:
+                # Update existing add-on
+                existing_addon.is_active = True
+                existing_addon.status = "active"
+                
+                # Determine expiry date based on addon type
+                if addon.addon_type == "Additional Messages":
+                    # Don't update expiry for lifetime add-ons
+                    pass
+                else:
+                    # One-time add-ons expire with the subscription
+                    existing_addon.expiry_date = expiry_date
+                
+                existing_addon.updated_at = datetime.now()
+                logger.info(f"Updated existing add-on {addon.name} (ID: {addon.id}) for user {subscription.user_id}")
+            else:
+                # Create new user addon
+                new_addon = UserAddon(
+                    user_id=subscription.user_id,
+                    addon_id=addon.id,
+                    is_active=True,
+                    status="active",
+                    purchase_date=datetime.now(),
+                    expiry_date=expiry_date if addon.addon_type != "Additional Messages" else None,
+                    created_at=datetime.now()
+                )
+                db.add(new_addon)
+                logger.info(f"Added new add-on {addon.name} (ID: {addon.id}) for user {subscription.user_id}")
         
         db.commit()
         
-        # Process add-ons (if any)
-        addon_items = payload.get("subscription", {}).get("addons", [])
-        if addon_items:
-            logger.info(f"Processing {len(addon_items)} add-ons for renewed subscription {zoho_subscription_id}")
-            
-            for addon_item in addon_items:
-                addon_code = addon_item.get("addon_code")
-                addon_instance_id = addon_item.get("addon_instance_id")
-                
-                if not addon_code:
-                    logger.warning(f"Skipping add-on without addon_code in subscription {zoho_subscription_id}")
-                    continue
-                
-                # Find the addon in our database
-                addon = db.query(Addon).filter(Addon.zoho_addon_code == addon_code).first()
-                if not addon:
-                    logger.warning(f"Could not find add-on with code {addon_code} in database")
-                    continue
-                
-                # Check if there's an existing user add-on with the same instance ID
-                existing_addon = None
-                if addon_instance_id:
-                    existing_addon = db.query(UserAddon).filter(
-                        UserAddon.zoho_addon_instance_id == addon_instance_id,
-                        UserAddon.user_id == subscription.user_id
-                    ).first()
-                
-                if existing_addon:
-                    # Update existing add-on
-                    existing_addon.is_active = True
-                    existing_addon.status = "active"
-                    
-                    # Determine expiry date based on addon type
-                    if addon.addon_type == "Additional Messages":
-                        # Don't update expiry for lifetime add-ons
-                        pass
-                    else:
-                        # One-time add-ons expire with the subscription
-                        existing_addon.expiry_date = expiry_date
-                    
-                    existing_addon.updated_at = datetime.now()
-                    logger.info(f"Updated existing add-on {addon.name} (ID: {addon.id}) for user {subscription.user_id}")
-                else:
-                    # Determine expiry date based on addon type
-                    addon_expiry = expiry_date  # Default: expires with subscription
-                    
-                    # Special case for lifetime addons (like Additional Messages)
-                    if addon.addon_type == "Additional Messages":
-                        # Set a far future date for lifetime add-ons
-                        addon_expiry = payment_date + timedelta(days=5*365)
-                    
-                    # Create new UserAddon record
-                    user_addon = UserAddon(
-                        user_id=subscription.user_id,
-                        addon_id=addon.id,
-                        subscription_id=subscription.id,
-                        purchase_date=payment_date,
-                        expiry_date=addon_expiry,
-                        is_active=True,
-                        auto_renew=addon.is_recurring,
-                        status="active",
-                        zoho_addon_instance_id=addon_instance_id
-                    )
-                    
-                    db.add(user_addon)
-                    logger.info(f"Added new add-on {addon.name} (ID: {addon.id}) to user {subscription.user_id} subscription")
-            
-            # Commit all add-on changes in a single transaction
-            db.commit()
-            logger.info(f"Committed add-on changes for renewed subscription {zoho_subscription_id}")
+        # Create a fresh token with updated subscription info
+        create_fresh_user_token(db, user_id)
         
+        logger.info(f"Successfully processed subscription renewed event for {zoho_subscription_id}")
         return {"status": "success", "message": "Subscription renewed successfully"}
-    
+        
     except Exception as e:
         db.rollback()
-        logger.error(f"Error processing subscription renewed event: {str(e)}")
-        return {"status": "error", "message": f"Error processing subscription renewal: {str(e)}"}
+        logger.error(f"Error handling subscription_renewed event: {str(e)}")
+        return {"status": "error", "message": f"Error processing renewal: {str(e)}"}
 
 # Add a new handler for payment failures
 async def handle_payment_failed(payload: Dict[str, Any], db: Session):
     """Handle payment failure events from Zoho"""
     try:
-        print(f"==== Payment Failed Webhook Received ====")
-        print(f"Payload: {payload}")
-        
-        # Extract relevant information from the payload
-        subscription_data = payload.get("subscription", {})
+        # Extract data from payload
         customer_data = payload.get("customer", {})
-        hostedpage_data = payload.get("hostedpage", {})
-        invoice_data = payload.get("invoice", {})
         payment_data = payload.get("payment", {})
         
-        # Try to extract user_id using the same methods as in subscription_created
-        user_id = None
+        # Get customer ID for lookup
+        customer_id = customer_data.get("customer_id")
         
-        # First try from custom fields if present
-        custom_fields = subscription_data.get("custom_fields", {})
-        if custom_fields and isinstance(custom_fields, dict):
-            user_id_str = custom_fields.get("user_id")
-            if user_id_str and user_id_str.isdigit():
-                user_id = int(user_id_str)
-                print(f"Found user_id {user_id} in custom fields")
-        
-        # If not found, try to find by customer email
-        if not user_id:
-            customer_email = customer_data.get("email") or hostedpage_data.get("customer", {}).get("email")
-            if customer_email:
-                user = db.query(User).filter(User.email == customer_email).first()
-                if user:
-                    user_id = user.user_id
-                    print(f"Found user_id {user_id} by email {customer_email}")
-        
-        # If still not found, check for pending subscriptions
-        if not user_id:
-            # Look for the most recent pending subscription
-            pending_sub = db.query(UserSubscription).filter(
-                UserSubscription.status == "pending"
-            ).order_by(UserSubscription.updated_at.desc()).first()
-            
-            if pending_sub:
-                user_id = pending_sub.user_id
-                print(f"Using most recent pending subscription user_id: {user_id}")
-        
-        if not user_id:
-            print("User ID not found in webhook data for payment failure")
-            logger.error("User ID not found in webhook data for payment failure")
+        if not customer_id:
+            logger.error(f"Missing customer ID in payment failed payload")
             return
-        
-        # Get the subscription ID if available
-        zoho_subscription_id = subscription_data.get("subscription_id")
-        if zoho_subscription_id:
-            # Check if there's an existing subscription with this Zoho ID
-            subscription = db.query(UserSubscription).filter(
-                UserSubscription.zoho_subscription_id == zoho_subscription_id
-            ).first()
             
-            if subscription:
-                # Update the existing subscription to failed status
-                subscription.status = "failed"
-                subscription.updated_at = datetime.now()
-                subscription.notes = f"Payment failed: {payment_data.get('failure_reason') or 'Unknown reason'}"
-                
-                db.commit()
-                print(f"Updated subscription {zoho_subscription_id} to failed status")
-                return
+        # Extract the email from customer data to identify our user
+        email = customer_data.get("email")
+        if not email:
+            logger.error(f"Customer email not found in webhook payload")
+            return
+            
+        # Find the user by email
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            logger.error(f"User with email {email} not found in database")
+            return
+            
+        user_id = user.user_id
         
-        # If no subscription ID or no matching subscription found, 
-        # update the most recent pending subscription for this user
+        # Find any pending subscription
         pending_subscription = db.query(UserSubscription).filter(
             UserSubscription.user_id == user_id,
             UserSubscription.status == "pending"
-        ).order_by(UserSubscription.updated_at.desc()).first()
+        ).order_by(UserSubscription.created_at.desc()).first()
         
         if pending_subscription:
             # Update the pending subscription to failed status
@@ -647,13 +661,93 @@ async def handle_payment_failed(payload: Dict[str, Any], db: Session):
             
             db.commit()
             print(f"Updated pending subscription for user {user_id} to failed status")
+            
+            # Create a fresh token with the updated subscription info
+            create_fresh_user_token(db, user_id)
         else:
             print(f"No pending subscription found for user {user_id} to mark as failed")
             
     except Exception as e:
         db.rollback()
         logger.error(f"Error handling payment_failed event: {str(e)}")
-        print(f"ERROR handling payment failure: {str(e)}") 
+        print(f"ERROR handling payment failure: {str(e)}")
+
+# Add a new handler for successful payments
+async def handle_payment_success(payload: Dict[str, Any], db: Session):
+    """Handle successful payment events from Zoho"""
+    try:
+        # Extract data from payload
+        customer_data = payload.get("customer", {})
+        payment_data = payload.get("payment", {})
+        invoice_data = payload.get("invoice", {})
+        
+        # Get critical IDs for lookup
+        customer_id = customer_data.get("customer_id")
+        subscription_id = invoice_data.get("subscription_id") if invoice_data else None
+        invoice_id = invoice_data.get("invoice_id") if invoice_data else None
+        
+        if not customer_id or not subscription_id:
+            logger.error(f"Missing required fields in payment success payload. Customer ID: {customer_id}, Subscription ID: {subscription_id}")
+            return
+            
+        # Extract the email from customer data to identify our user
+        email = customer_data.get("email")
+        if not email:
+            logger.error(f"Customer email not found in webhook payload")
+            return
+            
+        # Find the user by email
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            logger.error(f"User with email {email} not found in database")
+            return
+            
+        user_id = user.user_id
+            
+        # Find any pending subscription
+        pending_subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "pending"
+        ).order_by(UserSubscription.created_at.desc()).first()
+        
+        # Find the subscription in our database by Zoho ID
+        existing_subscription = db.query(UserSubscription).filter(
+            UserSubscription.zoho_subscription_id == subscription_id
+        ).first()
+        
+        if existing_subscription:
+            # Update existing subscription
+            existing_subscription.status = "active"
+            existing_subscription.payment_date = datetime.now()
+            existing_subscription.zoho_invoice_id = invoice_id
+            existing_subscription.updated_at = datetime.now()
+            existing_subscription.notes = "Payment successful"
+            
+            # Create a fresh token with the updated subscription info
+            create_fresh_user_token(db, user_id)
+            
+            db.commit()
+            logger.info(f"Updated existing subscription for user {user_id} to active status")
+        elif pending_subscription:
+            # Update the pending subscription
+            pending_subscription.status = "active"
+            pending_subscription.zoho_subscription_id = subscription_id
+            pending_subscription.zoho_invoice_id = invoice_id
+            pending_subscription.payment_date = datetime.now()
+            pending_subscription.updated_at = datetime.now()
+            
+            # Create a fresh token with the updated subscription info
+            create_fresh_user_token(db, user_id)
+            
+            db.commit()
+            logger.info(f"Updated pending subscription for user {user_id} to active status")
+        else:
+            logger.error(f"No matching subscription found for payment success event. User: {user_id}, Zoho Subscription: {subscription_id}")
+            
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error handling payment_success event: {str(e)}")
+        print(f"ERROR handling payment success: {str(e)}")
 
 # Add a new endpoint to get subscription status for a user
 @router.get("/status/{user_id}", response_model=dict)

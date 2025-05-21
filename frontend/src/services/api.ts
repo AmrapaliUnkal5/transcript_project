@@ -414,7 +414,7 @@ export const authApi = {
     const response = await api.post("/resend-verification-email", { token });
     return response.data;
   },
-  fetchVideosFromPlaylist: async (youtubeUrl: string) => {
+  fetchVideosFromYouTube: async (youtubeUrl: string) => {
     const response = await api.post("/chatbot/fetch-videos", { url: youtubeUrl }); // Change 'playlist_url' to 'url'
     return response.data; // Returns list of video details
   },
@@ -434,6 +434,10 @@ export const authApi = {
     const response = await api.put('/user/me', data); // Update user details
     return response.data;
   },
+  deleteAccount: async () => {
+    const response = await api.delete('/user/delete-account');
+    return response.data;
+  },
 
   fetchVideosForBot: async (botId: number) => {
     const response = await api.get(`/chatbot/bot/${botId}/videos`);
@@ -451,9 +455,12 @@ export const authApi = {
     const response = await api.get(`/scraped-urls/${botId}`);  // API endpoint to fetch scraped URLs
     return response.data;
   },
-  deleteVideo: async (botId: number, videoId: string) => {
+  deleteVideo: async (botId: number, videoId: string, wordCount: number = 0) => {
     return await api.delete(`/chatbot/bot/${botId}/videos`, {
-      params: { video_id: videoId },  // Pass video_id as query param
+      params: { 
+        video_id: videoId,
+        word_count: wordCount
+      },
     });
   },
 
@@ -607,6 +614,16 @@ deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
   getFAQ: async (params: { bot_id: number }) => {
     try {
       const response = await api.get(`/chat/analytics/faqs/${params.bot_id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching FAQ data:', error);
+      throw error;
+    }
+  },
+
+  getWordCloud: async (params: { bot_id: number }) => {
+    try {
+      const response = await api.get(`/chat/analytics/word_cloud/${params.bot_id}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching FAQ data:', error);
@@ -806,6 +823,14 @@ export const subscriptionApi = {
       if (error.response) {
         console.error("DEBUG - API - Error response status:", error.response.status);
         console.error("DEBUG - API - Error response data:", error.response.data);
+        
+        // Check if this is the phone number required error
+        if (error.response.status === 422 && error.response.data?.detail === "phone_number_required") {
+          // Create a special error object with a type property
+          const phoneRequiredError = new Error(error.response.data.message || "Phone number is required for subscription");
+          phoneRequiredError.name = "PhoneNumberRequiredError";
+          throw phoneRequiredError;
+        }
       }
       
       if (error.request) {

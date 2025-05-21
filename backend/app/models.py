@@ -514,3 +514,12 @@ class UserAddon(Base):
     user = relationship("User", foreign_keys=[user_id])
     addon = relationship("Addon", foreign_keys=[addon_id])
     subscription = relationship("UserSubscription", back_populates="user_addons")
+
+# models.py
+class WordCloudData(Base):
+    __tablename__ = "word_cloud_data"
+    
+    bot_id = Column(Integer, ForeignKey("bots.bot_id"), primary_key=True)
+    word_frequencies = Column(JSON, nullable=False, default={})  # {"word": count}
+    last_updated = Column(TIMESTAMP, server_default=func.current_timestamp(), 
+                         onupdate=func.current_timestamp())

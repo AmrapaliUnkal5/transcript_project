@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Type, Move, MessageSquare, Palette, Sliders, X, MessageCircle } from "lucide-react";
+import {
+  Type,
+  Move,
+  MessageSquare,
+  Palette,
+  Sliders,
+  X,
+  MessageCircle,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { BotSettings } from "../types";
 import { authApi } from "../services/api";
@@ -67,7 +75,7 @@ const saveBotSettings = async (
     timestamp_color: settings.timestampColor,
     border_radius: settings.borderRadius,
     border_color: settings.borderColor,
-    chat_font_family: settings.chatFontFamily
+    chat_font_family: settings.chatFontFamily,
   };
 
   try {
@@ -117,7 +125,7 @@ const updateBotSettings = async (
     timestamp_color: settings.timestampColor,
     border_radius: settings.borderRadius,
     border_color: settings.borderColor,
-    chat_font_family: settings.chatFontFamily
+    chat_font_family: settings.chatFontFamily,
   };
 
   try {
@@ -205,9 +213,10 @@ export const ChatbotCustomization = () => {
   const userPlanId = user?.subscription_plan_id || 1;
   const userPlan = getPlanById(userPlanId);
   const userAddonIds = user?.addon_plan_ids || [];
-  const userActiveAddons = addons ? addons.filter(addon => userAddonIds.includes(addon.id)) : [];
-  
-  
+  const userActiveAddons = addons
+    ? addons.filter((addon) => userAddonIds.includes(addon.id))
+    : [];
+
   // Calculate effective message limits
   const baseMessageLimit = userPlan?.message_limit || 0;
   // Count each addon purchase separately
@@ -217,22 +226,22 @@ export const ChatbotCustomization = () => {
   }, 0);
   const totalMessageLimit = baseMessageLimit + addonMessageLimit;
 
-// Track usage state
-const [messageUsage, setMessageUsage] = useState({
-  totalUsed: 0,
-  baseUsed: 0,
-  baseRemaining: baseMessageLimit,
-  addonUsed: 0,
-  addonRemaining: addonMessageLimit,
-  //effectiveRemaining: baseMessageLimit + addonMessageLimit,
-  totalLimit:0,
-  remaining:0,
-  effectiveRemaining:0,
-  totaloveralllimit:0,
-  addonused:0,
-  addonremaining:0,
-  baseplanremaining:0
-});
+  // Track usage state
+  const [messageUsage, setMessageUsage] = useState({
+    totalUsed: 0,
+    baseUsed: 0,
+    baseRemaining: baseMessageLimit,
+    addonUsed: 0,
+    addonRemaining: addonMessageLimit,
+    //effectiveRemaining: baseMessageLimit + addonMessageLimit,
+    totalLimit: 0,
+    remaining: 0,
+    effectiveRemaining: 0,
+    totaloveralllimit: 0,
+    addonused: 0,
+    addonremaining: 0,
+    baseplanremaining: 0,
+  });
 
   // Track which addons are being used
   const [addonUsage, setAddonUsage] = useState<Record<number, number>>({});
@@ -240,7 +249,7 @@ const [messageUsage, setMessageUsage] = useState({
   const [settings, setSettings] = useState<BotSettings>({
     name: "Support Bot",
     icon: "https://images.unsplash.com/photo-1531379410502-63bfe8cdaf6f?w=200&h=200&fit=crop&crop=faces",
-    fontSize: "16px",
+    fontSize: "12px",
     fontStyle: "Inter",
     position: "bottom-right",
     maxMessageLength: 200,
@@ -261,7 +270,7 @@ const [messageUsage, setMessageUsage] = useState({
     timestampColor: "#9CA3AF",
     borderRadius: "12px",
     borderColor: "#E5E7EB",
-    chatFontFamily: "Inter"
+    chatFontFamily: "Inter",
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
@@ -274,8 +283,10 @@ const [messageUsage, setMessageUsage] = useState({
     display: "flex",
     alignItems: "center",
     gap: "10px",
-    borderTopLeftRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
-    borderTopRightRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius
+    borderTopLeftRadius:
+      settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
+    borderTopRightRadius:
+      settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
   };
   const [errors, setErrors] = useState<{ maxMessageLength?: string }>({});
   const MAX_USER_MESSAGE_LENGTH = 1000;
@@ -400,7 +411,7 @@ const [messageUsage, setMessageUsage] = useState({
             timestampColor: response.timestamp_color || "#9CA3AF",
             borderRadius: response.border_radius || "12px",
             borderColor: response.border_color || "#E5E7EB",
-            chatFontFamily: response.chat_font_family || "Inter"
+            chatFontFamily: response.chat_font_family || "Inter",
           });
         }
       } catch (error) {
@@ -421,8 +432,9 @@ const [messageUsage, setMessageUsage] = useState({
         const response = await authApi.getUserMessageCount();
         const baseUsed = response.base_plan.used;
         const addonUsed = response.addons.used;
-        const totalLimit= response.addons.total_limit + response.base_plan.limit
-        
+        const totalLimit =
+          response.addons.total_limit + response.base_plan.limit;
+
         setMessageUsage({
           totalUsed: baseUsed + addonUsed,
           baseUsed,
@@ -430,19 +442,20 @@ const [messageUsage, setMessageUsage] = useState({
           addonUsed,
           addonRemaining: Math.max(0, addonMessageLimit - addonUsed),
           //effectiveRemaining: Math.max(0, totalMessageLimit - (baseUsed + addonUsed)),
-          totalLimit:response.addons.total_limit,
-          remaining:response.addons.remaining,
+          totalLimit: response.addons.total_limit,
+          remaining: response.addons.remaining,
           effectiveRemaining: response.effective_remaining,
-          totaloveralllimit: response.addons.total_limit + response.base_plan.limit,
-          addonused:response.addons.used,
+          totaloveralllimit:
+            response.addons.total_limit + response.base_plan.limit,
+          addonused: response.addons.used,
           addonremaining: response.addons.remaining,
-          baseplanremaining:response.base_plan.remaining
+          baseplanremaining: response.base_plan.remaining,
         });
-  
+
         // Initialize addon usage tracking
         if (response.addons.items) {
           const initialAddonUsage: Record<number, number> = {};
-          response.addons.items.forEach(addon => {
+          response.addons.items.forEach((addon) => {
             initialAddonUsage[addon.addon_id] = addon.used || 0;
           });
           setAddonUsage(initialAddonUsage);
@@ -451,71 +464,71 @@ const [messageUsage, setMessageUsage] = useState({
         console.error("Failed to fetch message usage:", error);
       }
     };
-  
+
     if (user?.user_id) {
       fetchInitialUsage();
     }
   }, [user, baseMessageLimit, addonMessageLimit, totalMessageLimit]);
 
-  
-// Check localStorage if no selected bot in state
-useEffect(() => {
-  if (!selectedBot) {
-    const savedBot = localStorage.getItem('selectedBot');
-    if (savedBot) {
-      try {
-        const bot = JSON.parse(savedBot);
-        setSelectedBot(bot); // Update context with the saved bot
-      } catch (e) {
-        console.error('Failed to parse saved bot', e);
-        localStorage.removeItem('selectedBot');
-        navigate("/"); // Redirect to home if invalid bot data
+  // Check localStorage if no selected bot in state
+  useEffect(() => {
+    if (!selectedBot) {
+      const savedBot = localStorage.getItem("selectedBot");
+      if (savedBot) {
+        try {
+          const bot = JSON.parse(savedBot);
+          setSelectedBot(bot); // Update context with the saved bot
+        } catch (e) {
+          console.error("Failed to parse saved bot", e);
+          localStorage.removeItem("selectedBot");
+          navigate("/"); // Redirect to home if invalid bot data
+        }
+      } else {
+        navigate("/"); // Redirect to home if no bot found
       }
-    } else {
-      navigate("/"); // Redirect to home if no bot found
     }
-  }
-}, [selectedBot, setSelectedBot, navigate]);
+  }, [selectedBot, setSelectedBot, navigate]);
 
   // In ChatbotCustomization.tsx
-const handleRefresh = async () => {
-  try {
-    await refreshUserData(); // Refresh user data from AuthContext
-    const response = await authApi.getUserMessageCount();
-    setMessageUsage({
-      totalUsed: response.total_messages_used,
-      basePlan: {
-        limit: response.base_plan.limit,
-        used: response.base_plan.used,
-        remaining: response.base_plan.remaining
-      },
-      addons: {
-        totalLimit: response.addons.total_limit,
-        used: response.addons.used,
-        remaining: response.addons.remaining,
-        items: response.addons.items || []
-      },
-      effectiveRemaining: response.effective_remaining
-    });
-    toast.success("Message data refreshed successfully");
-  } catch (error) {
-    console.error("Failed to refresh message data:", error);
-    toast.error("Failed to refresh message data");
-  }
-};
+  const handleRefresh = async () => {
+    try {
+      await refreshUserData(); // Refresh user data from AuthContext
+      const response = await authApi.getUserMessageCount();
+      setMessageUsage({
+        totalUsed: response.total_messages_used,
+        basePlan: {
+          limit: response.base_plan.limit,
+          used: response.base_plan.used,
+          remaining: response.base_plan.remaining,
+        },
+        addons: {
+          totalLimit: response.addons.total_limit,
+          used: response.addons.used,
+          remaining: response.addons.remaining,
+          items: response.addons.items || [],
+        },
+        effectiveRemaining: response.effective_remaining,
+      });
+      toast.success("Message data refreshed successfully");
+    } catch (error) {
+      console.error("Failed to refresh message data:", error);
+      toast.error("Failed to refresh message data");
+    }
+  };
   const updateMessageCount = () => {
-  setMessageUsage(prev => ({
-    ...prev,
-    totalUsed: prev.totalUsed + 1,
-    effectiveRemaining: prev.effectiveRemaining - 1,
-    // Update base or addon counts based on what backend returns
-    baseUsed: prev.baseRemaining > 0 ? prev.baseUsed + 1 : prev.baseUsed,
-    baseRemaining: prev.baseRemaining > 0 ? prev.baseRemaining - 1 : prev.baseRemaining,
-    addonUsed: prev.baseRemaining <= 0 ? prev.addonUsed + 1 : prev.addonUsed,
-    addonRemaining: prev.baseRemaining <= 0 ? prev.addonRemaining - 1 : prev.addonRemaining
-  }));
-};
-  
+    setMessageUsage((prev) => ({
+      ...prev,
+      totalUsed: prev.totalUsed + 1,
+      effectiveRemaining: prev.effectiveRemaining - 1,
+      // Update base or addon counts based on what backend returns
+      baseUsed: prev.baseRemaining > 0 ? prev.baseUsed + 1 : prev.baseUsed,
+      baseRemaining:
+        prev.baseRemaining > 0 ? prev.baseRemaining - 1 : prev.baseRemaining,
+      addonUsed: prev.baseRemaining <= 0 ? prev.addonUsed + 1 : prev.addonUsed,
+      addonRemaining:
+        prev.baseRemaining <= 0 ? prev.addonRemaining - 1 : prev.addonRemaining,
+    }));
+  };
 
   const handleUserActivity = () => {
     setLastActivityTime(new Date());
@@ -612,8 +625,14 @@ const handleRefresh = async () => {
   };
 
   const canSendMessage = () => {
-    console.log("messageUsage.baseRemaining + messageUsage.addonRemaining=>",messageUsage.baseRemaining + messageUsage.addonRemaining)
-    console.log("messageUsage.effectiveRemaining=>",messageUsage.effectiveRemaining)
+    console.log(
+      "messageUsage.baseRemaining + messageUsage.addonRemaining=>",
+      messageUsage.baseRemaining + messageUsage.addonRemaining
+    );
+    console.log(
+      "messageUsage.effectiveRemaining=>",
+      messageUsage.effectiveRemaining
+    );
     return messageUsage.effectiveRemaining > 0;
     //return (messageUsage.baseRemaining + messageUsage.addonRemaining) > 0;
   };
@@ -665,34 +684,32 @@ const handleRefresh = async () => {
       );
       setBotMessageId(data.message_id);
 
-
       // CALL RECORD USAGE IF USING ADDON
-    if (isAddonMessage) {
-          await authApi.recordAddonUsage(3, 1);
-          //Update local state
-          setAddonUsage(prev => ({
-            ...prev,
-            [3]: (prev[3] || 0) + 1
-          }));
-    }
+      if (isAddonMessage) {
+        await authApi.recordAddonUsage(3, 1);
+        //Update local state
+        setAddonUsage((prev) => ({
+          ...prev,
+          [3]: (prev[3] || 0) + 1,
+        }));
+      }
 
-    // setMessageUsage(prev => {
-    //   const newBaseRemaining = prev.baseRemaining > 0 ? prev.baseRemaining - 1 : prev.baseRemaining;
-    //   const newAddonRemaining = prev.baseRemaining <= 0 ? prev.addonRemaining - 1 : prev.addonRemaining;
-      
-    //   return {
-    //     ...prev,
-    //     totalUsed: prev.totalUsed + 1,
-    //     baseUsed: prev.baseRemaining > 0 ? prev.baseUsed + 1 : prev.baseUsed,
-    //     baseRemaining: newBaseRemaining,
-    //     addonUsed: prev.baseRemaining <= 0 ? prev.addonUsed + 1 : prev.addonUsed,
-    //     addonRemaining: newAddonRemaining,
-    //     effectiveRemaining: prev.effectiveRemaining - 1,
-    //     baseplanremaining: newBaseRemaining,
-    //     addonremaining: newAddonRemaining
-    //   };
-    // });
+      // setMessageUsage(prev => {
+      //   const newBaseRemaining = prev.baseRemaining > 0 ? prev.baseRemaining - 1 : prev.baseRemaining;
+      //   const newAddonRemaining = prev.baseRemaining <= 0 ? prev.addonRemaining - 1 : prev.addonRemaining;
 
+      //   return {
+      //     ...prev,
+      //     totalUsed: prev.totalUsed + 1,
+      //     baseUsed: prev.baseRemaining > 0 ? prev.baseUsed + 1 : prev.baseUsed,
+      //     baseRemaining: newBaseRemaining,
+      //     addonUsed: prev.baseRemaining <= 0 ? prev.addonUsed + 1 : prev.addonUsed,
+      //     addonRemaining: newAddonRemaining,
+      //     effectiveRemaining: prev.effectiveRemaining - 1,
+      //     baseplanremaining: newBaseRemaining,
+      //     addonremaining: newAddonRemaining
+      //   };
+      // });
 
       const thinkingDelay = Math.random() * 1000 + 500;
       setTimeout(() => {
@@ -792,13 +809,13 @@ const handleRefresh = async () => {
     if (!botToDelete) return;
     try {
       await authApi.deletebot(Number(botToDelete), { status: "Deleted" });
-      toast.success("Bot deleted successfully!");
+      toast.success("Your bot has been successfully deleted!");
       setIsConfirmOpen(false);
       localStorage.removeItem("selectedBotId");
       setTimeout(() => navigate("/"), 3000);
     } catch (error) {
       console.error("Failed to delete bot:", error);
-      toast.error("Failed to delete bot.");
+      toast.error("Unable to delete your bot. Please try again.");
     }
   };
 
@@ -811,10 +828,10 @@ const handleRefresh = async () => {
       } else {
         await saveBotSettings(settings, userId, setLoading);
       }
-      toast.success("Settings saved successfully!");
+      toast.success("Your bot settings have been saved!");
     } catch (error) {
       console.error(error);
-      toast.error("Failed to save settings.");
+      toast.error("Unable to save your bot settings. Please try again.");
     }
   };
 
@@ -914,24 +931,24 @@ const handleRefresh = async () => {
   const getTabSections = (tabId: string) => {
     switch (tabId) {
       case "identity":
-        return sections.filter(s => s.title === "Bot Identity");
+        return sections.filter((s) => s.title === "Bot Identity");
       case "typography":
         return [
-          ...sections.filter(s => s.title === "Typography"),
-          ...sections.filter(s => s.title === "Typography Advanced")
+          ...sections.filter((s) => s.title === "Typography"),
+          ...sections.filter((s) => s.title === "Typography Advanced"),
         ];
       case "colors":
         return [
-          ...sections.filter(s => s.title === "Message Colors"),
-          ...sections.filter(s => s.title === "Interface Colors")
+          ...sections.filter((s) => s.title === "Message Colors"),
+          ...sections.filter((s) => s.title === "Interface Colors"),
         ];
       case "layout":
         return [
-          ...sections.filter(s => s.title === "Window Appearance"),
-          ...sections.filter(s => s.title === "Layout & Borders")
+          ...sections.filter((s) => s.title === "Window Appearance"),
+          ...sections.filter((s) => s.title === "Layout & Borders"),
         ];
       case "behavior":
-        return sections.filter(s => s.title === "Chat Interface Behavior");
+        return sections.filter((s) => s.title === "Chat Interface Behavior");
       default:
         return [];
     }
@@ -972,7 +989,14 @@ const handleRefresh = async () => {
           label: "UI Font Family",
           type: "select",
           value: settings.fontStyle,
-          options: ["Inter", "Roboto", "Open Sans", "Lato", "Poppins", "Montserrat"],
+          options: [
+            "Inter",
+            "Roboto",
+            "Open Sans",
+            "Lato",
+            "Poppins",
+            "Montserrat",
+          ],
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("fontStyle", e.target.value),
         },
@@ -983,7 +1007,7 @@ const handleRefresh = async () => {
           options: ["12px", "14px", "16px", "18px", "20px"],
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("fontSize", e.target.value),
-        }
+        },
       ],
     },
     {
@@ -994,10 +1018,18 @@ const handleRefresh = async () => {
           label: "Chat Messages Font",
           type: "select",
           value: settings.chatFontFamily,
-          options: ["Inter", "Roboto", "Open Sans", "Lato", "Poppins", "Montserrat", "System Default"],
+          options: [
+            "Inter",
+            "Roboto",
+            "Open Sans",
+            "Lato",
+            "Poppins",
+            "Montserrat",
+            "System Default",
+          ],
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("chatFontFamily", e.target.value),
-        }
+        },
       ],
     },
     {
@@ -1117,7 +1149,16 @@ const handleRefresh = async () => {
           label: "Border Radius",
           type: "select",
           value: settings.borderRadius,
-          options: ["0px", "4px", "8px", "12px", "16px", "20px", "24px", "rounded-full"],
+          options: [
+            "0px",
+            "4px",
+            "8px",
+            "12px",
+            "16px",
+            "20px",
+            "24px",
+            "rounded-full",
+          ],
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("borderRadius", e.target.value),
         },
@@ -1218,18 +1259,22 @@ const handleRefresh = async () => {
               </button>
             </div>
           </div>
-          
+
           {/* Navigation Tabs */}
           <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-            <nav className="flex space-x-4 overflow-x-auto pb-2" aria-label="Settings tabs">
+            <nav
+              className="flex space-x-4 overflow-x-auto pb-2"
+              aria-label="Settings tabs"
+            >
               {tabOptions.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center px-4 py-2 font-medium text-sm rounded-lg transition-colors
-                    ${activeTab === tab.id 
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" 
-                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    ${
+                      activeTab === tab.id
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
+                        : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                     }`}
                 >
                   <tab.icon className="mr-2 h-4 w-4" />
@@ -1238,7 +1283,7 @@ const handleRefresh = async () => {
               ))}
             </nav>
           </div>
-          
+
           {/* Settings Sections */}
           <div className="space-y-6">
             {getTabSections(activeTab).map((section) => (
@@ -1248,7 +1293,9 @@ const handleRefresh = async () => {
               >
                 <div className="flex items-center space-x-2 mb-6 pb-3 border-b border-gray-100 dark:border-gray-700">
                   <section.icon className="w-5 h-5 text-blue-500" />
-                  <h2 className="text-lg font-medium dark:text-white">{section.title}</h2>
+                  <h2 className="text-lg font-medium dark:text-white">
+                    {section.title}
+                  </h2>
                   {section.title === "Chat Interface Behavior" && (
                     <div className="relative group">
                       <span className="text-gray-500 hover:text-blue-500 cursor-pointer">
@@ -1258,8 +1305,8 @@ const handleRefresh = async () => {
                         Some settings like <strong>Chatbot Position</strong> and{" "}
                         <strong>Appearance Mode</strong> define how the chatbot
                         integrates with your website. These settings are not
-                        reflected in the preview pane but will be visible on your
-                        live site.
+                        reflected in the preview pane but will be visible on
+                        your live site.
                       </div>
                     </div>
                   )}
@@ -1283,11 +1330,13 @@ const handleRefresh = async () => {
                           {field.label}
                         </label>
                       )}
-                      
+
                       {field.type === "select" ? (
                         <select
                           value={field.value as string}
-                          onChange={field.onChange as React.ChangeEventHandler<HTMLSelectElement>}
+                          onChange={
+                            field.onChange as React.ChangeEventHandler<HTMLSelectElement>
+                          }
                           className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                           {(field as any).options?.map((option: string) => (
@@ -1301,13 +1350,17 @@ const handleRefresh = async () => {
                           <input
                             type="color"
                             value={field.value as string}
-                            onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
+                            onChange={
+                              field.onChange as React.ChangeEventHandler<HTMLInputElement>
+                            }
                             className="w-10 h-10 rounded border border-gray-300 dark:border-gray-600"
                           />
                           <input
                             type="text"
                             value={field.value as string}
-                            onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
+                            onChange={
+                              field.onChange as React.ChangeEventHandler<HTMLInputElement>
+                            }
                             className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           />
                         </div>
@@ -1319,7 +1372,9 @@ const handleRefresh = async () => {
                             max={(field as any).max}
                             step={(field as any).step}
                             value={field.value as number}
-                            onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
+                            onChange={
+                              field.onChange as React.ChangeEventHandler<HTMLInputElement>
+                            }
                             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
                           />
                           <span
@@ -1327,7 +1382,8 @@ const handleRefresh = async () => {
                               position: "absolute",
                               top: "-5px",
                               left: `calc(${
-                                (((field.value as number) - (field as any).min) /
+                                (((field.value as number) -
+                                  (field as any).min) /
                                   ((field as any).max - (field as any).min)) *
                                 100
                               }% - 12px)`,
@@ -1342,27 +1398,47 @@ const handleRefresh = async () => {
                         <div className="flex flex-col space-y-2">
                           {settings.icon && (
                             <div className="flex items-center space-x-2">
-                              <img 
-                                src={settings.icon} 
-                                alt="Current icon" 
-                                className="w-10 h-10 rounded-full object-cover border border-gray-300 dark:border-gray-600" 
+                              <img
+                                src={settings.icon}
+                                alt="Current icon"
+                                className="w-10 h-10 rounded-full object-cover border border-gray-300 dark:border-gray-600"
                               />
-                              <span className="text-sm text-gray-500">Current icon</span>
+                              <span className="text-sm text-gray-500">
+                                Current icon
+                              </span>
                             </div>
                           )}
                           <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500">
                             <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                              <svg className="w-8 h-8 mb-2 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-                                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                              <svg
+                                className="w-8 h-8 mb-2 text-gray-500 dark:text-gray-400"
+                                aria-hidden="true"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 20 16"
+                              >
+                                <path
+                                  stroke="currentColor"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+                                />
                               </svg>
-                              <p className="mb-1 text-sm text-gray-500 dark:text-gray-400">Click to upload</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">SVG, PNG, JPG (MAX. 800x800px)</p>
+                              <p className="mb-1 text-sm text-gray-500 dark:text-gray-400">
+                                Click to upload
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                SVG, PNG, JPG (MAX. 800x800px)
+                              </p>
                             </div>
-                            <input 
-                              type="file" 
+                            <input
+                              type="file"
                               accept={(field as any).accept}
-                              onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
-                              className="hidden" 
+                              onChange={
+                                field.onChange as React.ChangeEventHandler<HTMLInputElement>
+                              }
+                              className="hidden"
                             />
                           </label>
                         </div>
@@ -1374,7 +1450,9 @@ const handleRefresh = async () => {
                             min={(field as any).min}
                             max={(field as any).max}
                             accept={(field as any).accept}
-                            onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
+                            onChange={
+                              field.onChange as React.ChangeEventHandler<HTMLInputElement>
+                            }
                             onBlur={() => {
                               if (
                                 field.label === "Maximum User Message Length" &&
@@ -1420,7 +1498,7 @@ const handleRefresh = async () => {
           </div>
         </div>
       </div>
-      
+
       {isConfirmOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg">
@@ -1443,59 +1521,92 @@ const handleRefresh = async () => {
           </div>
         </div>
       )}
-      
+
       <ToastContainer position="top-right" autoClose={3000} />
 
       {/* Floating Preview Toggle Button */}
       <button
         onClick={() => setShowPreview(!showPreview)}
-        className={`fixed ${settings.position === 'bottom-right' ? 'bottom-6 right-6' : 
-                          settings.position === 'bottom-left' ? 'bottom-6 left-6' : 
-                          'top-6 right-6'} 
-                  p-3 rounded-full shadow-lg z-50 transition-transform duration-300 ease-in-out
-                  ${showPreview ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
-        style={{ backgroundColor: settings.botColor }}
+        className={`fixed ${
+          settings.position === "bottom-right"
+            ? "bottom-10 right-10"
+            : settings.position === "bottom-left"
+            ? "bottom-6 left-6"
+            : "top-6 right-6"
+        } 
+                  w-[60px] h-[60px] p-0 rounded-full shadow-lg z-50 overflow-hidden transition-transform duration-300 ease-in-out
+                  ${
+                    showPreview ? "scale-0 opacity-0" : "scale-100 opacity-100"
+                  }`}
+        style={{
+          backgroundColor: settings.icon ? "transparent" : settings.botColor,
+        }}
       >
         {settings.icon ? (
-          <img 
-            src={settings.icon} 
-            alt="Bot" 
-            className="w-6 h-6 rounded-full object-cover" 
+          <img
+            src={settings.icon}
+            alt="Bot"
+            className="w-full h-full object-cover"
           />
         ) : (
-          <MessageCircle className="w-6 h-6 text-white" />
+          <MessageCircle className="w-full h-full text-white p-3" />
         )}
       </button>
 
       {/* Popup Preview Panel */}
       {showPreview && (
-        <div className={`fixed ${settings.position === 'bottom-right' ? 'bottom-6 right-6' : 
-                               settings.position === 'bottom-left' ? 'bottom-6 left-6' : 
-                               'top-6 right-6'} 
+        <div
+          className={`fixed ${
+            settings.position === "bottom-right"
+              ? "bottom-6 right-6"
+              : settings.position === "bottom-left"
+              ? "bottom-6 left-6"
+              : "top-6 right-6"
+          } 
                        z-50 transition-all duration-300 ease-in-out
-                       ${settings.appearance === 'Popup' ? 'w-[380px] h-[600px]' : 'w-full h-full'}`}>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl flex flex-col h-full overflow-hidden"
-              style={{ 
-                borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
-                border: `1px solid ${settings.borderColor}`
-              }}>
+                       ${
+                         settings.appearance === "Popup"
+                           ? "w-[380px] h-[600px]"
+                           : "w-screen h-screen top-0 left-0"
+                       }`}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl flex flex-col h-full overflow-hidden"
+            style={{
+              borderRadius:
+                settings.borderRadius === "rounded-full"
+                  ? "20px"
+                  : settings.borderRadius,
+              border: `1px solid ${settings.borderColor}`,
+            }}
+          >
             {/* Preview Header */}
-            <div className="flex justify-between items-center p-4 border-b dark:border-gray-700"
-                 style={{ 
-                   backgroundColor: settings.headerBgColor,
-                   color: settings.headerTextColor
-                 }}>
-              <h2 className="text-lg font-semibold"
-                  style={{ color: settings.headerTextColor }}>
+            <div
+              className="flex justify-between items-center p-4 border-b dark:border-gray-700"
+              style={{
+                backgroundColor: settings.headerBgColor,
+                color: settings.headerTextColor,
+              }}
+            >
+              <h2
+                className="text-lg font-semibold"
+                style={{ color: settings.headerTextColor }}
+              >
                 Preview
               </h2>
               <div className="flex items-center space-x-4">
                 <div className="flex flex-col space-y-1 text-sm bg-opacity-20 bg-white px-3 py-2 rounded-lg">
-                  <div className="font-medium" style={{ color: settings.headerTextColor }}>
-                    <span>Msgs: {messageUsage.totalUsed}/{messageUsage.totaloveralllimit}</span>
+                  <div
+                    className="font-medium"
+                    style={{ color: settings.headerTextColor }}
+                  >
+                    <span>
+                      Msgs: {messageUsage.totalUsed}/
+                      {messageUsage.totaloveralllimit}
+                    </span>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowPreview(false)}
                   style={{ color: settings.headerTextColor }}
                   className="hover:opacity-75"
@@ -1519,7 +1630,9 @@ const handleRefresh = async () => {
                 {settings.icon && (
                   <img src={settings.icon} alt="Bot Icon" style={iconStyle} />
                 )}
-                <strong style={{ color: settings.headerTextColor }}>{settings.name}</strong>
+                <strong style={{ color: settings.headerTextColor }}>
+                  {settings.name}
+                </strong>
               </div>
               <div className="flex-1"></div>
               {messages.length > 0 ? (
@@ -1528,27 +1641,35 @@ const handleRefresh = async () => {
                     {/* Message Bubble */}
                     <div
                       className={`p-3 rounded-lg max-w-[80%] ${
-                        msg.sender === "user"
-                          ? "ml-auto"
-                          : "mr-auto"
+                        msg.sender === "user" ? "ml-auto" : "mr-auto"
                       }`}
                       style={{
                         backgroundColor:
                           msg.sender === "user"
                             ? settings.userColor
                             : settings.botColor,
-                        color: 
+                        color:
                           msg.sender === "user"
                             ? settings.userTextColor
                             : settings.chatTextColor,
                         fontSize: settings.fontSize,
-                        fontFamily: settings.chatFontFamily || settings.fontStyle,
-                        borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
+                        fontFamily:
+                          settings.chatFontFamily || settings.fontStyle,
+                        borderRadius:
+                          settings.borderRadius === "rounded-full"
+                            ? "20px"
+                            : settings.borderRadius,
                       }}
                     >
                       <div>{msg.text}</div>
-                      <div className="text-xs mt-1 text-right" style={{ color: settings.timestampColor }}>
-                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <div
+                        className="text-xs mt-1 text-right"
+                        style={{ color: settings.timestampColor }}
+                      >
+                        {new Date().toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </div>
                     </div>
 
@@ -1587,22 +1708,36 @@ const handleRefresh = async () => {
                     color: settings.chatTextColor,
                     fontSize: settings.fontSize,
                     fontFamily: settings.chatFontFamily || settings.fontStyle,
-                    borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
+                    borderRadius:
+                      settings.borderRadius === "rounded-full"
+                        ? "20px"
+                        : settings.borderRadius,
                   }}
                 >
                   {settings.welcomeMessage}
-                  <div className="text-xs mt-1 text-right" style={{ color: settings.timestampColor }}>
-                    {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <div
+                    className="text-xs mt-1 text-right"
+                    style={{ color: settings.timestampColor }}
+                  >
+                    {new Date().toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </div>
                 </div>
               )}
               {previewLoading && !isBotTyping && (
-                <div className="mr-auto p-3 rounded-lg max-w-[80%]"
-                style={{
-                  backgroundColor: settings.botColor,
-                  color: settings.chatTextColor,
-                  borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
-                }}>
+                <div
+                  className="mr-auto p-3 rounded-lg max-w-[80%]"
+                  style={{
+                    backgroundColor: settings.botColor,
+                    color: settings.chatTextColor,
+                    borderRadius:
+                      settings.borderRadius === "rounded-full"
+                        ? "20px"
+                        : settings.borderRadius,
+                  }}
+                >
                   <span className="animate-pulse">...</span>
                 </div>
               )}
@@ -1614,30 +1749,33 @@ const handleRefresh = async () => {
                     color: settings.chatTextColor,
                     fontSize: settings.fontSize,
                     fontFamily: settings.chatFontFamily || settings.fontStyle,
-                    borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
+                    borderRadius:
+                      settings.borderRadius === "rounded-full"
+                        ? "20px"
+                        : settings.borderRadius,
                   }}
                 >
                   {currentBotMessage}
                   <span className="inline-flex items-center ml-1">
                     <span
                       className="h-1.5 w-1.5 rounded-full mx-0.5 animate-bounce"
-                      style={{ 
+                      style={{
                         backgroundColor: settings.chatTextColor,
-                        animationDelay: "0ms" 
+                        animationDelay: "0ms",
                       }}
                     ></span>
                     <span
                       className="h-1.5 w-1.5 rounded-full mx-0.5 animate-bounce"
-                      style={{ 
+                      style={{
                         backgroundColor: settings.chatTextColor,
-                        animationDelay: "200ms" 
+                        animationDelay: "200ms",
                       }}
                     ></span>
                     <span
                       className="h-1.5 w-1.5 rounded-full mx-0.5 animate-bounce"
-                      style={{ 
+                      style={{
                         backgroundColor: settings.chatTextColor,
-                        animationDelay: "400ms" 
+                        animationDelay: "400ms",
                       }}
                     ></span>
                   </span>
@@ -1646,8 +1784,13 @@ const handleRefresh = async () => {
             </div>
 
             {/* Chat Input */}
-            <div className="p-4 border-t dark:border-gray-700"
-                 style={{ borderColor: settings.borderColor }}>
+            <div
+              className="p-4 border-t dark:border-gray-700"
+              style={{
+                borderColor: settings.borderColor,
+                // backgroundColor: settings.windowBgColor,
+              }}
+            >
               <div className="flex items-center">
                 <input
                   type="text"
@@ -1656,7 +1799,10 @@ const handleRefresh = async () => {
                     backgroundColor: settings.inputBgColor,
                     borderColor: settings.borderColor,
                     color: settings.chatTextColor,
-                    borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
+                    borderRadius:
+                      settings.borderRadius === "rounded-full"
+                        ? "20px"
+                        : settings.borderRadius,
                   }}
                   placeholder={
                     !canSendMessage()
@@ -1687,7 +1833,10 @@ const handleRefresh = async () => {
                   style={{
                     backgroundColor: settings.buttonColor,
                     color: settings.buttonTextColor,
-                    borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius,
+                    borderRadius:
+                      settings.borderRadius === "rounded-full"
+                        ? "20px"
+                        : settings.borderRadius,
                   }}
                   onClick={sendMessage}
                   disabled={

@@ -31,6 +31,8 @@ def send_issue_email(
     attachments: list = None,
 ):
     """Function to send email in the background."""
+
+    # Construct the internal email
     subject = "Issue Request"
     body = f"""
     User ID: {user_id}
@@ -42,13 +44,35 @@ def send_issue_email(
     Description: {description}
     """
 
-    # Send email with optional attachments
-    send_email(
-        subject=subject,
-        body=body,
-        to_email=SMTP_CONFIG["demo_email"],
-        attachments=attachments,
-    )
+    try:
+        # Step 1: Send internal email
+        send_email(
+            subject=subject,
+            body=body,
+            to_email=SMTP_CONFIG["demo_email"],
+            attachments=attachments,
+        )
+
+        # Step 2: After success, send confirmation email to user
+        confirmation_subject = "Issue Submitted Successfully"
+        confirmation_body = f"""
+Hi {user_name},
+
+Your issue request has been submitted successfully. Our support team will contact you shortly.
+
+Thank you,
+Support Team
+        """
+
+        send_email(
+            subject=confirmation_subject,
+            body=confirmation_body,
+            to_email=user_email,
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to send issue email: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to send issue email.")
 
 @router.post("/submit-issue-request")
 async def submit_issue_request(

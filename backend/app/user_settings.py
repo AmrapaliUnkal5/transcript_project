@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from app.database import get_db
 from app.utils.create_access_token import create_access_token
-from .models import Base, User, UserAuthProvider,SubscriptionPlan,UserSubscription
+from .models import Base, User, UserAuthProvider,SubscriptionPlan,UserSubscription, Bot, Interaction, ChatMessage, TeamMember, File, YouTubeVideo, ScrapedNode, InteractionReaction, WebsiteDB, UserAddon, Notification
 from app.schemas import UserOut,UserUpdate, ChangePasswordRequest
 from app.dependency import get_current_user
 from app.utils.verify_password import verify_password
@@ -11,6 +11,8 @@ from passlib.context import CryptContext
 from datetime import datetime, timezone
 from app.notifications import add_notification
 from datetime import datetime, timedelta, timezone
+from fastapi.responses import JSONResponse
+from app.vector_db import delete_user_collections, delete_bot_collections
 
 router = APIRouter()
 
@@ -172,3 +174,127 @@ def check_user_subscription(user_id: int, db: Session = Depends(get_db)):
         .first()
     )
     return {"exists": bool(subscription)}
+
+@router.delete("/user/delete-account")
+def delete_user_account(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    """
+    Permanently deletes a user account and all associated data.
+    This includes bots, files, interactions, chat messages, YouTube videos, 
+    scraped content, team memberships, etc.
+    """
+    # Get the current user
+    if current_user["is_team_member"] == True:
+        raise HTTPException(
+            status_code=403, 
+            detail="Team members cannot delete their accounts. Please contact the team owner."
+        )
+    
+    user_id = current_user["user_id"]
+    user = db.query(User).filter(User.user_id == user_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    try:
+        # Step 1: Delete all bot-related data
+        # Get all user's bots
+        user_bots = db.query(Bot).filter(Bot.user_id == user_id).all()
+        bot_ids = [bot.bot_id for bot in user_bots]
+        
+        # Delete Chroma vector database collections for all user's bots
+        if bot_ids:
+            # This will handle deletion of all vector embeddings for the user's bots
+            delete_user_collections(bot_ids)
+        
+        # Delete interactions and chat messages for each bot
+        if bot_ids:
+            # Get all interactions for user's bots
+            interactions = db.query(Interaction).filter(
+                Interaction.bot_id.in_(bot_ids)
+            ).all()
+            interaction_ids = [interaction.interaction_id for interaction in interactions]
+            
+            # Delete chat messages for these interactions
+            if interaction_ids:
+                db.query(ChatMessage).filter(
+                    ChatMessage.interaction_id.in_(interaction_ids)
+                ).delete(synchronize_session=False)
+                
+                # Delete interaction reactions
+                db.query(InteractionReaction).filter(
+                    InteractionReaction.interaction_id.in_(interaction_ids)
+                ).delete(synchronize_session=False)
+            
+            # Delete interactions
+            db.query(Interaction).filter(
+                Interaction.bot_id.in_(bot_ids)
+            ).delete(synchronize_session=False)
+            
+            # Delete files associated with bots
+            db.query(File).filter(
+                File.bot_id.in_(bot_ids)
+            ).delete(synchronize_session=False)
+            
+            # Delete YouTube videos
+            db.query(YouTubeVideo).filter(
+                YouTubeVideo.bot_id.in_(bot_ids)
+            ).delete(synchronize_session=False)
+            
+            # Delete scraped nodes
+            db.query(ScrapedNode).filter(
+                ScrapedNode.bot_id.in_(bot_ids)
+            ).delete(synchronize_session=False)
+            
+            # Delete websites
+            db.query(WebsiteDB).filter(
+                WebsiteDB.bot_id.in_(bot_ids)
+            ).delete(synchronize_session=False)
+            
+            # Delete bots
+            db.query(Bot).filter(
+                Bot.user_id == user_id
+            ).delete(synchronize_session=False)
+        
+        # Step 2: Delete team-related data
+        # Remove user from teams (as owner or member)
+        db.query(TeamMember).filter(
+            (TeamMember.owner_id == user_id) | (TeamMember.member_id == user_id)
+        ).delete(synchronize_session=False)
+        
+        # Step 3: Delete subscription-related data
+        # Delete user addons
+        db.query(UserAddon).filter(
+            UserAddon.user_id == user_id
+        ).delete(synchronize_session=False)
+        
+        # Delete user subscriptions
+        db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id
+        ).delete(synchronize_session=False)
+        
+        # Delete notifications
+        db.query(Notification).filter(
+            Notification.user_id == user_id
+        ).delete(synchronize_session=False)
+        
+        # Step 4: Delete auth providers
+        db.query(UserAuthProvider).filter(
+            UserAuthProvider.user_id == user_id
+        ).delete(synchronize_session=False)
+        
+        # Step 5: Delete the user
+        db.delete(user)
+        db.commit()
+        
+        return JSONResponse(
+            status_code=200, 
+            content={"message": "Account and all associated data have been permanently deleted"}
+        )
+    
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting user account: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to delete account: {str(e)}"
+        )

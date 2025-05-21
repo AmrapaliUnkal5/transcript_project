@@ -72,9 +72,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             updatedUserData.addon_plan_ids = [];
           }
           
-          // Set the user state
+          // Update the user state
           setUser(updatedUserData);
           localStorage.setItem("user", JSON.stringify(updatedUserData));
+          
+          // Get fresh JWT token with updated user information
+          if (response.access_token) {
+            localStorage.setItem("token", response.access_token);
+          }
         }
       }
     } catch (error) {
