@@ -118,6 +118,17 @@ def setup_logging(log_level=logging.INFO):
     error_handler.setLevel(logging.ERROR)
     error_handler.setFormatter(json_formatter)
     
+    # Add handlers to the root logger
+    root_logger.addHandler(debug_handler)
+    root_logger.addHandler(info_handler)
+    root_logger.addHandler(warning_handler)
+    root_logger.addHandler(error_handler)
+    
+    # AI tasks logger - THIS IS THE IMPORTANT CHANGE
+    # Create a separate logger for AI tasks rather than using root logger
+    ai_logger = logging.getLogger("ai_tasks")
+    ai_logger.propagate = False  # Prevent log messages from propagating to root logger
+    
     # AI tasks logs (size-based rotation)
     ai_handler = RotatingFileHandler(
         AI_LOG_FILE, maxBytes=MAX_LOG_SIZE, backupCount=10
@@ -125,12 +136,8 @@ def setup_logging(log_level=logging.INFO):
     ai_handler.setLevel(logging.INFO)
     ai_handler.setFormatter(json_formatter)
     
-    # Add all handlers to the root logger
-    root_logger.addHandler(debug_handler)
-    root_logger.addHandler(info_handler)
-    root_logger.addHandler(warning_handler)
-    root_logger.addHandler(error_handler)
-    root_logger.addHandler(ai_handler)
+    # Add handler to the AI tasks logger specifically
+    ai_logger.addHandler(ai_handler)
 
 
 def get_logger(name: str, extra: Optional[Dict[str, Any]] = None) -> logging.Logger:
