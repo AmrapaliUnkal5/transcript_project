@@ -47,6 +47,10 @@ class JSONFormatter(logging.Formatter):
         # Add extra attributes from the record
         if hasattr(record, "extra"):
             log_record.update(record.extra)
+            
+        # Include ai_task data directly in the log record if present
+        if hasattr(record, "ai_task"):
+            log_record["ai_task"] = record.ai_task
         
         # Remove sensitive data keys
         self._remove_sensitive_data(log_record)
@@ -127,6 +131,7 @@ def setup_logging(log_level=logging.INFO):
     # AI tasks logger - THIS IS THE IMPORTANT CHANGE
     # Create a separate logger for AI tasks rather than using root logger
     ai_logger = logging.getLogger("ai_tasks")
+    ai_logger.setLevel(logging.INFO)
     ai_logger.propagate = False  # Prevent log messages from propagating to root logger
     
     # AI tasks logs (size-based rotation)
