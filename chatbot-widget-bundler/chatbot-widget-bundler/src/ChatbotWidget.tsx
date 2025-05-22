@@ -575,7 +575,10 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       padding: "10px",
       display: "flex",
       alignItems: "center",
-      gap: "10px",
+      fontSize: "18px",
+      gap: "8px",
+      fontWeight: 600,         // font-semibold
+      fontFamily: `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif`,
     };
 
     const iconStyle: React.CSSProperties = {
@@ -643,7 +646,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
        )}
         <div style={headerStyle}>
           {bot_icon && <img src={bot_icon} alt="Bot Icon" style={iconStyle} />}
-          <strong>{bot_name}</strong>
+          {bot_name}
         </div>
  
         <div style={chatBodyStyle}>
@@ -934,10 +937,8 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
               flexGrow: 1,
               padding: "0.5rem 0.75rem", // similar to Tailwind `p-2`
               border: `1px solid ${border_color || "#d1d5db"}`,
-              borderRadius:
-                border_radius === "rounded-full"
-                  ? "20px"
-                  : border_radius || "8px",
+              borderRadius:border_radius || "20px",
+                
               backgroundColor: input_bg_color || "#ffffff",
               color: chat_text_color || "#111827",
               outline: "none",

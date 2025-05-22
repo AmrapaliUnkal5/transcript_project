@@ -515,3 +515,9 @@ class ReactionCreateWidget(BaseModel):
     session_id: str
     reaction: ReactionEnum
     message_id:str
+
+from typing import Literal
+class BotWidgetInitialResponse(BaseModel):
+    avatarUrl: Optional[str]
+    position: Literal["top-left", "top-right", "bottom-left", "bottom-right"]
+    welcomeMessage: Optional[str]

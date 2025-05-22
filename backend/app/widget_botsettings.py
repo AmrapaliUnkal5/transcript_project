@@ -1,3 +1,4 @@
+import traceback
 from fastapi import APIRouter, Depends, Request,HTTPException, Query, BackgroundTasks
 from fastapi.responses import JSONResponse
 from jose import jwt
@@ -75,44 +76,50 @@ def get_bot_token(bot_id: int, current_user=Depends(get_current_user)):
 
 @router.get("/widget/bot", response_model=schemas.BotWidgetResponse)
 async def get_bot_settings_for_widget(request: Request, db: Session = Depends(get_db)):
-    # 1. Get token from Authorization header
-    bot_id = get_bot_id_from_auth_header(request)
-    logger.info("/widget/bot: %s", bot_id)
-    
-
-    # 3. Extract origin from request
-    origin = request.headers.get("origin") or request.headers.get("referer")
-    if not origin:
-        raise HTTPException(status_code=400, detail="Missing origin")
-    print("origin",origin)
-
-    origin_parsed = urlparse(origin)
-    origin_netloc = f"{origin_parsed.scheme}://{origin_parsed.netloc}"  # e.g. "https://example.com"
-    logger.info("origin  %s", origin_netloc)
-
-
-    # 4. Fetch bot settings from DB
-    bot = crud.get_bot_by_id(db, bot_id)
-    if not bot:
-        raise HTTPException(status_code=404, detail="Bot not found")
-
-    #5. Validate origin (secure your API)
-     # 5. Validate origin
-    allowed_domains = set()
-    allowed_domains.add(settings.SERVER_URL.strip("/"))
-    selected_domain = bot.selected_domain  # e.g. "https://example.com"
-    logger.info("selected_domain  %s", selected_domain)
-    if selected_domain:
-        domain_parsed = urlparse(selected_domain)
-        domain_netloc = f"{domain_parsed.scheme}://{domain_parsed.netloc}"
-        allowed_domains.add(domain_netloc.strip("/"))
-       
+    try:
+        # 1. Get token from Authorization header
+        bot_id = get_bot_id_from_auth_header(request)
+        logger.info("/widget/bot: %s", bot_id)
         
-    if origin_netloc not in allowed_domains:
-            raise HTTPException(status_code=403, detail="Forbidden: Origin not allowed")
 
-    # 6. Return bot settings
-    return bot
+        # 3. Extract origin from request
+        origin = request.headers.get("origin") or request.headers.get("referer")
+        if not origin:
+            raise HTTPException(status_code=400, detail="Missing origin")
+        print("origin",origin)
+
+        origin_parsed = urlparse(origin)
+        origin_netloc = f"{origin_parsed.scheme}://{origin_parsed.netloc}"  # e.g. "https://example.com"
+        logger.info("origin  %s", origin_netloc)
+
+
+        # 4. Fetch bot settings from DB
+        bot = crud.get_bot_by_id(db, bot_id)
+        if not bot:
+            raise HTTPException(status_code=404, detail="Bot not found")
+
+        #5. Validate origin (secure your API)
+        # 5. Validate origin
+        allowed_domains = set()
+        allowed_domains.add(settings.SERVER_URL.strip("/"))
+        selected_domain = bot.selected_domain  # e.g. "https://example.com"
+        logger.info("selected_domain  %s", selected_domain)
+        if selected_domain:
+            domain_parsed = urlparse(selected_domain)
+            domain_netloc = f"{domain_parsed.scheme}://{domain_parsed.netloc}"
+            allowed_domains.add(domain_netloc.strip("/"))
+          
+            
+        if origin_netloc not in allowed_domains:
+                print("error")
+                raise HTTPException(status_code=403, detail="Forbidden: Origin not allowed")
+
+        # 6. Return bot settings
+        return bot
+    except Exception as e:
+        print("❌ Error in /widget/bot:", e)
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.put("/widget/bots/update-domain")
 def update_bot_domain(payload: schemas.UpdateBotDomainRequest, db: Session = Depends(get_db)):
@@ -631,13 +638,29 @@ async def embed_full_bot(token: str,db: Session = Depends(get_db)):
     </head>
     <body>
         <script
-            src="{settings.WIDGET_API_URL}/dist/chatbot-widget.iife.js"
-            data-token="{token}"
-            data-avatar-url="{avatar_url}"
-            basedomain="{settings.SERVER_URL}"
+            src="{settings.WIDGET_API_URL}"
+            data-token="{token}"           
             data-appearance="Full Screen"
         ></script>
     </body>
     </html>
     """
     return HTMLResponse(content=html_content)
+
+@router.get("/widget/initial/bot", response_model=schemas.BotWidgetInitialResponse)
+async def get_bot_initial_settings_for_widget(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    bot_id = get_bot_id_from_auth_header(request)
+    print("botid",bot_id)
+
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+
+    return schemas.BotWidgetInitialResponse(
+        avatarUrl=bot.bot_icon,
+        position=bot.position or "bottom-right",
+        welcomeMessage=bot.welcome_message
+    )

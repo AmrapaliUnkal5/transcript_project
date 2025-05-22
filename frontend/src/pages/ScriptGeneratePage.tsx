@@ -15,7 +15,7 @@ export const ScriptGeneratePage = () => {
   const { setLoading } = useLoader();
   const [botId, setBotId] = useState<number | null>(null);
   const VITE_WIDGET_API_URL =
-    import.meta.env.VITE_WIDGET_API_URL || "http://localhost:3000";
+    import.meta.env.VITE_WIDGET_API_URL || "https://aiassist.bytepx.com/widget/chatbot-widget.iife.js";
   const VITE_API_URL = import.meta.env.VITE_API_URL;
   const [settings, setSettings] = useState<BotSettings>({
     name: "Support Bot",
@@ -41,6 +41,7 @@ export const ScriptGeneratePage = () => {
     borderRadius: "12px",
     borderColor: "#E5E7EB",
     chatFontFamily: "Inter",
+    userTimestampColor:"#FFFFFF",
   });
   const navigate = useNavigate();
   const [domain, setDomain] = useState("");
@@ -102,6 +103,7 @@ export const ScriptGeneratePage = () => {
             borderRadius: response.border_radius || "12px",
             borderColor: response.border_color || "#E5E7EB",
             chatFontFamily: response.chat_font_family || "Inter",
+            userTimestampColor: response.userTimestampColor || "#FFFFFF",
           });
         }
       } catch (error) {
@@ -144,12 +146,8 @@ export const ScriptGeneratePage = () => {
     // const botId = selectedBot.id;
 
     return `<script
-  src="${VITE_WIDGET_API_URL}/dist/chatbot-widget.iife.js"
+  src="${VITE_WIDGET_API_URL}"
   data-token="${token}"
-  data-avatar-url="${settings.icon || ""}"
-  data-position="${settings.position || ""}"
-  data-welcome-message="${settings.welcomeMessage}"
-  basedomain="${VITE_API_URL}"
   ></script>`;
   };
 
