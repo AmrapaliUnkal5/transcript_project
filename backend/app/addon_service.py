@@ -39,7 +39,7 @@ class AddonService:
             .join(Addon, UserAddon.addon_id == Addon.id)
             .filter(
                 UserAddon.user_id == user_id,
-                Addon.addon_type == addon_type,
+                # Addon.addon_type == addon_type,
                 UserAddon.is_active == True,
                 UserAddon.status == "active",
                 UserAddon.expiry_date > current_time
