@@ -21,6 +21,20 @@ from app.utils.verify_password import verify_password
 from app.utils.reembedding_utils import reembed_all_files, reembed_all_bot_data
 import asyncio
 from sqlalchemy.inspection import inspect
+from wtforms.fields import DateTimeField
+from sqlalchemy.sql.elements import ClauseElement
+from datetime import datetime
+
+# Custom DateTimeField that safely handles SQLAlchemy clause objects
+class SafeDateTimeField(DateTimeField):
+    def _value(self):
+        if self.data is None:
+            return ""
+        elif isinstance(self.data, ClauseElement):
+            # Return empty string when encountering SQLAlchemy clause
+            return ""
+        else:
+            return super()._value()
 
 # Admin Authentication Backend
 class AdminAuth(AuthenticationBackend):
@@ -51,9 +65,27 @@ class AdminAuth(AuthenticationBackend):
 # Initialize Admin Panel
 authentication_backend = AdminAuth(secret_key="SECRET_KEY")
 
+# Base ModelView with customizations for all admin models
+class BaseModelView(ModelView):
+    form_overrides = {
+        'created_at': SafeDateTimeField,
+        'updated_at': SafeDateTimeField,
+        'payment_date': SafeDateTimeField,
+        'expiry_date': SafeDateTimeField,
+        'purchase_date': SafeDateTimeField,
+        'last_embedded': SafeDateTimeField,
+        'invitation_sent_at': SafeDateTimeField,
+        'reaction_time': SafeDateTimeField,
+        'token_expiry': SafeDateTimeField,
+        'last_updated': SafeDateTimeField,
+        'start_time': SafeDateTimeField,
+        'end_time': SafeDateTimeField,
+        'timestamp': SafeDateTimeField,
+        'upload_date': SafeDateTimeField
+    }
 
 # Model Views
-class UserAdmin(ModelView, model=User):
+class UserAdmin(BaseModelView, model=User):
     column_list = [
         User.user_id,
         User.email,
@@ -65,7 +97,7 @@ class UserAdmin(ModelView, model=User):
     ]
     column_searchable_list = [User.name, User.email,User.role]
 
-class BotAdmin(ModelView, model=Bot):
+class BotAdmin(BaseModelView, model=Bot):
     column_list = [
         Bot.bot_id,
         Bot.bot_name,
@@ -145,7 +177,7 @@ class BotAdmin(ModelView, model=Bot):
             # Still allow the save to proceed by calling the parent method
             return await super().on_model_change(data, model, is_created, request)
 
-class FileAdmin(ModelView, model=File):
+class FileAdmin(BaseModelView, model=File):
     column_list = [
         File.file_id,
         File.file_name,
@@ -156,7 +188,7 @@ class FileAdmin(ModelView, model=File):
     column_searchable_list = [File.file_name, File.file_type]
     column_filters = [File.bot_id]
 
-class LanguageAdmin(ModelView, model=Language):
+class LanguageAdmin(BaseModelView, model=Language):
     column_list = [
         Language.language_id,
         Language.language_code,
@@ -205,7 +237,7 @@ class LanguageAdmin(ModelView, model=Language):
 #     column_searchable_list = [Subscription.currency, Subscription.status]
 #     column_filters = ["user_id", "bot_id", "status"]
 
-class UserAuthProviderAdmin(ModelView, model=UserAuthProvider):
+class UserAuthProviderAdmin(BaseModelView, model=UserAuthProvider):
     column_list = [
         UserAuthProvider.auth_id,
         UserAuthProvider.user_id,
@@ -219,7 +251,7 @@ class UserAuthProviderAdmin(ModelView, model=UserAuthProvider):
     column_searchable_list = [UserAuthProvider.provider_name, UserAuthProvider.provider_user_id]
     column_filters = ["provider_name", "created_at"]
 
-class InteractionAdmin(ModelView, model=Interaction):
+class InteractionAdmin(BaseModelView, model=Interaction):
     column_list = [
         Interaction.interaction_id,
         Interaction.bot_id,
@@ -230,7 +262,7 @@ class InteractionAdmin(ModelView, model=Interaction):
     column_searchable_list = [Interaction.bot_id]
     column_filters = ["timestamp"]
 
-class ChatMessageAdmin(ModelView, model=ChatMessage):
+class ChatMessageAdmin(BaseModelView, model=ChatMessage):
     column_list = [
         ChatMessage.message_id,
         ChatMessage.interaction_id,
@@ -241,7 +273,7 @@ class ChatMessageAdmin(ModelView, model=ChatMessage):
     column_searchable_list = [ChatMessage.interaction_id]
     column_filters = ["user_id", "bot_id", "timestamp"]
 
-class DemoRequestAdmin(ModelView, model=DemoRequest):
+class DemoRequestAdmin(BaseModelView, model=DemoRequest):
     column_list = [
         DemoRequest.id,
         DemoRequest.name,
@@ -254,7 +286,7 @@ class DemoRequestAdmin(ModelView, model=DemoRequest):
     column_searchable_list = ["id"]
     column_filters = ["id"]
 
-class EmbeddingModelAdmin(ModelView, model=EmbeddingModel):
+class EmbeddingModelAdmin(BaseModelView, model=EmbeddingModel):
     column_list = [
         EmbeddingModel.id,
         EmbeddingModel.name,
@@ -265,7 +297,7 @@ class EmbeddingModelAdmin(ModelView, model=EmbeddingModel):
     ]
     column_searchable_list = [EmbeddingModel.name, EmbeddingModel.provider]
 
-class LLMModelAdmin(ModelView, model=LLMModel):
+class LLMModelAdmin(BaseModelView, model=LLMModel):
     column_list = [
         LLMModel.id,
         LLMModel.name,
@@ -278,7 +310,7 @@ class LLMModelAdmin(ModelView, model=LLMModel):
     ]
     column_searchable_list = [LLMModel.name, LLMModel.provider]
 
-class SubscriptionPlanAdmin(ModelView, model=SubscriptionPlan):
+class SubscriptionPlanAdmin(BaseModelView, model=SubscriptionPlan):
     column_list = [
         SubscriptionPlan.id,
         SubscriptionPlan.name,
@@ -374,7 +406,7 @@ class SubscriptionPlanAdmin(ModelView, model=SubscriptionPlan):
             # Still call parent method to ensure the model is saved
             await super().on_model_change(data, model, is_created, request)
 
-class AddonAdmin(ModelView, model=Addon):
+class AddonAdmin(BaseModelView, model=Addon):
     column_list = [
         Addon.id,
         Addon.name,
@@ -386,7 +418,7 @@ class AddonAdmin(ModelView, model=Addon):
     column_searchable_list = [Addon.name, Addon.description]
     column_filters = ["name", "price", "created_at"]
 
-class UserSubscriptionAdmin(ModelView, model=UserSubscription):
+class UserSubscriptionAdmin(BaseModelView, model=UserSubscription):
     
     column_list = [
         UserSubscription.id,
@@ -426,7 +458,7 @@ class UserSubscriptionAdmin(ModelView, model=UserSubscription):
     ]
 
 
-class TeamMemberAdmin(ModelView, model=TeamMember):
+class TeamMemberAdmin(BaseModelView, model=TeamMember):
     column_list = [
         TeamMember.id,
         TeamMember.owner_id,
@@ -451,7 +483,7 @@ class TeamMemberAdmin(ModelView, model=TeamMember):
         TeamMember.updated_at
     ]
 
-class InteractionReactionAdmin(ModelView, model=InteractionReaction):
+class InteractionReactionAdmin(BaseModelView, model=InteractionReaction):
     column_list = [
         InteractionReaction.id,
         InteractionReaction.bot_id,
@@ -475,7 +507,7 @@ class InteractionReactionAdmin(ModelView, model=InteractionReaction):
         InteractionReaction.message_id
     ]
 
-class ScrapedNodeAdmin(ModelView, model=ScrapedNode):
+class ScrapedNodeAdmin(BaseModelView, model=ScrapedNode):
     column_list = [
         ScrapedNode.id,
         ScrapedNode.url,
@@ -506,7 +538,7 @@ class ScrapedNodeAdmin(ModelView, model=ScrapedNode):
         ScrapedNode.nodes_text
     ]
 
-class WebsiteDBAdmin(ModelView, model=WebsiteDB):
+class WebsiteDBAdmin(BaseModelView, model=WebsiteDB):
     column_list = [
         WebsiteDB.id,
         WebsiteDB.domain,
@@ -526,7 +558,7 @@ class WebsiteDBAdmin(ModelView, model=WebsiteDB):
         WebsiteDB.is_deleted
     ]
 
-class YouTubeVideoAdmin(ModelView, model=YouTubeVideo):
+class YouTubeVideoAdmin(BaseModelView, model=YouTubeVideo):
     column_list = [
         YouTubeVideo.id,
         YouTubeVideo.video_id,
@@ -569,7 +601,7 @@ class YouTubeVideoAdmin(ModelView, model=YouTubeVideo):
         YouTubeVideo.transcript
     ]
 
-class NotificationAdmin(ModelView, model=Notification):
+class NotificationAdmin(BaseModelView, model=Notification):
     column_list = [
         Notification.id,
         Notification.user_id,
@@ -593,7 +625,7 @@ class NotificationAdmin(ModelView, model=Notification):
         Notification.created_at
     ]
 
-class ClusterAdmin(ModelView, model=Cluster):
+class ClusterAdmin(BaseModelView, model=Cluster):
     column_list = [
         Cluster.cluster_id,
         Cluster.bot_id,
@@ -612,7 +644,7 @@ class ClusterAdmin(ModelView, model=Cluster):
         Cluster.count
     ]
 
-class ClusteredQuestionAdmin(ModelView, model=ClusteredQuestion):
+class ClusteredQuestionAdmin(BaseModelView, model=ClusteredQuestion):
     column_list = [
         ClusteredQuestion.id,
         ClusteredQuestion.cluster_id,
@@ -629,7 +661,7 @@ class ClusteredQuestionAdmin(ModelView, model=ClusteredQuestion):
         ClusteredQuestion.embedding
     ]
 
-class UserAddonAdmin(ModelView, model=UserAddon):
+class UserAddonAdmin(BaseModelView, model=UserAddon):
     column_list = [
         UserAddon.id,
         UserAddon.user_id,
@@ -658,9 +690,9 @@ class UserAddonAdmin(ModelView, model=UserAddon):
     
     # Add form columns to include all fields
     form_columns = [
-        UserAddon.user_id,
-        UserAddon.addon_id,
-        UserAddon.subscription_id,
+        "user",
+        "addon",
+        "subscription",
         UserAddon.purchase_date,
         UserAddon.expiry_date,
         UserAddon.is_active,
@@ -671,7 +703,7 @@ class UserAddonAdmin(ModelView, model=UserAddon):
         UserAddon.initial_count
     ]
 
-class WordCloudDataAdmin(ModelView, model=WordCloudData):
+class WordCloudDataAdmin(BaseModelView, model=WordCloudData):
     column_list = [
         WordCloudData.bot_id,
         WordCloudData.word_frequencies,
