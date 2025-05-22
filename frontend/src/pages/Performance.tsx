@@ -41,6 +41,11 @@ interface WordCloudData {
   value: number;
 }
 
+const COLOR_MAP: Record<string, string> = {
+  Likes: "#4CAF50",      // green
+  Dislikes: "#F44336",   // red
+  Neutral: "#FFC107",    // amber
+};
 const COLORS = ["#4CAF50", "#F44336", "#2196F3", "#FFC107", "#F44336"];
 
 const UpgradeMessage = ({
@@ -48,12 +53,12 @@ const UpgradeMessage = ({
   feature = "analytics",
 }) => {
   return (
-    <div className="bg-white dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg w-64 text-center">
-      <Lock className="w-6 h-6 mx-auto text-gray-400 mb-2" />
-      <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+    <div className="bg-white dark:bg-gray-700 p-6 rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg w-64 text-center">
+      <Lock className="w-8 h-4 mx-auto text-gray-400 mb-3" />
+      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
         {feature === "analytics" ? "Analytics Locked" : "Feature Locked"}
       </h3>
-      <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">
+      <p className="text-xs text-gray-600 dark:text-gray-300 mb-4">
         {feature === "analytics"
           ? `Upgrade to ${requiredPlan} plan to view analytics.`
           : `Upgrade to ${requiredPlan} plan for detailed metrics.`}
@@ -289,13 +294,27 @@ export const Performance = () => {
     setLoading(false);
   }
 };
+
   useEffect(() => {
+  if (!selectedBot?.id || !userPlan) return; // Early return if no userPlan
+  
+  // Basic analytics for all paid plans (Plan 2+)
+  if (userPlan.id > 1) {
     fetchConversationData();
     fetchSatisfactionData();
+  }
+  
+  // Advanced analytics only for professional plans (Plan 3+)
+  if (userPlan.id >= 3) {
     fetchFaqData();
-    fetchBillingCycleMetrics();
     fetchWordCloudData();
-  }, [selectedBot?.id]);
+  }
+  
+  // Billing metrics for plans 2+
+  if (userPlan.id >= 2) {
+    fetchBillingCycleMetrics();
+  }
+}, [selectedBot?.id, userPlan?.id]); // Add userPlan?.id to dependency array
 
   if (loading) {
     return <Loader />;
@@ -417,7 +436,7 @@ export const Performance = () => {
                     {satisfactionData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
+                        fill={COLOR_MAP[entry.name] || "#ccc"}
                       />
                     ))}
                   </Pie>
@@ -605,7 +624,7 @@ export const Performance = () => {
 
 
         {hasNoAnalyticsAccess && (
-          <div className="absolute top-[30%] left-[35%] transform -translate-x-1/6 -translate-y-1/16 z-10">
+          <div className="absolute top-[20%] left-[40%] transform -translate-x-1/8 -translate-y-1/16 z-10">
             <UpgradeMessage requiredPlan="Starter" feature="analytics" />
           </div>
         )}
