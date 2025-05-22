@@ -15,6 +15,7 @@ INFO_LOG_FILE = os.path.join(logs_dir, 'info.log')
 ERROR_LOG_FILE = os.path.join(logs_dir, 'error.log')
 DEBUG_LOG_FILE = os.path.join(logs_dir, 'debug.log')
 WARNING_LOG_FILE = os.path.join(logs_dir, 'warning.log')
+AI_LOG_FILE = os.path.join(logs_dir, 'ai_tasks.log')  # New log file for AI tasks
 
 # Maximum log file size (10 MB)
 MAX_LOG_SIZE = 10 * 1024 * 1024
@@ -117,11 +118,19 @@ def setup_logging(log_level=logging.INFO):
     error_handler.setLevel(logging.ERROR)
     error_handler.setFormatter(json_formatter)
     
+    # AI tasks logs (size-based rotation)
+    ai_handler = RotatingFileHandler(
+        AI_LOG_FILE, maxBytes=MAX_LOG_SIZE, backupCount=10
+    )
+    ai_handler.setLevel(logging.INFO)
+    ai_handler.setFormatter(json_formatter)
+    
     # Add all handlers to the root logger
     root_logger.addHandler(debug_handler)
     root_logger.addHandler(info_handler)
     root_logger.addHandler(warning_handler)
     root_logger.addHandler(error_handler)
+    root_logger.addHandler(ai_handler)
 
 
 def get_logger(name: str, extra: Optional[Dict[str, Any]] = None) -> logging.Logger:

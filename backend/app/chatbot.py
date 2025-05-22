@@ -23,6 +23,7 @@ from app.schemas import UserOut, YouTubeVideoResponse
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import HumanMessage, AIMessage
 from datetime import datetime, timezone
+from app.utils.ai_logger import log_chat_completion
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -353,6 +354,17 @@ def chatbot_response(request: Request, bot_id: int, user_id: int, user_message: 
         db.add_all([user_msg, bot_msg])
         db.commit()
         
+        # Log the chat completion
+        log_chat_completion(
+            user_id=user_id,
+            bot_id=bot_id,
+            user_query=user_message,
+            bot_response=greeting_response,
+            similar_docs_count=0,
+            interaction_id=interaction.interaction_id,
+            extra={"type": "greeting"}
+        )
+        
         return {"bot_reply": greeting_response}
     
     # ✅ Check if this is a farewell message, to save tokens
@@ -367,13 +379,24 @@ def chatbot_response(request: Request, bot_id: int, user_id: int, user_message: 
         db.add_all([user_msg, bot_msg])
         db.commit()
         
+        # Log the chat completion
+        log_chat_completion(
+            user_id=user_id,
+            bot_id=bot_id,
+            user_query=user_message,
+            bot_response=farewell_response,
+            similar_docs_count=0,
+            interaction_id=interaction.interaction_id,
+            extra={"type": "farewell"}
+        )
+        
         return {"bot_reply": farewell_response}
     
     use_external_knowledge = bot.external_knowledge if bot else False
     temperature = bot.temperature if bot and bot.temperature is not None else 0.7
     
     # Get message character limit from bot settings or use default
-    message_char_limit = bot.max_words_per_message * 5 if bot and bot.max_words_per_message else 1000  # Approx 5 chars per word
+    message_char_limit = bot.max_words_per_message * 5 if bot and bot.max_words_per_message else 1000
     
     # Check if current user message exceeds character limit
     if len(user_message) > message_char_limit:
@@ -400,60 +423,76 @@ def chatbot_response(request: Request, bot_id: int, user_id: int, user_message: 
     logger.info(f"Retrieved documents from vector database", 
                extra={"request_id": request_id, "bot_id": bot_id, 
                      "document_count": len(similar_docs) if similar_docs else 0})
-
-    # ✅ If no relevant documents are found, use appropriate response
-    if not similar_docs:
-        # Even if no documents are found, we can use external knowledge if enabled
-        if use_external_knowledge:
-            context = ""
-            logger.info(f"No relevant documents found, using external knowledge", 
-                      extra={"request_id": request_id, "bot_id": bot_id})
-        else:
-            bot_reply = "I can only answer based on uploaded documents, but I don't have information on that topic."
-            logger.info(f"No relevant documents found and external knowledge disabled", 
-                       extra={"request_id": request_id, "bot_id": bot_id})
-            
-            # Store conversation
-            user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
-            bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=bot_reply)
-            db.add_all([user_msg, bot_msg])
-            db.commit()
-            return {"bot_reply": bot_reply}
-    else:
-        # Extract context from similar documents
-        # Note: vector_db.py returns documents with a "content" field
-        context = " ".join([doc.get("content", "") for doc in similar_docs])
     
-    try:
-        # Use the LLMManager to generate response using the appropriate model based on user's subscription and bot settings
-        logger.debug(f"Generating response with LLM", 
-                    extra={"request_id": request_id, "bot_id": bot_id, 
-                          "external_knowledge": use_external_knowledge})
-        
-        llm = LLMManager(bot_id=bot_id, user_id=user_id)
-        # Pass the formatted history to the LLM
-        bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, 
-                                temperature=temperature, chat_history=formatted_history)
-        
-        logger.info(f"Generated response successfully", 
-                   extra={"request_id": request_id, "bot_id": bot_id, 
-                         "response_length": len(bot_reply) if bot_reply else 0})
-    except Exception as e:
-        logger.exception(f"Error generating response", 
-                        extra={"request_id": request_id, "bot_id": bot_id, "error": str(e)})
-        raise HTTPException(status_code=500, detail=f"Chatbot error: {str(e)}")
-
-    # ✅ Store both user message & bot reply in `chat_messages` table
+    # ✅ Format contexts from retrieved documents
+    contexts = []
+    if similar_docs:
+        for doc in similar_docs:
+            content = doc.get("content", "")
+            metadata = doc.get("metadata", {})
+            score = doc.get("score", 0)
+            
+            if metadata:
+                file_name = metadata.get("file_name", "unknown")
+                source = metadata.get("source", "file")
+                if source == "youtube":
+                    video_title = metadata.get("title", "Unknown video")
+                    contexts.append(f"From YouTube video '{video_title}':\n{content}")
+                elif source == "website" or source == "webpage":
+                    url = metadata.get("url", "unknown url")
+                    title = metadata.get("title", "unknown title")
+                    contexts.append(f"From webpage '{title}' ({url}):\n{content}")
+                else:
+                    contexts.append(f"From file '{file_name}':\n{content}")
+            else:
+                contexts.append(content)
+    
+    # Join contexts with separators
+    context_text = "\n\n---\n\n".join(contexts) if contexts else "No relevant information found."
+    
+    # ✅ Initialize LLM Manager with user and bot context for model selection
+    llm_manager = LLMManager(bot_id=bot_id, user_id=user_id)
+    
+    # Add user and bot IDs for logging
+    llm_manager.user_id = user_id
+    llm_manager.bot_id = bot_id
+    
+    logger.info(f"Initialized LLM Manager", 
+               extra={"request_id": request_id, "bot_id": bot_id})
+    
+    # ✅ Generate response from LLM
+    bot_reply = llm_manager.generate(
+        context=context_text,
+        user_message=user_message,
+        use_external_knowledge=use_external_knowledge,
+        temperature=temperature,
+        chat_history=formatted_history
+    )
+    
+    logger.info(f"Generated bot response", 
+               extra={"request_id": request_id, "bot_id": bot_id, 
+                     "response_length": len(bot_reply) if bot_reply else 0})
+    
+    # ✅ Store conversation in database
     user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
     bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=bot_reply)
-
     db.add_all([user_msg, bot_msg])
     db.commit()
     
-    logger.debug(f"Stored conversation in database", 
-                extra={"request_id": request_id, "bot_id": bot_id, 
-                      "interaction_id": interaction.interaction_id})
-
+    logger.info(f"Stored conversation in database", 
+               extra={"request_id": request_id, "bot_id": bot_id, 
+                     "interaction_id": interaction.interaction_id})
+    
+    # Log the complete chat interaction
+    log_chat_completion(
+        user_id=user_id,
+        bot_id=bot_id,
+        user_query=user_message,
+        bot_response=bot_reply,
+        similar_docs_count=len(similar_docs) if similar_docs else 0,
+        interaction_id=interaction.interaction_id
+    )
+    
     return {"bot_reply": bot_reply}
 
 @router.post("/upload_knowledge")

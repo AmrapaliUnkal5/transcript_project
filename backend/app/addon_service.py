@@ -86,7 +86,7 @@ class AddonService:
         # Default - expires with the subscription (for one-time add-ons)
         expiry_date = subscription.expiry_date
         
-        # Special case: Additional Messages addon (lifetime until used up or subscription canceled)
+        # Special case: Additional Messages addon (lifetime until used up or subscription cancelled)
         if addon.addon_type == "Additional Messages":
             # Set a far future date (5 years) as messages add-on doesn't expire with billing cycle
             expiry_date = current_time + timedelta(days=5*365)

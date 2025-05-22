@@ -13,8 +13,10 @@ import zipfile
 from docx import Document
 import logging
 from app.utils.logger import get_module_logger
+from app.utils.ai_logger import log_chunking_operation, log_document_storage
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import tiktoken
+import time
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -230,7 +232,7 @@ async def extract_text_from_file(file, filename=None) -> Union[str, None]:
         logger.error(f"❌ Error extracting text from file {filename if filename else 'unknown'}: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Error extracting text: {str(e)}")
 
-def chunk_text(text: str, chunk_size: int = 3000, chunk_overlap: int = 200) -> List[str]:
+def chunk_text(text: str, chunk_size: int = 3000, chunk_overlap: int = 200, bot_id: int = None, user_id: int = None, file_info: Dict = None) -> List[str]:
     """
     Chunks text into smaller pieces suitable for embeddings.
     
@@ -238,11 +240,17 @@ def chunk_text(text: str, chunk_size: int = 3000, chunk_overlap: int = 200) -> L
         text: The text to chunk
         chunk_size: Target size of each chunk in tokens
         chunk_overlap: Overlap between chunks in tokens
+        bot_id: Optional bot ID for logging
+        user_id: Optional user ID for logging
+        file_info: Optional file information for logging
         
     Returns:
         List of text chunks
     """
-    logger.info(f"🔪 Chunking text of length {len(text)} with chunk_size={chunk_size}, overlap={chunk_overlap}")
+    start_time = time.time()
+    text_length = len(text)
+    
+    logger.info(f"🔪 Chunking text of length {text_length} with chunk_size={chunk_size}, overlap={chunk_overlap}")
     
     try:
         # Initialize the text splitter
@@ -255,14 +263,41 @@ def chunk_text(text: str, chunk_size: int = 3000, chunk_overlap: int = 200) -> L
         
         # Split the text into chunks
         chunks = text_splitter.split_text(text)
+        chunks_count = len(chunks)
         
-        logger.info(f"✅ Successfully split text into {len(chunks)} chunks")
+        # Log chunking operation if bot_id and user_id are provided
+        if bot_id and user_id:
+            log_chunking_operation(
+                user_id=user_id,
+                bot_id=bot_id,
+                text_length=text_length,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                chunks_count=chunks_count,
+                file_info=file_info
+            )
+        
+        logger.info(f"✅ Successfully split text into {chunks_count} chunks")
         return chunks
     
     except Exception as e:
         logger.warning(f"⚠️ Error chunking text: {e}")
         # If chunking fails, return the text as a single chunk
         logger.info("⚠️ Returning original text as single chunk")
+        
+        # Log chunking failure if bot_id and user_id are provided
+        if bot_id and user_id:
+            log_chunking_operation(
+                user_id=user_id,
+                bot_id=bot_id,
+                text_length=text_length,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                chunks_count=1,
+                file_info=file_info,
+                extra={"error": str(e), "fallback": "single_chunk"}
+            )
+        
         return [text]
 
 def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file, user_id: int = None) -> None:
@@ -283,8 +318,15 @@ def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file, user_id: i
     file_name = getattr(file, 'filename', 'unknown')
     file_type = getattr(file, 'content_type', os.path.splitext(file_name)[1] if hasattr(file, 'filename') else 'unknown')
     
+    # Create file info for logging
+    file_info = {
+        "file_name": file_name,
+        "file_type": file_type,
+        "content_length": len(text)
+    }
+    
     # Split text into chunks for embedding
-    chunks = chunk_text(text)
+    chunks = chunk_text(text, bot_id=bot_id, user_id=user_id, file_info=file_info)
     
     # Store each chunk with metadata
     for i, chunk in enumerate(chunks):
@@ -298,4 +340,21 @@ def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file, user_id: i
         
         # Store chunk in ChromaDB
         logger.info(f"💾 Storing chunk {i+1}/{len(chunks)} in ChromaDB for bot {bot_id}: {chunk_metadata['id']}")
-        add_document(bot_id, chunk, chunk_metadata, user_id=user_id)
+        
+        try:
+            # Store the document and log the storage
+            add_document(bot_id, chunk, chunk_metadata, user_id=user_id)
+            
+            # Log document storage if user_id is provided
+            if user_id:
+                collection_name = f"bot_{bot_id}"  # Simplified collection name for logging
+                log_document_storage(
+                    user_id=user_id,
+                    bot_id=bot_id,
+                    collection_name=collection_name,
+                    document_count=1,
+                    metadata=chunk_metadata
+                )
+        except Exception as e:
+            logger.error(f"❌ Error storing chunk in ChromaDB: {e}")
+            # Continue with other chunks even if one fails
