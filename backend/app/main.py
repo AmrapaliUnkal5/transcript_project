@@ -426,6 +426,8 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
         UserAddon.addon_id == 5,
         UserAddon.is_active == True
     ).order_by(UserAddon.expiry_date.desc()).first()
+
+    avatar_url = db_user.avatar_url
     
     # Generate a fresh token with updated user information
     token_data = {"sub": db_user.email,
@@ -439,6 +441,7 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
                  "addon_plan_ids": addon_plan_ids,
                  "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
                  "subscription_status": user_subscription.status if user_subscription else "new",
+                 "avatar_url": avatar_url,
                 }
     
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
@@ -459,6 +462,8 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
             "addon_plan_ids": addon_plan_ids,
             "message_addon_expiry": message_addon.expiry_date.isoformat() if message_addon and message_addon.expiry_date else 'Not Available',
             "subscription_status": user_subscription.status if user_subscription else "new",
+             "avatar_url": avatar_url,
+
         }
     }
 
@@ -584,6 +589,8 @@ def login_for_access_token(
     
     addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
 
+    avatar_url = db.query.avatar_url
+
     access_token = create_access_token(data={
         "sub": user.email,
         "role": user.role,
@@ -596,6 +603,7 @@ def login_for_access_token(
         "addon_plan_ids": addon_plan_ids,
         "subscription_status": user_subscription.status if user_subscription else "new",
         "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
+         "avatar_url": avatar_url,
     })
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -676,7 +684,12 @@ def get_scraped_urls(bot_id: int, db: Session = Depends(get_db)):
 captcha_store = {}
 
 def generate_captcha_text():
-    return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
+    # Define characters to use (uppercase letters and digits, excluding 0, O, 1, 7)
+    chars = (
+        string.ascii_uppercase.replace('O', '')  # Remove 'O'
+        + string.digits.replace('0', '').replace('1', '').replace('7', '')  # Remove 0, 1, 7
+    )
+    return "".join(random.choices(chars, k=5))
 
 @app.get("/captcha")
 async def get_captcha():

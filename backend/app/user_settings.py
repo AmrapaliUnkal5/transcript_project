@@ -89,7 +89,8 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
         "company_name": user.company_name,  #  Ensure this is included
         "communication_email": user.communication_email,  # Ensure this is included
         "subscription": subscription_data,
-        "auth_providers": auth_providers
+        "auth_providers": auth_providers,
+        "avatar_url": user.avatar_url, 
     }
 
 @router.put("/user/me", response_model=UserOut)

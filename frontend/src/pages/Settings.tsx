@@ -132,6 +132,22 @@ export const Settings = () => {
     return <p>Loading...</p>;
   }
 
+  useEffect(() => {
+  const handleUserUpdate = () => {
+    const userData = localStorage.getItem("user");
+    if (userData) {
+      const parsedUser = JSON.parse(userData);
+      setSettings(prev => ({
+        ...prev,
+        avatar_url: parsedUser.avatar_url || prev.avatar_url
+      }));
+    }
+  };
+
+  window.addEventListener('userUpdated', handleUserUpdate);
+  return () => window.removeEventListener('userUpdated', handleUserUpdate);
+}, []);
+
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -284,11 +300,12 @@ export const Settings = () => {
           company_name: settings.company_name,
           communication_email: settings.communication_email,
           phone_no: settings.phone_no,
+          currentAvatarUrl: settings.avatar_url,
         };
         await authApi.updateUserDetails(userUpdateData); // Update user details
         
         // Refresh user data from backend to get the latest information
-        await refreshUserData();
+        await refreshUserData();        
         
         toast.success("Your profile information has been updated successfully!"); // Success toast
       } catch (error) {

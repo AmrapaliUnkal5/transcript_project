@@ -158,6 +158,7 @@ export interface UserUpdate {
   company_name?: string;
   communication_email?: string;
   phone_no?: string;
+  currentAvatarUrl ?:string;
 }
 
 export interface BotStatusUpdate {
