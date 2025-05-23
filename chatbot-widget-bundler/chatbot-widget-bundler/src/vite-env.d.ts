@@ -1,2 +1,1 @@
-// src/vite-env.d.ts
-declare module '*.css';
+/// <reference types="vite/client" />
