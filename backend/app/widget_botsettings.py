@@ -77,6 +77,7 @@ def get_bot_token(bot_id: int, current_user=Depends(get_current_user)):
 @router.get("/widget/bot", response_model=schemas.BotWidgetResponse)
 async def get_bot_settings_for_widget(request: Request, db: Session = Depends(get_db)):
     try:
+
         # 1. Get token from Authorization header
         bot_id = get_bot_id_from_auth_header(request)
         logger.info("/widget/bot: %s", bot_id)
@@ -90,7 +91,7 @@ async def get_bot_settings_for_widget(request: Request, db: Session = Depends(ge
 
         origin_parsed = urlparse(origin)
         origin_netloc = f"{origin_parsed.scheme}://{origin_parsed.netloc}"  # e.g. "https://example.com"
-        logger.info("origin  %s", origin_netloc)
+        logger.info("The origin of this request %s", origin_netloc)
 
 
         # 4. Fetch bot settings from DB
@@ -101,14 +102,18 @@ async def get_bot_settings_for_widget(request: Request, db: Session = Depends(ge
         #5. Validate origin (secure your API)
         # 5. Validate origin
         allowed_domains = set()
-        allowed_domains.add(settings.SERVER_URL.strip("/"))
+        server_url_parsed = urlparse(settings.SERVER_URL)
+        server_netloc = f"{server_url_parsed.scheme}://{server_url_parsed.netloc}"
+        logger.info("The domain entered for Direct link %s", server_netloc)
+        allowed_domains.add(server_netloc.strip("/"))
+
         selected_domain = bot.selected_domain  # e.g. "https://example.com"
-        logger.info("selected_domain  %s", selected_domain)
+        logger.info("selected_domain the user entered for widget%s", selected_domain)
         if selected_domain:
             domain_parsed = urlparse(selected_domain)
             domain_netloc = f"{domain_parsed.scheme}://{domain_parsed.netloc}"
             allowed_domains.add(domain_netloc.strip("/"))
-          
+        logger.info("allowed_domains in the API call %s", allowed_domains)
             
         if origin_netloc not in allowed_domains:
                 print("error")
