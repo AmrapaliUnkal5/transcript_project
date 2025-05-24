@@ -48,7 +48,7 @@ export default function ConversationForm() {
                   variant="h1"
                   fontWeight={600}
                   fontSize={["18px", "40px"]}
-                  mt="25px"
+                  mt={["35px","25px"]}
                   mb="23px"
                 >
                   Let’s Start A Conversation
@@ -77,7 +77,8 @@ export default function ConversationForm() {
                     mail@evolra.ai
                   </Typography>
                 </Box>
-                <Box display={"flex"} mb={3}>
+                <Box 
+                display={{ xs: "none", md: "flex" }} mb={3}>
                   <StyledImage
                     src="/images/icons/icon-location-on.png"
                     sx={{ width: 28, height: 28, color: "#BAB8FF",mr:2 }}

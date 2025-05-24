@@ -63,13 +63,13 @@ export default function FAQ() {
         gap={2}
         color={'#fff'}
         px={2}
-        py={5}
+        py={[4,5]}
         sx={{ backgroundColor: '#101035' }}
       >
         <Container maxWidth='lg'>
           <Box
             px={[1, 10]}
-            py={[2, 10]}
+            py={[3, 10]}
             sx={{
               backgroundImage: 'url(/images/title-bg.png)',
               backgroundSize: 'contain',
@@ -92,7 +92,7 @@ export default function FAQ() {
             </Typography>
           </Box>
 
-          <Box mx={'auto'} maxWidth={550}>
+          <Box mx={'auto'} maxWidth={[328,645]}>
             <Accordion
               expanded={expanded === 'panel1'}
               onChange={handleChange('panel1')}

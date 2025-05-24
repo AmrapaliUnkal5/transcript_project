@@ -63,7 +63,7 @@ export default function FAQ() {
         gap={2}
         color={'#fff'}
         px={2}
-        py={5}
+        py={8}
         sx={{ backgroundColor: '#101035' }}
       >
         <Container maxWidth='lg'>
@@ -92,7 +92,7 @@ export default function FAQ() {
             </Typography>
           </Box>
 
-          <Box mx={'auto'} maxWidth={550}>
+          <Box mx={'auto'} maxWidth={646}>
             <Accordion
               expanded={expanded === 'panel1'}
               onChange={handleChange('panel1')}

@@ -18,13 +18,15 @@ export default function ExperienceAdvantage() {
       gap={2}
       color={"#fff"}
       px={2}
-      py={5}
+      pt={2.5}
+      pb={5}
       sx={{ backgroundColor: "#101035" }}
     >
       <Container maxWidth="lg">
         <Box
           px={[1, 10]}
-          py={[2, 10]}
+          pt={[2,10]}
+          pb={[2,14]}
           sx={{
             backgroundImage: "url(/images/title-bg.png)",
             backgroundSize: "contain",
@@ -35,7 +37,7 @@ export default function ExperienceAdvantage() {
           <Typography
             variant="h2"
             fontWeight={600}
-            fontSize={["30px", "60px"]}
+            fontSize={["30px", "54px"]}
             sx={{
               background: "-webkit-linear-gradient(#FFF, #959595)",
               backgroundClip: "text",
@@ -47,13 +49,13 @@ export default function ExperienceAdvantage() {
             Experience the Evolra Advantage
           </Typography>
         </Box>
-        <Box>
+        <Box >
           <Grid
             container
-            rowSpacing={5}
+            rowSpacing={[10, 5]}
             columnSpacing={{ xs: 2, sm: 2, md: 8 }}
           >
-            <Grid item md={4}  textAlign={["center", "left"]}>
+            <Grid item md={4} textAlign={["center", "left"]}>
               <StyledImage
                 src="/images/icons/icon-thumb.png"
                 sx={{
@@ -70,6 +72,8 @@ export default function ExperienceAdvantage() {
                 mb={2}
                 mt={[3, 5]}
                 lineHeight={1.4}
+                // whiteSpace="nowrap"
+                // minWidth={["100%", "none"]}
               >
                 Elevate Your Customer Experience
               </Typography>
@@ -81,7 +85,7 @@ export default function ExperienceAdvantage() {
               </Typography>
             </Grid>
 
-            <Grid item md={4} textAlign={["center", "left"]}>
+            <Grid item md={4}    textAlign={["center", "left"]}>
               <StyledImage
                 src="/images/icons/icon-growth.png"
                 sx={{
@@ -109,7 +113,7 @@ export default function ExperienceAdvantage() {
               </Typography>
             </Grid>
 
-            <Grid item md={4}  textAlign={["center", "left"]}>
+            <Grid item md={4}    textAlign={["center", "left"]}>
               <StyledImage
                 src="/images/icons/icon-speed.png"
                 sx={{

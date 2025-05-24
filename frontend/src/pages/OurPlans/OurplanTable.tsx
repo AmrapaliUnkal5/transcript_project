@@ -34,31 +34,31 @@ export const OurplanTable = () => {
           alignItems={"center"}
           textAlign={"center"}
           color={"#fff"}
+          py={5}
         >
           <>
             <Typography
               variant="h2"
               fontWeight={600}
               fontSize={["30px", "40px", "40px"]}
-              maxWidth={["286px", "930px"]}
+              //maxWidth={["286px", "930px"]}
               lineHeight={["44px", "40px"]}
               mt={["46px", "87px"]}
-              mb={["53px", "59px"]}
               sx={{
-                mt: "106px",
+                mt: "66px",
                 background: "-webkit-linear-gradient(#FFF, #959595)",
                 backgroundClip: "text",
                 textFillColor: "transparent",
+                textAlign: "center",
               }}
-              textAlign="center"
             >
               Compare All Features And Plans
             </Typography>
           </>
         </Box>
       </Box>
-      <Box px={1} py={0.5}>
-        <Box display={["none", "block"]}>
+      <Box  >
+        <Box  px={10}  py={5} display={["none", "block"]}>
           <TableContainer
             // component={Paper}
             sx={{
@@ -72,13 +72,28 @@ export const OurplanTable = () => {
             }}
           >
             <Table
-              sx={{
-                "& td, & th": {
-                  textAlign: "center",
-                  verticalAlign: "middle",
-                  padding: "22px 16px", // vertically center text in cells
-                },
-              }}
+              // sx={{
+              //   "& td, & th": {
+              //     textAlign: "center",
+              //     verticalAlign: "middle",
+              //     padding: "20px 14px", // vertically center text in cells
+              //   },
+              // }}
+
+                sx={{
+    borderCollapse: "separate",
+    borderSpacing: "16px 16px", // optional: add spacing between rows
+    "& td, & th": {
+      textAlign: "center", // default for all
+      verticalAlign: "middle",
+      padding: "20px 14px",
+    },
+    // Override ONLY first column cells (both head and body)
+    "& td:first-of-type, & th:first-of-type": {
+      textAlign: "left",
+      paddingLeft: 0, // flush to the left edge
+    },
+  }}
             >
               <TableHead>
                 <TableRow>
@@ -145,9 +160,7 @@ export const OurplanTable = () => {
 
               <TableBody>
                 <TableRow>
-                  <TableCell
-                    sx={{ fontSize: "20px", fontWeight: 600, pt: "60px" }}
-                  >
+                  <TableCell sx={{ fontSize: "20px", fontWeight: 600 }}>
                     Features
                   </TableCell>
                   <TableCell>
@@ -265,7 +278,7 @@ export const OurplanTable = () => {
                   </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
+                  <TableCell align="left" sx={{ fontSize: "16px", fontWeight: 400 }}>
                     Price
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>

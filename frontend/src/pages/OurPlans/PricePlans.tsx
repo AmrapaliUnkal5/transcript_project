@@ -20,6 +20,7 @@ export default function PricePlans() {
         justifyContent={"center"}
         alignItems={"center"}
         gap={2}
+        
         color={"#fff"}
         py={5}
         sx={{
@@ -626,12 +627,13 @@ export default function PricePlans() {
               variant="text"
               sx={{
                 width: "100%",
-                fontSize: "18px",
+                height: "27px",
+                fontSize: "22px",
                 textDecoration: "underline",
                 fontWeight: 400,
                 color: "#FFF",
                 textTransform: "none",
-                mt: 2,
+                mt: "4px",
               }}
             >
               Compare all features{" "}

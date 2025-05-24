@@ -24,14 +24,14 @@ export default function Hero() {
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
           }}
-          minHeight={"80vh"}
+          minHeight={["auto", "80vh"]}
         >
           <Box
             display={"flex"}
             flexDirection={"column"}
             justifyContent={"center"}
             alignItems={"center"}
-            gap={2}
+            
             textAlign={"center"}
             color={"#fff"}
             px={2}
@@ -45,7 +45,7 @@ export default function Hero() {
                 maxWidth={["286px", "928px"]}
                 lineHeight={1.5}
                 sx={{
-                  mt: "120px",
+                  mt: ["82px","120px"],
                   // Only show on medium and above
                   background: "-webkit-linear-gradient(#FFF, #959595)",
                   backgroundClip: "text",
@@ -68,7 +68,7 @@ export default function Hero() {
               justifyContent={"center"}
               alignItems={"center"}
               gap={[0.5, 2]}
-              sx={{ mt: '24px' }}
+              sx={{ mt: ['20px','24px' ]}}
 
            
             >
@@ -91,7 +91,7 @@ export default function Hero() {
                 variant="h3"
                 color={"#779BFD"}
                 fontWeight={500}
-                fontSize={["28px", "38px"]}
+                fontSize={["20px", "38px"]}
               >
                 <Typical
                   steps={[
@@ -115,14 +115,14 @@ export default function Hero() {
               color="primary"
               size="large"
               sx={{
-                mt:"70px",
+                mt:["40px","70px"],
                 mb: "60px",
               
-                fontSize: "18px",
+                fontSize: ["16px", "18px"],
                 fontWeight: 500,
                 borderRadius: "40px",
-                height: "62px",
-                minWidth: "220px",
+                height: ["52px","62px"],
+                minWidth: ["210px","220px"],
                 textTransform: "capitalize",
                 background:
                   "linear-gradient(180deg,rgba(90, 108, 242, 1) 0%, rgba(75, 52, 152, 1) 100%);",

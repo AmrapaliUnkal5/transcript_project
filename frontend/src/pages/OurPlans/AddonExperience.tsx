@@ -17,7 +17,7 @@ export default function AddonExperience() {
       alignItems={"center"}
       gap={2}
       color={"#fff"}
-      px={2}
+      px={[1,2]}
       sx={{ backgroundColor: "#101035" }}
     >
       <Container maxWidth="lg">

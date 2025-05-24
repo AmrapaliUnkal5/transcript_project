@@ -19,6 +19,7 @@ export const Enterprise = () => {
           pb={18}
           border={"solid 1.5px #8B96D661"}
           borderRadius={"20px"}
+          maxWidth={"1134px"}
           sx={{
             background:
               "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",

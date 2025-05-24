@@ -10,13 +10,13 @@ import {
 
 export const Enterprise = () => {
   return (
-    <Box color={"#fff"} px={2} py={5} sx={{ backgroundColor: "#101035" }}>
+    <Box color={"#fff"} px={[2,4]}  pb={6} sx={{ backgroundColor: "#101035" }}>
       <Container maxWidth="lg" disableGutters>
       
             <Box
-              px={[2, 6]}
+              px={[2, 9]}
               position={"relative"}
-              pt={"50px"}
+              pt={["40px","50px"]}
               pb={18}
               border={"solid 1.5px #8B96D661"}
               borderRadius={'20px'}
@@ -28,14 +28,14 @@ export const Enterprise = () => {
               <Typography
                 variant="h2"
                 fontWeight={600}
-                fontSize={["32px", "54px"]}
+                fontSize={["24px", "40px"]}
                 sx={{
                   background: "-webkit-linear-gradient(#FFF, #959595)",
                   backgroundClip: "text",
                   textFillColor: "transparent",
                 }}
                 textAlign={"center"}
-                mb={3}
+                mb={[2.5,4]}
               >
                 Are You An Enterprise?
               </Typography>
@@ -44,7 +44,7 @@ export const Enterprise = () => {
                 variant="h6"
                 color={"#AFAFAF"}
                 fontWeight={400}
-                fontSize="20px"
+                fontSize={["16px","20px"]}
                 textAlign={"center"}
                 mb={[4,8]}
               >
@@ -54,16 +54,16 @@ export const Enterprise = () => {
               <Box>
                 <Grid
                   container
-                  rowSpacing={4}
+                  rowSpacing={[2,4]}
                   columnSpacing={{ xs: 2, sm: 2, md: 2 }}
                 >
                   <Grid item xs={12} sm={12} md={4}>
-                    <Box display="flex" alignItems="center" gap={1} mb={3}>
+                    <Box display="flex" alignItems="center" gap={[0.5,1]} mb={3}>
                       <StyledImage
                         src="/images/icons/icon-check.png"
                         sx={{
-                          width: "24px",
-                          height: "24px",
+                         width: ["15px","24px"],
+                          height: ["15px","24px"],
                           marginBottom: 0,
                         }}
                       />
@@ -72,18 +72,19 @@ export const Enterprise = () => {
                         mb={0}
                         lineHeight={1.4}
                         color="#FFFFFF"
+                        fontSize={["14px", "16px"]}
                       >
                         All features from Professional Plan
                       </Typography>
                     </Box>
 
                     {/* Row 2 */}
-                    <Box display="flex" alignItems="center" gap={1}>
+                    <Box display="flex" alignItems="center" gap={[0.5,1]}>
                       <StyledImage
                         src="/images/icons/icon-check.png" 
                         sx={{
-                          width: "24px",
-                          height: "24px",
+                          width: ["15px","24px"],
+                          height: ["15px","24px"],
                           marginBottom: 0,
                         }}
                       />
@@ -92,6 +93,7 @@ export const Enterprise = () => {
                         mb={0}
                         lineHeight={1.4}
                         color="#FFFFFF"
+                         fontSize={["14px", "16px"]}
                       >
                         Predictive models and insights
                       </Typography>
@@ -102,8 +104,8 @@ export const Enterprise = () => {
                       <StyledImage
                         src="/images/icons/icon-check.png"
                         sx={{
-                          width: "24px",
-                          height: "24px",
+                          width: ["15px","24px"],
+                          height: ["15px","24px"],
                           marginBottom: 0,
                         }}
                       />
@@ -112,6 +114,7 @@ export const Enterprise = () => {
                         mb={0}
                         lineHeight={1.4}
                         color="#FFFFFF"
+                         fontSize={["14px", "16px"]}
                       >
                         Custom number of AI chatbots
                       </Typography>
@@ -122,8 +125,8 @@ export const Enterprise = () => {
                       <StyledImage
                         src="/images/icons/icon-check.png" 
                         sx={{
-                          width: "24px",
-                          height: "24px",
+                         width: ["15px","24px"],
+                          height: ["15px","24px"],
                           marginBottom: 0,
                         }}
                       />
@@ -133,6 +136,7 @@ export const Enterprise = () => {
                         mb={0}
                         lineHeight={1.4}
                         color="#FFF"
+                         fontSize={["14px", "16px"]}
                       >
                         Custom Integrations with your systems
                       </Typography>
@@ -143,8 +147,8 @@ export const Enterprise = () => {
                       <StyledImage
                         src="/images/icons/icon-check.png"
                         sx={{
-                          width: "24px",
-                          height: "24px",
+                          width: ["15px","24px"],
+                          height: ["15px","24px"],
                           marginBottom: 0,
                         }}
                       />
@@ -153,6 +157,7 @@ export const Enterprise = () => {
                         mb={0}
                         lineHeight={1.4}
                         color="#FFFFFF"
+                         fontSize={["14px", "16px"]}
                       >
                         Custom AI applications
                       </Typography>
@@ -163,8 +168,8 @@ export const Enterprise = () => {
                       <StyledImage
                         src="/images/icons/icon-check.png" // Use a different icon if needed
                         sx={{
-                          width: "24px",
-                          height: "24px",
+                          width: ["15px","24px"],
+                          height: ["15px","24px"],
                           marginBottom: 0,
                         }}
                       />
@@ -173,8 +178,9 @@ export const Enterprise = () => {
                         mb={0}
                         lineHeight={1.4}
                         color="#FFFFFF"
+                         fontSize={["14px", "16px"]}
                       >
-                        Personalized Onboarding and training
+                        Personalized onboarding and training
                       </Typography>
                     </Box>
                   </Grid>
