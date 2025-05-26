@@ -14,9 +14,9 @@ import { authApi } from "../../services/api";
 
 const navItems = [
   { path: "upload", icon: Upload, label: "Knowledge Base" },
-  { path: "chatbot", icon: MessageSquare, label: "Chatbot Customization" },
+  { path: "chatbot", icon: MessageSquare, label: "Design Your Experience" },
   { path: "performance", icon: BarChart2, label: "Analytics" },
-  { path: "script-generate", icon: Code, label: "Script Generate" },
+  { path: "script-generate", icon: Code, label: "Deployment" },
 ];
 
 export const Sidebar = () => {
