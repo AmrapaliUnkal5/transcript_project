@@ -688,6 +688,17 @@ deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
       messages_used: messagesUsed,
     });
   },
+
+  // Add these to your authApi service
+  getBotExternalKnowledge: async (botId: number) => {
+    const response = await api.get(`/get-bot-external-knowledge/${botId}`);
+    return response.data;
+  },
+
+updateBotExternalKnowledge: async (botId: number) => {
+  const response = await api.put(`/update-bot-external-knowledge/${botId}`);
+  return response.data;
+},
   getUserMessageCount: async (): Promise<{
     addons: {
       total_limit: number;

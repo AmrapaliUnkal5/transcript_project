@@ -589,7 +589,7 @@ def login_for_access_token(
     
     addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
 
-    avatar_url = db.query.avatar_url
+    #avatar_url = db.avatar_url
 
     access_token = create_access_token(data={
         "sub": user.email,
@@ -603,7 +603,7 @@ def login_for_access_token(
         "addon_plan_ids": addon_plan_ids,
         "subscription_status": user_subscription.status if user_subscription else "new",
         "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
-         "avatar_url": avatar_url,
+        "avatar_url": user.avatar_url,
     })
     return {"access_token": access_token, "token_type": "bearer"}
 

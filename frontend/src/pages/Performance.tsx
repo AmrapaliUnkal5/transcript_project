@@ -340,9 +340,10 @@ export const Performance = () => {
     <div className="space-y-6 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Performance Metrics
+          Performance Metrics : {selectedBot.name}
         </h1>
-      </div>
+</div>
+
 
       <div className="relative">
         <div

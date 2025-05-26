@@ -287,9 +287,7 @@ async def facebook_login(
 
         addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
 
-        avatar_url = db.query.avatar_url
-
-        # JWT Token
+    # JWT Token
         token_data = {
             "sub": user.email,
             "role": user.role,
@@ -304,7 +302,7 @@ async def facebook_login(
             "addon_plan_ids": addon_plan_ids,
             "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
             "subscription_status": user_subscription.status if user_subscription else "new",
-             "avatar_url": avatar_url,
+            "avatar_url": user.avatar_url,
         }
 
         jwt_token = create_access_token(
@@ -330,7 +328,6 @@ async def facebook_login(
                 "addon_plan_ids": addon_plan_ids,
                 "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
                 "subscription_status": user_subscription.status if user_subscription else "new",
-                 "avatar_url": avatar_url,
             }
         }
 
