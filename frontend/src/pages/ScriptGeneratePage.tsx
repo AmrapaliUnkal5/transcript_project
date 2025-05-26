@@ -15,7 +15,7 @@ export const ScriptGeneratePage = () => {
   const { setLoading } = useLoader();
   const [botId, setBotId] = useState<number | null>(null);
   const VITE_WIDGET_API_URL =
-    import.meta.env.VITE_WIDGET_API_URL || "https://aiassist.bytepx.com/widget/chatbot-widget.iife.js";
+    import.meta.env.VITE_WIDGET_API_URL;
   const VITE_API_URL = import.meta.env.VITE_API_URL;
   const [settings, setSettings] = useState<BotSettings>({
     name: "Support Bot",
