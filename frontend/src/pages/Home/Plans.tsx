@@ -48,6 +48,8 @@ export default function Plans() {
                 pb:[2,0]
               }}
               textAlign={"center"}
+              textTransform="none"
+              
             >
               Choose your plan
             </Typography>
@@ -66,7 +68,7 @@ export default function Plans() {
                 borderRadius: "40px",
                 height: ["56px", "67px"],
                 minWidth: "320px",
-                textTransform: "capitalize",
+                textTransform: "none",
                 background:
                   "linear-gradient(148.01deg, #25356F 54.39%, #1D1C56 78.52%)",
                 border: "1.5px solid",

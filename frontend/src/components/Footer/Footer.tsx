@@ -54,7 +54,7 @@ function Footer() {
                 to="/data-deletion"
                 style={{ color: "#ffffff", textDecoration: "none" }}
               >
-                Data-deletion
+                Data deletion
               </RouterLink>
             
             </Box>
@@ -83,7 +83,7 @@ function Footer() {
                 to="/terms-of-service"
                 style={{ color: "#ffffff", textDecoration: "none" }}
               >
-                Terms-of-Service
+                Terms of Service
               </RouterLink>
             </Box>
           </Grid>

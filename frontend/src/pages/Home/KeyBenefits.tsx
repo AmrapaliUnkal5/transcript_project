@@ -82,6 +82,7 @@ export default function KeyBenefits() {
                     fontSize={["18px", "24px"]}
                     lineHeight={1.5}
                     mb={2}
+                    textTransform="none"
                   >
                     Turn YouTube Videos into Knowledge Base
                   </Typography>
@@ -119,13 +120,12 @@ export default function KeyBenefits() {
                     fontSize={["18px", "24px"]}
                     lineHeight={1.5}
                     mb={2}
+                    textTransform="none"
                   >
-                    Turn YouTube Videos into Knowledge Base
+                    Multilingual Support
                   </Typography>
                   <Typography variant="body1" color={"#9F9F9F"}>
-                    Effortlessly transform your YouTube video content into a
-                    powerful resource, enabling AI bot to answer customer
-                    questions directly from your videos.
+                    Expand your global reach by serving customers in their preferred language. The bot accurately understands and responds in multiple languages, making support seamless for diverse audiences.
                   </Typography>
                 </Box>
               </Grid>
@@ -154,6 +154,7 @@ export default function KeyBenefits() {
                     fontSize={["18px", "24px"]}
                     lineHeight={1.5}
                     mb={2}
+                    textTransform="none"
                   >
                     AI That Speaks Human
                   </Typography>
@@ -189,8 +190,9 @@ export default function KeyBenefits() {
                     fontSize={["18px", "24px"]}
                     lineHeight={1.5}
                     mb={2}
+                    textTransform="none"
                   >
-                    1 click website integration
+                    1 Click Website Integration
                   </Typography>
                   <Typography variant="body1" color={"#9F9F9F"}>
                     Easily integrate the bot into your website with a simple
@@ -228,8 +230,9 @@ export default function KeyBenefits() {
                     fontSize={["18px", "24px"]}
                     lineHeight={1.5}
                     mb={2}
+                    textTransform="none"
                   >
-                    Insightful analytics
+                    Insightful Analytics
                   </Typography>
                   <Typography variant="body1" color={"#9F9F9F"}>
                     Explore rich analytics that deliver insights beyond basic
@@ -249,6 +252,7 @@ export default function KeyBenefits() {
               maxWidth={930}
               fontSize={["14px", "20px"]}
               mx={"auto"}
+              textTransform="none"
             >
               Our intuitive self-service platform empowers you to create
               sophisticated bots and agents that truly represent your brand's
