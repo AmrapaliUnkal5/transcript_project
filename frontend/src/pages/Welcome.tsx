@@ -1095,7 +1095,7 @@ const storageOptions = {
                   <div className="flex flex-col items-center">
                     <div className="relative w-24 h-24">
                       <Doughnut data={wordData} options={wordOptions} />
-                    
+                      {/* ✅ No percentage shown inside */}
                     </div>
 
                     <span className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
@@ -1230,7 +1230,7 @@ const storageOptions = {
   );
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b from  to-white dark:from-gray-900 dark:to-gray-800">
       {shouldShowExpiredOverlay() && <SubscriptionExpiredOverlay />}
       <Loader />
       {!isDataLoaded || hasBots === null ? (
