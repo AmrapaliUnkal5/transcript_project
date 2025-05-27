@@ -13,7 +13,7 @@ type PositionType = (typeof validPositions)[number];
 
 const currentScript = document.currentScript as HTMLScriptElement;
 const token = currentScript?.getAttribute("data-token") || "";
-const basedomain = import.meta.env.VITE_SERVER_DOMAIN || "https://aiassist.bytepx.com/api";
+const basedomain = import.meta.env.VITE_SERVER_DOMAIN ;
 const appearance = currentScript?.getAttribute("data-appearance") || "";
 
 // 👇 Fetch widget settings (avatar, position, welcome message)

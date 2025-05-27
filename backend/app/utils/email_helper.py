@@ -16,7 +16,7 @@ def send_email(to_email: str, subject: str, body: str,attachments=None):
 
             # Construct email
             msg = MIMEMultipart()
-            msg["From"] = SMTP_CONFIG["from_email"]
+            msg["From"] = "Do Not Reply"
             msg["To"] = to_email
             msg["Subject"] = subject
             msg.attach(MIMEText(body, "plain"))
