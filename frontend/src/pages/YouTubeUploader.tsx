@@ -252,7 +252,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       <div className="flex gap-2">
         <input
           type="text"
-          placeholder="Enter YouTube video URL or playlist URL"
+          placeholder="YouTube URL"
           value={youtubeUrl}
           className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
           onChange={(e) => setYoutubeUrl(e.target.value)}

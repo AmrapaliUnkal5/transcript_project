@@ -50,3 +50,9 @@ apify-client>=1.4.0
 celery>=5.3.0
 redis>=4.6.0
 flower>=2.0.0
+
+
+
+#UI/Ux Bot Creation Flow and Home
+"chart.js": "^4.4.9",
+"react-chartjs-2": "^5.3.0",
