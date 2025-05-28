@@ -343,15 +343,32 @@ export const authApi = {
     return response.data;
   },
 
-  validatecaptcha: async (data: string) => {
-    const response = await api.post('/validate-captcha', { user_input: data });
+  validatecaptcha: async (data: string, captchaId: string) => {
+    const response = await api.post('/validate-captcha', 
+        { user_input: data },
+        { headers: { 'X-Captcha-ID': captchaId } }
+    );
     return response.data;
-  },
+},
 
-  fetchCaptcha: async () => {
-    const response = await api.get('/captcha', { responseType: 'blob' }); // Set response type to blob
-    return URL.createObjectURL(response.data); // Convert blob data to URL
-  },
+// Update fetchCaptcha to return both the URL and headers
+fetchCaptcha: async () => {    
+    const response = await api.get('/captcha', { 
+        responseType: 'blob',
+          // This ensures we get access to headers
+        transformResponse: (res, headers) => {
+            return {
+                data: res,
+                headers: headers
+            };
+        }
+   });
+    const imageUrl = URL.createObjectURL(response.data.data);
+    return {
+        imageUrl,
+        captchaId: response.data.headers['x-captcha-id']
+    };
+},
 
   uploadFiles: async (files: File[], botId: number) => {
     const formData = new FormData();

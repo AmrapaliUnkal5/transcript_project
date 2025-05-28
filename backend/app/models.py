@@ -1,9 +1,10 @@
 # app/models.py
 from typing import Optional
-from sqlalchemy import JSON, BigInteger, Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime, UniqueConstraint, Enum, DECIMAL,LargeBinary
+import uuid
+from sqlalchemy import JSON, BigInteger, Column, Index, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime, UniqueConstraint, Enum, DECIMAL,LargeBinary
 from app.database import Base
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 import enum 
 from sqlalchemy.orm import relationship
 import numpy as np
@@ -596,3 +597,18 @@ class WordCloudData(Base):
     def __str__(self):
         word_count = len(self.word_frequencies) if self.word_frequencies else 0
         return f"Word cloud for bot {self.bot_id} ({word_count} words)"
+    
+
+class Captcha(Base):
+    __tablename__ = "captchas"
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    captcha_text = Column(String(10), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    session_id = Column(String(36))  # Optional: associate with user session
+    is_used = Column(Boolean, default=False)
+    
+    # Add index for faster lookups
+    __table_args__ = (
+        Index('idx_captcha_created_at', 'created_at'),
+    )
