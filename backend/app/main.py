@@ -274,17 +274,23 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
      # ✅ Send verification email
     subject = "Verify Your Email - Complete Registration"
     body = f"""
-    Hi {new_user.name},
+<html>
+<body style="font-family: Arial, sans-serif; color: #000;">
+    <p>Hello {new_user.name},</p>
 
-    Thank you for registering! Please verify your email by clicking the link below:
+    <p>Thank you for registering with Evolra AI! We're excited to have you on board.<br>Please verify your email by clicking the link below:</p>
 
-    {emailverificationurl}
+    <p>
+        <a href="{emailverificationurl}" style="color: #1a73e8; word-break: break-all;">{emailverificationurl}</a>
+    </p>
 
-    This link will expire in 24 hours.
+    <p>This link will expire in 24 hours.</p>
 
-    Best regards,
-    Your Team
-    """
+    <p>Best regards,<br>
+    Evolra Admin</p>
+</body>
+</html>
+"""
     send_email(new_user.email, subject, body)
     logger.info("Email verification sent successfully")
 
@@ -493,19 +499,27 @@ async def forgot_password(request: ForgotpasswordRequest,db: Session = Depends(g
 
     subject = "Password Reset Request"
     body = f"""
-    Hi,
+<html>
+<body style="font-family: Arial, sans-serif; color: #000;">
 
-    We received a request to reset your password. Click the link below to reset it:
+<p>Hello {db_user.name},</p>
 
-    {reset_link}
+<p>We received a request to reset your password. Click the link below to reset it:</p>
 
-    This link will expire in {settings.FORGOT_PASSWORD_TOKEN_EXPIRY_MINUTES} minutes.
+<p>
+<a href="{reset_link}">{reset_link}</a>
+</p>
 
-    If you didn't request a password reset, please ignore this email.
+<p>This link will expire in {settings.FORGOT_PASSWORD_TOKEN_EXPIRY_MINUTES} minutes.</p>
 
-    Thanks,
-    Your Team
-    """
+<p>If you didn't request a password reset, please ignore this email.</p>
+
+<p>Best regards,<br>
+Evolra Admin</p>
+
+</body>
+</html>
+"""
 
     try:
         send_email(to_email=request.email, subject=subject, body=body)
