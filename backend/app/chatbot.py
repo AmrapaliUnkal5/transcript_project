@@ -558,10 +558,10 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
                   extra={"bot_id": bot_id, "user_message": user_message})
         
         # Store conversation
-        user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
-        bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=greeting_response)
-        db.add_all([user_msg, bot_msg])
-        db.commit()
+        # user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
+        # bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=greeting_response)
+        # db.add_all([user_msg, bot_msg])
+        # db.commit()
         
         return {"bot_reply": greeting_response}
     
@@ -572,10 +572,10 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
                   extra={"bot_id": bot_id, "user_message": user_message})
         
         # Store conversation
-        user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
-        bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=farewell_response)
-        db.add_all([user_msg, bot_msg])
-        db.commit()
+        # user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
+        # bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=farewell_response)
+        # db.add_all([user_msg, bot_msg])
+        # db.commit()
         
         return {"bot_reply": farewell_response}
     
@@ -637,10 +637,10 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
                    extra={"bot_id": bot_id, "response_length": len(bot_reply) if bot_reply else 0})
 
         # Store conversation
-        user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
-        bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=bot_reply)
-        db.add_all([user_msg, bot_msg])
-        db.commit()
+        # user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
+        # bot_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="bot", message_text=bot_reply)
+        # db.add_all([user_msg, bot_msg])
+        # db.commit()
         
         # Update memory with the new messages
         memory.chat_memory.add_user_message(user_message)

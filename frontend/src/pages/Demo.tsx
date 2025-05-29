@@ -51,7 +51,7 @@ export const Demo = () => {
       // Send the form data to the backend
       await authApi.submitDemoRequest(formDataPayload);
       setIsSubmitted(true);
-      setTimeout(() => navigate("/login"), 2000);
+      //setTimeout(() => navigate("/login"), 2000);
     } catch (error) {
       console.error("Error submitting demo request:", error);
       toast.error("Failed to submit demo request. Please try again.");

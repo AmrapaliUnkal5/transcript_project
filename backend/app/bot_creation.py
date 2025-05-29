@@ -186,3 +186,100 @@ def update_bot_name(
                         extra={"request_id": request_id, "bot_id": bot_id, 
                               "user_id": user_id, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Error updating bot name: {str(e)}")
+
+@router.get("/get-bot-external-knowledge/{bot_id}")
+def get_bot_external_knowledge(
+    bot_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserOut = Depends(get_current_user)
+):
+    # Safely extract user_id
+    if isinstance(current_user, dict):
+        user_id = current_user.get("user_id")
+    else:
+        user_id = getattr(current_user, "user_id", None)
+
+    logger.info(f"Fetching external knowledge status for bot", 
+               extra={"bot_id": bot_id, "user_id": user_id})
+
+    if not user_id:
+        logger.warning(f"User not authenticated")
+        raise HTTPException(status_code=401, detail="User not authenticated")
+
+    try:
+        # Get the bot and verify ownership
+        bot = db.query(Bot).filter(
+            Bot.bot_id == bot_id,
+            Bot.user_id == user_id,
+            Bot.status != "Deleted"
+        ).first()
+
+        if not bot:
+            logger.warning(f"Bot not found or not owned by user", 
+                          extra={"bot_id": bot_id, "user_id": user_id})
+            raise HTTPException(status_code=404, detail="Bot not found")
+
+        return {
+            "success": True,
+            "bot_id": bot.bot_id,
+            "external_knowledge": bot.external_knowledge,
+            "message": "External knowledge status retrieved successfully"
+        }
+
+    except Exception as e:
+        logger.exception(f"Error fetching external knowledge status", 
+                        extra={"bot_id": bot_id, "user_id": user_id, "error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Error fetching external knowledge status: {str(e)}")
+
+
+@router.put("/update-bot-external-knowledge/{bot_id}")
+def update_bot_external_knowledge(
+    bot_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserOut = Depends(get_current_user)
+):
+    # Safely extract user_id
+    if isinstance(current_user, dict):
+        user_id = current_user.get("user_id")
+    else:
+        user_id = getattr(current_user, "user_id", None)
+
+    logger.info(f"Toggling external knowledge for bot", 
+               extra={"bot_id": bot_id, "user_id": user_id})
+
+    if not user_id:
+        logger.warning(f"User not authenticated")
+        raise HTTPException(status_code=401, detail="User not authenticated")
+
+    try:
+        # Get the bot and verify ownership
+        bot = db.query(Bot).filter(
+            Bot.bot_id == bot_id,
+            Bot.user_id == user_id,
+            Bot.status != "Deleted"
+        ).first()
+
+        if not bot:
+            logger.warning(f"Bot not found or not owned by user", 
+                          extra={"bot_id": bot_id, "user_id": user_id})
+            raise HTTPException(status_code=404, detail="Bot not found")
+
+        # Toggle the external_knowledge value
+        bot.external_knowledge = not bot.external_knowledge
+        db.commit()
+        db.refresh(bot)
+
+        logger.info(f"External knowledge status toggled successfully", 
+                   extra={"bot_id": bot_id, "user_id": user_id, "new_status": bot.external_knowledge})
+
+        return {
+            "success": True,
+            "bot_id": bot.bot_id,
+            "external_knowledge": bot.external_knowledge,
+            "message": "External knowledge status updated successfully"
+        }
+
+    except Exception as e:
+        logger.exception(f"Error toggling external knowledge", 
+                        extra={"bot_id": bot_id, "user_id": user_id, "error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Error toggling external knowledge: {str(e)}")

@@ -728,40 +728,56 @@ export const CreateBot = () => {
             parsedSelectedVideos,
             selectedBot.id
           );
-          if (responseyoutube && Object.keys(responseyoutube).length > 0) {
-            const successCount = responseyoutube.stored_videos?.length || 0;
-            const failedCount = responseyoutube.failed_videos?.length || 0;
+          console.log("responseyoutube----", responseyoutube);
+          console.log("Type of responseyoutube:-----", typeof responseyoutube);
+          console.log(
+            "Keys:--------------",
+            Object.keys(responseyoutube || {})
+          );
+          // Check if the response indicates processing started in the background
+          if (responseyoutube && responseyoutube.message && (
+                        responseyoutube.message.includes("processing started") ||
+                        responseyoutube.message.includes("Video processing") ||
+                        responseyoutube.message.includes("background") ||
+                        responseyoutube.status === "processing"
+                      )) {
+                      toast.info(
+                        "Your YouTube videos are being processed. We'll notify you when they're ready."
+                      );
+                    }
+          // if (responseyoutube && Object.keys(responseyoutube).length > 0) {
+          //   const successCount = responseyoutube.stored_videos?.length || 0;
+          //   const failedCount = responseyoutube.failed_videos?.length || 0;
 
-            if (successCount > 0 && failedCount === 0) {
-              isYouTubeSuccess = true;
-              toast.success(`${successCount} video(s) uploaded successfully!`);
-            } else if (successCount >= 0 && failedCount >= 0) {
-              isYouTubeSuccess = true;
-              toast.warning(
-                `${successCount} video(s) uploaded successfully, ${failedCount} failed.`
-              );
-            }
-          }
-        } catch (error) {
-          console.error("Error creating bot:", error);
-          console.error("Error processing YouTube videos:", error);
-          toast.error("Failed to process YouTube videos.");
-          toast.error("An error occurred while uploading files.");
-        } finally {
-          setIsLoading(false);
-          setLoading(true);
-          // Log final state
-          setTimeout(() => {
-            console.log("=== AFTER FINALIZATION COMPLETE ===");
-            console.log("Final files:", files);
-            console.log("Final userUsage:", userUsage);
-            console.log("Final derived values:", {
-              totalWordsUsed,
-              remainingWords,
-              usagePercentage,
-            });
-          }, 0);
-        }
+          //   if (successCount > 0 && failedCount === 0) {
+          //     isYouTubeSuccess = true;
+          //     toast.success(`${successCount} video(s) uploaded successfully!`);
+          //   } else if (successCount >= 0 && failedCount >= 0) {
+          //     isYouTubeSuccess = true;
+          //     toast.warning(
+          //       `${successCount} video(s) uploaded successfully, ${failedCount} failed.`
+          //     );
+          //   }
+          // }
+        }catch (error) {
+        console.error("Error creating bot:", error);
+        console.error("Error processing YouTube videos:", error);
+        toast.error("Failed to process YouTube videos.");
+        toast.error("An error occurred while uploading files.");
+      } finally {
+        setIsLoading(false);
+        setLoading(true);
+        // Log final state
+        setTimeout(() => {
+          console.log('=== AFTER FINALIZATION COMPLETE ===');
+          console.log('Final files:', files);
+          console.log('Final userUsage:', userUsage);
+          console.log('Final derived values:', {
+            totalWordsUsed,
+            remainingWords,
+            usagePercentage
+          });
+        }, 0);
       }
 
       // ✅ Check if at least one source is provided

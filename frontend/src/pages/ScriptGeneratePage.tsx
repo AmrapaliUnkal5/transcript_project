@@ -15,7 +15,7 @@ export const ScriptGeneratePage = () => {
   const { setLoading } = useLoader();
   const [botId, setBotId] = useState<number | null>(null);
   const VITE_WIDGET_API_URL =
-    import.meta.env.VITE_WIDGET_API_URL || "https://aiassist.bytepx.com/widget/chatbot-widget.iife.js";
+    import.meta.env.VITE_WIDGET_API_URL;
   const VITE_API_URL = import.meta.env.VITE_API_URL;
   const [settings, setSettings] = useState<BotSettings>({
     name: "Support Bot",
@@ -222,7 +222,8 @@ export const ScriptGeneratePage = () => {
     <div className="p-4 text-white" >
       
     <ToastContainer position="top-right" autoClose={5000} />
-    <h3 className="text-xl font-bold mb-2">DIRECT LINK</h3>
+    <h2 className="text-xl font-bold mb-7"> Bot Name: {selectedBot.name}</h2>
+    <h3 className="text-xl font-bold mb-2">DIRECT LINK </h3>
     <p className="mb-2 text-sm">
       Share access to your chatbot by using the link below:
     </p>

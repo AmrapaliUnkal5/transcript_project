@@ -121,7 +121,7 @@ export const CustomerSupportRequest = () => {
       await authApi.submitDemoRequest(formDataPayload);
 
       setIsSubmitted(true);
-      setTimeout(() => navigate("/login"), 2000);
+      //setTimeout(() => navigate("/login"), 2000);
     } catch (error) {
       console.error("Error submitting support request:", error);
       toast.error("Failed to submit support request. Please try again.");

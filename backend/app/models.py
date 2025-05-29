@@ -105,7 +105,7 @@ class Bot(Base):
     header_bg_color = Column(String, nullable=True, default="#3B82F6")
     header_text_color = Column(String, nullable=True, default="#FFFFFF")
     chat_text_color = Column(String, nullable=True, default="#1F2937")
-    user_text_color = Column(String, nullable=True, default="#FFFFFF")
+    user_text_color = Column(String, nullable=True, default="#121111")
     button_color = Column(String, nullable=True, default="#3B82F6")
     button_text_color = Column(String, nullable=True, default="#FFFFFF")
     timestamp_color = Column(String, nullable=True, default="#9CA3AF")
