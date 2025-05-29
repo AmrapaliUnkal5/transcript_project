@@ -4,6 +4,8 @@ import {
   BarChart,
   Bar,
   XAxis,
+  AreaChart,
+  Area,
   YAxis,
   CartesianGrid,
   Tooltip,
@@ -23,6 +25,9 @@ import { authApi } from "../services/api";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { useNavigate } from "react-router-dom";
 import ReactWordcloud from 'react-wordcloud';
+
+
+
 
 
 interface ConversationData {
@@ -106,6 +111,15 @@ export const Performance = () => {
   //const [wordCloudData, setWordCloudData] = useState<{value: string, count: number}[]>([]);
   const [wordCloudData, setWordCloudData] = useState<WordCloudData[]>([]);
 
+
+
+
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+const handleToggle = (index: number) => {
+  setOpenIndex(openIndex === index ? null : index);
+};
+
   const getLast7DaysFormatted = () => {
     const days = [];
     const today = new Date();
@@ -119,6 +133,7 @@ export const Performance = () => {
       const dayNumber = date.getDate();
 
       days.push(`${dayName} ${monthName} ${dayNumber}`);
+      // days.push(`${dayName} `);
     }
 
     return days;
@@ -130,6 +145,23 @@ export const Performance = () => {
     return hours > 0 ? `${hours} hr ${minutes} min` : `${minutes} min`;
   }
 
+
+
+const [activeFAQIndex, setActiveFAQIndex] = useState(null);
+  const [showAllFAQs, setShowAllFAQs] = useState(false);
+
+  const toggleFAQ = (index) => {
+    setActiveFAQIndex(activeFAQIndex === index ? null : index);
+  };
+
+  const visibleFAQs = showAllFAQs ? faqData : faqData.slice(0, 5);
+
+
+
+
+
+
+  
   const fetchConversationData = async () => {
     if (!selectedBot?.id) return;
 
@@ -245,6 +277,23 @@ export const Performance = () => {
     }
   };
 
+
+
+  const renderCustomLegend = () => (
+  <div className="flex justify-center items-center space-x-2 m-3">
+    <div
+      style={{
+        width: 12,
+        height: 12,
+        backgroundColor: "#4CAF50", // same as stroke color
+        borderRadius: 2,
+      }}
+    />
+    <span className="text-gray-700 dark:text-gray-200 text-sm">
+      Avg Time Spent
+    </span>
+  </div>
+);
   const fetchFaqData = async () => {
     if (!selectedBot?.id) return;
 
@@ -270,6 +319,30 @@ export const Performance = () => {
       setLoading(false);
     }
   };
+
+
+const renderCustomLegend2 = (props: any) => {
+  const { payload } = props;
+
+  return (
+    <div className="flex justify-center gap-8 mt-4">
+      {payload.map((entry: any, index: number) => (
+        <div key={`item-${index}`} className="flex items-center space-x-2">
+          <div
+            className="w-3 h-3 rounded"
+            style={{ backgroundColor: entry.color }}
+          ></div>
+          <span className="text-sm font-medium text-gray-800 dark:text-white">
+            {entry.value} ({(entry.payload.percent * 100).toFixed(0)}%)
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+
+
 
   const getLast7Days = () => {
     const shortDaysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -379,7 +452,7 @@ export const Performance = () => {
           </div>
 
           {/* Average Time Spent Chart */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          {/* <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Daily Average Chat Duration – Last 7 Days
             </h2>
@@ -411,7 +484,45 @@ export const Performance = () => {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </div> */}
+
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+    Daily Average Chat Duration – Last 7 Days
+  </h2>
+  <div className="h-80">
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={timeSpentData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="day" angle={-20} textAnchor="end" />
+        <YAxis
+          label={{
+            value: "Minutes",
+            angle: -90,
+            position: "insideLeft",
+          }}
+        />
+        <Tooltip
+          formatter={(value: number) => [
+            `${value} min`,
+            "Avg Time Spent",
+          ]}
+        />
+        {/* <Legend /> */}
+        <Legend content={renderCustomLegend} />
+
+        <Area
+          type="monotone"
+          dataKey="average_time_spent"
+          stroke="#4CAF50"
+          fill="#81C784" // lighter green fill
+          name="Avg Time Spent (s)"
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  </div>
+</div>
 
           {/* User Satisfaction Chart */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
@@ -440,30 +551,45 @@ export const Performance = () => {
                       />
                     ))}
                   </Pie>
-                  <Tooltip />
-                  <Legend />
+                  {/* <Tooltip /> */}
+                  {/* <Legend /> */}
+                  <Legend content={renderCustomLegend2} />
+
                 </PieChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           {/* Detailed Metrics Table */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 " >
+            <h2 className=" mb-4"  
+              style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "18px",
+    fontWeight: 600,
+    color: "#333333",
+  }}>
             Current Billing Cycle Metrics
             </h2>
             <div
-              className={`overflow-x-auto ${
+              className={`overflow-x-auto  ${
                 !hasAdvancedAnalytics ? "filter blur-xl" : ""
               }`}
             >
-              <table className="w-full">
+             <table
+  className="w-full"
+  style={{
+    border: "1px solid red",
+    borderRadius: "200px",
+  }}
+>
+
                 <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-700">
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <tr className=" border border-red-500"  style={{ backgroundColor: "#EFF0FF",}}>
+                    <th className="px-6 py-3 0 text-left " style={{   lineHeight:'24px',fontFamily: "Instrument Sans, sans-serif",fontSize: "16px",fontWeight: 600,color: "#333333"}}>
                       Metric
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left " style={{   lineHeight:'24px',fontFamily: "Instrument Sans, sans-serif",fontSize: "16px",fontWeight: 600,color: "#333333"}}>
                       Value
                     </th>
                     {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -471,7 +597,7 @@ export const Performance = () => {
                     </th> */}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-100 ">
                   {[
                     {
                       metric: "Total Sessions",
@@ -497,7 +623,7 @@ export const Performance = () => {
                   ].map((item) => (
                     <tr
                       key={item.metric}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 " style={{   lineHeight:'26px',fontFamily: "Instrument Sans, sans-serif",fontSize: "14px",fontWeight: 400,color: "#333333"}}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                         {item.metric}
@@ -530,7 +656,7 @@ export const Performance = () => {
           </div>
           {/* FAQ Analytics Chart */}
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 h-[420px]">
+          {/* <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 h-[420px]">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Frequently Asked Questions by Users
             </h2>
@@ -554,12 +680,10 @@ export const Performance = () => {
                             )
                             .join(" ")}
                       </p>
-                      {/* <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Asked {faq.count} {faq.count === 1 ? 'time' : 'times'}
-            </p> */}
+                    
                     </div>
                   ))}
-                  {/* Fill remaining space if less than 10 questions */}
+                 
                   {faqData.length < 10 && (
                     <div className="h-[calc((10-${faqData.length})*60px)]"></div>
                   )}
@@ -580,10 +704,84 @@ export const Performance = () => {
                 />
               </div>
             )}
+          </div> */}
+
           </div>
+          <div className="flex flex-col w-full">
+
+ <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 w-full mt-4">
+      <h2
+        className="text-lg font-semibold text-gray-900 dark:text-white mb-4"
+        style={{ fontFamily: "Instrument Sans", fontWeight: 600 }}
+      >
+        Frequently Asked Questions by Users
+      </h2>
+
+      <div
+        className={`space-y-3 overflow-y-auto ${
+          !showAllFAQs ? "max-h-[350px]" : ""
+        } ${!hasAdvancedAnalytics ? "filter blur-xl" : ""}`}
+      >
+        {visibleFAQs.map((faq, index) => (
+          <div
+            key={index}
+            className="border border-gray-300 rounded-lg p-4"
+          >
+            <button
+              onClick={() => toggleFAQ(index)}
+              className="w-full text-left flex justify-between items-center font-semibold text-gray-900 dark:text-white transition-colors hover:text-blue-600"
+            >
+              <span>{`Question ${index + 1}`}</span>
+              <svg
+                className={`w-5 h-5 transform transition-transform duration-200 ${
+                  activeFAQIndex === index ? "rotate-180" : ""
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+
+            {activeFAQIndex === index && (
+              <div className="mt-2 text-sm text-gray-700 dark:text-gray-300 pl-4">
+                {faq.question || "No additional information available."}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {faqData.length > 5 && (
+        <div className="flex justify-center mt-6">
+          <button
+            onClick={() => setShowAllFAQs(!showAllFAQs)}
+            className="text-[#5348CB] font-medium underline hover:no-underline"
+          >
+            {showAllFAQs ? "View Less" : "View More"}
+          </button>
+        </div>
+      )}
+
+      {!hasAdvancedAnalytics && (
+        <div className="absolute top-[85%] left-[25%] transform -translate-x-1/2 -translate-y-1/2 z-10">
+          <UpgradeMessage
+            requiredPlan="Professional"
+            feature="FAQ analytics"
+          />
+        </div>
+      )}
+    </div>
 
         {/* Word Cloud Chart - 6th graph */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 h-[420px]">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 h-[420px] w-full mt-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Word Cloud
             </h2>
@@ -620,7 +818,10 @@ export const Performance = () => {
               </div>
             )}
           </div>
-        </div>
+
+
+          </div>
+        
 
 
         {hasNoAnalyticsAccess && (

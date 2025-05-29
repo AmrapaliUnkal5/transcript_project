@@ -877,17 +877,17 @@ const storageOptions = {
               setSelectedBot(bot); // ✅ Store selected bot
               navigate("/dashboard/upload"); // ✅ Navigate after setting context
             }}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 cursor-pointer 
-             transition transform hover:shadow-2xl hover:scale-105 hover:ring-2 hover:ring-blue-400   rounded-[20px]"
+            // className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 cursor-pointer 
+            //  transition transform hover:shadow-2xl hover:scale-105 hover:ring-2 hover:ring-blue-400   rounded-[20px]"
 
 
 
-  //             className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 
-  //            transition transform hover:shadow-2xl hover:scale-105 
-  //            hover:ring-2 hover:ring-blue-400 rounded-[20px]"
-  // style={{
-  //   cursor: 'url("/images/dummy/cursor-icon.png"), auto', // I need to resize the image 31*31 
-  // }}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 
+             transition 
+             "
+  style={{
+    cursor: 'url("/images/dummy/cursor-icon.png"), auto', // I need to resize the image 31*31 
+  }}
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center">

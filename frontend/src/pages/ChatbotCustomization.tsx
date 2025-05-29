@@ -267,7 +267,7 @@ export const ChatbotCustomization = () => {
     userTextColor: "#121111",
     buttonColor: "#3B82F6",
     buttonTextColor: "#FFFFFF",
-    timestampColor: "#1F2937", 
+    timestampColor: "#1F2937",
     userTimestampColor: "#FFFFFF",
     borderRadius: "12px",
     borderColor: "#E5E7EB",
@@ -343,27 +343,29 @@ export const ChatbotCustomization = () => {
   }, [messages]);
 
   //check add ons // Check White-Labeling Addon
-    useEffect(() => {
-      const checkWhiteLabelingAddon = async () => {
-        if (!selectedBot?.id) {
-          console.error("Bot ID is missing.");
-          return;
-        }
-        try {
-      const responselabel = await authApi.checkWhiteLabelingAddon(selectedBot?.id);
-      
-          console.log("White-Labeling response", responselabel);
-          setHasWhiteLabeling(responselabel.hasWhiteLabeling);
-        } catch (error) {
-          console.error("Error checking White-Labeling addon", error);
-          setHasWhiteLabeling(false); // Default to false in case of error
-        }
-      };
-
-      if (botId) {
-        checkWhiteLabelingAddon();
+  useEffect(() => {
+    const checkWhiteLabelingAddon = async () => {
+      if (!selectedBot?.id) {
+        console.error("Bot ID is missing.");
+        return;
       }
-    }, [botId]); // Re-run if userId changes
+      try {
+        const responselabel = await authApi.checkWhiteLabelingAddon(
+          selectedBot?.id
+        );
+
+        console.log("White-Labeling response", responselabel);
+        setHasWhiteLabeling(responselabel.hasWhiteLabeling);
+      } catch (error) {
+        console.error("Error checking White-Labeling addon", error);
+        setHasWhiteLabeling(false); // Default to false in case of error
+      }
+    };
+
+    if (botId) {
+      checkWhiteLabelingAddon();
+    }
+  }, [botId]); // Re-run if userId changes
 
   useEffect(() => {
     const fetchMessageData = async () => {
@@ -516,11 +518,11 @@ export const ChatbotCustomization = () => {
   }, [selectedBot, setSelectedBot, navigate]);
 
   useEffect(() => {
-  // Set welcome message if no messages exist
-  if (messages.length === 0) {
-    setMessages([{ sender: "bot", text: settings.welcomeMessage }]);
-  }
-}, [settings.welcomeMessage]); // Only re-run when welcomeMessage changes
+    // Set welcome message if no messages exist
+    if (messages.length === 0) {
+      setMessages([{ sender: "bot", text: settings.welcomeMessage }]);
+    }
+  }, [settings.welcomeMessage]); // Only re-run when welcomeMessage changes
 
   // In ChatbotCustomization.tsx
   const handleRefresh = async () => {
@@ -933,31 +935,31 @@ export const ChatbotCustomization = () => {
   };
 
   const handleChange = <K extends keyof BotSettings>(
-  field: K,
-  value: BotSettings[K]
-) => {
-  setSettings((prev) => {
-    const newSettings = { ...prev, [field]: value };
+    field: K,
+    value: BotSettings[K]
+  ) => {
+    setSettings((prev) => {
+      const newSettings = { ...prev, [field]: value };
 
-    // When appearance changes to Full Screen, set position to bottom-right
-    if (field === 'appearance' && value === 'Full Screen') {
-      newSettings.position = 'bottom-right';
-    }
-    
-    // Two-way synchronization between text colors and timestamp colors
-    if (field === 'chatTextColor') {
-      newSettings.timestampColor = value as string;
-    } else if (field === 'timestampColor') {
-      newSettings.chatTextColor = value as string;
-    } else if (field === 'userTextColor') {
-      newSettings.userTimestampColor = value as string;
-    } else if (field === 'userTimestampColor') {
-      newSettings.userTextColor = value as string;
-    }
-    
-    return newSettings;
-  });
-};
+      // When appearance changes to Full Screen, set position to bottom-right
+      if (field === "appearance" && value === "Full Screen") {
+        newSettings.position = "bottom-right";
+      }
+
+      // Two-way synchronization between text colors and timestamp colors
+      if (field === "chatTextColor") {
+        newSettings.timestampColor = value as string;
+      } else if (field === "timestampColor") {
+        newSettings.chatTextColor = value as string;
+      } else if (field === "userTextColor") {
+        newSettings.userTimestampColor = value as string;
+      } else if (field === "userTimestampColor") {
+        newSettings.userTextColor = value as string;
+      }
+
+      return newSettings;
+    });
+  };
 
   const tabOptions = [
     { id: "identity", label: "Bot Identity", icon: MessageSquare },
@@ -999,26 +1001,25 @@ export const ChatbotCustomization = () => {
       icon: MessageSquare,
       fields: [
         {
+          // label: "Bot Avatar",
+          type: "file",
+          accept: "image/*",
+          onChange: handleFileChange,
+        },
+        {
           label: "Bot Name",
           type: "text",
           value: settings.name,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
             handleChange("name", e.target.value),
         },
-        
+
         {
           label: "Welcome Message",
           type: "text",
           value: settings.welcomeMessage,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
             handleChange("welcomeMessage", e.target.value),
-        },
-
-        {
-          label: "Bot Avatar",
-          type: "file",
-          accept: "image/*",
-          onChange: handleFileChange,
         },
       ],
     },
@@ -1042,7 +1043,7 @@ export const ChatbotCustomization = () => {
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("chatFontFamily", e.target.value),
         },
-    
+
         {
           label: "Font Size",
           type: "select",
@@ -1078,7 +1079,7 @@ export const ChatbotCustomization = () => {
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
             handleChange("chatTextColor", e.target.value),
         },
-        
+
         {
           label: "User Message Text",
           type: "color",
@@ -1087,19 +1088,19 @@ export const ChatbotCustomization = () => {
             handleChange("userTextColor", e.target.value),
         },
         {
-      label: "Bot Timestamp Color",
-      type: "color",
-      value: settings.timestampColor,
-      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-        handleChange("timestampColor", e.target.value),
-    },
-    {
-      label: "User Timestamp Color",
-      type: "color",
-      value: settings.userTimestampColor,
-      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-        handleChange("userTimestampColor", e.target.value),
-    },
+          label: "Bot Timestamp Color",
+          type: "color",
+          value: settings.timestampColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("timestampColor", e.target.value),
+        },
+        {
+          label: "User Timestamp Color",
+          type: "color",
+          value: settings.userTimestampColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleChange("userTimestampColor", e.target.value),
+        },
       ],
     },
     {
@@ -1191,9 +1192,9 @@ export const ChatbotCustomization = () => {
           value: settings.position,
           options: ["bottom-left", "bottom-right", "top-right"],
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-          handleChange("position", e.target.value),
-          disabled: settings.appearance === "Full Screen", 
-          disabledStyle: { opacity: 0.3 }, 
+            handleChange("position", e.target.value),
+          disabled: settings.appearance === "Full Screen",
+          disabledStyle: { opacity: 0.3 },
         },
         {
           label: "Appearance",
@@ -1214,22 +1215,30 @@ export const ChatbotCustomization = () => {
             handleChange("temperature", parseFloat(e.target.value));
           },
           // Add tooltip for this field
-      tooltip: (
-        <div className="relative group inline-block ml-2">
-          <span className="text-gray-500 hover:text-blue-500 cursor-pointer">
-            ℹ️
-          </span>
-          <div className="absolute left-0 top-7 w-64 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg z-10">
-            Controls response creativity:
-            <ul className="mt-1 list-disc pl-4">
-              <li><strong>0</strong>: Precise, deterministic answers</li>
-              <li><strong>0.5</strong>: Balanced mix of accuracy and creativity</li>
-              <li><strong>1</strong>: Maximum creativity and randomness</li>
-            </ul>
-            Higher values produce more detailed, varied responses, while lower values give more specific, focused answers.
-          </div>
-        </div>
-      )
+          tooltip: (
+            <div className="relative group inline-block ml-2 ">
+              <span className="text-gray-500 hover:text-blue-500 cursor-pointer ">
+                ℹ️
+              </span>
+              <div className="absolute left-0 top-7 w-64 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg z-10">
+                Controls response creativity:
+                <ul className="mt-1 list-disc pl-4">
+                  <li>
+                    <strong>0</strong>: Precise, deterministic answers
+                  </li>
+                  <li>
+                    <strong>0.5</strong>: Balanced mix of accuracy and
+                    creativity
+                  </li>
+                  <li>
+                    <strong>1</strong>: Maximum creativity and randomness
+                  </li>
+                </ul>
+                Higher values produce more detailed, varied responses, while
+                lower values give more specific, focused answers.
+              </div>
+            </div>
+          ),
         },
       ],
     },
@@ -1237,8 +1246,8 @@ export const ChatbotCustomization = () => {
 
   if (!selectedBot) {
     return (
-      <div className="flex flex-col items-center justify-center text-center p-8 space-y-4">
-        <div className="text-gray-500 dark:text-white text-lg">
+      <div className="flex flex-col items-center justify-center text-center p-8 space-y-4 ">
+        <div className="text-gray-500 dark:text-white text-lg ">
           No bot selected.
         </div>
         <button
@@ -1252,89 +1261,116 @@ export const ChatbotCustomization = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4">
+    <div className="min-h-screen bg-white dark:bg-gray-900  px-4 ">
       {loading && <Loader />}
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+      <div className="max-w-8xl mx-auto">
+        <div className="bg-white dark:bg-gray-800 rounded-xl  p-6 mb-6   ">
+          <div >
+          {/* <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[#DFDFDF] "> */}
+          <div >
+
+            {/* <div className="mb-2 md:mb-0">
+    <button
+      onClick={() => setShowPreview(!showPreview)}
+      className="flex items-center gap-2 px-6 py-3 rounded-lg shadow-md border transition-colors duration-200 hover:bg-[#5348CB] hover:text-white"
+      style={{
+        backgroundColor: "white",
+        borderColor: "#5348CB",
+        color: "#5348CB",
+        fontFamily: "Instrument Sans, sans-serif",
+        fontSize: "16px",
+        fontWeight: 600,
+      }}
+    >
+      <img
+        src="/images/dummy/eye-icons.png"
+        alt="Message Icon"
+        className="w-5 h-5"
+      />
+      {showPreview ? "Hide Preview" : "Preview bot"}
+    </button>
+  </div> */}
+
+            {/* <h1 className="text-2xl font-bold text-gray-900 dark:text-white border border-yellow-600 p-2 ">
               Customizing: {selectedBot.name}
-            </h1>
-            <div className="flex items-center gap-4">
-              {/* <button
-                onClick={() => {
-                  setBotToDelete(botId);
-                  setIsConfirmOpen(true);
-                }}
-                disabled={loading}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  loading
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-red-500 hover:bg-red-600 text-white"
-                }`}
-              >
-                Delete
-              </button> */}
-              <button
-                onClick={handleSaveSettings}
-                disabled={loading}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  loading
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-500 hover:bg-blue-600 text-white"
-                }`}
-              >
-                {loading ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
+            </h1> */}
+           
+
+
+<nav
+  className="flex justify-between items-center border-b border-[#DFDFDF] overflow-x-auto w-full"
+  aria-label="Settings tabs"
+>
+  <div className="flex flex-wrap sm:flex-nowrap space-x-0 sm:space-x-4 gap-2 sm:gap-0 flex-1">
+    {tabOptions.map((tab) => (
+      <button
+        key={tab.id}
+        onClick={() => setActiveTab(tab.id)}
+        className={`relative z-10 px-4 pt-2 pb-3 font-medium transition-colors
+          ${
+            activeTab === tab.id
+              ? "text-[#5348CB] border-b-2 border-[#5348CB]"
+              : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border-b-0"
+          }`}
+        style={{ fontFamily: "Instrument Sans, sans-serif" }}
+      >
+        {tab.label}
+      </button>
+    ))}
+  </div>
+
+  <div className="flex items-center gap-4">
+    <button
+      onClick={() => setShowPreview(!showPreview)}
+      className="flex items-center gap-2 px-6 py-3 rounded-lg shadow-md border transition-colors duration-200 hover:bg-[#5348CB] hover:text-white mb-2"
+      style={{
+        backgroundColor: "white",
+        borderColor: "#5348CB",
+        color: "#5348CB",
+        fontFamily: "Instrument Sans, sans-serif",
+        fontSize: "16px",
+        fontWeight: 600,
+      }}
+    >
+      <img
+        src="/images/dummy/eye-icons.png"
+        alt="Message Icon"
+        className="w-5 h-5"
+      />
+      {showPreview ? "Hide Preview" : "Preview bot"}
+    </button>
+  </div>
+</nav>
           </div>
 
-          {/* Navigation Tabs */}
-          <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-            <nav
-              className="flex space-x-4 overflow-x-auto pb-2"
-              aria-label="Settings tabs"
-            >
-              {tabOptions.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-4 py-2 font-medium text-sm rounded-lg transition-colors
-                    ${
-                      activeTab === tab.id
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
-                        : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                    }`}
-                >
-                  <tab.icon className="mr-2 h-4 w-4" />
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </div>
+          
 
           {/* Settings Sections */}
+          <div className="border-[1px] border-[#DFDFDF] rounded-[20px] mt-2 p-5">
           <div className="space-y-6">
             {getTabSections(activeTab).map((section) => (
               <div
                 key={section.title}
-                className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg p-6 text-gray-900 dark:text-white"
+                className="bg-white " style={{ fontFamily: "Instrument Sans, sans-serif", color:"#333333",fontWeight:400 ,fontSize:"16px"}}
               >
-                <div className="flex items-center space-x-2 mb-6 pb-3 border-b border-gray-100 dark:border-gray-700">
-                  <section.icon className="w-5 h-5 text-blue-500" />
-                  <h2 className="text-lg font-medium dark:text-white">
+                <div className="flex items-center space-x-2 mb-6 pb-3  ">
+                  {/* <section.icon className="w-5 h-5 text-blue-500" /> */}
+                  <h2   className="text-[20px]  "
+  style={{ fontFamily: "Instrument Sans, sans-serif", fontSize:"20px",color:"#333333",fontWeight:600}}>
                     {section.title}
                   </h2>
                   {section.title === "Chat Interface Behavior" && (
-                    <div className="relative group">
-                    </div>
+                    <div className="relative group"></div>
                   )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 ">
                   {section.fields.map((field) => (
-                    <div key={field.label} className="space-y-2">
+                    <div
+                      key={field.label}
+                      className="space-y-2 "
+                    >
                       {field.label === "Maximum User Message Length" ? (
-                        <label className="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 ">
                           <span>Maximum User Message Length</span>
                           <span className="text-xs italic text-gray-500">
                             Max limit 1000
@@ -1342,7 +1378,7 @@ export const ChatbotCustomization = () => {
                         </label>
                       ) : (
                         <label
-                          className={`block text-sm font-medium text-gray-700 dark:text-gray-300 ${
+                          className={`block text-sm font-medium text-gray-700 dark:text-gray-300  ${
                             field.type === "slider" ? "mb-5" : "mb-1"
                           }`}
                         >
@@ -1358,10 +1394,12 @@ export const ChatbotCustomization = () => {
                             field.onChange as React.ChangeEventHandler<HTMLSelectElement>
                           }
                           disabled={field.disabled} // Add this
-                          className={`w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          field.disabled ? "opacity-50 cursor-not-allowed" : ""
+                          className={`w-full rounded-lg border  dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                            field.disabled
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
                           }`}
-                          style={field.disabled ? field.disabledStyle : {}} 
+                          style={field.disabled ? field.disabledStyle : {}}
                         >
                           {(field as any).options?.map((option: string) => (
                             <option key={option} value={option}>
@@ -1370,14 +1408,14 @@ export const ChatbotCustomization = () => {
                           ))}
                         </select>
                       ) : field.type === "color" ? (
-                        <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-3 ">
                           <input
                             type="color"
                             value={field.value as string}
                             onChange={
                               field.onChange as React.ChangeEventHandler<HTMLInputElement>
                             }
-                            className="w-10 h-10 rounded border border-gray-300 dark:border-gray-600"
+                            className="w-10 h-10 rounded "
                           />
                           <input
                             type="text"
@@ -1385,11 +1423,12 @@ export const ChatbotCustomization = () => {
                             onChange={
                               field.onChange as React.ChangeEventHandler<HTMLInputElement>
                             }
-                            className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="flex-1 rounded-lg border  dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 "
                           />
                         </div>
                       ) : field.type === "slider" ? (
                         <div className="relative w-full pt-6">
+                          
                           <input
                             type="range"
                             min={(field as any).min}
@@ -1419,52 +1458,102 @@ export const ChatbotCustomization = () => {
                           </span>
                         </div>
                       ) : field.type === "file" ? (
-                        <div className="flex flex-col space-y-2">
+                        <div className="flex flex-row space-x-2">
                           {settings.icon && (
                             <div className="flex items-center space-x-2">
+                              <div className="relative w-[100px] h-[100px]">
                               <img
                                 src={settings.icon}
                                 alt="Current icon"
-                                className="w-10 h-10 rounded-full object-cover border border-gray-300 dark:border-gray-600"
-                              />
-                              <span className="text-sm text-gray-500">
-                                Current icon
-                              </span>
+                                className="w-[100px] h-[100px] rounded-full object-cover  p-1 bg-white  border border-[#DFDFDF] "// border border-[#DFDFDF]  We can consider it , it is really looking good
+
+                              /></div>
+
+                              <div className="flex flex-col items-start px-4 ">
+                                {/* <label>
+                                  <div className="">
+                                    <div className="flex items-center space-x-1 border rounded-[10px] border-[#5348CB] p-2 w-[134px] h-[39px]">
+                                      
+
+                                      <img
+                                        src="/images/dummy/upload-icons.png" 
+                                        alt="Upload Icon"
+                                        className="w-[14px] h-[18px]"
+                                      />
+
+                                      
+                                      <span
+                                        className="text-[16px] font-medium text-[#5348CB] inline-block text-center"
+                                        style={{
+                                          fontFamily:
+                                            "Instrument Sans, sans-serif",
+                                          fontWeight: "600",
+                                          fontSize: "14px",
+                                        }}
+                                      >
+                                        Upload Icon
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <input
+                                    type="file"
+                                    accept={(field as any).accept}
+                                    onChange={
+                                      field.onChange as React.ChangeEventHandler<HTMLInputElement>
+                                    }
+                                    className="hidden"
+                                  />
+                                </label> */}
+
+<label>
+
+<div className="flex items-center justify-center space-x-1 border rounded-[10px] border-[#5348CB] p-2 w-[134px] h-[39px]">
+  <img
+    src="/images/dummy/upload-icons.png"
+    alt="Upload Icon"
+    className="w-[14px] h-[18px]"
+  />
+  <span
+    className="text-[16px] font-medium text-[#5348CB] inline-block"
+    style={{
+      fontFamily: "Instrument Sans, sans-serif",
+      fontWeight: "600",
+      fontSize: "14px",
+    }}
+  >
+    Upload Icon
+  </span>
+</div>
+
+ <input
+                                    type="file"
+                                    accept={(field as any).accept}
+                                    onChange={
+                                      field.onChange as React.ChangeEventHandler<HTMLInputElement>
+                                    }
+                                    className="hidden"
+                                  />
+
+
+
+                               </label> <p
+  className="mt-2 text-start text-gray-500"
+  style={{
+    fontSize: "14px",
+    fontWeight: 400,
+    fontFamily: "Instrument Sans, sans-serif",
+    whiteSpace:"nowrap"
+    
+    
+  }}
+>
+  Upload only SVG, PNG, JPG (Max 800 x 800px)
+</p>
+                              </div>
                             </div>
                           )}
-                          <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500">
-                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                              <svg
-                                className="w-8 h-8 mb-2 text-gray-500 dark:text-gray-400"
-                                aria-hidden="true"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 20 16"
-                              >
-                                <path
-                                  stroke="currentColor"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
-                                />
-                              </svg>
-                              <p className="mb-1 text-sm text-gray-500 dark:text-gray-400">
-                                Click to upload
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                SVG, PNG, JPG (MAX. 800x800px)
-                              </p>
-                            </div>
-                            <input
-                              type="file"
-                              accept={(field as any).accept}
-                              onChange={
-                                field.onChange as React.ChangeEventHandler<HTMLInputElement>
-                              }
-                              className="hidden"
-                            />
-                          </label>
+                          
                         </div>
                       ) : (
                         <div className="relative">
@@ -1493,7 +1582,7 @@ export const ChatbotCustomization = () => {
                                 }));
                               }
                             }}
-                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           className="w-full rounded-lg border border-#DEDEDE-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           />
                           {errors?.maxMessageLength &&
                             field.label === "Maximum User Message Length" && (
@@ -1509,17 +1598,44 @@ export const ChatbotCustomization = () => {
               </div>
             ))}
 
-            {/* Preview Button */}
-            <div className="flex justify-center mt-8">
+            {/* <div className="flex justify-start mt-8 ml-5">
               <button
-                onClick={() => setShowPreview(!showPreview)}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md"
+                onClick={handleSaveSettings}
+                disabled={loading}
+                className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                  loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-[#5348CB] hover:bg-[#4239A4] text-white"
+                } w-[102px] h-[48px]`}
+                style={{
+                  fontFamily: "Instrument Sans, sans-serif",
+                  fontSize: "16px",
+                  color: "#FFFFFF",
+                }}
               >
-                <MessageCircle className="w-5 h-5" />
-                {showPreview ? "Hide Preview" : "Show Preview"}
+                {loading ? "Saving..." : "  Save "}
+              </button>
+            </div> */}
+          </div>
+          <div className="flex justify-start mt-8 ml-0">
+              <button
+                onClick={handleSaveSettings}
+                disabled={loading}
+                className={`px-0 py-2 rounded-lg transition-colors font-medium ${
+                  loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-[#5348CB] hover:bg-[#4239A4] text-white"
+                } w-[102px] h-[48px]`}
+                style={{
+                  fontFamily: "Instrument Sans, sans-serif",
+                  fontSize: "16px",
+                  color: "#FFFFFF",
+                }}
+              >
+                {loading ? "Saving..." : "  Save "}
               </button>
             </div>
-          </div>
+            </div>
         </div>
       </div>
 
@@ -1583,7 +1699,7 @@ export const ChatbotCustomization = () => {
           >
             {/* Preview Header */}
             <div
-              className="flex justify-between items-center p-4 border-b dark:border-gray-700"
+              className="flex justify-between items-center "
               style={{
                 backgroundColor: settings.headerBgColor,
                 color: settings.headerTextColor,
@@ -1591,22 +1707,23 @@ export const ChatbotCustomization = () => {
             >
               <div className="flex items-center gap-2">
                 {settings.icon && (
-                  <img 
-                    src={settings.icon} 
-                    alt="Bot Icon" 
+                  <img
+                    src={settings.icon}
+                    alt="Bot Icon"
                     style={{
                       width: "32px",
                       height: "32px",
                       borderRadius: "50%",
                       objectFit: "cover",
-                    }} 
+                    }}
                   />
                 )}
                 <h2
                   className="text-lg font-semibold flex items-center"
                   style={{ color: settings.headerTextColor }}
                 >
-                  {settings.name} <span className="text-xs ml-2 opacity-70">(preview)</span>
+                  {settings.name}{" "}
+                  <span className="text-xs ml-2 opacity-70">(preview)</span>
                 </h2>
               </div>
               <div className="flex items-center space-x-4">
@@ -1670,21 +1787,22 @@ export const ChatbotCustomization = () => {
                     >
                       <div>{msg.text}</div>
                       <div
-    className="text-xs mt-1 text-right"
-    style={{ 
-      color: msg.sender === "user" 
-        ? settings.userTimestampColor 
-        : settings.timestampColor 
-    }}
-  >
-    {new Date().toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    })}
-  </div>
-</div>
+                        className="text-xs mt-1 text-right"
+                        style={{
+                          color:
+                            msg.sender === "user"
+                              ? settings.userTimestampColor
+                              : settings.timestampColor,
+                        }}
+                      >
+                        {new Date().toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </div>
                     {/* Reaction Buttons BELOW the bubble, only for bot */}
-                    {msg.sender === "bot" && index > 0 &&(
+                    {msg.sender === "bot" && index > 0 && (
                       <div className="flex gap-2 mt-1 ml-2">
                         <button
                           onClick={() => handleReaction("like", index)}
@@ -1782,32 +1900,29 @@ export const ChatbotCustomization = () => {
                       }}
                     ></span>
                     <span
-                      className="h-1.5 w-1.5 rounded-full mx-0.5 animate-bounce"
+                      className="h-1.5 w-1.5 rounded-full "
                       style={{
                         backgroundColor: settings.chatTextColor,
                         animationDelay: "400ms",
                       }}
                     ></span>
                   </span>
-                  
                 </div>
-                
               )}
-               {!hasWhiteLabeling && (
-              <div
-            style={{
-              textAlign: "right",
-              color: "#6b7280", // Tailwind gray-500
-              fontSize: "12px",
-              padding: "12px 10px",
-              fontStyle: "italic",
-            }}
-          >
-            Powered by Evolra AI
-          </div>
-          )}
+              {!hasWhiteLabeling && (
+                <div
+                  style={{
+                    textAlign: "right",
+                    color: "#6b7280", // Tailwind gray-500
+                    fontSize: "12px",
+                    padding: "12px 10px",
+                    fontStyle: "italic",
+                  }}
+                >
+                  Powered by Evolra AI
+                </div>
+              )}
             </div>
-            
 
             {/* Chat Input */}
             <div
@@ -1887,6 +2002,7 @@ export const ChatbotCustomization = () => {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 };
