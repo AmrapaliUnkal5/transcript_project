@@ -67,7 +67,7 @@ def get_video_urls(channel_url):
         )
     
     # For single videos, don't use yt-dlp at all - just return the URL directly
-    if is_single_video and not is_playlist:
+    if is_single_video:
         print(f"✅ Processing single video URL: {channel_url}")
         # Just return the original URL for single videos
         return [channel_url]

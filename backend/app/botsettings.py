@@ -166,13 +166,17 @@ def send_bot_activation_email(user_name: str, user_email: str, bot_name: str):
     print("user send_bot_activation_email")
     subject = "Your chatbot has been activated!"
     body = f"""
-        Hi {user_name},
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #000;">
+        <p>Hello {user_name},</p>
 
-        Your chatbot "{bot_name}" is now active and ready to assist users.
+        <p>Your chatbot "{bot_name}" is now active and ready to use.</p>
 
-        You can customize it further from your dashboard if needed.
+        <p>You can customize it further by selecting the bot from the homepage if needed.</p>
 
-        Best regards,  
-        Evolra Team
-        """
+        <p>Best regards,<br>
+        Evolra Admin</p>
+    </body>
+    </html>
+    """
     send_email(user_email, subject, body)

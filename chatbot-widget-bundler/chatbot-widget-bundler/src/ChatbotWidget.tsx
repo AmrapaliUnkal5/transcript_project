@@ -980,7 +980,9 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
               setInputMessage(value);
             }}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && inputMessage.trim()) {
+              if (e.key === "Enter" && inputMessage.trim() &&
+    !isSendDisabled &&
+    !isBotTyping) {
                 sendMessage();
               }
             }}
@@ -995,12 +997,12 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
               color: button_text_color || "#ffffff",
               borderRadius: border_radius || "20px",
               cursor:
-                !inputMessage.trim() || isSendDisabled
+                !inputMessage.trim() || isSendDisabled || isBotTyping
                   ? "not-allowed"
                   : "pointer", // disabled:cursor-not-allowed
               border: "none",
               transition: "opacity 0.2s ease",
-              opacity: !inputMessage.trim() || isSendDisabled ? 0.7 : 1,
+              opacity: !inputMessage.trim() || isSendDisabled || isBotTyping ? 0.7 : 1,
               fontWeight: "500",
             }}
             onMouseOver={(e) => {
@@ -1015,6 +1017,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             disabled={
               !inputMessage.trim() ||
               isSendDisabled ||
+              isBotTyping ||
               inputMessage.length > MAX_USER_MESSAGE_LENGTH
             }
             
