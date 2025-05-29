@@ -30,7 +30,7 @@ export default function BotDataControl() {
             <Typography
               variant='h2'
               fontWeight={600}
-              fontSize={['32px', '60px']}
+              fontSize={['32px', '57px']}
               sx={{
                 background: '-webkit-linear-gradient(#FFF, #959595)',
                 backgroundClip: 'text',
@@ -38,7 +38,7 @@ export default function BotDataControl() {
               }}
               textAlign={'center'}
             >
-              Your Bot. Your Data. Your Control
+              Your Data. Your Bots. Your New AI Era
             </Typography>
           </Box>
 
@@ -55,37 +55,33 @@ export default function BotDataControl() {
                   fontSize={['18px', '30px']}
                   mb={2}
                 >
-                  Create Smart Bots in Minutes
+                  Build Intelligent Bots in Minutes
                 </Typography>
                 <Typography variant='body1' color={'#cacaca'}>
-                  Evolra lets you create powerful AI bots and agents trained
-                  directly on your website content, PDFs, videos, knowledge
-                  bases, and more. We take care of the complex AI processes
-                  behind the scenes, allowing you to focusing on tailoring your
-                  bot.
+                  Our platform empowers you to build sophisticated AI bots trained directly on your website content, PDF, DOCX, TXT, knowledge articles, YouTube videos and more. While we handle the complex Al processes behind the scenes, you’re free to focus on customizing your bots.
                 </Typography>
                 <Box display={'flex'} gap={1} my={2}>
                     <CheckCircleIcon sx={{color : '#BAB8FF'}}/>
                     <Typography variant='body1' color={'#cacaca'}>
-                        Train on your data
+                        Load Your Data
                     </Typography>
                 </Box>
                 <Box display={'flex'} gap={1} my={2}>
                     <CheckCircleIcon sx={{color : '#BAB8FF'}}/>
                     <Typography variant='body1' color={'#cacaca'}>
-                        Consistent branding matching your brand 
+                        Design Your Experience 
                     </Typography>
                 </Box>
                 <Box display={'flex'} gap={1} my={2}>
                     <CheckCircleIcon sx={{color : '#BAB8FF'}}/>
                     <Typography variant='body1' color={'#cacaca'}>
-                        Custom integration with your system
+                        Build your Bot
                     </Typography>
                 </Box>
                 <Box display={'flex'} gap={1} my={2}>
                     <CheckCircleIcon sx={{color : '#BAB8FF'}}/>
                     <Typography variant='body1' color={'#cacaca'}>
-                    AI-powered bots for internal teams
+                    Deploy & Engage
                     </Typography>
                 </Box>
                 

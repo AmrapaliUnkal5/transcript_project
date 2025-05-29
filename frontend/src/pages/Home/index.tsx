@@ -26,7 +26,7 @@ export default function HomePage() {
       <KeyBenefits/>
       <Plans/>
       <Enterprise/>
-      {/* <BotDataControl/> */}
+      <BotDataControl/>
       <FAQ/>
       <StartBuilding/>
       <Footer/> 
