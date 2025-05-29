@@ -28,7 +28,7 @@ import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 interface Step {
   title: string;
   description: string;
-  icon: React.FC<{ className?: string }>;
+  icon: React.FC<{ className?: string }> | string;
 }
 
 interface FileWithCounts
@@ -506,6 +506,41 @@ export const CreateBot = () => {
     return buttons;
   };
 
+  const updateBotName = async (
+    botId: number,
+    newName: string
+  ): Promise<boolean> => {
+    try {
+      const response = await authApi.updateBotName({
+        bot_id: botId,
+        bot_name: newName,
+      });
+
+      if (response.success) {
+        toast.success("Bot name updated successfully");
+        return true;
+      } else {
+        toast.error("We couldn't update your bot name");
+        return false;
+      }
+    } catch (error: any) {
+      console.error("Error updating bot name:", error);
+
+      // Check for specific error message from backend
+      if (
+        error.response?.data?.detail ===
+        "A bot with this name already exists for the user"
+      ) {
+        toast.error(
+          "A bot with this name already exists. Please choose a different name."
+        );
+      } else {
+        toast.error("We couldn't update your bot name. Please try again.");
+      }
+      return false;
+    }
+  };
+
   const createBotEntry = async (botName: string) => {
     try {
       const response = await authApi.createBot({
@@ -647,7 +682,7 @@ export const CreateBot = () => {
     const totalSize = files.reduce((acc, file) => acc + file.size, 0);
     if (totalSize > userUsage.storageLimit) {
       toast.error(
-        "`Total file size exceeds your storage limit of ${formatFileSize(userUsage.storageLimit)}`);"
+        `Total file size exceeds your storage limit of ${formatFileSize(userUsage.storageLimit)}`
       );
       return;
     }
@@ -745,39 +780,10 @@ export const CreateBot = () => {
                         "Your YouTube videos are being processed. We'll notify you when they're ready."
                       );
                     }
-          // if (responseyoutube && Object.keys(responseyoutube).length > 0) {
-          //   const successCount = responseyoutube.stored_videos?.length || 0;
-          //   const failedCount = responseyoutube.failed_videos?.length || 0;
-
-          //   if (successCount > 0 && failedCount === 0) {
-          //     isYouTubeSuccess = true;
-          //     toast.success(`${successCount} video(s) uploaded successfully!`);
-          //   } else if (successCount >= 0 && failedCount >= 0) {
-          //     isYouTubeSuccess = true;
-          //     toast.warning(
-          //       `${successCount} video(s) uploaded successfully, ${failedCount} failed.`
-          //     );
-          //   }
-          // }
-        }catch (error) {
-        console.error("Error creating bot:", error);
-        console.error("Error processing YouTube videos:", error);
-        toast.error("Failed to process YouTube videos.");
-        toast.error("An error occurred while uploading files.");
-      } finally {
-        setIsLoading(false);
-        setLoading(true);
-        // Log final state
-        setTimeout(() => {
-          console.log('=== AFTER FINALIZATION COMPLETE ===');
-          console.log('Final files:', files);
-          console.log('Final userUsage:', userUsage);
-          console.log('Final derived values:', {
-            totalWordsUsed,
-            remainingWords,
-            usagePercentage
-          });
-        }, 0);
+        } catch (error) {
+          console.error("Error processing YouTube videos:", error);
+          toast.error("Failed to process YouTube videos.");
+        }
       }
 
       // ✅ Check if at least one source is provided
@@ -824,41 +830,18 @@ export const CreateBot = () => {
       toast.error("An error occurred while uploading files.");
     } finally {
       setIsLoading(false);
-      setLoading(true);
-    }
-  };
-  const updateBotName = async (
-    botId: number,
-    newName: string
-  ): Promise<boolean> => {
-    try {
-      const response = await authApi.updateBotName({
-        bot_id: botId,
-        bot_name: newName,
-      });
-
-      if (response.success) {
-        toast.success("Bot name updated successfully");
-        return true;
-      } else {
-        toast.error("We couldn't update your bot name");
-        return false;
-      }
-    } catch (error: any) {
-      console.error("Error updating bot name:", error);
-
-      // Check for specific error message from backend
-      if (
-        error.response?.data?.detail ===
-        "A bot with this name already exists for the user"
-      ) {
-        toast.error(
-          "A bot with this name already exists. Please choose a different name."
-        );
-      } else {
-        toast.error("We couldn't update your bot name. Please try again.");
-      }
-      return false;
+      setLoading(false);
+      // Log final state
+      setTimeout(() => {
+        console.log('=== AFTER FINALIZATION COMPLETE ===');
+        console.log('Final files:', files);
+        console.log('Final userUsage:', userUsage);
+        console.log('Final derived values:', {
+          totalWordsUsed,
+          remainingWords,
+          usagePercentage
+        });
+      }, 0);
     }
   };
 
@@ -875,7 +858,6 @@ export const CreateBot = () => {
       setSelectedNodes((prev) => [...prev, url]);
     }
   };
-
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -1387,7 +1369,7 @@ export const CreateBot = () => {
                 style={{
                   fontSize: "14px",
                   fontWeight: 400,
-                  fontcolor: "#666666",
+                  color: "#666666",
                   fontFamily: "'Instrument Sans', sans-serif",
                   marginTop: 0,
                 }}
@@ -1444,17 +1426,7 @@ export const CreateBot = () => {
               className="flex flex-col items-center justify-center  "
             >
               <div
-                // className={`flex items-center justify-center w-12 h-12 rounded-full border-2 border-blue-700 border border-red-500   ${
-                //   index <= currentStep
-                //     ? "bg-blue-500 text-white"
-                //     : "bg-gray-200 text-gray-400"
-                // } ${index === currentStep ? "ring-4" : ""}`}
-                // style={
-                //   index === currentStep
-                //     ? { ringColor: "#5FDC87", boxShadow: "0 0 0 4px #5FDC87" }
-                //     : {}
-                // }
-                 className={`flex items-center justify-center w-12 h-12 rounded-full ${
+                className={`flex items-center justify-center w-12 h-12 rounded-full ${
     index <= currentStep ? "text-white" : "bg-gray-200 text-gray-400"
   } ${index === currentStep ? "ring-4" : ""}`}
   style={{
@@ -1464,8 +1436,6 @@ export const CreateBot = () => {
     boxShadow: index === currentStep ? "0 0 0 4px #5FDC87" : undefined,
   }}
               >
-                {/* <step.icon className="w-6 h-6" /> */}
-
                 {typeof step.icon === "string" ? (
                   <img src={step.icon} alt="Step icon" className="w-6 h-6 " />
                 ) : (
@@ -1556,3 +1526,5 @@ export const CreateBot = () => {
     </div>
   );
 };
+
+export default CreateBot;
