@@ -62,7 +62,8 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
   ({ botId, closeWidget, baseDomain, appearance: widgetAppearance  }, ref) => {
     
     const [botSettings, setBotSettings] = useState<BotSettings | null>(null);
-    const effectiveAppearance = widgetAppearance || botSettings?.appearance;
+    const isDirectLink = !!widgetAppearance; // If widgetAppearance exists, it's a direct link
+    const isFullScreen = isDirectLink || botSettings?.appearance === "Full Screen";
     const [messages, setMessages] = useState<
       {
         sender: "user" | "bot";
@@ -78,9 +79,9 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     const [isBotTyping, setIsBotTyping] = useState(false); // New state for typing animation
     const [currentBotMessage, setCurrentBotMessage] = useState<string>("");
     const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const [welcomeMessageIndex, setWelcomeMessageIndex] = useState<
-      number | null
-    >(null);
+    // const [welcomeMessageIndex, setWelcomeMessageIndex] = useState<
+    //   number | null
+    // >(null);
     //const [showWelcomeBubble] = useState(true);
     const [usageError, setUsageError] = useState("");
     const [isSendDisabled, setIsSendDisabled] = useState(false);
@@ -162,7 +163,6 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
           reaction: undefined,
         };
         setMessages([welcomeMsg]);
-        setWelcomeMessageIndex(0);
         setHasWelcomeBeenShown(true);
       }
     }, [botSettings, hasWelcomeBeenShown, messages.length]);
@@ -261,6 +261,26 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     //   chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     // }, [messages]);
 
+    // Add this utility function at the top of your component file
+      const getContrastColor = (bgColor?: string) => {
+        if (!bgColor) return '#6b7280'; // Default gray if no color
+        // Convert hex to RGB
+        let r = 0, g = 0, b = 0;
+        if (bgColor.length === 4) {
+          r = parseInt(bgColor[1] + bgColor[1], 16);
+          g = parseInt(bgColor[2] + bgColor[2], 16);
+          b = parseInt(bgColor[3] + bgColor[3], 16);
+        } else if (bgColor.length === 7) {
+          r = parseInt(bgColor.substring(1, 3), 16);
+          g = parseInt(bgColor.substring(3, 5), 16);
+          b = parseInt(bgColor.substring(5, 7), 16);
+        }
+        // Calculate luminance
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        // Return dark or light color based on luminance
+        return luminance > 0.5 ? '#1F2937' : '#FFFFFF';
+      };
+
     const sendMessage = async () => {
       const trimmedMessage = inputMessage.trim();
       if (!trimmedMessage) return;
@@ -291,17 +311,10 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       setUsageError("");
       setIsSendDisabled(false);
 
-      setMessages((prev) => {
-        const updatedMessages =
-          welcomeMessageIndex !== null
-            ? prev.filter((_, idx) => idx !== welcomeMessageIndex)
-            : prev;
-        setWelcomeMessageIndex(null);
-        return [
-          ...updatedMessages,
-          { sender: "user", message: trimmedMessage },
-        ];
-      });
+      setMessages((prev) => [
+        ...prev,
+        { sender: "user", message: trimmedMessage },
+      ]);
       setInputMessage("");
       resetIdleTimer();
       console.log("Current session ID:", sessionIdRef.current); // Debug log
@@ -543,29 +556,47 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       flexDirection: "column",
       overflow: "hidden",
 
-      ...(effectiveAppearance === "Full Screen"
+      ...(isFullScreen
         ? {
             top: 0,
             left: 0,
-            width: "100vw",
-            height: "100vh",
+            right: 0, // Add right: 0 to ensure full width
+            bottom: 0, // Add bottom: 0 to ensure full height
+            width: "100%",
+            height: "100%",
             backgroundColor: window_bg_color || "#F9FAFB",
             border: "none",
-            borderRadius: "0px",
+            borderRadius: border_radius || "20px",
             boxShadow: "none",
+            // Adjust close button position to account for safe areas
+            paddingTop: "env(safe-area-inset-top, 0px)",
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            paddingLeft: "env(safe-area-inset-left, 0px)",
+            paddingRight: "env(safe-area-inset-right, 0px)",
+            '@media (max-width: 768px)': {
+              fontSize: font_size ? `${font_size * 0.9}px` : "13px",
+              // Add any other mobile-specific full screen adjustments
+        }
           }
         : {
             ...(vertical === "top" ? { top: "110px" } : { bottom: "90px" }),
             ...(horizontal === "left" ? { left: "20px" } : { right: "20px" }),
             width: "380px",
-            maxWidth: "100dvw",
+            maxWidth: "calc(100dvw - 40px)", // Account for margins
             height: "600px",
-            maxHeight: "84dvh",
+            maxHeight: "calc(100dvh - 140px)", // Account for header and margins
             backgroundColor: window_bg_color || "#F9FAFB",
             border: `1px solid ${border_color || "#E5E7EB"}`,
-            borderRadius: "12px",
+            borderRadius: border_radius || "12px",
             boxShadow:
               "rgba(0, 0, 0, 0.2) 5px 5px 25px -5px, rgba(0, 0, 0, 0.1) 0px 8px 10px -6px",
+            // Mobile adjustments for widget
+            '@media (max-width: 768px)': {
+                width: "calc(100vw - 40px)",
+                height: "70vh",
+                ...(vertical === "top" ? { top: "20px" } : { bottom: "20px" }),
+                ...(horizontal === "left" ? { left: "20px" } : { right: "20px" }),
+              }
           }),
     };
 
@@ -625,12 +656,12 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
     return (
       <div ref={chatContainerRef} style={widgetStyle}>
-        {effectiveAppearance !== "Full Screen" && (
+        {!isDirectLink && (
         <div
           style={{
             position: "absolute",
-            top: "10px",
-            right: "10px",
+            top: `calc(10px + env(safe-area-inset-top, 0px))`,
+            right: `calc(10px + env(safe-area-inset-right, 0px))`,
             fontSize: chat_font_family ? `${font_size}px` : "14px",
             color: "#fff",
             cursor: "pointer",
@@ -657,10 +688,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                 <div
                   style={{
                     padding: "12px",
-                    borderRadius:
-                      border_radius === "rounded-full"
-                        ? "20px"
-                        : border_radius || "12px",
+                    borderRadius: border_radius || "20px",
                     maxWidth: "80%",
                     backgroundColor:
                       msg.sender === "user"
@@ -690,7 +718,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                 </div>
 
                 {/* Reaction Buttons - Only for Bot */}
-                {msg.sender === "bot" && index !== welcomeMessageIndex && (
+                {msg.sender === "bot" && index !== 0 && (
                   <div
                     style={{
                       marginTop: "4px",
@@ -904,7 +932,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
           <div
             style={{
               textAlign: "right",
-              color: "#6b7280", // Tailwind gray-500
+              color: getContrastColor(window_bg_color),
               fontSize: "12px",
               padding: "12px 10px",
               fontStyle: "italic",
@@ -965,10 +993,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
               lineHeight: "1.5rem",
               backgroundColor: button_color || "#3b82f6", // tailwind blue-500
               color: button_text_color || "#ffffff",
-              borderRadius:
-                border_radius === "rounded-full"
-                  ? "20px"
-                  : border_radius || "8px",
+              borderRadius: border_radius || "20px",
               cursor:
                 !inputMessage.trim() || isSendDisabled
                   ? "not-allowed"

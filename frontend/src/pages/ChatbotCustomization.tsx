@@ -434,7 +434,7 @@ export const ChatbotCustomization = () => {
             buttonColor: response.button_color || "#3B82F6",
             buttonTextColor: response.button_text_color || "#FFFFFF",
             timestampColor: response.chat_text_color || "#1F2937", // Match chat text color
-            userTimestampColor: response.user_text_color || "#FFFFFF",
+            userTimestampColor: response.user_text_color || "#121111",
             borderRadius: response.border_radius || "12px",
             borderColor: response.border_color || "#E5E7EB",
             chatFontFamily: response.chat_font_family || "Inter",
@@ -515,12 +515,13 @@ export const ChatbotCustomization = () => {
     }
   }, [selectedBot, setSelectedBot, navigate]);
 
-  useEffect(() => {
-  // Set welcome message if no messages exist
-  if (messages.length === 0) {
+useEffect(() => {
+  // Update welcome message when it changes
+  if (messages.length === 0 || 
+      (messages.length > 0 && messages[0].sender === "bot" && messages[0].text !== settings.welcomeMessage)) {
     setMessages([{ sender: "bot", text: settings.welcomeMessage }]);
   }
-}, [settings.welcomeMessage]); // Only re-run when welcomeMessage changes
+}, [settings.welcomeMessage]);
 
   // In ChatbotCustomization.tsx
   const handleRefresh = async () => {
@@ -993,6 +994,29 @@ export const ChatbotCustomization = () => {
     }
   };
 
+
+  const getContrastColor = (bgColor: string) => {
+  if (!bgColor) return '#6b7280'; // Default gray if no color
+  
+  // Convert hex to RGB
+  let r = 0, g = 0, b = 0;
+  if (bgColor.length === 4) {
+    r = parseInt(bgColor[1] + bgColor[1], 16);
+    g = parseInt(bgColor[2] + bgColor[2], 16);
+    b = parseInt(bgColor[3] + bgColor[3], 16);
+  } else if (bgColor.length === 7) {
+    r = parseInt(bgColor.substring(1, 3), 16);
+    g = parseInt(bgColor.substring(3, 5), 16);
+    b = parseInt(bgColor.substring(5, 7), 16);
+  }
+  
+  // Calculate luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  
+  // Return dark or light color based on luminance
+  return luminance > 0.5 ? '#1F2937' : '#FFFFFF';
+};
+
   const sections = [
     {
       title: "Bot Identity",
@@ -1031,17 +1055,16 @@ export const ChatbotCustomization = () => {
           type: "select",
           value: settings.chatFontFamily,
           options: [
-            "Inter",
+            "Geist",
             "Roboto",
             "Open Sans",
             "Lato",
-            "Poppins",
-            "Montserrat",
-            "System Default",
+            "Sora",
           ],
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("chatFontFamily", e.target.value),
         },
+
     
         {
           label: "Font Size",
@@ -1086,20 +1109,20 @@ export const ChatbotCustomization = () => {
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
             handleChange("userTextColor", e.target.value),
         },
-        {
-      label: "Bot Timestamp Color",
-      type: "color",
-      value: settings.timestampColor,
-      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-        handleChange("timestampColor", e.target.value),
-    },
-    {
-      label: "User Timestamp Color",
-      type: "color",
-      value: settings.userTimestampColor,
-      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-        handleChange("userTimestampColor", e.target.value),
-    },
+    //     {
+    //   label: "Bot Timestamp Color",
+    //   type: "color",
+    //   value: settings.timestampColor,
+    //   onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+    //     handleChange("timestampColor", e.target.value),
+    // },
+    // {
+    //   label: "User Timestamp Color",
+    //   type: "color",
+    //   value: settings.userTimestampColor,
+    //   onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+    //     handleChange("userTimestampColor", e.target.value),
+    // },
       ],
     },
     {
@@ -1167,7 +1190,6 @@ export const ChatbotCustomization = () => {
             "16px",
             "20px",
             "24px",
-            "rounded-full",
           ],
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("borderRadius", e.target.value),
@@ -1203,34 +1225,36 @@ export const ChatbotCustomization = () => {
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("appearance", e.target.value),
         },
-        {
-          label: "Model Temperature",
-          type: "slider",
-          min: 0,
-          max: 1,
-          step: "0.01",
-          value: settings.temperature,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+
+      {
+  label: (
+    <div className="flex items-center">
+      <span>Model Temperature</span>
+      <div className="relative group inline-block ml-2">
+        <span className="text-gray-500 hover:text-blue-500 cursor-pointer">
+          ℹ️
+        </span>
+        <div className="absolute left-0 top-7 w-64 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg z-10 pointer-events-none">
+          Controls response creativity:
+          <ul className="mt-1 list-disc pl-4">
+            <li><strong>0</strong>: Precise, deterministic answers</li>
+            <li><strong>0.5</strong>: Balanced mix of accuracy and creativity</li>
+            <li><strong>1</strong>: Maximum creativity and randomness</li>
+          </ul>
+          Higher values produce more detailed, varied responses, while lower values give more specific, focused answers.
+        </div>
+      </div>
+    </div>
+  ),
+  type: "slider",
+  min: 0,
+  max: 1,
+  step: "0.01",
+  value: settings.temperature,
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
             handleChange("temperature", parseFloat(e.target.value));
           },
-          // Add tooltip for this field
-      tooltip: (
-        <div className="relative group inline-block ml-2">
-          <span className="text-gray-500 hover:text-blue-500 cursor-pointer">
-            ℹ️
-          </span>
-          <div className="absolute left-0 top-7 w-64 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg z-10">
-            Controls response creativity:
-            <ul className="mt-1 list-disc pl-4">
-              <li><strong>0</strong>: Precise, deterministic answers</li>
-              <li><strong>0.5</strong>: Balanced mix of accuracy and creativity</li>
-              <li><strong>1</strong>: Maximum creativity and randomness</li>
-            </ul>
-            Higher values produce more detailed, varied responses, while lower values give more specific, focused answers.
-          </div>
-        </div>
-      )
-        },
+}
       ],
     },
   ];
@@ -1797,7 +1821,7 @@ export const ChatbotCustomization = () => {
               <div
             style={{
               textAlign: "right",
-              color: "#6b7280", // Tailwind gray-500
+              color: getContrastColor(settings.windowBgColor),// Tailwind gray-500
               fontSize: "12px",
               padding: "12px 10px",
               fontStyle: "italic",

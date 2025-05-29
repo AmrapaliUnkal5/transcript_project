@@ -137,7 +137,7 @@ export const ReportIssue = () => {
     try {
       await authApi.submitIssueRequest(formDataPayload);
       setIsSubmitted(true);
-      setTimeout(() => navigate("/"), 2000);
+      //setTimeout(() => navigate("/"), 2000);
     } catch (error) {
       console.error("Error submitting issue:", error);
       toast.error("Failed to submit issue. Please try again.");
