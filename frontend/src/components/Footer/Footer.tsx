@@ -85,6 +85,12 @@ function Footer() {
               >
                 Terms of Service
               </RouterLink>
+              <RouterLink
+                to="/cancellation-refund-policy"
+                style={{ color: "#ffffff", textDecoration: "none" }}
+              >
+                Cancellation and Refund Policy
+              </RouterLink>
             </Box>
           </Grid>
           <Grid item xs={12} sm={12} md={4}>

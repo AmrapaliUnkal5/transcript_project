@@ -23,9 +23,9 @@ import { LoaderProvider } from "./context/LoaderContext"; // Import LoaderProvid
 import Loader from "./components/Loader"; // Import Loader component
 import VerifyEmail from "./pages/Auth/VerifyEmail";
 import { Demo } from "./pages/Demo.tsx";
+
 import { FAQ } from "./pages/FaqPage.tsx";
-import { PrivacyPolicy } from "./pages/Legal/PrivacyPolicy.tsx";
-import { TermsOfService } from "./pages/Legal/TermsOfService.tsx";
+
 import { ReportIssue } from "./pages/ReportIssue.tsx";
 import { CustomerSupportRequest } from "./pages/CustomerSupport.tsx";
 import { SubscriptionPlanProvider } from "./context/SubscriptionPlanContext";
@@ -34,6 +34,12 @@ import { TeamInvitation } from "./pages/TeamInvitation.tsx";
 import { AddonPurchasePage } from "./pages/AddonPurchasePage";
 import HomePage from "./pages/Home/index.tsx";
 import OurPlans from "./pages/OurPlans/index.tsx";
+import FAQPage from "./pages/FAQ/index.tsx";
+import ContactUs from "./pages/ContactUs/index.tsx";
+import DataDeletion from "./pages/DataDeletion/index.tsx";
+import CancellationRefundPolicy from "./pages/CancellationAndRefund/index.tsx";
+import TermsService from "./pages/TermsOfService/index.tsx";
+import Privacy from "./pages/Privacy/index.tsx";
 
 
 
@@ -56,17 +62,32 @@ function App() {
                 <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/demo" element={<Demo />} />
                 <Route path="/faq" element={<FAQ />} />
-                <Route path="/privacy_policy" element={<PrivacyPolicy />} />
+          
                 <Route
                   path="/team/invitation/:invitation_token"
                   element={<TeamInvitation />}
                 />
-                <Route path="/terms" element={<TermsOfService />} />
+              
                 <Route path="report-issue" element={<ReportIssue />} />
                 <Route
                   path="customersupport"
                   element={<CustomerSupportRequest />}
                 />
+
+
+                <Route path="/contact-us" element={<ContactUs />} />             
+
+                <Route path="/faq-page" element={<FAQPage />} />
+                <Route path="/terms-of-service" element={<TermsService />} />
+                <Route path="/privacy-policy" element={<Privacy />} />
+           
+
+ 
+
+                <Route path="/data-deletion" element={<DataDeletion />} />
+                <Route path="/cancellation-refund-policy" element={<CancellationRefundPolicy />} />
+
+
                 
                 {/* Main layout with sidebar */}
                 <Route
@@ -82,7 +103,7 @@ function App() {
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="chatbot" element={<ChatbotCustomization />} />
                   <Route path="upload" element={<FileUpload />} />
-                  <Route path="performance" element={<Performance />} />
+                  {/* <Route path="performance" element={<Performance />} /> */}
                   <Route
                     path="/script-generate"
                     element={<ScriptGeneratePage />}
