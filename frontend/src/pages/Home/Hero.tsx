@@ -95,11 +95,13 @@ export default function Hero() {
               >
                 <Typical
                   steps={[
-                    "website content",
+                    "on your website content",
                     2000,
-                    "amazing features",
+                    "on documents",
                     2000,
-                    "great design",
+                    "on videos",
+                    2000,
+                    "and more",
                     2000,
                   ]}
                   loop={Infinity}
