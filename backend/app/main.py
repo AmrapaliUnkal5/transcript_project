@@ -1,8 +1,9 @@
+import threading
 from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, UploadFile, HTTPException, Query
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .models import Base, User, UserSubscription, Bot, TeamMember, UserAddon
+from .models import Base, Captcha, User, UserSubscription, Bot, TeamMember, UserAddon
 from .schemas import *
 from .crud import create_user,get_user_by_email, update_user_password,update_avatar
 from fastapi.security import OAuth2PasswordBearer
@@ -59,6 +60,8 @@ from app.widget_botsettings import router as widget_botsettings_router
 from app.current_billing_metrics import router as billing_metrics_router
 from app.celery_app import celery_app
 from app.celery_tasks import process_youtube_videos, process_file_upload, process_web_scraping
+from app.captcha_cleanup_thread import captcha_cleaner
+
 
 # Import our custom logging components
 from app.utils.logging_config import setup_logging
@@ -169,7 +172,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
     allow_headers=["*"],  # Allow all HTTP headers
-    expose_headers=["X-New-Token"],  # Expose custom headers
+    expose_headers=["X-Captcha-ID","X-New-Token"],  
 )
 
 # app.add_middleware(RoleBasedAccessMiddleware)
@@ -298,6 +301,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
             name=new_user.name
         )
     )
+
 
 # Login API - modified to use only username and password
 @app.post("/login")
@@ -692,21 +696,70 @@ def generate_captcha_text():
     return "".join(random.choices(chars, k=5))
 
 @app.get("/captcha")
-async def get_captcha():
+async def get_captcha(db: Session = Depends(get_db)):
     captcha_text = generate_captcha_text()
+    
+    # Store in database
+    db_captcha = Captcha(
+        captcha_text=captcha_text,
+        created_at=datetime.utcnow()
+    )
+    db.add(db_captcha)
+    db.commit()
+    db.refresh(db_captcha)
+
+     # Trigger cleanup in background thread
+    cleanup_thread = threading.Thread(
+        target=captcha_cleaner.cleanup_expired_captchas,
+        args=(db,),
+        daemon=True
+    )
+    cleanup_thread.start()
+    
+    # Generate image
     image = ImageCaptcha()
     image_data = image.generate(captcha_text)
-
-    # Store CAPTCHA (in a real app, store it in Redis or DB)
-    captcha_store["captcha"] = captcha_text
-
-    return Response(content=image_data.read(), media_type="image/png")
+    
+    return Response(
+        content=image_data.read(), 
+        media_type="image/png",
+        headers={"X-Captcha-ID": str(db_captcha.id)}  # Send CAPTCHA ID to client
+    )
 
 @app.post("/validate-captcha")
-async def validate_captcha(data: CaptchaRequest):
-    logger.debug("Captcha validation: %s", captcha_store.get("captcha", ""))
-    is_valid = data.user_input == captcha_store.get("captcha", "")
-    return {"valid": is_valid, "message": "Captcha validated", "user_input": data.user_input}
+async def validate_captcha(
+    request: Request,
+    data: CaptchaRequest, 
+    db: Session = Depends(get_db)
+):
+    # Get CAPTCHA ID from headers
+    captcha_id = request.headers.get("X-Captcha-ID")
+    print("captcha_id=>>>",captcha_id)
+    if not captcha_id:
+        raise HTTPException(status_code=400, detail="Missing CAPTCHA ID")
+    
+    # Find the CAPTCHA record
+    db_captcha = db.query(Captcha).filter(
+        Captcha.id == captcha_id,
+        #Captcha.is_used == False,
+        Captcha.created_at >= datetime.utcnow() - timedelta(minutes=5)  # 5 min expiry
+    ).first()
+    
+    if not db_captcha:
+        logger.warning(f"CAPTCHA not found or expired. ID: {captcha_id}")
+        raise HTTPException(status_code=400, detail="CAPTCHA expired or invalid")
+    
+    # Validate (case-insensitive)
+    is_valid = data.user_input.lower() == db_captcha.captcha_text.lower()
+    
+    # Always mark as used after validation attempt to prevent replay attacks
+    db_captcha.is_used = True
+    db.commit()
+    
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Incorrect CAPTCHA")
+    
+    return {"valid": True, "message": "CAPTCHA validated"}
 
 @app.get("/task/{task_id}", response_model=dict)
 def check_task_status(task_id: str):

@@ -48,6 +48,8 @@ export const Login = () => {
   );
   const [showPassword, setShowPassword] = React.useState(false); // State to manage password visibility
   const [logoLoaded, setLogoLoaded] = React.useState(true);
+  const [captchaId, setCaptchaId] = useState("");
+
 
   // Math CAPTCHA states
   const [openCaptchaModal, setOpenCaptchaModal] = useState(false);
@@ -271,13 +273,20 @@ export const Login = () => {
   };
 
   const fetchCaptcha = async () => {
-    try {
-      const captchaUrl = await authApi.fetchCaptcha();
-      setCaptchaImage(captchaUrl);
-    } catch (error) {
-      console.error("Failed to load CAPTCHA", error);
+  try {
+    const response = await authApi.fetchCaptcha();
+    console.log("captchaId=>",captchaId)
+    // Store the CAPTCHA ID from response
+    if (response.captchaId) {
+      setCaptchaId(response.captchaId);
     }
-  };
+    setCaptchaImage(response.imageUrl);
+  } catch (error) {
+    console.error("Failed to load CAPTCHA", error);
+  }
+};
+
+
   useEffect(() => {
     if (location.state?.message) {
       setSuccessMessage(location.state.message);
@@ -353,20 +362,23 @@ export const Login = () => {
       setLoading(false); // Reset loading state after completion
     }, 2000);
     try {
-      const captchaRes = await authApi.validatecaptcha(captchaInput);
-      console.log("CAPTCHA Response:", captchaRes); // Debugging output
+      const captchaRes = await authApi.validatecaptcha(captchaInput, captchaId);
+
+      console.log("CAPTCHA Response:", captchaRes);
+      console.log("captchaRes.valid=>",captchaRes.valid) // Debugging output
       if (!captchaRes.valid) {
         setCaptchaError("Incorrect CAPTCHA. Try again.");
+        fetchCaptcha();
         setLoading(false);
         return;
       }
-    } catch (error) {
-      console.error("Error validating CAPTCHA:", error);
-      setCaptchaError("CAPTCHA validation failed.");
-      setLoading(false);
-    }
+    // } catch (error) {
+    //   console.error("Error validating CAPTCHA:", error);
+    //   setCaptchaError("CAPTCHA validation failed.");
+    //   setLoading(false);
+    // }
 
-    try {
+    // try {
       const response = await authApi.login({ email, password });
       login(response.access_token, response.user);
 
