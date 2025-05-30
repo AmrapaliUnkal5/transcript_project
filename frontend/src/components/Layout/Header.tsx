@@ -55,6 +55,10 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
     <header
       className="bg-white dark:bg-gray-800 h-16 px-6 flex items-center justify-between border-b border-gray-200 dark:border-gray-700
 "
+
+  style={{
+    background: "linear-gradient(to right, #231D53, #28377B)"
+  }}
     >
       {/* Left Section: Logo/Image */}
       <div className="flex items-center space-x-4">
@@ -72,19 +76,12 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
 
       <div className="flex-1" />
       <div className="flex items-center space-x-4">
-        {/* Home Button */}
-        {/* <button
-          onClick={() => navigate("/")}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-          title="Home"
-        >
-          {/* <Home className="w-5 h-5" /> */}
-
-        {/* Home Button */}
+       
         <button
           onClick={() => navigate("/")}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
+          className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
           title="Home"
+          style={{ fontFamily: "Instrument Sans, sans-serif", fontSize: "16px" }}
         >
           Home
         </button>
@@ -110,7 +107,13 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
 
        <button
          onClick={() => window.open("/report-issue", "_blank")}
-          className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white"
+          className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
+          style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "16px",
+    color: "#BFBFBF",
+    
+  }}
           title="Have doubts? Ask here!">Help</button>
 
         {/*
@@ -124,16 +127,14 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
        
 
         {/* Notifications Button */}
-
-        {/*<button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+{/* 
+        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
         title="Notifications"
         >
           <Bell color={isDark ? "white" : "black"} className="w-5 h-5" />
-        </button>
-        {/* Dropdown for Avatar */}
-        {/* <button
-        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
-        title="Notifications">Notifications</button> */}
+        </button> */}
+      
+    
         <NotificationDropdown />
 
         <div className="relative" ref={dropdownRef}>
@@ -146,7 +147,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
               alt={user?.name || "User"}
               className="w-8 h-8 rounded-full border border-gray-300 dark:border-white cursor-pointer"
             />
-            <span className="text-sm font-medium text-gray-900 dark:text-white">
+            <span className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white">
               {user?.name || "User"}
             </span>
           </button>

@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
 
 export const NoSidebarLayout: React.FC = () => {
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(false);
   const [user, setUser] = useState<{ name: string; avatar: string }>({
     name: "Guest",
     avatar:

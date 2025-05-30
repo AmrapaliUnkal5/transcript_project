@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { authApi } from "../../services/api";
 import { Trash } from "lucide-react";
 
+
 type Notification = {
   id: number;
   user_id: number;
@@ -79,7 +80,7 @@ export const NotificationDropdown = () => {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button
+      {/* <button
         className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white relative"
         onClick={() => setOpen((prev) => !prev)}
       >
@@ -89,7 +90,26 @@ export const NotificationDropdown = () => {
             {notifications.length}
           </span>
         )}
-      </button>
+      </button> */}
+
+
+<button
+  className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
+  onClick={() => setOpen((prev) => !prev)}
+  title="Notifications"
+>
+  <img
+    src="/public/images/dummy/notifications.png"
+    alt="Notifications"
+     className="w-7 h-7"
+  />
+  {notifications.length > 0 && (
+    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">
+      {notifications.length}
+    </span>
+  )}
+</button>
+   
 
       {open && (
         <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">

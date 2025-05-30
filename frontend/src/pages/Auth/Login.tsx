@@ -458,11 +458,11 @@ export const Login = () => {
       <Box maxWidth={1180} mx={"auto"} borderRadius={4} py={2} px={3}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 7 }}>
-            <LightGBox p={"1px"} borderRadius={4}>
+            <LightGBox p={"1px"} borderRadius={4}>  
               <Box
                 px={5}
-                py={2}
-                borderRadius={4}
+                 py={2}
+                 borderRadius={4}
                 sx={{
                   position: "relative",
                   overflow: "hidden",
@@ -471,7 +471,7 @@ export const Login = () => {
                   flexDirection: "column",
                 }}
               >
-                <Typography
+              <Typography
                   variant="h6"
                   mb={3}
                   color="#FFF"
@@ -481,7 +481,9 @@ export const Login = () => {
                 </Typography>
                 <Box
                   textAlign={"center"}
-                  sx={{
+                
+
+      sx={{
                     position: "absolute",
                     top: 0,
                     left: 0,
@@ -498,7 +500,8 @@ export const Login = () => {
                     style={{
                       width: "100%",
                       height: "100%",
-                      objectFit: "cover",
+                      objectFit: "cover", // if we are using cover here video is cropped and if using contain then so much space remain empty inside box 
+                      
                     }}
                   >
                     <source src="/images/dummy/gif.mp4" type="video/mp4" />
@@ -751,8 +754,12 @@ export const Login = () => {
               >
                 <Box>
                   <Typography variant="body1">Contact us </Typography>
-                  <Typography variant="body2">Support@Checkme.com</Typography>
-                  <Typography variant="body2">0123-456789 or else</Typography>
+                  <Typography variant="body2">support@evolra.ai</Typography>
+                  {/* <Typography variant="body2">0123-456789 </Typography> */}
+                 <Typography variant="body2">&nbsp;</Typography>
+                  {/* using above line  for space only so that our symmetry will remin consistent */}
+
+
                   <Typography variant="body2">
                     <Link
                       to="#"
