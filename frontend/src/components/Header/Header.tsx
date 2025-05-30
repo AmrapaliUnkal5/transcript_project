@@ -16,6 +16,7 @@ import Button from "@mui/material/Button";
 import { styled } from "@mui/material";
 import { useLocation } from "react-router-dom";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 interface Props {
   /**
@@ -37,6 +38,7 @@ const navItems = [
 export default function HomeHeader(props: Props) {
   const { window } = props;
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const navigate = useNavigate();
 
   const handleDrawerToggle = () => {
     setMobileOpen((prevState) => !prevState);
@@ -114,6 +116,7 @@ export default function HomeHeader(props: Props) {
             alignItems={"center"}
             width={"100%"}
           >
+
             <Box>
               <Link to="/home">
                 <StyledImage
@@ -126,7 +129,6 @@ export default function HomeHeader(props: Props) {
                 />
               </Link>
 
-             
             </Box>
             <Box display={"flex"} gap={[1, 3]}>
               <Box sx={{ display: { xs: "none", sm: "flex" } }} gap={[1, 2]}>
@@ -165,6 +167,7 @@ export default function HomeHeader(props: Props) {
               <Box display={"flex"} gap={[1, 3]}>
                 <Button
                   variant="contained"
+                  href="/signup"
                   sx={{
                     color: "#fff",
                     fontSize: "16px",
@@ -178,6 +181,7 @@ export default function HomeHeader(props: Props) {
                 </Button>
                 <Button
                   variant="outlined"
+                  href="/login"
                   sx={{
                     fontSize: "16px",
                     color: "#fff",

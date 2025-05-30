@@ -8,6 +8,7 @@ from app.database import SessionLocal
 from app.models import Bot, EmbeddingModel, UserSubscription, SubscriptionPlan
 from app.utils.logger import get_module_logger
 from app.config import settings
+import time
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -217,6 +218,8 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                extra={"bot_id": bot_id, "query_length": len(query_text), 
                      "top_k": top_k})
     
+    start_time = time.time()
+    
     try:
         # Use model selection utility if user_id is provided
         if user_id:
@@ -317,6 +320,26 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                     logger.info(f"Match {i+1}: Score {score:.4f}, Source: {metadata.get('source', 'unknown')}, Name: {metadata.get('file_name', 'unknown')}")
             else:
                 logger.warning("No documents returned from query")
+            
+            # Calculate time taken
+            duration_ms = int((time.time() - start_time) * 1000)
+            
+            # Log the document retrieval if user_id is provided
+            if user_id:
+                from app.utils.ai_logger import log_document_retrieval
+                log_document_retrieval(
+                    user_id=user_id,
+                    bot_id=bot_id,
+                    query=query_text,
+                    collection_name=collection_name,
+                    results_count=len(docs),
+                    results=docs,
+                    extra={
+                        "duration_ms": duration_ms,
+                        "model_name": model_name,
+                        "dimension": embedding_dimension
+                    }
+                )
             
             return docs
             

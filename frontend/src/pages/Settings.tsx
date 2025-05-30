@@ -39,6 +39,8 @@ export const Settings = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  // New state to track if user is logged in with social provider
+  const [isSocialLogin, setIsSocialLogin] = useState(false);
 
   const [settings, setSettings] = useState({
     name: "",
@@ -86,6 +88,14 @@ export const Settings = () => {
               status: response.subscription?.status || "active",
             },
           }));
+          
+          // Check if user has a social login provider (Google or Facebook)
+          if (response.auth_providers && response.auth_providers.length > 0) {
+            const socialProviders = response.auth_providers.filter(
+              (provider: string) => provider === "google" || provider === "facebook"
+            );
+            setIsSocialLogin(socialProviders.length > 0);
+          }
         }
       } catch (error) {
         console.error("Error fetching user details:", error);
@@ -121,6 +131,22 @@ export const Settings = () => {
   if (!settings) {
     return <p>Loading...</p>;
   }
+
+  useEffect(() => {
+  const handleUserUpdate = () => {
+    const userData = localStorage.getItem("user");
+    if (userData) {
+      const parsedUser = JSON.parse(userData);
+      setSettings(prev => ({
+        ...prev,
+        avatar_url: parsedUser.avatar_url || prev.avatar_url
+      }));
+    }
+  };
+
+  window.addEventListener('userUpdated', handleUserUpdate);
+  return () => window.removeEventListener('userUpdated', handleUserUpdate);
+}, []);
 
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -274,11 +300,12 @@ export const Settings = () => {
           company_name: settings.company_name,
           communication_email: settings.communication_email,
           phone_no: settings.phone_no,
+          currentAvatarUrl: settings.avatar_url,
         };
         await authApi.updateUserDetails(userUpdateData); // Update user details
         
         // Refresh user data from backend to get the latest information
-        await refreshUserData();
+        await refreshUserData();        
         
         toast.success("Your profile information has been updated successfully!"); // Success toast
       } catch (error) {
@@ -543,7 +570,7 @@ export const Settings = () => {
               />
             </div>
 
-            <div>
+            {/* <div>
               <label
                 htmlFor="communication_email"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
@@ -563,7 +590,7 @@ export const Settings = () => {
                   {errors.communication_email}
                 </p>
               )}
-            </div>
+            </div> */}
 
             <div className="flex justify-end">
               <button
@@ -667,156 +694,158 @@ export const Settings = () => {
           </div>
         </div>
 
-        {/* Change Password Section */}
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mt-6">
-          <div className="flex items-center mb-4">
-            <Key className="w-5 h-5 mr-2 text-gray-500" />
-            <h2 className="text-lg font-semibold mb-4 text-white">
-              Change Password
-            </h2>
+        {/* Change Password Section - Only show for non-social login users */}
+        {!isSocialLogin && (
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mt-6">
+            <div className="flex items-center mb-4">
+              <Key className="w-5 h-5 mr-2 text-gray-500" />
+              <h2 className="text-lg font-semibold mb-4 text-white">
+                Change Password
+              </h2>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="current_password"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Current Password
+                </label>
+                <div className="relative w-full">
+                  <input
+                    type={showPassword.current ? "text" : "password"}
+                    id="current_password"
+                    name="current_password"
+                    value={passwordData.current_password}
+                    onChange={handlePasswordChange}
+                    className={`w-full px-3 py-2 border ${
+                      passwordErrors.current_password
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+                  />
+                  {/* Eye icon toggle */}
+                  <div
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer"
+                    onClick={() =>
+                      setShowPassword((prev) => ({
+                        ...prev,
+                        current: !prev.current,
+                      }))
+                    }
+                  >
+                    {showPassword.current ? (
+                      <Eye className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                    ) : (
+                      <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                    )}
+                  </div>
+                </div>
+                {passwordErrors.current_password && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {passwordErrors.current_password}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label
+                  htmlFor="new_password"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  New Password
+                </label>
+                <div className="relative w-full">
+                  <input
+                    type={showPassword.new ? "text" : "password"}
+                    id="new_password"
+                    name="new_password"
+                    value={passwordData.new_password}
+                    onChange={handlePasswordChange}
+                    className={`w-full px-3 py-2 border ${
+                      passwordErrors.new_password
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+                  />
+                  {/* Eye icon toggle */}
+                  <div
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer"
+                    onClick={() =>
+                      setShowPassword((prev) => ({ ...prev, new: !prev.new }))
+                    }
+                  >
+                    {showPassword.new ? (
+                      <Eye className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                    ) : (
+                      <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                    )}
+                  </div>
+                </div>
+                {passwordErrors.new_password && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {passwordErrors.new_password}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label
+                  htmlFor="confirm_password"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Confirm New Password
+                </label>
+                <div className="relative w-full">
+                  <input
+                    type={showPassword.confirm ? "text" : "password"}
+                    id="confirm_password"
+                    name="confirm_password"
+                    value={passwordData.confirm_password}
+                    onChange={handlePasswordChange}
+                    className={`w-full px-3 py-2 border ${
+                      passwordErrors.confirm_password
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+                  />
+                  {/* Eye icon toggle */}
+                  <div
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer"
+                    onClick={() =>
+                      setShowPassword((prev) => ({
+                        ...prev,
+                        confirm: !prev.confirm,
+                      }))
+                    }
+                  >
+                    {showPassword.confirm ? (
+                      <Eye className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                    ) : (
+                      <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                    )}
+                  </div>
+                </div>
+                {passwordErrors.confirm_password && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {passwordErrors.confirm_password}
+                  </p>
+                )}
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleUpdatePassword}
+                  disabled={changingPassword}
+                  className={`px-4 py-2 rounded-md transition-colors ${
+                    changingPassword
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-blue-500 hover:bg-blue-600 text-white"
+                  }`}
+                >
+                  {changingPassword ? "Updating..." : "Update Password"}
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="current_password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                Current Password
-              </label>
-              <div className="relative w-full">
-                <input
-                  type={showPassword.current ? "text" : "password"}
-                  id="current_password"
-                  name="current_password"
-                  value={passwordData.current_password}
-                  onChange={handlePasswordChange}
-                  className={`w-full px-3 py-2 border ${
-                    passwordErrors.current_password
-                      ? "border-red-500"
-                      : "border-gray-300"
-                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
-                />
-                {/* Eye icon toggle */}
-                <div
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer"
-                  onClick={() =>
-                    setShowPassword((prev) => ({
-                      ...prev,
-                      current: !prev.current,
-                    }))
-                  }
-                >
-                  {showPassword.current ? (
-                    <Eye className="w-5 h-5 text-gray-500 dark:text-gray-300" />
-                  ) : (
-                    <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-300" />
-                  )}
-                </div>
-              </div>
-              {passwordErrors.current_password && (
-                <p className="text-red-500 text-sm mt-1">
-                  {passwordErrors.current_password}
-                </p>
-              )}
-            </div>
-            <div>
-              <label
-                htmlFor="new_password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                New Password
-              </label>
-              <div className="relative w-full">
-                <input
-                  type={showPassword.new ? "text" : "password"}
-                  id="new_password"
-                  name="new_password"
-                  value={passwordData.new_password}
-                  onChange={handlePasswordChange}
-                  className={`w-full px-3 py-2 border ${
-                    passwordErrors.new_password
-                      ? "border-red-500"
-                      : "border-gray-300"
-                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
-                />
-                {/* Eye icon toggle */}
-                <div
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer"
-                  onClick={() =>
-                    setShowPassword((prev) => ({ ...prev, new: !prev.new }))
-                  }
-                >
-                  {showPassword.new ? (
-                    <Eye className="w-5 h-5 text-gray-500 dark:text-gray-300" />
-                  ) : (
-                    <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-300" />
-                  )}
-                </div>
-              </div>
-              {passwordErrors.new_password && (
-                <p className="text-red-500 text-sm mt-1">
-                  {passwordErrors.new_password}
-                </p>
-              )}
-            </div>
-            <div>
-              <label
-                htmlFor="confirm_password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                Confirm New Password
-              </label>
-              <div className="relative w-full">
-                <input
-                  type={showPassword.confirm ? "text" : "password"}
-                  id="confirm_password"
-                  name="confirm_password"
-                  value={passwordData.confirm_password}
-                  onChange={handlePasswordChange}
-                  className={`w-full px-3 py-2 border ${
-                    passwordErrors.confirm_password
-                      ? "border-red-500"
-                      : "border-gray-300"
-                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
-                />
-                {/* Eye icon toggle */}
-                <div
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer"
-                  onClick={() =>
-                    setShowPassword((prev) => ({
-                      ...prev,
-                      confirm: !prev.confirm,
-                    }))
-                  }
-                >
-                  {showPassword.confirm ? (
-                    <Eye className="w-5 h-5 text-gray-500 dark:text-gray-300" />
-                  ) : (
-                    <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-300" />
-                  )}
-                </div>
-              </div>
-              {passwordErrors.confirm_password && (
-                <p className="text-red-500 text-sm mt-1">
-                  {passwordErrors.confirm_password}
-                </p>
-              )}
-            </div>
-            <div className="flex justify-end">
-              <button
-                onClick={handleUpdatePassword}
-                disabled={changingPassword}
-                className={`px-4 py-2 rounded-md transition-colors ${
-                  changingPassword
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-500 hover:bg-blue-600 text-white"
-                }`}
-              >
-                {changingPassword ? "Updating..." : "Update Password"}
-              </button>
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Delete Account Section */}
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mt-6">

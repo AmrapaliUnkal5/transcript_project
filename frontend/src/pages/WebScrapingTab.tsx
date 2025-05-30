@@ -35,7 +35,7 @@ const WebScrapingTab: React.FC = () => {
   const location = useLocation();
   
   // Check if we're in create bot flow
-  const isCreateBotFlow = location.pathname.includes('/create-bot');
+  const isCreateBotFlow = location.pathname.includes('/dashboard/create-bot');
   
   
   // Reset toast flag when component unmounts or when not in create bot flow
@@ -286,30 +286,15 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
         Website
       </h1> */}
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">Website Scraper</h2>
-        
-        {isCreateBotFlow && !hasShownCreateBotInfoToast && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-start space-x-2">
-            <Info size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-blue-700">
-              During bot creation, you can only scrape one website. To add more websites, please go to bot settings after creation.
-            </p>
-          </div>
-        )}
+      <div className="bg-white dark:bg-gray-800 rounded-lg pt-6 pb-6 pr-6 ">
         
         <div className="mb-6">
-          <label
-            htmlFor="websiteUrl"  
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-          >
-            Website URL
-          </label>
+          
           <div className="flex space-x-2">
             <input
               id="websiteUrl"
               type="url"
-              placeholder="https://example.com"
+              placeholder="  Website URL"
               value={websiteUrl}
               onChange={(e) => setWebsiteUrl(e.target.value)}
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
@@ -319,12 +304,29 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
             <button
               onClick={handleFetchNodes}
               disabled={!websiteUrl || loading || isProcessing}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+               style={{
+    backgroundColor: '#5348CB',
+    borderColor: '#5348CB',
+  }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500  disabled:cursor-not-allowed flex-shrink-0"
             >
               Fetch Pages
             </button>
           </div>
         </div>
+ {isCreateBotFlow && !hasShownCreateBotInfoToast && (
+          <div className="mb-4 p-3   rounded-md flex items-start space-x-2">
+            {/* <Info size={18} className="text-blue-500 flex-shrink-0 mt-0.5" /> */}
+            <p className="text-sm text-#666666-700 fontsize-14 "  style={{
+    color: '#666666',
+    fontSize: '14px',
+    fontFamily: 'Instrument Sans',
+  }}>
+              During bot creation, you can only scrape one website. To add more websites, please go to bot settings after creation.
+            </p>
+          </div>
+        )}
+        
 
         {isProcessing && (
           <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-md">

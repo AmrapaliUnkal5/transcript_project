@@ -4,6 +4,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { BotProvider } from "./context/BotContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout/Layout";
+import { NoSidebarLayout } from "./components/Layout/NoSidebarLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { Welcome } from "./pages/Welcome";
 import { CreateBot } from "./pages/CreateBot";
@@ -55,7 +56,7 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/home" element={<HomePage />} />
+                <Route path="/" element={<HomePage />} />
                 <Route path="/our-plans" element={<OurPlans />} />
                 <Route path="/login-home" element={<LoginHome />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
@@ -89,34 +90,41 @@ function App() {
 
 
                 
+                {/* NoSidebar layout for specific pages */}
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <NoSidebarLayout />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route path="welcome" element={<Welcome />} />
+                  <Route path="subscription" element={<Subscription />} />
+                  <Route path="subscription/success" element={<SubscriptionSuccess />} />
+                  <Route path="myaccount" element={<Settings />} />
+                  <Route path="account/add-ons" element={<AddonPurchasePage />} />
+                  <Route path="options" element={<PlanSelection />} />
+                  <Route path="create-bot" element={<CreateBot />} />
+                </Route>
+                
                 {/* Main layout with sidebar */}
                 <Route
-                  path="/"
+                  path="/dashboard"
                   element={
                     <ProtectedRoute>
                       <Layout />
                     </ProtectedRoute>
                   }
                 >
-                  <Route index element={<Welcome />} />
-                  <Route path="create-bot" element={<CreateBot />} />
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="chatbot" element={<ChatbotCustomization />} />
                   <Route path="upload" element={<FileUpload />} />
                   {/* <Route path="performance" element={<Performance />} /> */}
                   <Route
-                    path="/script-generate"
+                    path="script-generate"
                     element={<ScriptGeneratePage />}
                   />
-                  <Route path="subscription" element={<Subscription />} />
-                  <Route
-                    path="subscription/success"
-                    element={<SubscriptionSuccess />}
-                  />
-                  <Route path="myaccount" element={<Settings />} />
-                  <Route path="account/add-ons" element={<AddonPurchasePage />} />
-                  <Route path="options" element={<PlanSelection />} />
-                  {/* <Route path="report-issue" element={<ReportIssue />} /> */}
                 </Route>
               </Routes>
             </SubscriptionPlanProvider>

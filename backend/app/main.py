@@ -1,8 +1,9 @@
+import threading
 from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, UploadFile, HTTPException, Query
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .models import Base, User, UserSubscription, Bot, TeamMember, UserAddon
+from .models import Base, Captcha, User, UserSubscription, Bot, TeamMember, UserAddon
 from .schemas import *
 from .crud import create_user,get_user_by_email, update_user_password,update_avatar
 from fastapi.security import OAuth2PasswordBearer
@@ -59,6 +60,8 @@ from app.widget_botsettings import router as widget_botsettings_router
 from app.current_billing_metrics import router as billing_metrics_router
 from app.celery_app import celery_app
 from app.celery_tasks import process_youtube_videos, process_file_upload, process_web_scraping
+from app.captcha_cleanup_thread import captcha_cleaner
+
 
 # Import our custom logging components
 from app.utils.logging_config import setup_logging
@@ -169,7 +172,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
     allow_headers=["*"],  # Allow all HTTP headers
-    expose_headers=["X-New-Token"],  # Expose custom headers
+    expose_headers=["X-Captcha-ID","X-New-Token"],  
 )
 
 # app.add_middleware(RoleBasedAccessMiddleware)
@@ -274,17 +277,23 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
      # ✅ Send verification email
     subject = "Verify Your Email - Complete Registration"
     body = f"""
-    Hi {new_user.name},
+<html>
+<body style="font-family: Arial, sans-serif; color: #000;">
+    <p>Hello {new_user.name},</p>
 
-    Thank you for registering! Please verify your email by clicking the link below:
+    <p>Thank you for registering with Evolra AI! We're excited to have you on board.<br>Please verify your email by clicking the link below:</p>
 
-    {emailverificationurl}
+    <p>
+        <a href="{emailverificationurl}" style="color: #1a73e8; word-break: break-all;">{emailverificationurl}</a>
+    </p>
 
-    This link will expire in 24 hours.
+    <p>This link will expire in 24 hours.</p>
 
-    Best regards,
-    Your Team
-    """
+    <p>Best regards,<br>
+    Evolra Admin</p>
+</body>
+</html>
+"""
     send_email(new_user.email, subject, body)
     logger.info("Email verification sent successfully")
 
@@ -298,6 +307,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
             name=new_user.name
         )
     )
+
 
 # Login API - modified to use only username and password
 @app.post("/login")
@@ -328,7 +338,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     
     user_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == subscription_user_id,
-        UserSubscription.status != "pending"
+        UserSubscription.status.notin_(["pending", "failed", "cancelled"])
     ).order_by(UserSubscription.payment_date.desc()).first()
 
     logger.debug("User subscription: %s", user_subscription)
@@ -426,6 +436,8 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
         UserAddon.addon_id == 5,
         UserAddon.is_active == True
     ).order_by(UserAddon.expiry_date.desc()).first()
+
+    avatar_url = db_user.avatar_url
     
     # Generate a fresh token with updated user information
     token_data = {"sub": db_user.email,
@@ -439,6 +451,7 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
                  "addon_plan_ids": addon_plan_ids,
                  "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
                  "subscription_status": user_subscription.status if user_subscription else "new",
+                 "avatar_url": avatar_url,
                 }
     
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
@@ -459,6 +472,8 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
             "addon_plan_ids": addon_plan_ids,
             "message_addon_expiry": message_addon.expiry_date.isoformat() if message_addon and message_addon.expiry_date else 'Not Available',
             "subscription_status": user_subscription.status if user_subscription else "new",
+             "avatar_url": avatar_url,
+
         }
     }
 
@@ -488,19 +503,27 @@ async def forgot_password(request: ForgotpasswordRequest,db: Session = Depends(g
 
     subject = "Password Reset Request"
     body = f"""
-    Hi,
+<html>
+<body style="font-family: Arial, sans-serif; color: #000;">
 
-    We received a request to reset your password. Click the link below to reset it:
+<p>Hello {db_user.name},</p>
 
-    {reset_link}
+<p>We received a request to reset your password. Click the link below to reset it:</p>
 
-    This link will expire in {settings.FORGOT_PASSWORD_TOKEN_EXPIRY_MINUTES} minutes.
+<p>
+<a href="{reset_link}">{reset_link}</a>
+</p>
 
-    If you didn't request a password reset, please ignore this email.
+<p>This link will expire in {settings.FORGOT_PASSWORD_TOKEN_EXPIRY_MINUTES} minutes.</p>
 
-    Thanks,
-    Your Team
-    """
+<p>If you didn't request a password reset, please ignore this email.</p>
+
+<p>Best regards,<br>
+Evolra Admin</p>
+
+</body>
+</html>
+"""
 
     try:
         send_email(to_email=request.email, subject=subject, body=body)
@@ -562,7 +585,7 @@ def login_for_access_token(
 
     user_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == user.user_id,
-        UserSubscription.status != "pending"
+        UserSubscription.status.notin_(["pending", "failed", "cancelled"])
     ).order_by(UserSubscription.payment_date.desc()).first()
 
     logger.info(f"User subscription: {user_subscription}")
@@ -584,6 +607,8 @@ def login_for_access_token(
     
     addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
 
+    #avatar_url = db.avatar_url
+
     access_token = create_access_token(data={
         "sub": user.email,
         "role": user.role,
@@ -596,6 +621,7 @@ def login_for_access_token(
         "addon_plan_ids": addon_plan_ids,
         "subscription_status": user_subscription.status if user_subscription else "new",
         "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
+        "avatar_url": user.avatar_url,
     })
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -676,24 +702,78 @@ def get_scraped_urls(bot_id: int, db: Session = Depends(get_db)):
 captcha_store = {}
 
 def generate_captcha_text():
-    return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
+    # Define characters to use (uppercase letters and digits, excluding 0, O, 1, 7)
+    chars = (
+        string.ascii_uppercase.replace('O', '')  # Remove 'O'
+        + string.digits.replace('0', '').replace('1', '').replace('7', '')  # Remove 0, 1, 7
+    )
+    return "".join(random.choices(chars, k=5))
 
 @app.get("/captcha")
-async def get_captcha():
+async def get_captcha(db: Session = Depends(get_db)):
     captcha_text = generate_captcha_text()
+    
+    # Store in database
+    db_captcha = Captcha(
+        captcha_text=captcha_text,
+        created_at=datetime.utcnow()
+    )
+    db.add(db_captcha)
+    db.commit()
+    db.refresh(db_captcha)
+
+     # Trigger cleanup in background thread
+    cleanup_thread = threading.Thread(
+        target=captcha_cleaner.cleanup_expired_captchas,
+        args=(db,),
+        daemon=True
+    )
+    cleanup_thread.start()
+    
+    # Generate image
     image = ImageCaptcha()
     image_data = image.generate(captcha_text)
-
-    # Store CAPTCHA (in a real app, store it in Redis or DB)
-    captcha_store["captcha"] = captcha_text
-
-    return Response(content=image_data.read(), media_type="image/png")
+    
+    return Response(
+        content=image_data.read(), 
+        media_type="image/png",
+        headers={"X-Captcha-ID": str(db_captcha.id)}  # Send CAPTCHA ID to client
+    )
 
 @app.post("/validate-captcha")
-async def validate_captcha(data: CaptchaRequest):
-    logger.debug("Captcha validation: %s", captcha_store.get("captcha", ""))
-    is_valid = data.user_input == captcha_store.get("captcha", "")
-    return {"valid": is_valid, "message": "Captcha validated", "user_input": data.user_input}
+async def validate_captcha(
+    request: Request,
+    data: CaptchaRequest, 
+    db: Session = Depends(get_db)
+):
+    # Get CAPTCHA ID from headers
+    captcha_id = request.headers.get("X-Captcha-ID")
+    print("captcha_id=>>>",captcha_id)
+    if not captcha_id:
+        raise HTTPException(status_code=400, detail="Missing CAPTCHA ID")
+    
+    # Find the CAPTCHA record
+    db_captcha = db.query(Captcha).filter(
+        Captcha.id == captcha_id,
+        #Captcha.is_used == False,
+        Captcha.created_at >= datetime.utcnow() - timedelta(minutes=5)  # 5 min expiry
+    ).first()
+    
+    if not db_captcha:
+        logger.warning(f"CAPTCHA not found or expired. ID: {captcha_id}")
+        raise HTTPException(status_code=400, detail="CAPTCHA expired or invalid")
+    
+    # Validate (case-insensitive)
+    is_valid = data.user_input.lower() == db_captcha.captcha_text.lower()
+    
+    # Always mark as used after validation attempt to prevent replay attacks
+    db_captcha.is_used = True
+    db.commit()
+    
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Incorrect CAPTCHA")
+    
+    return {"valid": True, "message": "CAPTCHA validated"}
 
 @app.get("/task/{task_id}", response_model=dict)
 def check_task_status(task_id: str):

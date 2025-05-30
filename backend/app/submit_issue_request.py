@@ -35,14 +35,18 @@ def send_issue_email(
     # Construct the internal email
     subject = "Issue Request"
     body = f"""
-    User ID: {user_id}
-    Name: {user_name}
-    Email: {user_email}
-    Company: {user_company}
-    Phone: {user_phone or "Not provided"}
-    Issue Type: {issue_type or "Not provided"}
-    Description: {description}
-    """
+<html>
+  <body>
+    <p>User ID: {user_id}</p>
+    <p>Name: {user_name}</p>
+    <p>Email: {user_email}</p>
+    <p>Company: {user_company}</p>
+    <p>Phone: {user_phone or "Not provided"}</p>
+    <p>Issue Type: {issue_type or "Not provided"}</p>
+    <p>Description:<br>{description}</p>
+  </body>
+</html>
+"""
 
     try:
         # Step 1: Send internal email
@@ -56,13 +60,17 @@ def send_issue_email(
         # Step 2: After success, send confirmation email to user
         confirmation_subject = "Issue Submitted Successfully"
         confirmation_body = f"""
-Hi {user_name},
+<html>
+  <body>
+    <p>Hello {user_name},</p>
 
-Your issue request has been submitted successfully. Our support team will contact you shortly.
+    <p>Your issue request has been submitted successfully. Our support team will contact you shortly.</p>
 
-Thank you,
-Support Team
-        """
+    <p>Best Regards,<br>
+    Evolra Admin</p>
+  </body>
+</html>
+"""
 
         send_email(
             subject=confirmation_subject,

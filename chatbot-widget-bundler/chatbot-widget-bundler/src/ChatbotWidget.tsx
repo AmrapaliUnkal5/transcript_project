@@ -48,9 +48,10 @@ interface BotSettings {
 }
 
 interface ChatbotWidgetProps {
-  botId: number;
+  botId: string;
   closeWidget: () => void; // Function to close the widget
   baseDomain: string;
+  appearance?: string;
 }
 
 export interface ChatbotWidgetHandle {
@@ -58,8 +59,11 @@ export interface ChatbotWidgetHandle {
 }
 
 const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
-  ({ botId, closeWidget, baseDomain }, ref) => {
+  ({ botId, closeWidget, baseDomain, appearance: widgetAppearance  }, ref) => {
+    
     const [botSettings, setBotSettings] = useState<BotSettings | null>(null);
+    const isDirectLink = !!widgetAppearance; // If widgetAppearance exists, it's a direct link
+    const isFullScreen = isDirectLink || botSettings?.appearance === "Full Screen";
     const [messages, setMessages] = useState<
       {
         sender: "user" | "bot";
@@ -75,9 +79,9 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     const [isBotTyping, setIsBotTyping] = useState(false); // New state for typing animation
     const [currentBotMessage, setCurrentBotMessage] = useState<string>("");
     const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const [welcomeMessageIndex, setWelcomeMessageIndex] = useState<
-      number | null
-    >(null);
+    // const [welcomeMessageIndex, setWelcomeMessageIndex] = useState<
+    //   number | null
+    // >(null);
     //const [showWelcomeBubble] = useState(true);
     const [usageError, setUsageError] = useState("");
     const [isSendDisabled, setIsSendDisabled] = useState(false);
@@ -85,12 +89,31 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     const chatContainerRef = useRef<HTMLDivElement | null>(null);
     const [hasWhiteLabeling, setHasWhiteLabeling] = useState(false);
 
+    // At top level of your component
+    const userIdRef = useRef<string | null>(null);
+//This is to create the unique userId for first and save in his local storage, it will be saved in his
+    useEffect(() => {
+      let storedUserId = localStorage.getItem("botUserId");
+      if (!storedUserId) {
+        storedUserId = crypto.randomUUID();  // or use a hash based on IP/device/etc.
+        localStorage.setItem("botUserId", storedUserId);
+      }
+      userIdRef.current = storedUserId;
+      console.log("User ID:", userIdRef.current);
+    }, []);
+
     useEffect(() => {
       const fetchBotSettings = async () => {
         console.log("baseDomain", baseDomain);
         try {
+          console.log("botId",botId)
           const response = await axios.get<BotSettings>(
-            `${baseDomain}/botsettings/bot/${botId}`
+            `${baseDomain}/widget/bot`, // No botId in URL
+            {
+              headers: {
+                Authorization: `Bot ${botId}`,
+              },
+            }
           );
           console.log("response", response);
           setBotSettings(response.data);
@@ -108,11 +131,13 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         try {
           // Call the API that checks if the user has the White-Labeling addon
           const response = await axios.get(
-            `${baseDomain}/api/user/addon/white-labeling-check`,
-            {
-              params: { bot_id: botId },
-            }
-          );
+        `${baseDomain}/api/user/addon/white-labeling-check`,
+        {
+          headers: {
+            Authorization: `Bot ${botId}`, // Securely send botId
+          },
+        }
+      );
           console.log("White-Labeling response", response);
           setHasWhiteLabeling(response.data.hasWhiteLabeling);
         } catch (error) {
@@ -138,7 +163,6 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
           reaction: undefined,
         };
         setMessages([welcomeMsg]);
-        setWelcomeMessageIndex(0);
         setHasWelcomeBeenShown(true);
       }
     }, [botSettings, hasWelcomeBeenShown, messages.length]);
@@ -167,18 +191,29 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
     // Attach unload listener and idle timer
     useEffect(() => {
-      const handleBeforeUnload = () => {
-        endSession();
-      };
+  const sendEndRequest = () => {
+    if (!sessionIdRef.current) return;
 
-      window.addEventListener("beforeunload", handleBeforeUnload);
-      resetIdleTimer(); // start on mount
+    fetch(
+      `${baseDomain}/widget/interactions/${sessionIdRef.current}/end`,
+      {
+        method: "PUT",
+        keepalive: true,
+      }
+    );
+    sessionIdRef.current = null;
+  };
 
-      return () => {
-        window.removeEventListener("beforeunload", handleBeforeUnload);
-        if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
-      };
-    }, []);
+  // Only use pagehide — fired reliably on tab close, back, reload
+  window.addEventListener("pagehide", sendEndRequest);
+
+  resetIdleTimer(); // keep your idle timeout
+
+  return () => {
+    window.removeEventListener("pagehide", sendEndRequest);
+    if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
+  };
+}, [baseDomain]);
 
     useEffect(() => {
       const style = document.createElement("style");
@@ -226,16 +261,39 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     //   chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     // }, [messages]);
 
+    // Add this utility function at the top of your component file
+      const getContrastColor = (bgColor?: string) => {
+        if (!bgColor) return '#6b7280'; // Default gray if no color
+        // Convert hex to RGB
+        let r = 0, g = 0, b = 0;
+        if (bgColor.length === 4) {
+          r = parseInt(bgColor[1] + bgColor[1], 16);
+          g = parseInt(bgColor[2] + bgColor[2], 16);
+          b = parseInt(bgColor[3] + bgColor[3], 16);
+        } else if (bgColor.length === 7) {
+          r = parseInt(bgColor.substring(1, 3), 16);
+          g = parseInt(bgColor.substring(3, 5), 16);
+          b = parseInt(bgColor.substring(5, 7), 16);
+        }
+        // Calculate luminance
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        // Return dark or light color based on luminance
+        return luminance > 0.5 ? '#1F2937' : '#FFFFFF';
+      };
+
     const sendMessage = async () => {
       const trimmedMessage = inputMessage.trim();
-      if (!trimmedMessage || !botSettings?.user_id) return;
+      if (!trimmedMessage) return;
+      console.log("I am here sendMessage")
 
       const quotaResponse = await axios.get(
-        `${baseDomain}/api/usage/messages/check`,
-        {
-          params: { user_id: botSettings.user_id },
-        }
-      );
+      `${baseDomain}/api/usage/messages/check`,
+      {
+        headers: {
+          Authorization: `Bot ${botId}`, // ✅ Securely send botId in header
+        },
+      }
+    );
       if (!quotaResponse.data.canSendMessage) {
         setUsageError(
           "We are facing technical issue. Kindly reach out to website admin for assistance."
@@ -253,27 +311,23 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       setUsageError("");
       setIsSendDisabled(false);
 
-      setMessages((prev) => {
-        const updatedMessages =
-          welcomeMessageIndex !== null
-            ? prev.filter((_, idx) => idx !== welcomeMessageIndex)
-            : prev;
-        setWelcomeMessageIndex(null);
-        return [
-          ...updatedMessages,
-          { sender: "user", message: trimmedMessage },
-        ];
-      });
+      setMessages((prev) => [
+        ...prev,
+        { sender: "user", message: trimmedMessage },
+      ]);
       setInputMessage("");
       resetIdleTimer();
+      console.log("Current session ID:", sessionIdRef.current); // Debug log
 
       try {
-        if (!sessionIdRef.current) {
+          if (!sessionIdRef.current) {
           const startResponse = await axios.post(
-            `${baseDomain}/chat/start_chat`,
+            `${baseDomain}/widget/start_chat`,
+            {session_id: userIdRef.current }, // Empty body since backend doesn't require anything in the body
             {
-              bot_id: botId,
-              user_id: botSettings.user_id,
+              headers: {
+                Authorization: `Bot ${botId}`, // Bot ID passed in header
+              },
             }
           );
           sessionIdRef.current = startResponse.data.interaction_id;
@@ -293,7 +347,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         //   setCurrentBotMessage(dots);
         // }, 500);
 
-        const response = await axios.post(`${baseDomain}/chat/send_message`, {
+        const response = await axios.post(`${baseDomain}/widget/send_message`, {
           interaction_id: sessionIdRef.current,
           sender: "user",
           message_text: trimmedMessage,
@@ -305,6 +359,14 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
         const botReply = response.data.message;
         const botMessageId = response.data.message_id; // make sure backend sends this
+        // ✅ Handle backend error gracefully
+        if (response.data.error) {
+          setUsageError(
+            "We are facing a technical issue. Kindly reach out to the website admin for assistance."
+          );
+          setIsSendDisabled(true);
+          return;
+        }
 
         // Simulate character-by-character typing effect for the bot's reply
         let index = 0;
@@ -359,17 +421,17 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
       try {
         const response1 = await fetch(
-          `${baseDomain}/botsettings/interactions/reaction`,
+          `${baseDomain}/widget/interactions/reaction`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Accept: "application/json",
+              Authorization: `Bot ${botId}`, // Securely send botId
             },
             body: JSON.stringify({
               interaction_id: interaction_id,
-              session_id: `${messageId}-${index}`,
-              bot_id: botId,
+              session_id: userIdRef.current,
               reaction: type,
               message_id: messageId,
             }),
@@ -407,7 +469,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       if (sessionIdRef.current) {
         try {
           await axios.put(
-            `${baseDomain}/chat/interactions/${sessionIdRef.current}/end`
+            `${baseDomain}/widget/interactions/${sessionIdRef.current}/end`
           );
           console.log("Session ended successfully");
         } catch (err) {
@@ -444,7 +506,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       user_color,
       position,
       window_bg_color,
-      appearance,
+      
       input_bg_color,
       header_bg_color,
       header_text_color,
@@ -452,7 +514,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       chat_text_color,
       button_color,
       button_text_color,
-      timestamp_color,
+      
       chat_font_family,
       border_radius,
       border_color,
@@ -494,29 +556,47 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       flexDirection: "column",
       overflow: "hidden",
 
-      ...(appearance === "Full Screen"
+      ...(isFullScreen
         ? {
             top: 0,
             left: 0,
-            width: "100vw",
-            height: "100vh",
+            right: 0, // Add right: 0 to ensure full width
+            bottom: 0, // Add bottom: 0 to ensure full height
+            width: "100%",
+            height: "100%",
             backgroundColor: window_bg_color || "#F9FAFB",
             border: "none",
-            borderRadius: "0px",
+            borderRadius: border_radius || "20px",
             boxShadow: "none",
+            // Adjust close button position to account for safe areas
+            paddingTop: "env(safe-area-inset-top, 0px)",
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            paddingLeft: "env(safe-area-inset-left, 0px)",
+            paddingRight: "env(safe-area-inset-right, 0px)",
+            '@media (max-width: 768px)': {
+              fontSize: font_size ? `${font_size * 0.9}px` : "13px",
+              // Add any other mobile-specific full screen adjustments
+        }
           }
         : {
             ...(vertical === "top" ? { top: "110px" } : { bottom: "90px" }),
             ...(horizontal === "left" ? { left: "20px" } : { right: "20px" }),
             width: "380px",
-            maxWidth: "100dvw",
+            maxWidth: "calc(100dvw - 40px)", // Account for margins
             height: "600px",
-            maxHeight: "84dvh",
+            maxHeight: "calc(100dvh - 140px)", // Account for header and margins
             backgroundColor: window_bg_color || "#F9FAFB",
             border: `1px solid ${border_color || "#E5E7EB"}`,
-            borderRadius: "12px",
+            borderRadius: border_radius || "12px",
             boxShadow:
               "rgba(0, 0, 0, 0.2) 5px 5px 25px -5px, rgba(0, 0, 0, 0.1) 0px 8px 10px -6px",
+            // Mobile adjustments for widget
+            '@media (max-width: 768px)': {
+                width: "calc(100vw - 40px)",
+                height: "70vh",
+                ...(vertical === "top" ? { top: "20px" } : { bottom: "20px" }),
+                ...(horizontal === "left" ? { left: "20px" } : { right: "20px" }),
+              }
           }),
     };
 
@@ -526,7 +606,10 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       padding: "10px",
       display: "flex",
       alignItems: "center",
-      gap: "10px",
+      fontSize: "18px",
+      gap: "8px",
+      fontWeight: 600,         // font-semibold
+      fontFamily: `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif`,
     };
 
     const iconStyle: React.CSSProperties = {
@@ -556,12 +639,12 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       gap: "0.5rem", // similar to spacing between input and button in Tailwind
     };
 
-    const timestampStyle: React.CSSProperties = {
-      fontSize: "11px",
-      marginTop: "4px",
-      textAlign: "right",
-      color: timestamp_color || "#9CA3AF",
-    };
+    // const timestampStyle: React.CSSProperties = {
+    //   fontSize: "11px",
+    //   marginTop: "4px",
+    //   textAlign: "right",
+    //   color: timestamp_color || "#9CA3AF",
+    // };
 
     // const inputBoxStyle: React.CSSProperties = {
     //   flex: 1,
@@ -573,11 +656,12 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
     return (
       <div ref={chatContainerRef} style={widgetStyle}>
+        {!isDirectLink && (
         <div
           style={{
             position: "absolute",
-            top: "10px",
-            right: "10px",
+            top: `calc(10px + env(safe-area-inset-top, 0px))`,
+            right: `calc(10px + env(safe-area-inset-right, 0px))`,
             fontSize: chat_font_family ? `${font_size}px` : "14px",
             color: "#fff",
             cursor: "pointer",
@@ -590,11 +674,12 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         >
           ✕
         </div>
+       )}
         <div style={headerStyle}>
           {bot_icon && <img src={bot_icon} alt="Bot Icon" style={iconStyle} />}
-          <strong>{bot_name}</strong>
+          {bot_name}
         </div>
-
+ 
         <div style={chatBodyStyle}>
           <div style={{ marginTop: "auto" }}>
             {messages.map((msg, index) => (
@@ -603,10 +688,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                 <div
                   style={{
                     padding: "12px",
-                    borderRadius:
-                      border_radius === "rounded-full"
-                        ? "20px"
-                        : border_radius || "12px",
+                    borderRadius: border_radius || "20px",
                     maxWidth: "80%",
                     backgroundColor:
                       msg.sender === "user"
@@ -624,7 +706,10 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                   }}
                 >
                   <div>{msg.message}</div>
-                  <div style={timestampStyle}>
+                  <div style={{fontSize: "11px",marginTop: "4px",textAlign: "right",color:
+      msg.sender === "user"
+        ? user_text_color || "#ffffff"
+        : chat_text_color || "#111827",}}>
                     {new Date().toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -633,7 +718,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                 </div>
 
                 {/* Reaction Buttons - Only for Bot */}
-                {msg.sender === "bot" && index !== welcomeMessageIndex && (
+                {msg.sender === "bot" && index !== 0 && (
                   <div
                     style={{
                       marginTop: "4px",
@@ -847,7 +932,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
           <div
             style={{
               textAlign: "right",
-              color: "#6b7280", // Tailwind gray-500
+              color: getContrastColor(window_bg_color),
               fontSize: "12px",
               padding: "12px 10px",
               fontStyle: "italic",
@@ -880,10 +965,8 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
               flexGrow: 1,
               padding: "0.5rem 0.75rem", // similar to Tailwind `p-2`
               border: `1px solid ${border_color || "#d1d5db"}`,
-              borderRadius:
-                border_radius === "rounded-full"
-                  ? "20px"
-                  : border_radius || "8px",
+              borderRadius:border_radius || "20px",
+                
               backgroundColor: input_bg_color || "#ffffff",
               color: chat_text_color || "#111827",
               outline: "none",
@@ -897,7 +980,9 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
               setInputMessage(value);
             }}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && inputMessage.trim()) {
+              if (e.key === "Enter" && inputMessage.trim() &&
+    !isSendDisabled &&
+    !isBotTyping) {
                 sendMessage();
               }
             }}
@@ -910,17 +995,14 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
               lineHeight: "1.5rem",
               backgroundColor: button_color || "#3b82f6", // tailwind blue-500
               color: button_text_color || "#ffffff",
-              borderRadius:
-                border_radius === "rounded-full"
-                  ? "20px"
-                  : border_radius || "8px",
+              borderRadius: border_radius || "20px",
               cursor:
-                !inputMessage.trim() || isSendDisabled
+                !inputMessage.trim() || isSendDisabled || isBotTyping
                   ? "not-allowed"
                   : "pointer", // disabled:cursor-not-allowed
               border: "none",
               transition: "opacity 0.2s ease",
-              opacity: !inputMessage.trim() || isSendDisabled ? 0.7 : 1,
+              opacity: !inputMessage.trim() || isSendDisabled || isBotTyping ? 0.7 : 1,
               fontWeight: "500",
             }}
             onMouseOver={(e) => {
@@ -935,8 +1017,10 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             disabled={
               !inputMessage.trim() ||
               isSendDisabled ||
+              isBotTyping ||
               inputMessage.length > MAX_USER_MESSAGE_LENGTH
             }
+            
           >
             Send
           </button>

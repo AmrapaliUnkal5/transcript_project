@@ -32,19 +32,27 @@ def send_invitation_email(
     # Create invitation accept link
     invitation_url = f"{settings.BASE_URL}/team/invitation/{invitation_token}"
     
-    body = f"""
-    Hello,
+    body =  f"""
+<html>
+<body style="font-family: Arial, sans-serif; color: #000;">
 
-    {owner_name} ({owner_email}) has invited you to join their team as a {role}.
-    
-    To accept this invitation, please click on the link below:
-    {invitation_url}
-    
-    If you did not expect this invitation, you can safely ignore this email.
+<p>Hello {member_email},</p>
 
-    Best regards,
-    Team
-    """
+<p>{owner_name} ({owner_email}) has invited you to join their team as a bot editor.</p>
+
+<p>To accept this invitation, please click on the link below:<br>
+<a href="{invitation_url}">{invitation_url}</a></p>
+
+<p>You can safely ignore this email if you did not expect this invitation.</p>
+
+<p><strong>You will receive the login credentials in another email after you accept the invitation.</strong></p>
+
+<p>Best regards,<br>
+Evolra Admin</p>
+
+</body>
+</html>
+"""
     
     send_email(member_email, subject, body)
 
@@ -60,22 +68,28 @@ def send_password_email(db: Session, member_id: int):
     subject = "You have been added to a team – Login Credentials"
 
     body = f"""
-    Hello {user.email},
+<html>
+<body style="font-family: Arial, sans-serif; color: #000;">
 
-    You have been successfully added as a team member.
+<p>Hello {user.email},</p>
 
-    Please use the following credentials to log in:
+<p>You have been successfully added as a team member.</p>
 
-    Username: {user.email}
-    Password: evolrai123
+<p>Login here: <a href="{settings.BASE_URL}/login">{settings.BASE_URL}/login</a></p>
 
-    Login here: {settings.BASE_URL}/login
+<p>Please use the following credentials to log in:</p>
 
-    ⚠️ This is a temporary password. Please change it after logging in.
+<p>Username: {user.email}<br>
+Password: evolrai123</p>
 
-    Best regards,
-    The Team
-    """
+<p>⚠️ This is a temporary password. Please change it after logging in.</p>
+
+<p>Best regards,<br>
+Evolra Admin</p>
+
+</body>
+</html>
+"""
 
     send_email(user.email, subject, body)
 
@@ -97,13 +111,29 @@ async def invite_team_member(
     )
 
     # ✅ Check if user with email already exists
+    # existing_member = db.query(User).filter(User.email == invite_data.email).first()
+    # if existing_member:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail="This user already exists. Please provide another email address."
+    #     )
+
     existing_member = db.query(User).filter(User.email == invite_data.email).first()
+
     if existing_member:
-        raise HTTPException(
-            status_code=400,
-            detail="This user already exists. Please provide another email address."
-        )
-    
+        # Check if this user is linked to a team member entry for the current owner
+        existing_invite = db.query(TeamMember).filter(
+            TeamMember.owner_id == owner_id,
+            TeamMember.member_id == existing_member.user_id
+        ).first()
+
+        if existing_member.is_verified:
+            # Fully verified users should not be invited again
+            raise HTTPException(
+                status_code=400,
+                detail="This user is already a verified team member. Please provide another email address."
+            )
+        
     # Invite the team member
     invite_result, error_message = crud.invite_team_member(db, owner_id, team_member_create)
     
@@ -176,7 +206,9 @@ async def respond_to_invitation(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_message
         )
-    send_password_email(db,team_member.member_id)
+    
+    if response.lower() == "accepted":
+        send_password_email(db, team_member.member_id)
     
     return {
         "message": f"Invitation {response} successfully"

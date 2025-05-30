@@ -8,6 +8,8 @@ from app.config import settings
 import requests
 import numpy as np
 from app.utils.model_selection import get_embedding_model_for_bot
+from app.utils.ai_logger import log_embedding_request, log_embedding_result
+import time
 
 class HuggingFaceAPIEmbedder:
     """Custom HuggingFace API embedder that uses the Inference API"""
@@ -82,6 +84,9 @@ class EmbeddingManager:
             bot_id: Optional bot ID for model selection
             user_id: Optional user ID for model selection
         """
+        self.bot_id = bot_id
+        self.user_id = user_id
+        
         db = SessionLocal()
         try:
             # If bot_id and user_id are provided, get the model dynamically
@@ -244,10 +249,108 @@ class EmbeddingManager:
             raise e  # Re-raise the error to be handled by the caller
 
     def embed_query(self, text: str) -> list[float]:
-        return self.embedder.embed_query(text)
+        """Embed a query text and log the process"""
+        start_time = time.time()
+        
+        # Log the embedding request
+        if self.user_id and self.bot_id:
+            log_embedding_request(
+                user_id=self.user_id,
+                bot_id=self.bot_id,
+                text=text,
+                model_name=self.model_name
+            )
+        
+        try:
+            # Get the embedding
+            embedding = self.embedder.embed_query(text)
+            
+            # Calculate duration
+            duration_ms = int((time.time() - start_time) * 1000)
+            
+            # Log the successful result
+            if self.user_id and self.bot_id:
+                dimension = len(embedding) if embedding else 0
+                log_embedding_result(
+                    user_id=self.user_id,
+                    bot_id=self.bot_id,
+                    model_name=self.model_name,
+                    dimension=dimension,
+                    duration_ms=duration_ms,
+                    success=True
+                )
+            
+            return embedding
+        except Exception as e:
+            # Calculate duration even for failures
+            duration_ms = int((time.time() - start_time) * 1000)
+            
+            # Log the failed result
+            if self.user_id and self.bot_id:
+                log_embedding_result(
+                    user_id=self.user_id,
+                    bot_id=self.bot_id,
+                    model_name=self.model_name,
+                    dimension=0,
+                    duration_ms=duration_ms,
+                    success=False,
+                    error=str(e)
+                )
+            
+            # Re-raise the exception
+            raise e
 
     def embed_document(self, text: str) -> list[float]:
-        if hasattr(self.embedder, 'embed_documents'):
-            return self.embedder.embed_documents([text])[0]
-        else:
-            return self.embedder.embed_query(text)
+        """Embed a document text and log the process"""
+        start_time = time.time()
+        
+        # Log the embedding request
+        if self.user_id and self.bot_id:
+            log_embedding_request(
+                user_id=self.user_id,
+                bot_id=self.bot_id,
+                text=text,
+                model_name=self.model_name
+            )
+        
+        try:
+            # Use embed_documents if available, otherwise use embed_query
+            if hasattr(self.embedder, 'embed_documents'):
+                embedding = self.embedder.embed_documents([text])[0]
+            else:
+                embedding = self.embedder.embed_query(text)
+            
+            # Calculate duration
+            duration_ms = int((time.time() - start_time) * 1000)
+            
+            # Log the successful result
+            if self.user_id and self.bot_id:
+                dimension = len(embedding) if embedding else 0
+                log_embedding_result(
+                    user_id=self.user_id,
+                    bot_id=self.bot_id,
+                    model_name=self.model_name,
+                    dimension=dimension,
+                    duration_ms=duration_ms,
+                    success=True
+                )
+            
+            return embedding
+        except Exception as e:
+            # Calculate duration even for failures
+            duration_ms = int((time.time() - start_time) * 1000)
+            
+            # Log the failed result
+            if self.user_id and self.bot_id:
+                log_embedding_result(
+                    user_id=self.user_id,
+                    bot_id=self.bot_id,
+                    model_name=self.model_name,
+                    dimension=0,
+                    duration_ms=duration_ms,
+                    success=False,
+                    error=str(e)
+                )
+            
+            # Re-raise the exception
+            raise e

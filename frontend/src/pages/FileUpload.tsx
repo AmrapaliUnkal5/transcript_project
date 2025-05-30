@@ -78,6 +78,9 @@ export const FileUpload = () => {
   const [isVideoProcessing, setIsVideoProcessing] = useState(false);
   const navigate = useNavigate();
 
+const [externalKnowledge, setExternalKnowledge] = useState<boolean>(selectedBot?.external_knowledge || false);
+
+
   type Video1 = {
     video_url: string;
     reason: string;
@@ -157,6 +160,38 @@ export const FileUpload = () => {
       ? "websitescraping"
       : "websiteSub"
   );
+
+
+useEffect(() => {
+  const fetchExternalKnowledgeStatus = async () => {
+    if (selectedBot?.id) {
+      try {
+        const response = await authApi.getBotExternalKnowledge(selectedBot.id);
+        if (response?.success) {
+          setExternalKnowledge(response.external_knowledge);
+          // Update the bot context if needed
+          if (selectedBot.external_knowledge !== response.external_knowledge) {
+            setSelectedBot((prev: any) => prev ? {
+              ...prev,
+              external_knowledge: response.external_knowledge
+            } : null);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching external knowledge status:", error);
+      }
+    }
+  };
+
+  fetchExternalKnowledgeStatus();
+}, [selectedBot?.id, setSelectedBot]);
+
+
+useEffect(() => {
+  if (selectedBot) {
+    localStorage.setItem('selectedBot', JSON.stringify(selectedBot));
+  }
+}, [selectedBot]);
 
   // Fetch user usage on component mount
   useEffect(() => {
@@ -897,7 +932,63 @@ export const FileUpload = () => {
       <ToastContainer />
       {loading && <Loader />}
 
-      {/* Tabs Section */}
+
+<div className="flex justify-between items-center mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+  <div className="flex items-center">
+    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+      Bot Name: {selectedBot?.name || "Untitled Bot"}
+    </h2>
+  </div>
+  
+  <div className="flex items-center space-x-4">
+    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      Knowledge Source: {externalKnowledge ? "Include external knowledge when needed" : "Only provided knowledge"}
+    </span>
+    
+    <label className="relative inline-flex items-center cursor-pointer">
+      <input 
+        type="checkbox" 
+        className="sr-only peer" 
+        checked={externalKnowledge}
+        onChange={async () => {
+          if (!selectedBot?.id) {
+            toast.error("No bot selected");
+            return;
+          }
+          
+          const newValue = !externalKnowledge;
+          
+          try {
+            setLoading(true);
+            const response = await authApi.updateBotExternalKnowledge(selectedBot.id);
+            
+            if (response?.success) {
+              setExternalKnowledge(response.external_knowledge);
+              // Update the bot context
+              setSelectedBot(prev => prev ? {
+                ...prev,
+                external_knowledge: response.external_knowledge
+              } : null);
+              toast.success(
+                `Knowledge source updated to ${response.external_knowledge ? "include external knowledge" : "only use provided knowledge"}`
+              );
+            } else {
+              throw new Error("Failed to update setting");
+            }
+          } catch (error) {
+            console.error("Error updating external knowledge:", error);
+            toast.error("Failed to update knowledge source setting");
+          } finally {
+            setLoading(false);
+          }
+        }}
+      />
+      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+    </label>
+  </div>
+</div>
+
+    {/* Tabs Section */}
 
       <div className="flex border-b border-gray-300 dark:border-gray-700">
         <button
@@ -1100,6 +1191,27 @@ export const FileUpload = () => {
               </div>
             ) : null}
           </div>
+          
+          
+          <div className="flex justify-end">
+          <button
+            onClick={handleSave}
+            disabled={isSaveDisabled || isSaving}
+            className={`px-10 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed ${
+            isSaving ? "opacity-75" : ""
+          }`}
+        >
+          {isSaving ? (
+          <>
+          <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+        {existingFiles.length > 0 ? "Re-Training..." : "Saving..."}
+      </>
+    ) : (
+      existingFiles.length > 0 ? "Re-Train" : "Save"
+    )}
+        </button>
+      </div>
+
 
           {/* Files Table */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
@@ -1189,7 +1301,7 @@ export const FileUpload = () => {
             </div>
           </div>
 
-          <button
+          {/* <button
             onClick={handleSave}
             disabled={isSaveDisabled || isSaving}
             className={`px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed ${
@@ -1204,7 +1316,7 @@ export const FileUpload = () => {
             ) : (
               "Save"
             )}
-          </button>
+          </button> */}
         </>
       )}
 
@@ -1231,6 +1343,22 @@ export const FileUpload = () => {
               setIsVideoSelected={setIsVideoSelected}
             />
 
+            <div className="p-4">
+              <button
+                onClick={handleFinish}
+                className="px-8 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                disabled={!isVideoSelected || isVideoProcessing}
+              >
+                {isVideoProcessing ? (
+                  <span className="flex items-center">
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </span>
+                ) : (
+                  "SAVE"
+                )}
+              </button>
+            </div>
             <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1313,23 +1441,6 @@ export const FileUpload = () => {
                   </button>
                 ))}
               </div>
-            </div>
-            {/* PROCESS Button */}
-            <div className="p-4">
-              <button
-                onClick={handleFinish}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                disabled={!isVideoSelected || isVideoProcessing}
-              >
-                {isVideoProcessing ? (
-                  <span className="flex items-center">
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Processing...
-                  </span>
-                ) : (
-                  "SAVE"
-                )}
-              </button>
             </div>
           </div>
         </div>

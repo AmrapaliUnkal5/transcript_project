@@ -1,7 +1,7 @@
 from fastapi import HTTPException, UploadFile
 from app.vector_db import retrieve_similar_docs, add_document
 import pdfplumber 
-from typing import Union
+from typing import Union, List, Dict
 import io
 import asyncio
 import os
@@ -13,6 +13,10 @@ import zipfile
 from docx import Document
 import logging
 from app.utils.logger import get_module_logger
+from app.utils.ai_logger import log_chunking_operation, log_document_storage
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+import tiktoken
+import time
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -48,8 +52,41 @@ def extract_text_from_pdf_images(pdf_content: bytes) -> str:
 def extract_text_from_image(image_bytes: bytes) -> str:
     """Extracts text from an image file using OCR."""
     try:
+        logger.info(f"Starting OCR text extraction from image ({len(image_bytes)} bytes)")
         image = Image.open(io.BytesIO(image_bytes))
-        return pytesseract.image_to_string(image)
+        logger.info(f"Image opened successfully: size={image.size}, mode={image.mode}")
+        
+        # Convert to RGB if needed (for images with alpha channel)
+        if image.mode == 'RGBA':
+            logger.info("Converting RGBA image to RGB for better OCR compatibility")
+            background = Image.new('RGB', image.size, (255, 255, 255))
+            background.paste(image, mask=image.split()[3])
+            image = background
+        
+        # Enhance image for better OCR results
+        logger.info("Enhancing image for better OCR results")
+        # Resize if too small
+        if image.width < 1000 or image.height < 1000:
+            factor = max(1000 / image.width, 1000 / image.height)
+            new_size = (int(image.width * factor), int(image.height * factor))
+            logger.info(f"Resizing image from {image.size} to {new_size} for better OCR")
+            image = image.resize(new_size, Image.LANCZOS)
+        
+        # Extract text with pytesseract
+        logger.info("Performing OCR with pytesseract")
+        extracted_text = pytesseract.image_to_string(image)
+        
+        # Check if text was extracted
+        if not extracted_text or len(extracted_text.strip()) < 5:
+            logger.warning("Initial OCR extraction yielded little or no text, trying with enhanced settings")
+            # Try with additional config options
+            extracted_text = pytesseract.image_to_string(
+                image, 
+                config='--psm 3 --oem 3'  # PSM 3: Fully automatic page segmentation, OEM 3: Default neural net
+            )
+        
+        logger.info(f"OCR completed, extracted {len(extracted_text)} characters")
+        return extracted_text
     except Exception as e:
         logger.warning(f"⚠️ Error extracting text from image: {e}")
         return ""
@@ -195,6 +232,74 @@ async def extract_text_from_file(file, filename=None) -> Union[str, None]:
         logger.error(f"❌ Error extracting text from file {filename if filename else 'unknown'}: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Error extracting text: {str(e)}")
 
+def chunk_text(text: str, chunk_size: int = 3000, chunk_overlap: int = 200, bot_id: int = None, user_id: int = None, file_info: Dict = None) -> List[str]:
+    """
+    Chunks text into smaller pieces suitable for embeddings.
+    
+    Args:
+        text: The text to chunk
+        chunk_size: Target size of each chunk in tokens
+        chunk_overlap: Overlap between chunks in tokens
+        bot_id: Optional bot ID for logging
+        user_id: Optional user ID for logging
+        file_info: Optional file information for logging
+        
+    Returns:
+        List of text chunks
+    """
+    start_time = time.time()
+    text_length = len(text)
+    
+    logger.info(f"🔪 Chunking text of length {text_length} with chunk_size={chunk_size}, overlap={chunk_overlap}")
+    
+    try:
+        # Initialize the text splitter
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            length_function=lambda text: len(tiktoken.get_encoding("cl100k_base").encode(text)),
+            separators=["\n\n", "\n", ". ", " ", ""]
+        )
+        
+        # Split the text into chunks
+        chunks = text_splitter.split_text(text)
+        chunks_count = len(chunks)
+        
+        # Log chunking operation if bot_id and user_id are provided
+        if bot_id and user_id:
+            log_chunking_operation(
+                user_id=user_id,
+                bot_id=bot_id,
+                text_length=text_length,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                chunks_count=chunks_count,
+                file_info=file_info
+            )
+        
+        logger.info(f"✅ Successfully split text into {chunks_count} chunks")
+        return chunks
+    
+    except Exception as e:
+        logger.warning(f"⚠️ Error chunking text: {e}")
+        # If chunking fails, return the text as a single chunk
+        logger.info("⚠️ Returning original text as single chunk")
+        
+        # Log chunking failure if bot_id and user_id are provided
+        if bot_id and user_id:
+            log_chunking_operation(
+                user_id=user_id,
+                bot_id=bot_id,
+                text_length=text_length,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                chunks_count=1,
+                file_info=file_info,
+                extra={"error": str(e), "fallback": "single_chunk"}
+            )
+        
+        return [text]
+
 def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file, user_id: int = None) -> None:
     """
     Validates extracted text and stores it in ChromaDB.
@@ -210,12 +315,46 @@ def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file, user_id: i
         raise HTTPException(status_code=400, detail="No extractable text found in the file.")
 
     # Create a more complete metadata object
-    metadata = {
-        "id": getattr(file, 'filename', 'unknown'),
-        "file_type": getattr(file, 'content_type', os.path.splitext(file.filename)[1] if hasattr(file, 'filename') else 'unknown'),
-        "file_name": getattr(file, 'filename', 'unknown')
+    file_name = getattr(file, 'filename', 'unknown')
+    file_type = getattr(file, 'content_type', os.path.splitext(file_name)[1] if hasattr(file, 'filename') else 'unknown')
+    
+    # Create file info for logging
+    file_info = {
+        "file_name": file_name,
+        "file_type": file_type,
+        "content_length": len(text)
     }
     
-    # Store extracted text in ChromaDB
-    logger.info(f"💾 Storing document in ChromaDB for bot {bot_id}: {metadata['id']}")
-    add_document(bot_id, text, metadata, user_id=user_id)
+    # Split text into chunks for embedding
+    chunks = chunk_text(text, bot_id=bot_id, user_id=user_id, file_info=file_info)
+    
+    # Store each chunk with metadata
+    for i, chunk in enumerate(chunks):
+        chunk_metadata = {
+            "id": f"{file_name}_{i}" if len(chunks) > 1 else file_name,
+            "file_type": file_type,
+            "file_name": file_name,
+            "chunk_number": i + 1,
+            "total_chunks": len(chunks)
+        }
+        
+        # Store chunk in ChromaDB
+        logger.info(f"💾 Storing chunk {i+1}/{len(chunks)} in ChromaDB for bot {bot_id}: {chunk_metadata['id']}")
+        
+        try:
+            # Store the document and log the storage
+            add_document(bot_id, chunk, chunk_metadata, user_id=user_id)
+            
+            # Log document storage if user_id is provided
+            if user_id:
+                collection_name = f"bot_{bot_id}"  # Simplified collection name for logging
+                log_document_storage(
+                    user_id=user_id,
+                    bot_id=bot_id,
+                    collection_name=collection_name,
+                    document_count=1,
+                    metadata=chunk_metadata
+                )
+        except Exception as e:
+            logger.error(f"❌ Error storing chunk in ChromaDB: {e}")
+            # Continue with other chunks even if one fails

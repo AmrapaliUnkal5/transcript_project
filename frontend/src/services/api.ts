@@ -158,6 +158,7 @@ export interface UserUpdate {
   company_name?: string;
   communication_email?: string;
   phone_no?: string;
+  currentAvatarUrl ?:string;
 }
 
 export interface BotStatusUpdate {
@@ -268,6 +269,28 @@ export const authApi = {
     return response.data;
   },
 
+  updateBotDomain: async (botId: number, selectedDomain: string) => {
+  const response = await api.put("/widget/bots/update-domain", {
+    bot_id: botId,
+    selected_domain: selectedDomain,
+  });
+  return response.data;
+  },
+
+  getBotDomain: async (botId: number) => {
+    const response = await api.get(`widget/bots/${botId}/domain`);
+    return response.data;
+  },
+
+  checkWhiteLabelingAddon: async (botId: number) => {
+  const response = await api.get("/addon/white-labeling-check", {
+    params: {
+      bot_id: botId,
+    },
+  });
+  return response.data;
+},
+
   updateAvatar: async (data: uploadAvatar) => {
     const response = await api.put("/update-avatar/", data);
     return response.data;
@@ -320,15 +343,32 @@ export const authApi = {
     return response.data;
   },
 
-  validatecaptcha: async (data: string) => {
-    const response = await api.post('/validate-captcha', { user_input: data });
+  validatecaptcha: async (data: string, captchaId: string) => {
+    const response = await api.post('/validate-captcha', 
+        { user_input: data },
+        { headers: { 'X-Captcha-ID': captchaId } }
+    );
     return response.data;
-  },
+},
 
-  fetchCaptcha: async () => {
-    const response = await api.get('/captcha', { responseType: 'blob' }); // Set response type to blob
-    return URL.createObjectURL(response.data); // Convert blob data to URL
-  },
+// Update fetchCaptcha to return both the URL and headers
+fetchCaptcha: async () => {    
+    const response = await api.get('/captcha', { 
+        responseType: 'blob',
+          // This ensures we get access to headers
+        transformResponse: (res, headers) => {
+            return {
+                data: res,
+                headers: headers
+            };
+        }
+   });
+    const imageUrl = URL.createObjectURL(response.data.data);
+    return {
+        imageUrl,
+        captchaId: response.data.headers['x-captcha-id']
+    };
+},
 
   uploadFiles: async (files: File[], botId: number) => {
     const formData = new FormData();
@@ -665,6 +705,17 @@ deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
       messages_used: messagesUsed,
     });
   },
+
+  // Add these to your authApi service
+  getBotExternalKnowledge: async (botId: number) => {
+    const response = await api.get(`/get-bot-external-knowledge/${botId}`);
+    return response.data;
+  },
+
+updateBotExternalKnowledge: async (botId: number) => {
+  const response = await api.put(`/update-bot-external-knowledge/${botId}`);
+  return response.data;
+},
   getUserMessageCount: async (): Promise<{
     addons: {
       total_limit: number;

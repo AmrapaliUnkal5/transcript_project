@@ -48,6 +48,8 @@ export const Login = () => {
   );
   const [showPassword, setShowPassword] = React.useState(false); // State to manage password visibility
   const [logoLoaded, setLogoLoaded] = React.useState(true);
+  const [captchaId, setCaptchaId] = useState("");
+
 
   // Math CAPTCHA states
   const [openCaptchaModal, setOpenCaptchaModal] = useState(false);
@@ -271,13 +273,20 @@ export const Login = () => {
   };
 
   const fetchCaptcha = async () => {
-    try {
-      const captchaUrl = await authApi.fetchCaptcha();
-      setCaptchaImage(captchaUrl);
-    } catch (error) {
-      console.error("Failed to load CAPTCHA", error);
+  try {
+    const response = await authApi.fetchCaptcha();
+    console.log("captchaId=>",captchaId)
+    // Store the CAPTCHA ID from response
+    if (response.captchaId) {
+      setCaptchaId(response.captchaId);
     }
-  };
+    setCaptchaImage(response.imageUrl);
+  } catch (error) {
+    console.error("Failed to load CAPTCHA", error);
+  }
+};
+
+
   useEffect(() => {
     if (location.state?.message) {
       setSuccessMessage(location.state.message);
@@ -296,8 +305,7 @@ export const Login = () => {
         const res = await authApi.googleLogin(response.credential);
         console.log(res);
         login(res.access_token, res.user);
-        const from = location.state?.from?.pathname || "/";
-        navigate(from, { replace: true });
+        navigate("/dashboard/welcome", { replace: true });
       } catch (error) {
         console.error("Error during Google authentication:", error);
         setError("Google authentication failed");
@@ -354,25 +362,28 @@ export const Login = () => {
       setLoading(false); // Reset loading state after completion
     }, 2000);
     try {
-      const captchaRes = await authApi.validatecaptcha(captchaInput);
-      console.log("CAPTCHA Response:", captchaRes); // Debugging output
+      const captchaRes = await authApi.validatecaptcha(captchaInput, captchaId);
+
+      console.log("CAPTCHA Response:", captchaRes);
+      console.log("captchaRes.valid=>",captchaRes.valid) // Debugging output
       if (!captchaRes.valid) {
         setCaptchaError("Incorrect CAPTCHA. Try again.");
+        fetchCaptcha();
         setLoading(false);
         return;
       }
-    } catch (error) {
-      console.error("Error validating CAPTCHA:", error);
-      setCaptchaError("CAPTCHA validation failed.");
-      setLoading(false);
-    }
+    // } catch (error) {
+    //   console.error("Error validating CAPTCHA:", error);
+    //   setCaptchaError("CAPTCHA validation failed.");
+    //   setLoading(false);
+    // }
 
-    try {
+    // try {
       const response = await authApi.login({ email, password });
       login(response.access_token, response.user);
 
-      const from = location.state?.from?.pathname || "/";
-      navigate(from, { replace: true });
+      // Redirect to welcome page after login
+      navigate("/dashboard/welcome", { replace: true });
     } catch (err) {
       if (err instanceof AxiosError) {
         setError(err.response?.data?.detail || "An unexpected error occurred");
@@ -415,22 +426,29 @@ export const Login = () => {
               component="img"
               src="/images/dummy/Evolra-AI-Logo_Transparent.png"
               alt="Evolra AI Logo"
+              onClick={() => navigate("/")}
+              sx={{
+                height: 80, // Increased logo size
+                width: "auto",
+                maxWidth: 200,
+                objectFit: "contain",
+                cursor: "pointer" // Add cursor pointer to indicate it's clickable
+              }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.style.display = "none"; // Hide broken image
                 setLogoLoaded(false);
                 console.error("Failed to load logo:", target.src);
               }}
-              sx={{
-                height: 80, // Increased logo size
-                width: "auto",
-                maxWidth: 200,
-                objectFit: "contain",
-              }}
             />
             {/* Fallback text if image fails */}
             {!logoLoaded && (
-              <Typography variant="h6" color="#4dc4ff">
+              <Typography 
+                variant="h6" 
+                color="#4dc4ff"
+                onClick={() => navigate("/")}
+                sx={{ cursor: "pointer" }}
+              >
                 Evolra AI
               </Typography>
             )}
@@ -440,11 +458,11 @@ export const Login = () => {
       <Box maxWidth={1180} mx={"auto"} borderRadius={4} py={2} px={3}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 7 }}>
-            <LightGBox p={"1px"} borderRadius={4}>
+            <LightGBox p={"1px"} borderRadius={4}>  
               <Box
                 px={5}
-                py={2}
-                borderRadius={4}
+                 py={2}
+                 borderRadius={4}
                 sx={{
                   position: "relative",
                   overflow: "hidden",
@@ -453,7 +471,7 @@ export const Login = () => {
                   flexDirection: "column",
                 }}
               >
-                <Typography
+              <Typography
                   variant="h6"
                   mb={3}
                   color="#FFF"
@@ -463,7 +481,9 @@ export const Login = () => {
                 </Typography>
                 <Box
                   textAlign={"center"}
-                  sx={{
+                
+
+      sx={{
                     position: "absolute",
                     top: 0,
                     left: 0,
@@ -480,7 +500,8 @@ export const Login = () => {
                     style={{
                       width: "100%",
                       height: "100%",
-                      objectFit: "cover",
+                      objectFit: "cover", // if we are using cover here video is cropped and if using contain then so much space remain empty inside box 
+                      
                     }}
                   >
                     <source src="/images/dummy/gif.mp4" type="video/mp4" />
@@ -733,8 +754,12 @@ export const Login = () => {
               >
                 <Box>
                   <Typography variant="body1">Contact us </Typography>
-                  <Typography variant="body2">Support@Checkme.com</Typography>
-                  <Typography variant="body2">0123-456789 or else</Typography>
+                  <Typography variant="body2">support@evolra.ai</Typography>
+                  {/* <Typography variant="body2">0123-456789 </Typography> */}
+                 <Typography variant="body2">&nbsp;</Typography>
+                  {/* using above line  for space only so that our symmetry will remin consistent */}
+
+
                   <Typography variant="body2">
                     <Link
                       to="#"

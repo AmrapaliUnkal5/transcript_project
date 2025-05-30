@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from app.database import get_db
 from app.utils.create_access_token import create_access_token
-from .models import Base, User, UserAuthProvider,SubscriptionPlan,UserSubscription, Bot, Interaction, ChatMessage, TeamMember, File, YouTubeVideo, ScrapedNode, InteractionReaction, WebsiteDB, UserAddon, Notification
+from .models import Base, User, UserAuthProvider,SubscriptionPlan,UserSubscription, Bot, Interaction, ChatMessage, TeamMember, File, YouTubeVideo, ScrapedNode, InteractionReaction, WebsiteDB, UserAddon, Notification, WordCloudData
 from app.schemas import UserOut,UserUpdate, ChangePasswordRequest
 from app.dependency import get_current_user
 from app.utils.verify_password import verify_password
@@ -72,7 +72,12 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
             "status": "Active"
         }
     
-  
+    # Get user's authentication providers
+    auth_providers = []
+    user_auth_providers = db.query(UserAuthProvider).filter(UserAuthProvider.user_id == logged_in_id).all()
+    
+    if user_auth_providers:
+        auth_providers = [provider.provider_name for provider in user_auth_providers]
 
     # Construct the response with additional fields
     return {
@@ -80,11 +85,12 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
         "name": user.name,  # Ensure `name` is included
         "email": user.email,
         "role": user.role,
-        "phone_no":user.phone_no,
+        "phone_no": user.phone_no,
         "company_name": user.company_name,  #  Ensure this is included
         "communication_email": user.communication_email,  # Ensure this is included
-        "subscription": subscription_data
-        
+        "subscription": subscription_data,
+        "auth_providers": auth_providers,
+        "avatar_url": user.avatar_url, 
     }
 
 @router.put("/user/me", response_model=UserOut)
@@ -248,6 +254,11 @@ def delete_user_account(db: Session = Depends(get_db), current_user: dict = Depe
             # Delete websites
             db.query(WebsiteDB).filter(
                 WebsiteDB.bot_id.in_(bot_ids)
+            ).delete(synchronize_session=False)
+
+            # Delete word cloud data for bots
+            db.query(WordCloudData).filter(
+                WordCloudData.bot_id.in_(bot_ids)
             ).delete(synchronize_session=False)
             
             # Delete bots

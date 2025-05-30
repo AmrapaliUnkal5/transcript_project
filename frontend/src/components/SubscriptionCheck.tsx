@@ -19,10 +19,13 @@ export const SubscriptionCheck: React.FC<SubscriptionCheckProps> = ({ children }
   // Define paths that should bypass subscription check
   const EXEMPT_PATHS = [
     '/subscription',
+    '/dashboard/subscription',
     '/login',
     '/register',
     '/settings',
     '/myaccount',
+    '/dashboard/myaccount',
+    '/dashboard/account/add-ons',
     '/reset-password',
     '/forgot-password',
     '/verify-email',
@@ -84,7 +87,7 @@ export const SubscriptionCheck: React.FC<SubscriptionCheckProps> = ({ children }
     };
 
     // Navigate to subscription page
-    navigate('/subscription', { state });
+    navigate('/dashboard/subscription', { state });
   };
 
   // If still checking, show loading

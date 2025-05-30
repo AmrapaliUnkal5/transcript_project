@@ -46,6 +46,7 @@ export default function StartBuilding() {
         variant='contained'
         color='primary'
         size='large'
+        href='/signup'
         sx={{
           fontSize: '18px',
           fontWeight: 600,

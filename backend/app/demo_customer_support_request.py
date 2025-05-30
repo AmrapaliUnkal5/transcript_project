@@ -13,46 +13,61 @@ def send_email_notification(demo_request: DemoRequest, attachments: List[dict] =
         if demo_request.requestType == "demo":
             # Draft internal email
             email_body = f"""
-New Demo Request Received:
-
-Name: {demo_request.name}
-Email: {demo_request.email}
-Country: {demo_request.country}
-Company: {demo_request.company or "Not provided"}
-Phone: {demo_request.phone or "Not provided"}
-"""
+            <html>
+            <body style="text-align: left; font-family: Arial, sans-serif; color: #000;">
+                <p>⚠️Alert: New Demo Request Received:</p>
+                <p>Name: {demo_request.name}</p>
+                <p>Email: {demo_request.email}</p>
+                <p>Country: {demo_request.country}</p>
+                <p>Company: {demo_request.company or "Not provided"}</p>
+                <p>Phone: {demo_request.phone or "Not provided"}</p>
+            </body>
+            </html>
+            """
             subject = "New Demo Request"
             confirmation_subject = "Thank You for Requesting a Demo"
             confirmation_body = f"""
-Dear {demo_request.name},
+            <html>
+            <body style="text-align: left; font-family: Arial, sans-serif; color: #000;">
+                <p>Hello {demo_request.name},</p>
 
-Thank you for requesting a demo. Our team will reach out to you shortly.
+                <p>Thank you for requesting a demo. Our team will reach out to you shortly.</p>
 
-Best regards,
-Evolra.AI
-"""
+                <p>Best regards,<br>
+                Evolra Admin</p>
+            </body>
+            </html>
+            """
 
         elif demo_request.requestType == "support":
             email_body = f"""
-New Customer Support Request Received:
+            <html>
+            <body style="text-align: left; font-family: Arial, sans-serif; color: #000;">
+                <p>⚠️Alert: New Customer Support Request Received:</p>
 
-Name: {demo_request.name}
-Email: {demo_request.email}
-Country: {demo_request.country}
-Company: {demo_request.company or "Not provided"}
-Phone: {demo_request.phone or "Not provided"}
-Description: {demo_request.description or "Not provided"}
-"""
+                <p>Name: {demo_request.name}</p>
+                <p>Email: {demo_request.email}</p>
+                <p>Country: {demo_request.country}</p>
+                <p>Company: {demo_request.company or "Not provided"}</p>
+                <p>Phone: {demo_request.phone or "Not provided"}</p>
+                <p>Description: {demo_request.description or "Not provided"}</p>
+            </body>
+            </html>
+            """
             subject = "New Customer Support Request"
             confirmation_subject = "We Received Your Support Request"
             confirmation_body = f"""
-Dear {demo_request.name},
+            <html>
+            <body style="text-align: left; font-family: Arial, sans-serif; color: #000;">
+                <p>Hello {demo_request.name},</p>
 
-Thank you for reaching out to customer support. We have received your query and will get back to you shortly.
+                <p>Thank you for reaching out to customer support. We have received your query and will get back to you shortly.</p>
 
-Best regards,
-Evolra.AI
-"""
+                <p>Best regards,<br>
+                Evolra Admin</p>
+            </body>
+            </html>
+            """
 
         else:
             raise ValueError("Invalid request type. Must be 'demo' or 'support'.")

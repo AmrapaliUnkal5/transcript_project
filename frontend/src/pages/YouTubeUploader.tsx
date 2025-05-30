@@ -105,10 +105,12 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       setLoading(true);
       setError(null); // Clear previous errors
       console.log(youtubeUrl);
+      setVideoUrls([]);
+      setSelectedVideos([]);
       const response = await authApi.fetchVideosFromYouTube(youtubeUrl);
       if (response?.video_urls) {
         const updatedUrls = Array.from(
-          new Set([...videoUrls, ...response.video_urls])
+          new Set([...response.video_urls])
         ); // Avoid duplicates
         setVideoUrls(updatedUrls);
         //setVideoUrls(updatedUrls);
@@ -250,7 +252,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       <div className="flex gap-2">
         <input
           type="text"
-          placeholder="Enter YouTube video URL or playlist URL"
+          placeholder="YouTube URL"
           value={youtubeUrl}
           className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
           onChange={(e) => setYoutubeUrl(e.target.value)}

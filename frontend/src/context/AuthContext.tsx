@@ -101,7 +101,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         console.log(parsedUserData);
         setIsAuthenticated(true);
         setUser(parsedUserData);
-        //subscription context load
+        
+        // Redirect logged-in users from root path to welcome
+        if (location.pathname === "/") {
+          navigate("/dashboard/welcome");
+        }
       } catch (error) {
         console.error("Error parsing user data:", error);
         setIsAuthenticated(false);
@@ -118,6 +122,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         "/forgot-password",
         "/reset-password",
         "/home",
+        "/",
+        "/our-plans",
         "/verify-email",
         "/demo",
         "/faq",

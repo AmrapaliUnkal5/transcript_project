@@ -5,11 +5,12 @@ import { ChevronDown } from "lucide-react";
 
 // TypeScript-safe prop types
 interface ChatIconProps {
-  botId: number;
+  botId: string;
   avatarUrl?: string;
   position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   welcomeMessage?: string; // optional
   basedomain: string;
+  appearance?: string;
 }
 
 const ChatIcon: React.FC<ChatIconProps> = ({
@@ -18,12 +19,27 @@ const ChatIcon: React.FC<ChatIconProps> = ({
   position,
   welcomeMessage,
   basedomain,
+  appearance,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const chatbotRef = useRef<{ endSession: () => Promise<void> }>(null);
-  const [showWelcome] = useState(true);
+  
+  const [showWelcome, setShowWelcome] = useState(true);
   const [hover, setHover] = useState(false);
   const baseDomain = basedomain;
+  if (appearance === "Full Screen") {
+  return (
+    <ChatbotWidget
+      ref={chatbotRef}
+      botId={botId}
+      closeWidget={() => {}} // No close button needed
+      baseDomain={basedomain}
+      appearance="Full Screen"
+    />
+  );
+}
+
+
 
   const getPositionStyles = (
     position: ChatIconProps["position"]
@@ -102,47 +118,103 @@ const ChatIcon: React.FC<ChatIconProps> = ({
     top: "10px",
     right: "10px",
   };
+  
 
   const welcomeTooltipStyles: React.CSSProperties = {
-    backgroundColor: "white",
-    color: "black",
-    boxShadow:
-      "rgba(111, 111, 111, 0.2) 0px 10px 30px 0px, rgba(96, 96, 96, 0.2) 0px 0px 0px 1px",
-    borderRadius: "10px",
-    padding: "20px",
-    margin: "8px",
-    fontSize: "14px",
-    position: "fixed",
-    maxWidth: "400px",
-    zIndex: 2147483647,
-    fontFamily:
-      '"Segoe UI", "Segoe UI Emoji", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif',
-    opacity: showWelcome ? 1 : 0,
-    transform: showWelcome ? "scale(1)" : "scale(0.95)",
-    transition: "opacity 0.5s ease, transform 0.5s ease",
-    cursor: "pointer",
-    ...(() => {
-      switch (position) {
-        case "bottom-right":
-          return { bottom: "100px", right: "20px" };
-        case "bottom-left":
-          return { bottom: "100px", left: "20px" };
-        case "top-right":
-          return { top: "100px", right: "20px" };
-        case "top-left":
-          return { top: "100px", left: "20px" };
-        default:
-          return {};
-      }
-    })(),
-  };
+  backgroundColor: "white",
+  color: "black",
+  boxShadow:
+    "rgba(111, 111, 111, 0.2) 0px 10px 30px 0px, rgba(96, 96, 96, 0.2) 0px 0px 0px 1px",
+  borderRadius: "10px",
+  padding: "20px",
+  fontSize: "14px",
+  position: "fixed",
+  maxWidth: "400px",
+  zIndex: 2147483647,
+  fontFamily:
+    '"Segoe UI", "Segoe UI Emoji", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif',
+  opacity: showWelcome ? 1 : 0,
+  transform: showWelcome ? "scale(1)" : "scale(0.95)",
+  transition: "opacity 0.5s ease, transform 0.5s ease",
+  cursor: "default",
+  
+  ...(() => {
+    switch (position) {
+      case "bottom-right":
+        return { bottom: "100px", right: "30px" };
+      case "bottom-left":
+        return { bottom: "100px", left: "30px" };
+      case "top-right":
+        return { top: "100px", right: "30px" };
+      case "top-left":
+        return { top: "100px", left: "30px" };
+      default:
+        return {};
+    }
+  })(),
+};
+  
 
   return (
     <>
       {/* Welcome Tooltip */}
       {!isOpen && showWelcome && welcomeMessage && (
-        <div style={welcomeTooltipStyles}>{welcomeMessage}</div>
-      )}
+  <div
+    style={{
+      ...welcomeTooltipStyles,
+      paddingRight: "20px",
+      position: "fixed",
+      ...(() => {
+        switch (position) {
+          case "bottom-right":
+            return { bottom: "100px", right: "30px" };
+          case "bottom-left":
+            return { bottom: "100px", left: "30px" };
+          case "top-right":
+            return { top: "100px", right: "30px" };
+          case "top-left":
+            return { top: "100px", left: "30px" };
+          default:
+            return {};
+        }
+      })(),
+    }}
+    onMouseEnter={() => setHover(true)}
+    onMouseLeave={() => setHover(false)}
+  >
+    <div style={{ position: "relative" }}>
+      <div style={{ paddingRight: "30px" }}>{welcomeMessage}</div>
+      <button
+        onClick={() => setShowWelcome(false)}
+        style={{
+          position: "absolute",
+          top: "-25px",
+          right: "-20px",
+          width: "24px",
+          height: "24px",
+          borderRadius: "50%",
+          border: "1px solid #ccc",
+          background: "#e0e0e0",
+          color: "#000",
+          fontWeight: "bold",
+          fontSize: "14px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+          padding: 0,
+          zIndex: 1,
+          opacity: hover ? 1 : 0,
+          transition: "opacity 0.3s ease-in-out",
+        }}
+        aria-label="Close"
+      >
+        ×
+      </button>
+    </div>
+  </div>
+)}
 
       <div style={iconStyles} onClick={toggleWidget}>
         {isOpen ? (

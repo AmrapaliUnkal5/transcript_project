@@ -111,7 +111,7 @@ async def google_auth(request: Request, payload: TokenPayload, db: Session = Dep
 
         user_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == user.user_id,
-        UserSubscription.status != "pending"
+        UserSubscription.status.notin_(["pending", "failed", "cancelled"])
         ).order_by(UserSubscription.payment_date.desc()).first()
 
         # Get message addon (ID 5) details if exists
@@ -268,7 +268,7 @@ async def facebook_login(
         # Subscription
         user_subscription = db.query(UserSubscription).filter(
             UserSubscription.user_id == subscription_user_id,
-            UserSubscription.status != "pending"
+            UserSubscription.status.notin_(["pending", "failed", "cancelled"])
         ).order_by(UserSubscription.payment_date.desc()).first()
 
         subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
@@ -287,7 +287,7 @@ async def facebook_login(
 
         addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
 
-        # JWT Token
+    # JWT Token
         token_data = {
             "sub": user.email,
             "role": user.role,
@@ -302,6 +302,7 @@ async def facebook_login(
             "addon_plan_ids": addon_plan_ids,
             "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
             "subscription_status": user_subscription.status if user_subscription else "new",
+            "avatar_url": user.avatar_url,
         }
 
         jwt_token = create_access_token(

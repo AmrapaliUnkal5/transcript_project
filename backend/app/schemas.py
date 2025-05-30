@@ -1,5 +1,5 @@
 # app/schemas.py
-from pydantic import BaseModel,EmailStr
+from pydantic import BaseModel,EmailStr,Field
 from typing import List, Dict, Optional, Union
 from datetime import datetime
 from enum import Enum
@@ -122,7 +122,7 @@ class BotBase(BaseModel):
     header_bg_color: Optional[str] = "#3B82F6"
     header_text_color: Optional[str] = "#FFFFFF"
     chat_text_color: Optional[str] = "#1F2937"
-    user_text_color: Optional[str] = "#FFFFFF"
+    user_text_color: Optional[str] = "#121111"
     button_color: Optional[str] = "#3B82F6"
     button_text_color: Optional[str] = "#FFFFFF"
     timestamp_color: Optional[str] = "#9CA3AF"
@@ -469,3 +469,55 @@ class YouTubeVideoResponse(BaseModel):
 
 class WordCloudResponse(BaseModel):
     words: List[Dict[str, Union[str, int]]]
+
+class UpdateBotDomainRequest(BaseModel):
+    bot_id: int
+    selected_domain: str = Field(..., min_length=3, max_length=255)
+
+class BotWidgetResponse(BaseModel):
+    
+    bot_name: str
+    bot_icon: Optional[str] = None
+    font_style: Optional[str] = None
+    font_size: Optional[int] = None
+    position: Optional[str] = None
+    max_words_per_message: Optional[int] = 200
+    is_active: Optional[bool] = True
+    bot_color: Optional[str] = None
+    user_color: Optional[str] = None
+    appearance: Optional[str] = None
+    temperature: Optional[float] = None
+    status: Optional[str] = None
+    embedding_model_id: Optional[int] = None
+    llm_model_id: Optional[int] = None
+    message_count: Optional[int] = 0
+    last_message_reset: Optional[datetime] = None
+    file_size: Optional[int] = 0
+    window_bg_color: Optional[str] = "#F9FAFB"
+    welcome_message: Optional[str] = "Hi there! How can I help you today?"
+    input_bg_color: Optional[str] = "#FFFFFF"
+    header_bg_color: Optional[str] = "#3B82F6"
+    header_text_color: Optional[str] = "#FFFFFF"
+    chat_text_color: Optional[str] = "#1F2937"
+    user_text_color: Optional[str] = "#121111"
+    button_color: Optional[str] = "#3B82F6"
+    button_text_color: Optional[str] = "#FFFFFF"
+    timestamp_color: Optional[str] = "#9CA3AF"
+    border_radius: Optional[str] = "12px"
+    border_color: Optional[str] = "#E5E7EB"
+    chat_font_family: Optional[str] = "Inter"
+
+    class Config:
+        from_attributes = True
+
+class ReactionCreateWidget(BaseModel):
+    interaction_id: str
+    session_id: str
+    reaction: ReactionEnum
+    message_id:str
+
+from typing import Literal
+class BotWidgetInitialResponse(BaseModel):
+    avatarUrl: Optional[str]
+    position: Literal["top-left", "top-right", "bottom-left", "bottom-right"]
+    welcomeMessage: Optional[str]

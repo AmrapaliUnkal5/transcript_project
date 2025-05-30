@@ -55,34 +55,33 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
     <header
       className="bg-white dark:bg-gray-800 h-16 px-6 flex items-center justify-between border-b border-gray-200 dark:border-gray-700
 "
+
+  style={{
+    background: "linear-gradient(to right, #231D53, #28377B)"
+  }}
     >
       {/* Left Section: Logo/Image */}
       <div className="flex items-center space-x-4">
-        <a href="https://evolra.ai/" target="_blank" rel="noopener noreferrer">
-        <img
-        src="https://cdn.pixabay.com/photo/2017/09/26/13/42/apple-2788662_1280.jpg"
-        alt="Logo"
-        className="h-10 w-auto"
-      />
-    </a>
-
+        <a 
+          onClick={() => navigate("/dashboard/welcome")} 
+          className="cursor-pointer"
+        >
+          <img
+            src="/images/logo.png"
+            alt="Logo"
+            className="h-8 w-auto"
+          />
+        </a>
       </div>
 
       <div className="flex-1" />
       <div className="flex items-center space-x-4">
-        {/* Home Button */}
-        {/* <button
-          onClick={() => navigate("/")}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-          title="Home"
-        >
-          {/* <Home className="w-5 h-5" /> */}
-
-        {/* Home Button */}
+       
         <button
           onClick={() => navigate("/")}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
+          className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
           title="Home"
+          style={{ fontFamily: "Instrument Sans, sans-serif", fontSize: "16px" }}
         >
           Home
         </button>
@@ -108,7 +107,13 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
 
        <button
          onClick={() => window.open("/report-issue", "_blank")}
-          className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white"
+          className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
+          style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "16px",
+    color: "#BFBFBF",
+    
+  }}
           title="Have doubts? Ask here!">Help</button>
 
         {/*
@@ -122,16 +127,14 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
        
 
         {/* Notifications Button */}
-
-        {/*<button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+{/* 
+        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
         title="Notifications"
         >
           <Bell color={isDark ? "white" : "black"} className="w-5 h-5" />
-        </button>
-        {/* Dropdown for Avatar */}
-        {/* <button
-        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
-        title="Notifications">Notifications</button> */}
+        </button> */}
+      
+    
         <NotificationDropdown />
 
         <div className="relative" ref={dropdownRef}>
@@ -144,7 +147,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
               alt={user?.name || "User"}
               className="w-8 h-8 rounded-full border border-gray-300 dark:border-white cursor-pointer"
             />
-            <span className="text-sm font-medium text-gray-900 dark:text-white">
+            <span className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white">
               {user?.name || "User"}
             </span>
           </button>
@@ -154,7 +157,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
             <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-200 dark:border-gray-700 z-50">
               <button
                 onClick={() => {
-                  navigate("/subscription");
+                  navigate("/dashboard/subscription");
                   setDropdownOpen(false);
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -169,7 +172,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
               </button>
               <button
                 onClick={() => {
-                  navigate("/account/add-ons");
+                  navigate("/dashboard/account/add-ons");
                   setDropdownOpen(false);
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -184,7 +187,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
               </button>
               <button
                 onClick={() => {
-                  navigate("/myaccount");
+                  navigate("/dashboard/myaccount");
                   setDropdownOpen(false);
                 }}
                 className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"

@@ -29,7 +29,7 @@ numpy
 schedule
 apscheduler
 PyPDF2>=3.0.0
-langdetect
+lingua-language-detector
 nltk
 
 # For LLM Part
@@ -42,6 +42,7 @@ pdfplumber
 yt-dlp
 youtube-transcript-api
 langchain_community
+langchain_text_splitters>=0.0.3
 aiofiles
 apify-client>=1.4.0
 
@@ -49,3 +50,9 @@ apify-client>=1.4.0
 celery>=5.3.0
 redis>=4.6.0
 flower>=2.0.0
+
+
+
+#UI/Ux Bot Creation Flow and Home
+"chart.js": "^4.4.9",
+"react-chartjs-2": "^5.3.0",

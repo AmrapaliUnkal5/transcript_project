@@ -1,9 +1,10 @@
 # app/models.py
 from typing import Optional
-from sqlalchemy import JSON, BigInteger, Column, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime, UniqueConstraint, Enum, DECIMAL,LargeBinary
+import uuid
+from sqlalchemy import JSON, BigInteger, Column, Index, Integer, String, Boolean, Text, TIMESTAMP,Float, func,ForeignKey,CheckConstraint,Numeric,DateTime, UniqueConstraint, Enum, DECIMAL,LargeBinary
 from app.database import Base
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 import enum 
 from sqlalchemy.orm import relationship
 import numpy as np
@@ -34,6 +35,9 @@ class User(Base):
     # Add relationships for team membership
     owned_teams = relationship("TeamMember", foreign_keys="TeamMember.owner_id", back_populates="owner", cascade="all, delete-orphan")
     team_memberships = relationship("TeamMember", foreign_keys="TeamMember.member_id", back_populates="member", cascade="all, delete-orphan")
+
+    def __str__(self):
+        return f"{self.name} ({self.email})" if self.name else self.email
 
 # Model for the token
 class TokenPayload(BaseModel):
@@ -66,6 +70,9 @@ class TeamMember(Base):
     __table_args__ = (
         UniqueConstraint('owner_id', 'member_id', name='unique_team_member'),
     )
+    
+    def __str__(self):
+        return f"Team member {self.id}: {self.role.value} ({self.invitation_status})"
 
 class Bot(Base):
     __tablename__ = "bots"
@@ -99,18 +106,23 @@ class Bot(Base):
     header_bg_color = Column(String, nullable=True, default="#3B82F6")
     header_text_color = Column(String, nullable=True, default="#FFFFFF")
     chat_text_color = Column(String, nullable=True, default="#1F2937")
-    user_text_color = Column(String, nullable=True, default="#FFFFFF")
+    user_text_color = Column(String, nullable=True, default="#121111")
     button_color = Column(String, nullable=True, default="#3B82F6")
     button_text_color = Column(String, nullable=True, default="#FFFFFF")
     timestamp_color = Column(String, nullable=True, default="#9CA3AF")
     border_radius = Column(String, nullable=True, default="12px")
     border_color = Column(String, nullable=True, default="#E5E7EB")
     chat_font_family = Column(String, nullable=True, default="Inter")
+    selected_domain = Column(String, nullable=True)
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")
     llm_model = relationship("LLMModel", back_populates="bots")
     files = relationship("File", back_populates="bot", cascade="all, delete-orphan")
+    
+    def __str__(self):
+        status_indicator = " (active)" if self.is_active else " (inactive)"
+        return f"{self.bot_name}{status_indicator}"
 
 class File(Base):
     __tablename__ = "files"
@@ -134,6 +146,9 @@ class File(Base):
     # Relationships
     bot = relationship("Bot", back_populates="files")
     embedding_model = relationship("EmbeddingModel", back_populates="files")
+    
+    def __str__(self):
+        return f"{self.file_name} ({self.file_type})"
 
 class Interaction(Base):
     __tablename__ = "interactions"
@@ -150,6 +165,10 @@ class Interaction(Base):
     # user = relationship("User", back_populates="interactions")
     # bot = relationship("Bot", back_populates="interactions")
     # messages = relationship("ChatMessage", back_populates="interaction", cascade="all, delete-orphan")
+    
+    def __str__(self):
+        archive_status = " (archived)" if self.archived else ""
+        return f"Interaction {self.interaction_id}: Bot {self.bot_id}, User {self.user_id}{archive_status}"
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
@@ -163,7 +182,11 @@ class ChatMessage(Base):
 
     # Relationships
     # interaction = relationship("Interaction", back_populates="messages")
-
+    
+    def __str__(self):
+        # Truncate message text if it's too long
+        preview = self.message_text[:30] + "..." if len(self.message_text) > 30 else self.message_text
+        return f"{self.sender}: {preview}"
 
 class Language(Base):
     __tablename__ = "languages"
@@ -175,6 +198,9 @@ class Language(Base):
     )
     language_code = Column(String(10), nullable=False)
     language_name = Column(String(50), nullable=False)
+    
+    def __str__(self):
+        return f"{self.language_name} ({self.language_code})"
 
 # class PerformanceLog(Base):
 #     __tablename__ = "performance_logs"
@@ -228,6 +254,9 @@ class UserAuthProvider(Base):
     refresh_token = Column(Text, nullable=True)
     token_expiry = Column(TIMESTAMP, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+    
+    def __str__(self):
+        return f"{self.provider_name} auth for user {self.user_id}"
 
 class DemoRequest(Base):
     __tablename__ = "demo_request"
@@ -239,6 +268,9 @@ class DemoRequest(Base):
     company = Column(String(255), nullable=False)
     phone = Column(String(255), nullable=True)  # Optional field
     created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+    
+    def __str__(self):
+        return f"Demo request from {self.name} ({self.email})"
 
 class YouTubeVideo(Base):
     __tablename__ = "youtube_videos"
@@ -270,6 +302,10 @@ class YouTubeVideo(Base):
     embedding_status = Column(String(50), default="pending", nullable=True)  # pending, completed, failed
     last_embedded = Column(TIMESTAMP, nullable=True)
     transcript = Column(Text, nullable=True)
+    
+    def __str__(self):
+        deleted_status = " (deleted)" if self.is_deleted else ""
+        return f"{self.video_title}{deleted_status}"
 
 # Define Enum for reactions
 class ReactionType(enum.Enum):
@@ -290,9 +326,12 @@ class InteractionReaction(Base):
                         index=True
 )
 
-    __table_args__ = (UniqueConstraint("interaction_id", "session_id", name="unique_user_reaction"),)
+    #__table_args__ = (UniqueConstraint("interaction_id", "session_id", name="unique_user_reaction"),)
 
     #interaction = relationship("Interaction", back_populates="reactions")
+    
+    def __str__(self):
+        return f"{self.reaction.value} reaction for message {self.message_id}"
 
 class ScrapedNode(Base):
     __tablename__ = "scraped_nodes"
@@ -312,6 +351,11 @@ class ScrapedNode(Base):
     nodes_text = Column(Text, nullable=True)  # Store the scraped text content
 
     #website = relationship("Website", back_populates="scraped_nodes")  #
+    
+    def __str__(self):
+        title_str = f": {self.title}" if self.title else ""
+        deleted_status = " (deleted)" if self.is_deleted else ""
+        return f"Node {self.id}{title_str}{deleted_status}"
 
 class WebsiteDB(Base):
     __tablename__ = "websites"
@@ -321,6 +365,10 @@ class WebsiteDB(Base):
     bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_deleted = Column(Boolean, default=False)
+    
+    def __str__(self):
+        deleted_status = " (deleted)" if self.is_deleted else ""
+        return f"{self.domain}{deleted_status}"
 
 class SubscriptionPlan(Base):
     __tablename__ = "subscription_plans"
@@ -383,6 +431,9 @@ class Addon(Base):
     
     # Add proper type hints for relationships
     user_addons = relationship("UserAddon", back_populates="addon")
+    
+    def __str__(self):
+        return f"{self.name} (${self.price})"
 
 class UserSubscription(Base):
     __tablename__ = "user_subscriptions"
@@ -411,6 +462,9 @@ class UserSubscription(Base):
     
     # Add relationship to SubscriptionPlan
     subscription_plan = relationship("SubscriptionPlan")
+    
+    def __str__(self):
+        return f"User {self.user_id} subscription ({self.status})"
 
     
 class EmbeddingModel(Base):
@@ -463,6 +517,10 @@ class Notification(Base):
     event_data = Column(Text, nullable=False)
     is_read = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
+    
+    def __str__(self):
+        read_status = " (read)" if self.is_read else " (unread)"
+        return f"{self.event_type} notification for user {self.user_id}{read_status}"
 
 class Cluster(Base):
     __tablename__ = "clusters"
@@ -475,6 +533,9 @@ class Cluster(Base):
     questions = relationship("ClusteredQuestion", back_populates="cluster")
 
     __table_args__ = (UniqueConstraint('bot_id', 'cluster_number', name='unique_bot_cluster'),)
+    
+    def __str__(self):
+        return f"Cluster {self.cluster_number} for bot {self.bot_id} ({self.count} items)"
 
 class ClusteredQuestion(Base):
     __tablename__ = "clustered_questions"
@@ -484,6 +545,11 @@ class ClusteredQuestion(Base):
     embedding = Column(JSON)
 
     cluster = relationship("Cluster", back_populates="questions")
+    
+    def __str__(self):
+        # Truncate question text if it's too long
+        preview = self.question_text[:30] + "..." if len(self.question_text) > 30 else self.question_text
+        return f"Question: {preview}"
 
 class UserAddon(Base):
     __tablename__ = "user_addons"
@@ -514,6 +580,10 @@ class UserAddon(Base):
     user = relationship("User", foreign_keys=[user_id])
     addon = relationship("Addon", foreign_keys=[addon_id])
     subscription = relationship("UserSubscription", back_populates="user_addons")
+    
+    def __str__(self):
+        active_status = " (active)" if self.is_active else f" ({self.status})"
+        return f"User {self.user_id} addon {self.addon_id}{active_status}"
 
 # models.py
 class WordCloudData(Base):
@@ -523,3 +593,22 @@ class WordCloudData(Base):
     word_frequencies = Column(JSON, nullable=False, default={})  # {"word": count}
     last_updated = Column(TIMESTAMP, server_default=func.current_timestamp(), 
                          onupdate=func.current_timestamp())
+                         
+    def __str__(self):
+        word_count = len(self.word_frequencies) if self.word_frequencies else 0
+        return f"Word cloud for bot {self.bot_id} ({word_count} words)"
+    
+
+class Captcha(Base):
+    __tablename__ = "captchas"
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    captcha_text = Column(String(10), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    session_id = Column(String(36))  # Optional: associate with user session
+    is_used = Column(Boolean, default=False)
+    
+    # Add index for faster lookups
+    __table_args__ = (
+        Index('idx_captcha_created_at', 'created_at'),
+    )

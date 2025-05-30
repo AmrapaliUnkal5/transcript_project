@@ -116,6 +116,7 @@ export default function Hero() {
               variant="contained"
               color="primary"
               size="large"
+              href="/signup"
               sx={{
                 mt:["40px","70px"],
                 mb: "60px",

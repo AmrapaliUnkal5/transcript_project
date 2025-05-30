@@ -5,23 +5,53 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletion
 import requests
 from app.database import SessionLocal
-from app.models import LLMModel as LLMModelDB
+from app.models import LLMModel as LLMModelDB, Bot
 from app.config import settings
 from app.utils.model_selection import get_llm_model_for_bot
-from langdetect import detect
+from lingua import Language, LanguageDetectorBuilder
 from app.addon_service import AddonService
+import logging
+from app.utils.logger import get_module_logger
+# Add langchain imports
+from langchain.memory import ConversationBufferMemory
 
-# Function to detect language of text
+# Initialize logger
+logger = get_module_logger(__name__)
+
+# Create a language detector with common languages instead of all languages
+detector = LanguageDetectorBuilder.from_languages(
+    Language.ENGLISH,
+    Language.SPANISH,
+    Language.FRENCH,
+    Language.GERMAN,
+    Language.ITALIAN,
+    Language.PORTUGUESE,
+    Language.DUTCH,
+    Language.RUSSIAN,
+    Language.ARABIC,
+    Language.HINDI,
+    Language.CHINESE,
+    Language.JAPANESE,
+    Language.KOREAN
+).build()
+
 def detect_language(text):
-    """
-    Detect the language of the given text using langdetect.
-    Returns language code (e.g., 'en' for English, 'es' for Spanish, etc.)
-    """
+    """Detect the language of the input text."""
     try:
-        return detect(text)
-    except:
-        # If detection fails, default to English
-        return 'en'
+        if not text or len(text.strip()) < 5:
+            return 'en'  # Default to English for very short texts
+        
+        # Detect language
+        detected_language = detector.detect_language_of(text)
+        
+        # Map the lingua Language enum to ISO code
+        if detected_language:
+            return detected_language.iso_code_639_1.name.lower()
+        else:
+            return 'en'  # Default to English if detection fails
+    except Exception as e:
+        logger.exception(f"Error detecting language: {str(e)}")
+        return 'en'  # Default to English on error
 
 class HuggingFaceLLM:
     """Class for generating text using HuggingFace Inference API."""
@@ -116,13 +146,16 @@ class HuggingFaceLLM:
                 prompt += f"\n\nUser: {user_message} [/INST]</s>"
             else:
                 # Standard strict context prompt
-                prompt = f"<s>[INST] You are a helpful assistant. Only answer based on the provided context. If the context doesn't have relevant information, say you don't know.\n\nContext: {context}"
+                prompt = f"<s>[INST] You are a helpful assistant. Only answer based on the provided context. If the context doesn't have relevant information, clearly state 'I don't have information on that topic.' Do not use external knowledge under any circumstances.This is critical.\n\nContext: {context}"
                 
                 # Add chat history if available
                 if chat_history:
                     prompt += f"{chat_history}"
                 
                 prompt += f"\n\nUser: {user_message} [/INST]</s>"
+            
+            # Log the final prompt being sent to HuggingFace
+            logger.debug("final_prompt: %s", prompt)
             
             # Truncate the prompt to respect token limits
             truncated_prompt = self._truncate_prompt(prompt)
@@ -419,16 +452,23 @@ class LLMManager:
                 
                 if use_external_knowledge:
                     system_content += "you can use your general knowledge to provide a helpful response."
-                    print("✅ External knowledge mode: Will use general knowledge if context is insufficient")
+                    logger.debug("External knowledge mode: Will use general knowledge if context is insufficient")
                 else:
-                    system_content += "politely say you don't have that information."
-                    print("✅ Strict context mode: Will only use provided context")
+                    system_content += "clearly state 'I don't have information on that topic.' Do not use external knowledge under any circumstances."
+                    logger.debug("Strict context mode: Will only use provided context")
                 
                 # Include chat history in user message if available
                 user_content = f"Context: {context}"
                 if chat_history:
                     user_content += f"{chat_history}"
                 user_content += f"\nUser: {user_message}\nBot:"
+                
+                # Log the final prompt being sent to OpenAI
+                final_prompt = {
+                    "system": system_content,
+                    "user": user_content
+                }
+                logger.debug("final_prompt: %s", final_prompt)
                 
                 response = self.llm.chat.completions.create(
                     model=model_name,

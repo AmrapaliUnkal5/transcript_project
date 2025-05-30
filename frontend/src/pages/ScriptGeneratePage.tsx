@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { useLoader } from "../context/LoaderContext";
 import { authApi } from "../services/api";
 import type { BotSettings } from "../types";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export const ScriptGeneratePage = () => {
   const { selectedBot } = useBot();
@@ -13,7 +15,7 @@ export const ScriptGeneratePage = () => {
   const { setLoading } = useLoader();
   const [botId, setBotId] = useState<number | null>(null);
   const VITE_WIDGET_API_URL =
-    import.meta.env.VITE_WIDGET_API_URL || "http://localhost:3000";
+    import.meta.env.VITE_WIDGET_API_URL;
   const VITE_API_URL = import.meta.env.VITE_API_URL;
   const [settings, setSettings] = useState<BotSettings>({
     name: "Support Bot",
@@ -39,8 +41,12 @@ export const ScriptGeneratePage = () => {
     borderRadius: "12px",
     borderColor: "#E5E7EB",
     chatFontFamily: "Inter",
+    userTimestampColor:"#FFFFFF",
   });
   const navigate = useNavigate();
+  const [domain, setDomain] = useState("");
+  const [isDomainSaved, setIsDomainSaved] = useState(false)
+  const [domainError, setDomainError] = useState("");
 
   useEffect(() => {
     const fetchToken = async () => {
@@ -97,6 +103,7 @@ export const ScriptGeneratePage = () => {
             borderRadius: response.border_radius || "12px",
             borderColor: response.border_color || "#E5E7EB",
             chatFontFamily: response.chat_font_family || "Inter",
+            userTimestampColor: response.userTimestampColor || "#FFFFFF",
           });
         }
       } catch (error) {
@@ -111,6 +118,24 @@ export const ScriptGeneratePage = () => {
     }
   }, [selectedBot, setLoading]);
 
+  useEffect(() => {
+  const fetchBotDomain = async () => {
+    if (!selectedBot?.id) return;
+
+    try {
+      const domainData = await authApi.getBotDomain(selectedBot.id);
+      if (domainData?.domain) {
+        setDomain(domainData.domain); // Pre-fill the input box
+        setIsDomainSaved(true);       // Show the Copy Script section
+      }
+    } catch (err) {
+      console.error("Failed to fetch domain:", err);
+    }
+  };
+
+  fetchBotDomain();
+}, [selectedBot]);
+
   // Generate the script with dynamic bot ID and settings
   const generateScript = () => {
     if (!selectedBot?.id) {
@@ -121,14 +146,9 @@ export const ScriptGeneratePage = () => {
     // const botId = selectedBot.id;
 
     return `<script
-  src="${VITE_WIDGET_API_URL}/dist/chatbot-widget.iife.js"
+  src="${VITE_WIDGET_API_URL}"
   data-token="${token}"
-  data-avatar-url="${settings.icon || ""}"
-  data-position="${settings.position || ""}"
-  data-welcome-message="${settings.welcomeMessage}"
-  basedomain="${VITE_API_URL}"
-
-></script>`;
+  ></script>`;
   };
 
   const scriptContent = generateScript();
@@ -141,6 +161,45 @@ export const ScriptGeneratePage = () => {
       });
     }
   };
+  const handleSaveDomain = async () => {
+  const trimmedDomain = domain.trim();
+
+  // Simple URL regex (basic structure check)
+  const urlPattern = /^(https?:\/\/)(localhost:\d{1,5}|([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,})(:\d{1,5})?(\/.*)?$/;
+
+  if (!trimmedDomain) {
+    setDomainError("Domain is required.");
+    setIsDomainSaved(false);
+    return;
+  }
+
+  if (!urlPattern.test(trimmedDomain)) {
+    setDomainError("Please enter a valid domain starting with http:// or https://");
+    setIsDomainSaved(false);
+    return;
+  }
+
+   try {
+    // Clear previous error
+    setDomainError("");
+     if (!selectedBot?.id) {
+          console.error("Bot ID is missing.");
+          return;
+        }
+
+    // 🔁 Call API to update domain in backend
+    await authApi.updateBotDomain(selectedBot?.id, trimmedDomain);
+    toast.success("Domain Saved Successfully");
+
+    // ✅ Indicate success
+    setIsDomainSaved(true);
+    
+  } catch (error) {
+    console.error("Failed to save domain:", error);
+    setDomainError("Failed to save domain. Please try again.");
+    setIsDomainSaved(false);
+  }
+};
 
   if (!selectedBot) {
     return (
@@ -159,31 +218,96 @@ export const ScriptGeneratePage = () => {
   }
 
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-4 text-white">Copy Script</h2>
-      <textarea
-        value={scriptContent}
+    
+    <div className="p-4 text-white" >
+      
+    <ToastContainer position="top-right" autoClose={5000} />
+    <h2 className="text-xl font-bold mb-7"> Bot Name: {selectedBot.name}</h2>
+    <h3 className="text-xl font-bold mb-2">DIRECT LINK </h3>
+    <p className="mb-2 text-sm">
+      Share access to your chatbot by using the link below:
+    </p>
+    <div className="flex items-center gap-2 mb-4">
+      <input
+        type="text"
         readOnly
-        rows={6}
-        className="w-full p-2 border border-gray-300 rounded-lg bg-gray-100 text-sm"
+        value={`${VITE_API_URL.replace(/\/$/, "")}/embed-full/${token}`}
+        className="flex-1 p-2 border border-gray-300 rounded-lg bg-gray-800 text-white text-sm"
       />
-      <div className="flex items-center gap-2 mt-2">
-        <button
-          onClick={handleCopy}
-          className="px-4 py-2 rounded-lg transition-colors bg-blue-500 hover:bg-blue-600 text-white"
-        >
-          Copy to Clipboard
-        </button>
-        {copySuccess && <span className="text-green-600">{copySuccess}</span>}
-      </div>
-      {/* <button
-        onClick={() => navigate("/")}
-        className="mt-4 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(
+            `${VITE_API_URL.replace(/\/$/, "")}/embed-full/${token}`
+          );
+          toast.success("Link copied!");
+        }}
+        className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
       >
-        Go Back
-      </button> */}
+        Copy Link
+      </button>
+    </div>
+    <p></p>
+    <p></p>
+    <p></p>
+      <h3 className="text-xl font-bold mb-2">ADD TO A WEBSITE</h3>
+
+      <div className="mb-4">
+      <p className="mb-2 text-sm">Website you would like the widget to be placed:</p>
+      <div className="flex gap-2 items-center">
+        <input
+          type="text"
+          value={domain}
+          onChange={(e) => {
+            setDomain(e.target.value);
+            setDomainError("");
+          }}
+          placeholder="e.g., https://example.com"
+          className="flex-1 p-2 border border-gray-300 rounded-lg bg-gray-700 text-white placeholder-gray-300"
+        />
+        <button
+          onClick={handleSaveDomain}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          Save Domain
+        </button>
+      </div>
+      {domainError && (
+        <p className="text-red-400 text-sm mt-1">{domainError}</p>
+      )}
+    </div>
+
+      
+
+      {isDomainSaved && (
+  <>
+    {/* 1) ADD THE DIRECT LINK SECTION */}
+    
+
+    {/* 2) RENAME “Copy Script” → “Add to a Website” and update copy text */}
+    
+    <p className="mb-2 text-sm">
+      Add the code below to your Website:
+    </p>
+    <textarea
+      value={scriptContent}
+      readOnly
+      rows={6}
+      className="w-full p-2 border border-gray-300 rounded-lg bg-gray-800 text-white text-sm mb-2"
+    />
+    <div className="flex items-center gap-2">
+      <button
+        onClick={handleCopy}
+        className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+      >
+        Copy Code
+      </button>
+      {copySuccess && <span className="text-blue-400">{copySuccess}</span>}
+    </div>
+  </>
+)}
     </div>
   );
 };
+
 
 export default ScriptGeneratePage;

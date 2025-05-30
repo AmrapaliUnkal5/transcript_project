@@ -2,9 +2,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { authApi } from "../services/api";
 
+
 export const TeamInvitation = () => {
   const { invitation_token } = useParams<{ invitation_token: string }>();
   const navigate = useNavigate();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [status, setStatus] = useState<
     "idle" | "loading" | "error" | "success"
@@ -25,12 +27,14 @@ export const TeamInvitation = () => {
       await authApi.respondToInvitation(invitation_token, response);
       setStatus("success");
       setTimeout(() => {
-        navigate("/dashboard"); // or '/teams'
+        navigate("/login"); // or '/teams'
       }, 2000);
-    } catch (error) {
-      console.error(error);
-      setStatus("error");
-    }
+    } catch (error: any) {
+        console.error(error);
+        const backendMessage = error?.response?.data?.detail || "Failed to process invitation. Please try again.";
+        setErrorMessage(backendMessage);
+        setStatus("error");
+      }
   };
 
   if (!invitation_token) {
@@ -78,11 +82,11 @@ export const TeamInvitation = () => {
           </div>
         )}
 
-        {status === "error" && (
-          <div className="text-center text-red-500">
-            Failed to process invitation. Please try again.
-          </div>
-        )}
+        {status === "error" && errorMessage && (
+      <div className="text-center text-red-500">
+        {errorMessage}
+      </div>
+      )}
       </div>
     </div>
   );
