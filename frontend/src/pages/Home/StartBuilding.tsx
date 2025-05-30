@@ -21,7 +21,7 @@ export default function StartBuilding() {
       <Typography 
         variant='h2' 
         fontWeight={600} 
-        fontSize={['32px', '60px']} 
+        fontSize={['30px', '54px']} 
         color='#fff'
         textAlign={'center'}
         sx={{
@@ -30,14 +30,14 @@ export default function StartBuilding() {
             textFillColor: 'transparent',
           }}
     >
-        Start building your AI agents
+        Start building your AI Bots
       </Typography>
       <Typography 
         variant='h5'
         fontWeight={400} 
         fontSize={['16px', '20px']} 
         color='#DDDDDD' 
-        mb={4} 
+        mb={3} 
         textAlign={'center'}
     >
         Build, personalize, and deploy AI-powered chatbots effortlessly
@@ -51,8 +51,8 @@ export default function StartBuilding() {
           fontSize: '18px',
           fontWeight: 600,
           borderRadius: '40px',
-          height: '62px',
-          minWidth: '220px',
+          height: ['42px','62px'],
+          minWidth: ['194px','220px'],
           textTransform: 'capitalize',
           borderColor: '#F4F4F6',
           color: '#363636',

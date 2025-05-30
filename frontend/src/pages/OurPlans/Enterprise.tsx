@@ -10,7 +10,7 @@ import {
 
 export const Enterprise = () => {
   return (
-    <Box color={"#fff"} px={2} py={5} sx={{ backgroundColor: "#101035" }}>
+    <Box color={"#fff"} px={2} sx={{ backgroundColor: "#101035" }}>
       <Container maxWidth="lg" disableGutters>
         <Box
           px={[2, 6]}
@@ -19,6 +19,7 @@ export const Enterprise = () => {
           pb={18}
           border={"solid 1.5px #8B96D661"}
           borderRadius={"20px"}
+          maxWidth={"1134px"}
           sx={{
             background:
               "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
@@ -38,40 +39,40 @@ export const Enterprise = () => {
             textAlign="center"
             mb={6}
           >
-            Get Advanced custom features with Our Enterprise plan
+            Get Advanced Custom Features With Our Enterprise plan
           </Typography>
-       
 
-
-
-
-
-          <Box display="flex" alignItems="center" justifyContent="center" gap={1} mb={[4, 8]}>
-  <StyledImage
-    src="/images/icons/icon-add-circle.png" // Replace with your logo path
-    sx={{
-      width: "25px",
-      height: "25px",
-    }}
-  />
-  <Typography
-    variant="h6"
-    color="#AFAFAF"
-    fontWeight={400}
-    fontSize="20px"
-    textAlign="center"
-    lineHeight={1.4}
-     sx={{
-    background: "linear-gradient(90deg, #FFF0E0, #D2B390, #FFF0E0)",
-    backgroundClip: "text",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-  }}
-  >
-   All features from Professional Plan
-  </Typography>
-</Box>
-
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            gap={1}
+            mb={[4, 8]}
+          >
+            <StyledImage
+              src="/images/icons/icon-add-circle.png" // Replace with your logo path
+              sx={{
+                width: "25px",
+                height: "25px",
+              }}
+            />
+            <Typography
+              variant="h6"
+              color="#AFAFAF"
+              fontWeight={400}
+             fontSize={["16px", "20px"]}// Adjust the font size for different screen sizes using a responsive approach"20px"
+              textAlign="center"
+              lineHeight={1.4}
+              sx={{
+                background: "linear-gradient(90deg, #FFF0E0, #D2B390, #FFF0E0)",
+                backgroundClip: "text",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
+              All features from Professional Plan
+            </Typography>
+          </Box>
 
           <Box>
             <Grid
@@ -336,8 +337,8 @@ export const Enterprise = () => {
               bottom: "1px",
               left: 0,
               right: 0,
-             // background:
-               // "linear-gradient(180deg, rgba(39, 22, 78, 0.06) 0%, rgba(27, 14, 59, 0.758706) 23.83%, #170B33 96.63%)",
+              // background:
+              // "linear-gradient(180deg, rgba(39, 22, 78, 0.06) 0%, rgba(27, 14, 59, 0.758706) 23.83%, #170B33 96.63%)",
             }}
           >
             <Button
@@ -353,8 +354,7 @@ export const Enterprise = () => {
                 color: "#363637",
                 textTransform: "capitalize",
                 mt: 4,
-               background: "linear-gradient(180deg, #F4F4F6 0%, #7C7C7C 100%)"
-
+                background: "linear-gradient(180deg, #F4F4F6 0%, #7C7C7C 100%)",
               }}
             >
               Contact Sales

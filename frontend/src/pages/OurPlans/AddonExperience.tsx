@@ -17,8 +17,7 @@ export default function AddonExperience() {
       alignItems={"center"}
       gap={2}
       color={"#fff"}
-      px={2}
-      py={5}
+      px={[1,2]}
       sx={{ backgroundColor: "#101035" }}
     >
       <Container maxWidth="lg">
@@ -100,7 +99,7 @@ export default function AddonExperience() {
                         lineHeight={1.5}
                         mb={1}
                       >
-                        $5
+                        $9.99
                       </Typography>
                       <Typography
                         variant="h6"

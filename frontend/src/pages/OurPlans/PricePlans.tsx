@@ -20,10 +20,11 @@ export default function PricePlans() {
         justifyContent={"center"}
         alignItems={"center"}
         gap={2}
+        
         color={"#fff"}
         py={5}
         sx={{
-         // backgroundColor: "#101035",
+          // backgroundColor: "#101035",
           xs: "324px", // phones
           md: "508px",
         }}
@@ -44,8 +45,11 @@ export default function PricePlans() {
                   border={"solid 1.5px #29277C"}
                   borderRadius={3}
                   sx={{
-                    background:
-                      "linear-gradient(148.01deg, #070417)",
+                    background: {
+                      base: "linear-gradient(148.01deg, #172041 64.39%, #1D1C56 38.52%)",
+                      md: "linear-gradient(148.01deg, #070417)",
+                    },
+                     // to visually confirm boundaries
                   }}
                 >
                   <Typography
@@ -69,11 +73,11 @@ export default function PricePlans() {
                       lineHeight={1.5}
                       mb={1}
                     >
-                      $14.99
+                      $0
                     </Typography>
                     <Typography variant="h6" fontWeight={"400"}>
                       {" "}
-                      /month
+                      (30 days)
                     </Typography>
                   </Box>
 
@@ -91,6 +95,7 @@ export default function PricePlans() {
                         border: "1px solid", // 1px solid border
                         borderColor: "currentColor", // border color same as text color
                         borderRadius: "40px",
+                        textTransform: "none",
 
                         mb: 4,
                       }}
@@ -175,11 +180,13 @@ export default function PricePlans() {
                   pt={"30px"}
                   pb={"56px"}
                   minHeight={480}
-                  border={"solid 1.5px linear-gradient(148.01deg, #4644B3 74.39%, #000000 78.52%) "}
+                  border={
+                    "solid 1.5px linear-gradient(148.01deg, #4644B3 74.39%, #000000 78.52%) "
+                  }
                   borderRadius={3}
                   sx={{
                     background:
-                      "linear-gradient(148.01deg, #172041 54.39%, #1D1C56 78.52%)",
+                      "linear-gradient(148.01deg, #172041 84.39%, #1D1C56 38.52%)",
                   }}
                 >
                   <Typography
@@ -226,6 +233,7 @@ export default function PricePlans() {
                         border: "1px solid", // 1px solid border
                         borderColor: "currentColor", // border color same as text color
                         borderRadius: "40px",
+                        textTransform: "none",
 
                         mb: 4,
                       }}
@@ -398,6 +406,7 @@ export default function PricePlans() {
                         border: "1px solid", // 1px solid border
                         borderColor: "currentColor", // border color same as text color
                         borderRadius: "40px",
+                        textTransform: "none",
 
                         mb: 4,
                       }}
@@ -481,7 +490,9 @@ export default function PricePlans() {
                   pt={"30px"}
                   pb={"56px"}
                   minHeight={480}
-                  border={"solid 1.5px  linear-gradient(148.01deg, #4644B3 80.39%, #000000 40.52%) "}
+                  border={
+                    "solid 1.5px  linear-gradient(148.01deg, #4644B3 80.39%, #000000 40.52%) "
+                  }
                   borderRadius={3}
                   sx={{
                     background:
@@ -526,6 +537,7 @@ export default function PricePlans() {
                         padding: "16px 34px",
                         gap: "6px",
                         backgroundColor: "transparent",
+                        textTransform: "none",
 
                         color: "inherit",
                         border: "1px solid", // 1px solid border
@@ -615,12 +627,13 @@ export default function PricePlans() {
               variant="text"
               sx={{
                 width: "100%",
-                fontSize: "18px",
+                height: "27px",
+                fontSize: "22px",
                 textDecoration: "underline",
                 fontWeight: 400,
                 color: "#FFF",
                 textTransform: "none",
-                mt: 2,
+                mt: "4px",
               }}
             >
               Compare all features{" "}

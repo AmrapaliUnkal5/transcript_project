@@ -63,7 +63,7 @@ export default function FAQ() {
         gap={2}
         color={'#fff'}
         px={2}
-        py={8}
+        py={5}
         sx={{ backgroundColor: '#101035' }}
       >
         <Container maxWidth='lg'>
@@ -85,10 +85,11 @@ export default function FAQ() {
                 background: '-webkit-linear-gradient(#FFF, #959595)',
                 backgroundClip: 'text',
                 textFillColor: 'transparent',
+                mb:"2px" //doing this for alignment according to figma layout overlay
               }}
               textAlign={'center'}
             >
-              Frequently Asked Questions
+              We are here to help
             </Typography>
           </Box>
 
@@ -213,7 +214,7 @@ export default function FAQ() {
             </Accordion>
           </Box>
           <Box display={'flex'} justifyContent={'center'} my={5}>
-            <Button
+            {/* <Button
               variant='outlined'
               size='large'
               sx={{
@@ -228,7 +229,7 @@ export default function FAQ() {
               }}
             >
               More FAQs
-            </Button>
+            </Button> */}
           </Box>
         </Container>
       </Box>
