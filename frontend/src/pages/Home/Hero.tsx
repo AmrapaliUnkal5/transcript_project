@@ -95,11 +95,11 @@ export default function Hero() {
               >
                 <Typical
                   steps={[
-                    "on your website content",
+                    " website content",
                     2000,
-                    "on documents",
+                    "documents",
                     2000,
-                    "on videos",
+                    "videos",
                     2000,
                     "and more",
                     2000,
