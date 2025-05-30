@@ -99,7 +99,7 @@ export const NotificationDropdown = () => {
   title="Notifications"
 >
   <img
-    src="/public/images/dummy/notifications.png"
+    src="/images/dummy/notifications.png"
     alt="Notifications"
      className="w-7 h-7"
   />
