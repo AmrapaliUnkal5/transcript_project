@@ -447,6 +447,7 @@ class LLMManager:
                 # Create system message based on external_knowledge flag
                 system_content = (
                     "You are a helpful assistant. Answer the user's question based on the provided context. "
+                    "Respond in no more than 15 short, clear sentences. "
                     "If the context doesn't contain relevant information, "
                 )
                 
@@ -477,7 +478,7 @@ class LLMManager:
                         {"role": "user", "content": user_content}
                     ],
                     temperature=temperature,
-                    max_tokens=250
+                    max_tokens=300
                 )
                 return response.choices[0].message.content
                 
