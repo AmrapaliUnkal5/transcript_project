@@ -332,12 +332,16 @@ const SubscriptionScrape: React.FC = () => {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="bg-white  p-6"
+  style={{
+    border: '1px solid #DFDFDF',
+    borderRadius: '13px'
+  }}>
       {/* <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
         Website
       </h1> */}
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+      <div className="">
         {/* Show only if save operation was completed */}
         {isSaved && successMessages.length > 0 && (
           <div className="mb-2">
@@ -350,34 +354,75 @@ const SubscriptionScrape: React.FC = () => {
         )}
 
         {isProcessing && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-start space-x-2">
-            <Info size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-start space-x-2  ">
+            <Info size={18} className="text-blue-500 flex-shrink-0 mt-0.5 "  />
             <p className="text-sm text-blue-700">
               Your website content is being prepared. You'll receive a notification when it's ready to use.
             </p>
           </div>
         )}
 
-        <div className="flex items-center space-x-2">
-          {" "}
-          <input
+
+        <h1
+  style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "20px",
+    color: "#333333",
+    fontWeight: "bold",
+    marginBottom: "20px",
+    
+    
+  }}
+>
+  Manage Websites
+</h1>
+
+        <div className="flex items-center space-x-2 w-4/5  ">
+          
+          {/* <input
             type="text"
-            placeholder="Enter website URL"
+            placeholder="Website URL"
             value={websiteUrl}
             onChange={(e) => setWebsiteUrl(e.target.value)}
             className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
             disabled={loading || isProcessing}
-          />
+          /> */}
+
+
+          <input
+  type="text"
+  placeholder="Website URL"
+  value={websiteUrl}
+  onChange={(e) => setWebsiteUrl(e.target.value)}
+  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500  "
+  style={{
+    fontFamily: 'Instrument Sans, sans-serif',
+  }}
+  disabled={loading || isProcessing}
+/>
+
           <button
-            onClick={handleFetchNodes}
-            className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!websiteUrl || loading || isProcessing}
-          >
-            Submit
-          </button>
+  onClick={handleFetchNodes}
+  className="ml-2 flex items-center justify-center disabled:opacity-80 disabled:cursor-not-allowed"
+  style={{
+    backgroundColor: "#5348CB",
+    fontFamily: 'Instrument Sans, sans-serif',
+    fontSize: '12px',
+    fontWeight: 600,
+    color: 'white',
+    minWidth: '102px',
+    width: '140px',
+    height: '40px', 
+    textAlign: 'center',
+    borderRadius: '0.375rem', // same as rounded-md
+  }}
+  disabled={!websiteUrl || loading || isProcessing}
+>
+  Fetch Pages
+</button>
         </div>
 
-        <p className="text-xs text-gray-500 mt-1 italic">
+        {/* <p className="text-xs text-gray-500 mt-1 italic">
           {(() => {
             const limit = getWebsiteLimit(user.subscription_plan_id);
             if (user.subscription_plan_id === 1) {
@@ -388,7 +433,24 @@ const SubscriptionScrape: React.FC = () => {
               return `You can scrape up to ${limit} websites with your current plan. Enter a URL and click Submit`;
             }
           })()}
-        </p>
+        </p> */}
+
+        <p
+  className="text-xs text-gray-500 mt-1 italic mb-5"
+  style={{ fontFamily: 'Instrument Sans, sans-serif' }}
+>
+  {(() => {
+    const limit = getWebsiteLimit(user.subscription_plan_id);
+    if (user.subscription_plan_id === 1) {
+      return "You can scrape only 1 website with the Free Plan. Enter a URL and click Submit";
+    } else if (limit === Infinity) {
+      return "You can scrape multiple websites with your current plan. Enter a URL and click Submit";
+    } else {
+      return `You can scrape up to ${limit} websites with your current plan. Enter a URL and click Submit`;
+    }
+  })()}
+</p>
+
       </div>
       {nodes.length > 0 && !isProcessing && (
         <div className="mt-4">
@@ -472,21 +534,32 @@ const SubscriptionScrape: React.FC = () => {
       ) : scrapedUrls.length === 0 ? (
         <p className="text-center text-gray-500"></p>
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Scraped Website URLs
-            </h2>
+        <div className="bg-white ">
+          <div className="pl-0 p-4 ">
+            <h2
+  style={{
+    fontFamily: 'Instrument Sans, sans-serif',
+    fontSize: '18px',
+    fontWeight: 600,
+    color: '#1A1A1A', // equivalent to Tailwind's text-gray-900
+  }}
+>Scraped websites
+</h2>
+
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
+          <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md "
+  style={{
+    border: '1px solid #DFDFDF',
+    borderRadius: '13px'
+  }}>
+            <table className="w-full ">
+              {/* <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700">
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     S.No
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Title
+                    Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     URL
@@ -495,21 +568,84 @@ const SubscriptionScrape: React.FC = () => {
                     Actions
                   </th>
                 </tr>
-              </thead>
+              </thead> */}
+
+              <thead>
+  <tr style={{ backgroundColor: '#EFF0FF' }}>
+    <th
+      className="px-6 py-3 text-left uppercase tracking-wider "
+      style={{
+        fontFamily: 'Instrument Sans, sans-serif',
+        fontSize: '16px',
+        fontWeight: 600,
+        color: '#333333', 
+        textTransform:'none'
+      }}
+    >
+      S.No.
+    </th>
+    <th
+      className="px-6 py-3 text-left uppercase tracking-wider"
+      style={{
+        fontFamily: 'Instrument Sans, sans-serif',
+        fontSize: '16px',
+        fontWeight: 600,
+        color: '#333333',
+        textTransform:'none'
+      }}
+    >
+      Name
+    </th>
+    <th
+      className="px-6 py-3 text-left uppercase tracking-wider"
+      style={{
+        fontFamily: 'Instrument Sans, sans-serif',
+        fontSize: '16px',
+        fontWeight: 600,
+        color: '#333333',
+        textTransform:'none'
+      }}
+    >
+      URL
+    </th>
+    <th
+      className="px-6 py-3 text-right uppercase tracking-wider"
+      style={{
+        fontFamily: 'Instrument Sans, sans-serif',
+        fontSize: '16px',
+        fontWeight: 600,
+        color: '#333333',
+        textTransform:'none'
+      }}
+    >
+      Actions
+    </th>
+  </tr>
+</thead>
+
               <tbody>
                 {scrapedUrls.map((item, index) => (
                   <tr
                     key={item.id}
-                    className="text-gray-700 dark:text-gray-300"
+                    className="text-gray-700 "
                   >
-                    <td className="border border-gray-300 px-4 py-2 text-center">
+                    <td className=" px-4 py-2 text-center">
                       {index + 1}
                     </td>
-                    <td className="border border-gray-300 px-4 py-2 text-gray-900 dark:text-gray-200">
+                    <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
+                    style={{ fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '14px',
+                       color: '#333333',
+                     }}>
+                      
                       {item.title || "No Title"}{" "}
                       {/* ✅ Display Title with Fallback */}
                     </td>
-                    <td className="border border-gray-300 px-4 py-2">
+                    <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
+                    style={{ fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '14px',
+                       color: '#333333',
+                     }}>
                       <a
                         href={item.url}
                         target="_blank"
@@ -519,7 +655,7 @@ const SubscriptionScrape: React.FC = () => {
                         {item.url}
                       </a>
                     </td>
-                    <td className="border border-gray-300 px-4 py-2 text-center">
+                    <td className=" px-4 py-2 text-center">
                       <button
                         onClick={() => handleDeleteClick(item.url)}
                         className="text-red-600 hover:text-red-900 dark:hover:text-red-400"

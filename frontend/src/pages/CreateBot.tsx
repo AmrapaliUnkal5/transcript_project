@@ -1119,12 +1119,12 @@ export const CreateBot = () => {
                     className="h-2.5 rounded-full"
                     style={{
                       width: `${usagePercentage}%`,
-                      backgroundColor:
+                      background:
                         remainingWords <= 0
                           ? "#ef4444"
                           : remainingWords < userUsage.planLimit * 0.2
                           ? "#f59e0b"
-                          : "#10b981",
+                          : "linear-gradient(to right, #665AD7, #9D9CFF)",
                     }}
                   ></div>
                 </div>
@@ -1183,12 +1183,12 @@ export const CreateBot = () => {
                     className="h-2.5 rounded-full"
                     style={{
                       width: `${storageUsagePercentage}%`,
-                      backgroundColor:
+                      background:
                         remainingStorage <= 0
                           ? "#ef4444"
                           : remainingStorage < userUsage.storageLimit * 0.2
                           ? "#f59e0b"
-                          : "#10b981",
+                          : "linear-gradient(to right, #665AD7, #9D9CFF)",
                     }}
                   ></div>
                 </div>
@@ -1364,7 +1364,7 @@ export const CreateBot = () => {
               >
                 Add YouTube videos
               </h2>
-              <p
+              {/* <p
                 className="text-gray-700 dark:text-gray-300"
                 style={{
                   fontSize: "14px",
@@ -1375,11 +1375,11 @@ export const CreateBot = () => {
                 }}
               >
                 Import videos from YouTube
-              </p>
+              </p> */}
               {/* This container holds both the uploader and overlay */}
               <div className="min-h-[100px] mb-10 ">
                 <YouTubeUploader maxVideos={5} />
-                <p
+                {/* <p
                   className="mb-2 mt-2"
                   style={{
                     fontSize: "14px",
@@ -1389,7 +1389,7 @@ export const CreateBot = () => {
                   }}
                 >
                   Enter YouTube video or playlist URL
-                </p>
+                </p> */}
 
                 {/* Show upgrade message only for plans 1 and 2 */}
                 {[1, 2].includes(user.subscription_plan_id) && (

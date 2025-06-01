@@ -321,26 +321,76 @@ const [activeFAQIndex, setActiveFAQIndex] = useState(null);
   };
 
 
+// const renderCustomLegend2 = (props: any) => {
+//   const { payload } = props;
+
+//   return (
+//     <div className="flex justify-center gap-8 mt-4">
+//       {payload.map((entry: any, index: number) => (
+//         <div key={`item-${index}`} className="flex items-center space-x-2">
+//           <div
+//             className="w-3 h-3 rounded"
+//             style={{ backgroundColor: entry.color }}
+//           ></div>
+//           <span className="text-sm font-medium text-gray-800 dark:text-white">
+//             {entry.value} ({(entry.payload.percent * 100).toFixed(0)}%)
+//           </span>
+//         </div>
+//       ))}
+//     </div>
+//   );
+// };
+
 const renderCustomLegend2 = (props: any) => {
   const { payload } = props;
 
   return (
     <div className="flex justify-center gap-8 mt-4">
-      {payload.map((entry: any, index: number) => (
-        <div key={`item-${index}`} className="flex items-center space-x-2">
-          <div
-            className="w-3 h-3 rounded"
-            style={{ backgroundColor: entry.color }}
-          ></div>
-          <span className="text-sm font-medium text-gray-800 dark:text-white">
-            {entry.value} ({(entry.payload.percent * 100).toFixed(0)}%)
-          </span>
-        </div>
-      ))}
+      {payload.map((entry: any, index: number) => {
+        // Use entry.payload.name instead of entry.value
+        const rawName = entry.payload.name;
+        const displayName =
+          rawName === "Likes" ? "Positive" :
+          rawName === "Dislikes" ? "Negative" :
+          rawName;
+
+        // entry.payload.percent if you have percent on payload
+        const percent =
+          entry.payload.percent != null
+            ? entry.payload.percent * 100
+            : ((entry.payload.value / 
+               payload.reduce((sum, e) => sum + e.payload.value, 0)) * 100);
+
+        return (
+          <div key={`item-${index}`} className="flex items-center space-x-2 ">
+            <div
+              className="w-3 h-3 rounded"
+              style={{ backgroundColor: entry.color }}
+            />
+           
+            {/* <span className="" >
+    {displayName}
+    {displayName === "Positive" && ` (${percent.toFixed(0)}%)`}
+  </span> */}
+
+
+  <span
+  style={{
+    color: displayName === "Positive" ? "#51B13A" : "#E35858",
+    fontSize: "15px",
+    fontFamily: "Instrument Sans, sans-serif",
+    fontWeight: 500,
+  }}
+>
+  {displayName}
+  {displayName === "Positive" && ` (${percent.toFixed(0)}%)`}
+</span>
+          </div>
+        );
+      })}
     </div>
   );
 };
-
 
 
 
@@ -351,6 +401,9 @@ const renderCustomLegend2 = (props: any) => {
       (_, i) => shortDaysOfWeek[(todayIndex - 6 + i + 7) % 7]
     );
   };
+
+
+  
 
   const fetchWordCloudData = async () => {
   if (!selectedBot?.id) return;
@@ -406,16 +459,37 @@ const renderCustomLegend2 = (props: any) => {
           Go to Home
         </button>
       </div>
+
+
+
+
     );
   }
+
+
+
 
   return (
     <div className="space-y-6 p-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Performance Metrics : {selectedBot.name}
-        </h1>
+        {/* <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Analytics : {selectedBot.name}
+        </h1> */}
+        <h1
+  style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "24px",
+    color: "#333333",
+    fontWeight: "bold",
+  }}
+>
+  Analytics : {selectedBot.name}
+</h1>
 </div>
+
+
+
+
 
 
       <div className="relative">
@@ -425,26 +499,31 @@ const renderCustomLegend2 = (props: any) => {
           }`}
         >
           {/* Weekly Conversations Chart */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
+  style={{
+    border: '1px solid #DFDFDF',
+    borderRadius: '13px'
+  }}>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
            User Messages Trend – Last 7 Days
             </h2>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={conversationData}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                   <CartesianGrid stroke="#E0E0E0" strokeOpacity={0.6} strokeDasharray="3 3" />
                   <XAxis
                     dataKey="day"
-                    angle={-45}
+                    angle={-40}
                     textAnchor="end"
-                    height={70}
+                    height={100}
+                    tick={{ fill: '#1a1a1a' }}
                   />
-                  <YAxis domain={[0, "dataMax + 1"]} allowDecimals={false} />
+                  <YAxis domain={[0, "dataMax + 1"]} allowDecimals={false}  tick={{ fill: '#1a1a1a' }}/>
                   <Tooltip />
                   <Legend />
                   <Bar
                     dataKey="count"
-                    fill="#2196F3"
+                    fill="#615FE4"
                     name="Total Conversations"
                   />
                 </BarChart>
@@ -488,21 +567,28 @@ const renderCustomLegend2 = (props: any) => {
           </div> */}
 
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <div  className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
+  style={{
+    border: '1px solid #DFDFDF',
+    borderRadius: '13px'
+  }}>
   <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
     Daily Average Chat Duration – Last 7 Days
   </h2>
-  <div className="h-80">
+  {/* <div className="h-80">
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={timeSpentData}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="day" angle={-20} textAnchor="end" />
+        <CartesianGrid stroke="#E0E0E0" strokeOpacity={0.6} strokeDasharray="3 3" />
+        <XAxis dataKey="day" angle={-20} textAnchor="end" tick={{ fill: '#1a1a1a' }} />
         <YAxis
           label={{
             value: "Minutes",
             angle: -90,
             position: "insideLeft",
-          }}
+            fontsize:10,
+            fill: '#666666', 
+            }}
+            tick={{ fill: '#1a1a1a' }}
         />
         <Tooltip
           formatter={(value: number) => [
@@ -510,23 +596,58 @@ const renderCustomLegend2 = (props: any) => {
             "Avg Time Spent",
           ]}
         />
-        {/* <Legend /> */}
+       
         <Legend content={renderCustomLegend} />
 
         <Area
           type="monotone"
           dataKey="average_time_spent"
           stroke="#4CAF50"
-          fill="#81C784" // lighter green fill
+          fill="#81C784" 
           name="Avg Time Spent (s)"
         />
       </AreaChart>
     </ResponsiveContainer>
-  </div>
+  </div> */}
+
+  <div className="h-80 px-2 pb-2 pt-1">
+  <ResponsiveContainer width="100%" height="100%">
+    <AreaChart data={timeSpentData}>
+      <CartesianGrid stroke="#E0E0E0" strokeOpacity={0.6} strokeDasharray="3 3" />
+      <XAxis dataKey="day" angle={-20} textAnchor="end" tick={{ fill: '#1a1a1a' }} />
+      <YAxis
+        label={{
+          value: "Minutes",
+          angle: -90,
+          position: "insideLeft",
+          fontSize: 10,
+          fill: '#666666',
+        }}
+        tick={{ fill: '#1a1a1a' }}
+      />
+      <Tooltip
+        formatter={(value: number) => [`${value} min`, "Avg Time Spent"]}
+      />
+      <Legend content={renderCustomLegend} />
+      <Area
+        type="linear"
+        dataKey="average_time_spent"
+        stroke="#4CAF50"
+        fill="rgba(129, 199, 132, 0.2)"  // Light green shade with transparency
+        name="Avg Time Spent (s)"
+      />
+    </AreaChart>
+  </ResponsiveContainer>
+</div>
+
 </div>
 
           {/* User Satisfaction Chart */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <div  className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
+  style={{
+    border: '1px solid #DFDFDF',
+    borderRadius: '13px'
+  }}>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             User Feedback – Last 7 Days
             </h2>
@@ -538,9 +659,7 @@ const renderCustomLegend2 = (props: any) => {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) =>
-                      `${name} (${(percent * 100).toFixed(0)}%)`
-                    }
+                  
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -562,7 +681,11 @@ const renderCustomLegend2 = (props: any) => {
           </div>
 
           {/* Detailed Metrics Table */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 " >
+          <div   className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
+  style={{
+    border: '1px solid #DFDFDF',
+    borderRadius: '13px'
+  }} >
             <h2 className=" mb-4"  
               style={{
     fontFamily: "Instrument Sans, sans-serif",
@@ -578,15 +701,18 @@ const renderCustomLegend2 = (props: any) => {
               }`}
             >
              <table
-  className="w-full"
+   className="w-full"
+  
   style={{
-    border: "1px solid red",
-    borderRadius: "200px",
-  }}
+    border: '1px solid #DFDFDF',
+    borderRadius: '13px',
+     borderCollapse: 'separate', // <- important!
+    overflow: 'hidden' 
+  }} 
 >
 
                 <thead>
-                  <tr className=" border border-red-500"  style={{ backgroundColor: "#EFF0FF",}}>
+                  <tr className=" border border-red-500"  style={{ backgroundColor: "#EFF0FF",height: "57px"}}>
                     <th className="px-6 py-3 0 text-left " style={{   lineHeight:'24px',fontFamily: "Instrument Sans, sans-serif",fontSize: "16px",fontWeight: 600,color: "#333333"}}>
                       Metric
                     </th>
@@ -624,12 +750,24 @@ const renderCustomLegend2 = (props: any) => {
                   ].map((item) => (
                     <tr
                       key={item.metric}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 " style={{   lineHeight:'26px',fontFamily: "Instrument Sans, sans-serif",fontSize: "14px",fontWeight: 400,color: "#333333"}}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 " style={{   lineHeight:'26px',fontFamily: "Instrument Sans, sans-serif",fontSize: "16px",fontWeight: 400,color: "#333333"}}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white" style={{
+      lineHeight: '26px',
+      fontFamily: "Instrument Sans, sans-serif",
+      fontSize: "14px",
+      fontWeight: 400,
+      color: "#333333",
+    }}>
                         {item.metric}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" style={{
+      lineHeight: '26px',
+      fontFamily: "Instrument Sans, sans-serif",
+      fontSize: "14px",
+      fontWeight: 400,
+      color: "#333333",
+    }}>
                         {item.value}
                       </td>
                       {/* <td
@@ -710,7 +848,11 @@ const renderCustomLegend2 = (props: any) => {
           </div>
           <div className="flex flex-col w-full">
 
- <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 w-full mt-4">
+ <div  className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-4"
+  style={{
+    border: '1px solid #DFDFDF',
+    borderRadius: '13px'
+  }}>
       <h2
         className="text-lg font-semibold text-gray-900 dark:text-white mb-4"
         style={{ fontFamily: "Instrument Sans", fontWeight: 600 }}
@@ -761,14 +903,29 @@ const renderCustomLegend2 = (props: any) => {
       </div>
 
       {faqData.length > 5 && (
+        // <div className="flex justify-center mt-6">
+        //   <button
+        //     onClick={() => setShowAllFAQs(!showAllFAQs)}
+        //     className="text-[#5348CB] font-medium underline hover:no-underline"
+        //   >
+        //     {showAllFAQs ? "View Less" : "View More"}
+        //   </button>
+        // </div>
+
         <div className="flex justify-center mt-6">
-          <button
-            onClick={() => setShowAllFAQs(!showAllFAQs)}
-            className="text-[#5348CB] font-medium underline hover:no-underline"
-          >
-            {showAllFAQs ? "View Less" : "View More"}
-          </button>
-        </div>
+  <button
+    onClick={() => setShowAllFAQs(!showAllFAQs)}
+    className="flex items-center justify-center gap-2 border border-[#5348CB] rounded-[12px] min-w-[102px] w-[153px] h-[48px] font-semibold text-[16px] text-[#5348CB] font-['Instrument_Sans']"
+  >
+    <img
+      src="/images/dummy/view-more.png" // Replace with your actual image path
+      alt="icon"
+      className="w-4 h-4"
+    />
+    {showAllFAQs ? "View Less" : "View More"}
+  </button>
+</div>
+
       )}
 
       {!hasAdvancedAnalytics && (
@@ -782,7 +939,11 @@ const renderCustomLegend2 = (props: any) => {
     </div>
 
         {/* Word Cloud Chart - 6th graph */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 h-[420px] w-full mt-4">
+          <div  className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-4"
+  style={{
+    border: '1px solid #DFDFDF',
+    borderRadius: '13px'
+  }}>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Word Cloud
             </h2>
