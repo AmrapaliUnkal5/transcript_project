@@ -61,7 +61,7 @@ export default function ConversationForm() {
               
                 <Box display={"flex"} mb="31px">
                   <StyledImage
-                    src="/images/icons/icon-call.png"
+                    src="/images/icon-call.png"
                     sx={{ width: 28, height: 28, color: "#BAB8FF",mr:2}}
                   />
                   <Typography variant="body1" fontSize={16} color={"#cacaca"}>
@@ -70,7 +70,7 @@ export default function ConversationForm() {
                 </Box>
                 <Box display={"flex"}  mb="31px">
                   <StyledImage
-                    src="/images/icons/icon-mail.png"
+                    src="/images/icon-mail.png"
                     sx={{ width: 28, height: 28, color: "#BAB8FF",mr:2 }}
                   />
                   <Typography variant="body1"  fontSize={16} color={"#cacaca"}>
@@ -80,7 +80,7 @@ export default function ConversationForm() {
                 <Box 
                 display={{ xs: "none", md: "flex" }} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-location-on.png"
+                    src="/images/icon-location-on.png"
                     sx={{ width: 28, height: 28, color: "#BAB8FF",mr:2 }}
                   />
 
