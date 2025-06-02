@@ -133,7 +133,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         "/cancellation-refund-policy",
         "/data-deletion",
         "/terms-of-service",
-        "/contact-us"
+        "/contact-us",
+        "/faq-page"
       ];
 
       const isAllowed =

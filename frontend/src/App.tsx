@@ -41,12 +41,15 @@ import DataDeletion from "./pages/DataDeletion/index.tsx";
 import CancellationRefundPolicy from "./pages/CancellationAndRefund/index.tsx";
 import TermsService from "./pages/TermsOfService/index.tsx";
 import Privacy from "./pages/Privacy/index.tsx";
+import ScrollToTop from "./components/ScrolltoTop.tsx";
+
 
 
 
 function App() {
   return (
     <BrowserRouter>
+    <ScrollToTop />
       <LoaderProvider>
         <AuthProvider>
           <BotProvider>

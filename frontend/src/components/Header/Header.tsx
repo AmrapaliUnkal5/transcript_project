@@ -29,9 +29,9 @@ interface Props {
 const drawerWidth = 240;
 //const navItems = ["Home", "Our Plans", "Our Services", "Contact Us"];
 const navItems = [
-  { label: "Home", id: 1, url: "/home" },
+  { label: "Home", id: 1, url: "/" },
   { label: "Our Plans", id: 2, url: "/our-plans" },
-  { label: "Our Services", id: 3, url: "/home" },
+  { label: "Our Services", id: 3, url: "/" },
   { label: "Contact Us", id: 4, url: "/contact-us" },
 ];
 

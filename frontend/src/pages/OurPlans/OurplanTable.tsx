@@ -309,13 +309,13 @@ export const OurplanTable = () => {
                     1
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    1
+                    2
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    1
+                    5
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    1
+                    Custom
                   </TableCell>
                 </TableRow>
 
@@ -327,16 +327,16 @@ export const OurplanTable = () => {
                     50k
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    50k
+                    1 million
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    50k
+                    2 million
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    50k
+                    5 million
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    50k
+                    Custom
                   </TableCell>
                 </TableRow>
 
@@ -348,16 +348,16 @@ export const OurplanTable = () => {
                     20 MB
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    20 MB
+                  500 MB
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    20 MB
+                    1 GB
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    20 MB
+                    5 GB
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    20 MB
+                    Custom
                   </TableCell>
                 </TableRow>
 
@@ -372,13 +372,13 @@ export const OurplanTable = () => {
                     1 website
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    1 website
+                    2 website
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    1 website
+                    multiple
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    1 website
+                    multiple
                   </TableCell>
                 </TableRow>
 
@@ -396,8 +396,8 @@ export const OurplanTable = () => {
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
                     <Box display="flex" justifyContent="center">
-                      <StyledImage
-                        src="/images/icons/icon-check.png" // Use a different icon if needed
+                       <StyledImage
+                        src="/images/icons/icon-cancel.png" // Use a different icon if needed
                         sx={{ width: "24px", height: "24px", marginBottom: 0 }}
                       />
                     </Box>

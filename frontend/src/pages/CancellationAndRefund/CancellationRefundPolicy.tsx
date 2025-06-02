@@ -23,7 +23,7 @@ export const CancellationRefundPolicy = () => {
         </Typography>
 
         <Typography variant="body2">
-          Effective Date: [Insert Date]
+          Effective Date: 15 Mar 2025
         </Typography>
 
         <Box mt={4}>
