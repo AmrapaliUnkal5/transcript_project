@@ -244,12 +244,32 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-white">
-        Import Videos from YouTube
-      </h2>
+    <div className="space-y-4  ">
+            {/* <h1
+  style={{
+              fontFamily: "Instrument Sans, sans-serif",
+              fontSize: "20px",
+              color: "#333333",
+              fontWeight: "bold",
+              marginBottom: "20px",
+            }}
+>  YouTube Videos
+</h1> */}
 
-      <div className="flex gap-2">
+  <h1 className="mt-1"
+  style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "14px",
+    color: "#666666",
+    fontWeight: 400,
+    marginBottom: "20px",
+    
+    
+  }}
+>  Import videos from YouTube
+</h1>
+
+      <div className="flex items-center space-x-2 w-4/5 ">
         <input
           type="text"
           placeholder="YouTube URL"
@@ -260,12 +280,38 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
 
         <button
           onClick={handleFetchVideos}
-          className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          className="ml-2 flex items-center justify-center disabled:opacity-80 disabled:cursor-not-allowed"
+  style={{
+    backgroundColor: "#AAAAAA",
+    fontFamily: 'Instrument Sans, sans-serif',
+    fontSize: '12px',
+    fontWeight: 600,
+    color: 'white',
+    minWidth: '102px',
+    width: '140px',
+    height: '40px', 
+    textAlign: 'center',
+    borderRadius: '0.375rem', // same as rounded-md
+  }}
           disabled={loading} // Disable button when loading
         >
           {loading ? "Processing..." : "Add"}
         </button>
       </div>
+
+      <h1 
+  style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "14px",
+    color: "#666666",
+    fontWeight: 400,
+    marginBottom: "20px",
+    
+    
+  }}
+>  Enter YouTube video or playlist URL
+</h1>
+
       {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
       {videoUrls.length > 0 && (
         <div className="space-y-2">
@@ -309,6 +355,9 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
           </button> */}
           {/* Show Loader when loading is true */}
           {loading && <Loader />}
+
+
+          
         </div>
       )}
     </div>

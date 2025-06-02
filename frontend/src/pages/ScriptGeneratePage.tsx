@@ -219,20 +219,41 @@ export const ScriptGeneratePage = () => {
 
   return (
     
-    <div className="p-4 text-white" >
+    <div className="p-4 text-black" >
       
-    <ToastContainer position="top-right" autoClose={5000} />
-    <h2 className="text-xl font-bold mb-7"> Bot Name: {selectedBot.name}</h2>
-    <h3 className="text-xl font-bold mb-2">DIRECT LINK </h3>
-    <p className="mb-2 text-sm">
-      Share access to your chatbot by using the link below:
-    </p>
+    <ToastContainer position="top-right" autoClose={5000}  />
+    <h2  style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "24px",
+    color: "#333333",
+    fontWeight: "bold",
+    marginBottom: "16px"
+  }}> Bot Name: {selectedBot.name}</h2>
+
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-10"
+  style={{
+    border: '1px solid #DFDFDF',
+    borderRadius: '13px'
+  }}
+>
+    <h3 style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "20px",
+    color: "#333333",
+    fontWeight: "bold",
+    marginBottom: "10px",
+    
+    
+  }}  >Direct Link </h3>
+   <p className=" mb-4" style={{  fontFamily: "Instrument Sans, sans-serif",fontSize: "16px" ,fontWeight: "400"}}>
+  Share access to your chatbot by using the link below:
+</p>
     <div className="flex items-center gap-2 mb-4">
       <input
         type="text"
         readOnly
         value={`${VITE_API_URL.replace(/\/$/, "")}/embed-full/${token}`}
-        className="flex-1 p-2 border border-gray-300 rounded-lg bg-gray-800 text-white text-sm"
+        className="flex-1 p-2 border border-gray-300 rounded-lg bg-white text-black text-sm"
       />
       <button
         onClick={() => {
@@ -241,18 +262,35 @@ export const ScriptGeneratePage = () => {
           );
           toast.success("Link copied!");
         }}
-        className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+        className="w-[118px] h-[40px] px-4 py-2 bg-[#5348CB] text-white rounded-lg hover:bg-[#4339b6] transition-colors"
+         style={{ fontFamily: "Instrument Sans, sans-serif", fontSize: "14px" }}
       >
         Copy Link
       </button>
+
+      </div>
     </div>
     <p></p>
     <p></p>
     <p></p>
-      <h3 className="text-xl font-bold mb-2">ADD TO A WEBSITE</h3>
+
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-10"
+  style={{
+    border: '1px solid #DFDFDF',
+    borderRadius: '13px'
+  }}>
+      <h3 style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "20px",
+    color: "#333333",
+    fontWeight: "bold",
+    marginBottom: "10px",
+    
+    
+  }}>Add to a website</h3>
 
       <div className="mb-4">
-      <p className="mb-2 text-sm">Website you would like the widget to be placed:</p>
+      <p className="mb-4 text-sm" style={{  fontFamily: "Instrument Sans, sans-serif",fontSize: "16px" ,fontWeight: "400"}}>Website you would like the widget to be placed:</p>
       <div className="flex gap-2 items-center">
         <input
           type="text"
@@ -262,13 +300,14 @@ export const ScriptGeneratePage = () => {
             setDomainError("");
           }}
           placeholder="e.g., https://example.com"
-          className="flex-1 p-2 border border-gray-300 rounded-lg bg-gray-700 text-white placeholder-gray-300"
+          className="flex-1 p-2 border border-gray-400 rounded-lg bg-white text-black placeholder-black"
         />
         <button
           onClick={handleSaveDomain}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          className="w-[100px] h-[40px] px-4 py-2 bg-[#5348CB] text-white rounded-lg hover:bg-[#4339b6] transition-colors"
+          style={{ fontFamily: "Instrument Sans, sans-serif", fontSize: "14px" }}
         >
-          Save Domain
+          Save 
         </button>
       </div>
       {domainError && (
@@ -294,7 +333,7 @@ export const ScriptGeneratePage = () => {
       rows={6}
       className="w-full p-2 border border-gray-300 rounded-lg bg-gray-800 text-white text-sm mb-2"
     />
-    <div className="flex items-center gap-2">
+    <div className=" flex items-center gap-2">
       <button
         onClick={handleCopy}
         className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
@@ -304,8 +343,9 @@ export const ScriptGeneratePage = () => {
       {copySuccess && <span className="text-blue-400">{copySuccess}</span>}
     </div>
   </>
-)}
+)}</div>
     </div>
+
   );
 };
 

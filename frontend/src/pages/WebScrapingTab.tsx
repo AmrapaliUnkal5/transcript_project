@@ -297,7 +297,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
               placeholder="  Website URL"
               value={websiteUrl}
               onChange={(e) => setWebsiteUrl(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               required
               disabled={loading || isProcessing}
             />
@@ -309,7 +309,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
     borderColor: '#5348CB',
   }}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500  disabled:cursor-not-allowed flex-shrink-0"
-            >
+              >
               Fetch Pages
             </button>
           </div>

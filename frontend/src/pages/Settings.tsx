@@ -490,7 +490,7 @@ export const Settings = () => {
                 />
               </label>
             </div>
-            <h2 className="text-lg font-semibold mb-4 text-white">
+            <h2 className="text-lg font-semibold mb-4 text-black">
               {settings.name || "Unnamed"}
             </h2>
             <p className="text-gray-500 dark:text-gray-400">{settings.email}</p>
@@ -500,7 +500,7 @@ export const Settings = () => {
 
       <div className="md:col-span-2">
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4 text-white">
+          <h2 className="text-lg font-semibold mb-4 text-black">
             Profile Information
           </h2>
           <div className="space-y-4">
