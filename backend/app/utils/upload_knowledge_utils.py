@@ -1,4 +1,5 @@
-from fastapi import HTTPException, UploadFile
+from fastapi import Depends, HTTPException, UploadFile
+from requests import Session
 from app.vector_db import retrieve_similar_docs, add_document
 import pdfplumber 
 from typing import Union, List, Dict
@@ -17,6 +18,8 @@ from app.utils.ai_logger import log_chunking_operation, log_document_storage
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import tiktoken
 import time
+from app.models import Bot
+from app.database import get_db
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -232,7 +235,7 @@ async def extract_text_from_file(file, filename=None) -> Union[str, None]:
         logger.error(f"❌ Error extracting text from file {filename if filename else 'unknown'}: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Error extracting text: {str(e)}")
 
-def chunk_text(text: str, chunk_size: int = 3000, chunk_overlap: int = 200, bot_id: int = None, user_id: int = None, file_info: Dict = None) -> List[str]:
+def chunk_text(text: str, chunk_size: int = None, chunk_overlap: int = None, bot_id: int = None, user_id: int = None,db: Session = Depends(get_db), file_info: Dict = None) -> List[str]:
     """
     Chunks text into smaller pieces suitable for embeddings.
     
@@ -249,6 +252,20 @@ def chunk_text(text: str, chunk_size: int = 3000, chunk_overlap: int = 200, bot_
     """
     start_time = time.time()
     text_length = len(text)
+
+    if bot_id and (chunk_size is None or chunk_overlap is None):
+        bot_config = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        print("bot_config.chunk_size=>",bot_config.chunk_size)
+        print("bot_config.chunk_overlap=>",bot_config.chunk_overlap)
+        if bot_config:
+            chunk_size = chunk_size or bot_config.chunk_size
+            chunk_overlap = chunk_overlap or bot_config.chunk_overlap
+        else:
+            logger.warning(f"⚠️ Bot ID {bot_id} not found, falling back to default chunk values.")
+    
+    # Fallback to default if still None
+    chunk_size = chunk_size or 1000
+    chunk_overlap = chunk_overlap or 100
     
     logger.info(f"🔪 Chunking text of length {text_length} with chunk_size={chunk_size}, overlap={chunk_overlap}")
     
@@ -310,6 +327,7 @@ def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file, user_id: i
         file: The file object with metadata
         user_id: Optional user ID for model selection
     """
+   
     if not text:
         logger.warning(f"⚠️ No extractable text found in the file: {file.filename}")
         raise HTTPException(status_code=400, detail="No extractable text found in the file.")
@@ -325,6 +343,7 @@ def validate_and_store_text_in_ChromaDB(text: str, bot_id: int, file, user_id: i
         "content_length": len(text)
     }
     
+    print("Reached here")
     # Split text into chunks for embedding
     chunks = chunk_text(text, bot_id=bot_id, user_id=user_id, file_info=file_info)
     

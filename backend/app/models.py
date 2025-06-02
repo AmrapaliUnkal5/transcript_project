@@ -114,6 +114,8 @@ class Bot(Base):
     border_color = Column(String, nullable=True, default="#E5E7EB")
     chat_font_family = Column(String, nullable=True, default="Inter")
     selected_domain = Column(String, nullable=True)
+    chunk_size = Column(Integer, nullable=False, default=1000)
+    chunk_overlap = Column(Integer, nullable=False, default=100)
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")
