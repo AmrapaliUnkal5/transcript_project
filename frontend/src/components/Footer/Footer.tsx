@@ -56,6 +56,12 @@ function Footer() {
               >
                 Data deletion
               </RouterLink>
+              <RouterLink
+                to="/shipping-exchange-policy"
+                style={{ color: "#ffffff", textDecoration: "none" }}
+              >
+                Shipping and exchange
+              </RouterLink>
             
             </Box>
           </Grid>
@@ -71,7 +77,7 @@ function Footer() {
                 to="/privacy-policy"
                 style={{ color: "#ffffff", textDecoration: "none" }}
               >
-                Privacy Policy
+                Privacy policy
               </RouterLink>
                <RouterLink
                 to="/contact-us"
@@ -83,13 +89,13 @@ function Footer() {
                 to="/terms-of-service"
                 style={{ color: "#ffffff", textDecoration: "none" }}
               >
-                Terms of Service
+                Terms of service
               </RouterLink>
               <RouterLink
                 to="/cancellation-refund-policy"
                 style={{ color: "#ffffff", textDecoration: "none" }}
               >
-                Cancellation and Refund Policy
+                Cancellation and refund policy
               </RouterLink>
             </Box>
           </Grid>
