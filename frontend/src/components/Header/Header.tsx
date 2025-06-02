@@ -97,7 +97,7 @@ export default function HomeHeader(props: Props) {
         sx={{ backgroundColor: "#101035", color: "#fff" }}
       >
         <Toolbar>
-          <Link to="/home">
+          <Link to="/">
             <StyledImage
               src="/images/logo.png"
               sx={{
@@ -118,7 +118,7 @@ export default function HomeHeader(props: Props) {
           >
 
             <Box>
-              <Link to="/home">
+              <Link to="/">
                 <StyledImage
                   src="/images/logo.png"
                   sx={{

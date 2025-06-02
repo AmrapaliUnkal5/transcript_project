@@ -51,7 +51,7 @@ export default function Plans() {
               textTransform="none"
               
             >
-              Choose your plan
+              Choose Your Plan
             </Typography>
           </Box>
 
