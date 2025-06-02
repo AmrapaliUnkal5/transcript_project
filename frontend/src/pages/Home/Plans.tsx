@@ -51,7 +51,7 @@ export default function Plans() {
               textTransform="none"
               
             >
-              Choose your plan
+              Choose Your Plan
             </Typography>
           </Box>
 
@@ -154,7 +154,7 @@ export default function Plans() {
                     <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
     height: ["22px", "24px"]}} />
                     <Typography variant="body1" color={"#FFF"}  fontSize={["14px","16px"]}>
-                      1 GB storage
+                     500 MB storage
                     </Typography>
                   </Box>
 
@@ -314,7 +314,7 @@ export default function Plans() {
                     <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
     height: ["22px", "24px"] }} />
                     <Typography variant="body1" color={"#FFF"} fontSize={["14px","16px"]}>
-                      Crawl 5 websites
+                      Crawl multiple websites
                     </Typography>
                   </Box>
                   <Box display={"flex"} gap={1} my={2}>

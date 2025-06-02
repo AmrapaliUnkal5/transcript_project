@@ -41,12 +41,16 @@ import DataDeletion from "./pages/DataDeletion/index.tsx";
 import CancellationRefundPolicy from "./pages/CancellationAndRefund/index.tsx";
 import TermsService from "./pages/TermsOfService/index.tsx";
 import Privacy from "./pages/Privacy/index.tsx";
+import ScrollToTop from "./components/ScrolltoTop.tsx";
+import ShippingAndExchange from "./pages/ShippingAndExchange/index.tsx";
+
 
 
 
 function App() {
   return (
     <BrowserRouter>
+    <ScrollToTop />
       <LoaderProvider>
         <AuthProvider>
           <BotProvider>
@@ -87,6 +91,8 @@ function App() {
 
                 <Route path="/data-deletion" element={<DataDeletion />} />
                 <Route path="/cancellation-refund-policy" element={<CancellationRefundPolicy />} />
+                <Route path="/shipping-exchange-policy" element={<ShippingAndExchange />} />
+                
 
 
                 
@@ -120,7 +126,7 @@ function App() {
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="chatbot" element={<ChatbotCustomization />} />
                   <Route path="upload" element={<FileUpload />} />
-                  {/* <Route path="performance" element={<Performance />} /> */}
+                  <Route path="performance" element={<Performance />} />
                   <Route
                     path="script-generate"
                     element={<ScriptGeneratePage />}

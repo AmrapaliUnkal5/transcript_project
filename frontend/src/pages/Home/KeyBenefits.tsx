@@ -62,10 +62,25 @@ export default function KeyBenefits() {
                   pb={"34px"}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
+                  // sx={{
+                  //   background:
+                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+                  // }}
+
                   sx={{
-                    background:
-                      "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  }}
+  background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+  borderRadius: "12px",
+  transition: "all 0.3s ease",
+  
+  "&:hover": {
+    background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
+    boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
+    transform: "translateY(-2px)",
+  },
+}}
+
+
+
                 >
                   <StyledImage
                     src="/images/home/key-video.png"
@@ -100,10 +115,21 @@ export default function KeyBenefits() {
                   pb={"34px"}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
+                  // sx={{
+                  //   background:
+                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+                  // }}
                   sx={{
-                    background:
-                      "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  }}
+  background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+  borderRadius: "12px",
+  transition: "all 0.3s ease",
+  
+  "&:hover": {
+    background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
+    boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
+    transform: "translateY(-2px)",
+  },
+}}
                 >
                   <StyledImage
                     src="/images/home/key-support.png"
@@ -137,10 +163,22 @@ export default function KeyBenefits() {
                   minHeight={510}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
+                  // sx={{
+                  //   background:
+                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+                  // }}
+
                   sx={{
-                    background:
-                      "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  }}
+  background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+  borderRadius: "12px",
+  transition: "all 0.3s ease",
+  
+  "&:hover": {
+    background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
+    boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
+    transform: "translateY(-2px)",
+  },
+}}
                 >
                   <Box height={175} mb={"65px"}>
                     <StyledImage
@@ -173,10 +211,23 @@ export default function KeyBenefits() {
                   minHeight={510}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
+                  // sx={{
+                  //   background:
+                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+                  // }}
+
+
                   sx={{
-                    background:
-                      "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  }}
+  background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+  borderRadius: "12px",
+  transition: "all 0.3s ease",
+  
+  "&:hover": {
+    background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
+    boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
+    transform: "translateY(-2px)",
+  },
+}}
                 >
                   <Box height={175} mb={"65px"}>
                     <StyledImage
@@ -208,10 +259,22 @@ export default function KeyBenefits() {
                   minHeight={510}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
+                  // sx={{
+                  //   background:
+                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+                  // }}
+
                   sx={{
-                    background:
-                      "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  }}
+  background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+  borderRadius: "12px",
+  transition: "all 0.3s ease",
+  
+  "&:hover": {
+    background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
+    boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
+    transform: "translateY(-2px)",
+  },
+}}
                 >
                   <Box
                     height={175}
