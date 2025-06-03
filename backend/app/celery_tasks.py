@@ -42,6 +42,7 @@ from app.utils.reembedding_utils import reembed_all_bot_data
 import time
 from app.utils.upload_knowledge_utils import extract_text_from_file
 from app.utils.upload_knowledge_utils import chunk_text
+from app.config import settings
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -249,7 +250,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                     
                     if user_id:
                         # Build archive path
-                        account_dir = os.path.join("uploads", f"account_{user_id}")
+                        account_dir = os.path.join(settings.UPLOAD_DIR, f"account_{user_id}")
                         bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
                         archive_dir = os.path.join(bot_dir, "archives")
                         archive_path = os.path.join(archive_dir, archive_filename)
@@ -413,7 +414,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                                 
                                 if user_id:
                                     # Build path similar to get_hierarchical_file_path with is_archive=True
-                                    account_dir = os.path.join("uploads", f"account_{user_id}")
+                                    account_dir = os.path.join(settings.UPLOAD_DIR, f"account_{user_id}")
                                     bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
                                     archive_dir = os.path.join(bot_dir, "archives")
                                     archive_path = os.path.join(archive_dir, archive_filename)
@@ -503,7 +504,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                                 
                                 if user_id:
                                     # Build path to the archive file
-                                    account_dir = os.path.join("uploads", f"account_{user_id}")
+                                    account_dir = os.path.join(settings.UPLOAD_DIR, f"account_{user_id}")
                                     bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
                                     archive_dir = os.path.join(bot_dir, "archives")
                                     archive_path = os.path.join(archive_dir, archive_filename)
@@ -597,7 +598,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                                 
                                 if user_id:
                                     # Build path to the archive file
-                                    account_dir = os.path.join("uploads", f"account_{user_id}")
+                                    account_dir = os.path.join(settings.UPLOAD_DIR, f"account_{user_id}")
                                     bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
                                     archive_dir = os.path.join(bot_dir, "archives")
                                     archive_path = os.path.join(archive_dir, archive_filename)

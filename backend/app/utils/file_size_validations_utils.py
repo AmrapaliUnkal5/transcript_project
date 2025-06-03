@@ -17,12 +17,13 @@ from app.utils.upload_knowledge_utils import extract_text_from_file,validate_and
 from app.fetchsubscripitonplans import get_subscription_plan_by_id
 import logging
 from app.utils.logger import get_module_logger
+from app.config import settings
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
 
 # Update other constants to be dynamic
-UPLOAD_FOLDER = "uploads"  
+UPLOAD_FOLDER = settings.UPLOAD_DIR
 MAX_FILE_SIZE_MB = None  
 MAX_FILE_SIZE_BYTES = None 
 ARCHIVE_FOLDER = "archives"
@@ -74,8 +75,11 @@ def get_bot_user_id(bot_id: int):
     finally:
         db.close()
 
-def get_hierarchical_file_path(bot_id: int, filename: str, folder=UPLOAD_FOLDER, is_archive=False):
+def get_hierarchical_file_path(bot_id: int, filename: str, folder=None, is_archive=False):
     """Creates a hierarchical file path: uploads/account_X/bot_Y/filename."""
+    if folder is None:
+        folder = settings.UPLOAD_DIR
+        
     user_id = get_bot_user_id(bot_id)
     if not user_id:
         # Fallback to default folder if user not found

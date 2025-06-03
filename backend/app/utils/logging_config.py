@@ -6,8 +6,15 @@ import json
 from datetime import datetime
 from typing import Dict, Any, Optional
 
+# Import settings to get LOG_DIR
+try:
+    from app.config import settings
+    logs_dir = settings.LOG_DIR
+except ImportError:
+    # Fallback for cases where settings might not be available
+    logs_dir = os.getenv("LOG_DIR", "logs")
+
 # Create logs directory if it doesn't exist
-logs_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
 os.makedirs(logs_dir, exist_ok=True)
 
 # Log file paths

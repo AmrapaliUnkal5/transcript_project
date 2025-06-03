@@ -18,7 +18,8 @@ from .utils.email_helper import send_email
 
 router = APIRouter(prefix="/botsettings", tags=["Bot Settings"])
 
-UPLOAD_DIR = "uploads_bot"  # Directory to save uploaded images
+# Use environment variable-based path
+UPLOAD_DIR = settings.UPLOAD_BOT_DIR  # Directory to save uploaded images
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("/bot/{bot_id}", response_model=schemas.BotResponse)
@@ -56,7 +57,7 @@ async def upload_bot_icon(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
 
     # Assuming the frontend can access this uploaded file via a static URL
-    file_url = f"{settings.SERVER_URL}/{UPLOAD_DIR}/{file.filename}"  # Adjust according to your server setup
+    file_url = f"{settings.SERVER_URL}/{settings.UPLOAD_BOT_DIR}/{file.filename}"  # Adjust according to your server setup
     
     return JSONResponse(content={"url": file_url}) 
 

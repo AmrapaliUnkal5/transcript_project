@@ -124,7 +124,7 @@ initialize_scheduler()
 # Add the logging middleware
 #app.add_middleware(LoggingMiddleware)
 
-app.mount("/uploads_bot", StaticFiles(directory="uploads_bot"), name="uploads_bot")
+app.mount(f"/{settings.UPLOAD_BOT_DIR}", StaticFiles(directory=settings.UPLOAD_BOT_DIR), name=settings.UPLOAD_BOT_DIR)
 app.include_router(botsettings_router)
 app.include_router(social_login_router)
 app.include_router(bot_conversations_router)
@@ -646,9 +646,8 @@ def admin_user_dashboard(current_user= Depends(require_role(["admin","user"]))):
     return {"message": f"Welcome {current_user}, you have access!"}
 
 # Ensure the upload directory exists
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+app.mount(f"/{settings.UPLOAD_DIR}", StaticFiles(directory=settings.UPLOAD_DIR), name=settings.UPLOAD_DIR)
 
 @app.post("/upload-avatar/")
 async def upload_avatar(file: UploadFile = File(...)):
@@ -660,14 +659,14 @@ async def upload_avatar(file: UploadFile = File(...)):
         logger.debug("Filename: %s", filename)
         
         # Define the file path to save the file
-        file_path = os.path.join(UPLOAD_DIR, filename)
+        file_path = os.path.join(settings.UPLOAD_DIR, filename)
 
         # Save the file
         with open(file_path, "wb") as buffer:
             buffer.write(await file.read())
 
         # Return the URL of the saved file
-        file_url = f"{settings.SERVER_URL}/{UPLOAD_DIR}/{filename}"
+        file_url = f"{settings.SERVER_URL}/{settings.UPLOAD_DIR}/{filename}"
         return JSONResponse(content={"url": file_url}, status_code=200)
 
     except Exception as e:
