@@ -7,10 +7,6 @@ import { authApi } from "../services/api";
 import { IssueRequestData, FileUploadInterface } from "../types";
 import { useEffect } from "react";
 
-
-
-
-
 export const ReportIssue = () => {
   const [formData, setFormData] = useState<IssueRequestData>({
     issueType: "",
@@ -192,11 +188,17 @@ export const ReportIssue = () => {
                   required
                   className="w-full p-3 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-700 text-white"
                 >
-                  {ISSUE_TYPES.map((type) => (
+                  {!formData.issueType && (
+                  <option value="" disabled hidden>
+                    Select the issue
+                  </option>
+                  )}
+                  {ISSUE_TYPES.filter((type) => type.value !== "").map((type) => (
                     <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
+                  {type.label}
+                  </option>
                   ))}
+
                 </select>
               </div>
 
