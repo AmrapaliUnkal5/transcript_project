@@ -32,6 +32,8 @@ from .crud import update_user_word_count
 from app.notifications import add_notification
 from app.vector_db import delete_document_from_chroma
 from app.celery_tasks import process_file_upload
+from app.utils.file_storage import delete_file as delete_file_storage
+from app.config import settings
 
 router = APIRouter()
 
@@ -261,9 +263,25 @@ async def delete_file(
     if not bot:
         raise HTTPException(status_code=403, detail="Unauthorized access")
 
-    # Delete the file from the filesystem
-    if os.path.exists(file.file_path):
-        os.remove(file.file_path)
+    # Delete the file from storage (local or S3)
+    try:
+        if settings.UPLOAD_DIR.startswith('s3://'):
+            # For S3 storage, extract the relative path and use the file storage helper
+            upload_dir_path = settings.UPLOAD_DIR.rstrip('/')
+            if file.file_path.startswith(upload_dir_path + '/'):
+                relative_path = file.file_path[len(upload_dir_path + '/'):]
+                delete_file_storage("UPLOAD_DIR", relative_path)
+            else:
+                # Fallback: try to delete using just the filename
+                filename = os.path.basename(file.file_path)
+                delete_file_storage("UPLOAD_DIR", filename)
+        else:
+            # For local storage, use the existing method
+            if os.path.exists(file.file_path):
+                os.remove(file.file_path)
+    except Exception as e:
+        print(f"Error deleting file from storage: {str(e)}")
+        # Continue with deletion even if file deletion fails
     
     # Delete the document from ChromaDB
     try:

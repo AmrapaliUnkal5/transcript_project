@@ -61,6 +61,7 @@ from app.current_billing_metrics import router as billing_metrics_router
 from app.celery_app import celery_app
 from app.celery_tasks import process_youtube_videos, process_file_upload, process_web_scraping
 from app.captcha_cleanup_thread import captcha_cleaner
+from app.utils.file_storage import save_file, get_file_url, FileStorageError
 
 
 # Import our custom logging components
@@ -658,18 +659,22 @@ async def upload_avatar(file: UploadFile = File(...)):
         filename = f"{uuid.uuid4()}.{file_extension}"
         logger.debug("Filename: %s", filename)
         
-        # Define the file path to save the file
-        file_path = os.path.join(settings.UPLOAD_DIR, filename)
-
-        # Save the file
-        with open(file_path, "wb") as buffer:
-            buffer.write(await file.read())
-
-        # Return the URL of the saved file
-        file_url = f"{settings.SERVER_URL}/{settings.UPLOAD_DIR}/{filename}"
+        # Read file content
+        file_content = await file.read()
+        
+        # Save file using the new helper function
+        saved_path = save_file(settings.UPLOAD_DIR, filename, file_content)
+        
+        # Generate file URL
+        file_url = get_file_url(settings.UPLOAD_DIR, filename, settings.SERVER_URL)
+        
         return JSONResponse(content={"url": file_url}, status_code=200)
 
+    except FileStorageError as e:
+        logger.error(f"File storage error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"File storage error: {str(e)}")
     except Exception as e:
+        logger.error(f"Upload error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.put("/update-avatar/")

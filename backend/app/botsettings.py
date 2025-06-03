@@ -15,6 +15,7 @@ from app.dependency import get_current_user
 from datetime import datetime, timezone
 from app.notifications import add_notification
 from .utils.email_helper import send_email
+from app.utils.file_storage import save_file, get_file_url, FileStorageError
 
 router = APIRouter(prefix="/botsettings", tags=["Bot Settings"])
 
@@ -51,15 +52,22 @@ def get_bot_setting_by_user_id(user_id: int, db: Session = Depends(get_db)):
 
 @router.post("/upload_bot")
 async def upload_bot_icon(file: UploadFile = File(...)):
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    try:
+        # Read file content
+        file_content = await file.read()
+        
+        # Save file using the new helper function
+        saved_path = save_file(UPLOAD_DIR, file.filename, file_content)
+        
+        # Generate file URL
+        file_url = get_file_url(UPLOAD_DIR, file.filename, settings.SERVER_URL)
+        
+        return JSONResponse(content={"url": file_url})
     
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    # Assuming the frontend can access this uploaded file via a static URL
-    file_url = f"{settings.SERVER_URL}/{settings.UPLOAD_BOT_DIR}/{file.filename}"  # Adjust according to your server setup
-    
-    return JSONResponse(content={"url": file_url}) 
+    except FileStorageError as e:
+        raise HTTPException(status_code=500, detail=f"File storage error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/del/{bot_id}", response_model=schemas.BotResponse)
 def update_bot_status(bot_id: int, db: Session = Depends(get_db)):
