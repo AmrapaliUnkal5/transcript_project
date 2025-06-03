@@ -105,7 +105,8 @@ function Footer() {
               color="#6B6B6B "
               textAlign={["left", "center"]}
             >
-              hello@evolra.ai
+              support@evolra.ai
+
             </Typography>
           </Grid>
         </Grid>

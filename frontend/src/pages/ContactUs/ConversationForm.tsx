@@ -59,7 +59,7 @@ export default function ConversationForm() {
                   tailored to your region and time zone.
                 </Typography>
               
-                <Box display={"flex"} mb="31px">
+                {/* <Box display={"flex"} mb="31px">
                   <StyledImage
                     src="/images/icon-call.png"
                     sx={{ width: 28, height: 28, color: "#BAB8FF",mr:2}}
@@ -67,7 +67,7 @@ export default function ConversationForm() {
                   <Typography variant="body1" fontSize={16} color={"#cacaca"}>
                     978974574
                   </Typography>
-                </Box>
+                </Box> */}
                 <Box display={"flex"}  mb="31px">
                   <StyledImage
                     src="/images/icon-mail.png"
@@ -77,7 +77,7 @@ export default function ConversationForm() {
                     mail@evolra.ai
                   </Typography>
                 </Box>
-                <Box 
+                {/* <Box 
                 display={{ xs: "none", md: "flex" }} mb={3}>
                   <StyledImage
                     src="/images/icon-location-on.png"
@@ -87,7 +87,7 @@ export default function ConversationForm() {
                   <Typography variant="body1" fontSize={"16px"} color={"#cacaca"}>
                     202 Helga Springs Rd, Crawford, IN, 38554
                   </Typography>
-                </Box>
+                </Box> */}
               </Grid>
               <Grid item xs={12} sm={12} md={6}>
                 <Box

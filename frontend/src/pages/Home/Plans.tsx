@@ -59,6 +59,7 @@ export default function Plans() {
             <Button
               variant="contained"
               color="primary"
+              href="/login"
               size="large"
               sx={{
                 paddingLeft: "5%",
@@ -95,6 +96,7 @@ export default function Plans() {
                   minHeight={480}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
+                  
                   sx={{
                     background:
                       "linear-gradient(148.01deg, #172041 54.39%, #1D1C56 78.52%)",
@@ -110,7 +112,8 @@ export default function Plans() {
                     Starter
                   </Typography>
                   <Typography variant="body2" color={"#B9B9B9"} fontSize={"14px"}>
-                    For individuals and small businesses
+                    Individuals, freelancers, and small service businesses
+
                   </Typography>
 
                   <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
@@ -161,6 +164,7 @@ export default function Plans() {
                   <Divider sx={{ borderBottom: "1px solid #4F5697", mt: 8 }} />
                   <Button
                     variant="text"
+                    href='/signup'
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -197,7 +201,8 @@ export default function Plans() {
                     Growth
                   </Typography>
                   <Typography variant="body2" color={"#B9B9B9"} fontSize={["14px"]}>
-                    For startups and small businesses
+                     Small to medium businesses and online retailers
+
                   </Typography>
 
                   <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
@@ -227,7 +232,7 @@ export default function Plans() {
                     <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
     height: ["22px", "24px"]}} />
                     <Typography variant="body1" color={"#FFF"} fontSize={["14px","16px"]}>
-                      Crawl 2 website
+                      Crawl 2 websites
                     </Typography>
                   </Box>
                   <Box display={"flex"} gap={1} my={2}>
@@ -248,6 +253,7 @@ export default function Plans() {
                   <Divider sx={{ borderBottom: "1px solid #4F5697", mt: 8 }} />
                   <Button
                     variant="text"
+                    href='/signup'
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -284,7 +290,8 @@ export default function Plans() {
                     Professional
                   </Typography>
                   <Typography variant="body2" color={"#B9B9B9"}>
-                    For startups and small businesses
+                  Established companies and agencies with multiple departments
+
                   </Typography>
 
                   <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
@@ -335,6 +342,7 @@ export default function Plans() {
                   <Divider sx={{ borderBottom: "1px solid #4F5697", mt: 8 }} />
                   <Button
                     variant="text"
+                    href='/signup'
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -353,6 +361,7 @@ export default function Plans() {
           <Box mt={[0,3]}>
             <Button
               variant="text"
+              href='/signup'
               sx={{
                 width: "100%",
                 fontSize: "18px",

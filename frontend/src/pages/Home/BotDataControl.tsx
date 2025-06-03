@@ -97,6 +97,7 @@ export default function BotDataControl() {
                 variant='contained'
                 color='primary'
                 size='large'
+                href='/login'
                 sx={{
                     fontSize: '18px',
                     fontWeight: 500,

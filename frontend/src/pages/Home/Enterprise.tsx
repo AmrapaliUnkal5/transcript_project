@@ -193,8 +193,8 @@ export const Enterprise = () => {
                 bottom:"1px",               
                 left:0,                 
                 right:0,
-                background:
-                  "linear-gradient(180deg, rgba(39, 22, 78, 0.06) 0%, rgba(27, 14, 59, 0.758706) 23.83%, #170B33 96.63%)",
+                // background:
+                //   "linear-gradient(180deg, rgba(39, 22, 78, 0.06) 0%, rgba(27, 14, 59, 0.758706) 23.83%, #170B33 96.63%)",
               }}
               
               >
@@ -202,6 +202,7 @@ export const Enterprise = () => {
                   variant="contained"
                   color="primary"
                   size="large"
+                  href='/login'
                   sx={{
                   
                     fontSize: "18px",
