@@ -653,7 +653,7 @@ export const CreateBot = () => {
 
   const handleBack = () => {
     if (currentStep === 0) {
-      navigate("/Options");
+      navigate("/");
     } else if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
@@ -1472,7 +1472,7 @@ export const CreateBot = () => {
             {renderStepContent()}
           </div>
 
-          <div className="flex justify-start  gap-x-3 m-2 mt-8 ">
+          <div className="flex justify-start  gap-x-3 m-2 mt-10 ">
             <button
               onClick={handleBack}
               className="flex items-center px-6 py-2 rounded-lg border hover:bg-blue-50  "
