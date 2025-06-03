@@ -77,7 +77,7 @@ export default function ConversationForm() {
                     mail@evolra.ai
                   </Typography>
                 </Box>
-                <Box 
+                {/* <Box 
                 display={{ xs: "none", md: "flex" }} mb={3}>
                   <StyledImage
                     src="/images/icon-location-on.png"
@@ -87,7 +87,7 @@ export default function ConversationForm() {
                   <Typography variant="body1" fontSize={"16px"} color={"#cacaca"}>
                     202 Helga Springs Rd, Crawford, IN, 38554
                   </Typography>
-                </Box>
+                </Box> */}
               </Grid>
               <Grid item xs={12} sm={12} md={6}>
                 <Box
