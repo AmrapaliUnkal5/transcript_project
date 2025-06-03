@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, APIRouter, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Bot, UserSubscription, SubscriptionPlan
@@ -32,7 +33,7 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
         raise HTTPException(status_code=400, detail="User not authenticated")
 
     # Check if a bot with the same name already exists for the given user_id
-    existing_bot = db.query(Bot).filter(Bot.user_id == user_id, Bot.bot_name == bot.bot_name,Bot.status !="Deleted").first()
+    existing_bot = db.query(Bot).filter(Bot.user_id == user_id, func.lower(Bot.bot_name) == bot.bot_name.lower(),Bot.status !="Deleted").first()
     if existing_bot:
         logger.warning(f"Bot with same name already exists", 
                       extra={"request_id": request_id, "user_id": user_id, 
@@ -149,7 +150,7 @@ def update_bot_name(
         # Check if the new bot name already exists for the user
         existing_bot = db.query(Bot).filter(
             Bot.user_id == user_id,
-            Bot.bot_name == bot_update.bot_name,
+            func.lower(Bot.bot_name) == bot_update.bot_name.lower(),
             Bot.status !="Deleted",
             Bot.bot_id != bot_id  # Exclude the current bot
         ).first()
