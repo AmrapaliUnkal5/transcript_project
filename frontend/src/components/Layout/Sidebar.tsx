@@ -14,9 +14,9 @@ import { authApi } from "../../services/api";
 
 const navItems = [
   { path: "upload", icon: "/images/dummy/Customize-bot-knowledge-base.png", label: "Knowledge Base" },
-  { path: "chatbot", icon: "/images/dummy/Customize-bot-customize-icon.png", label: "Customize Chatbot" },
+  { path: "chatbot", icon: "/images/dummy/Customize-bot-customize-icon.png", label: "Design" },
   { path: "performance", icon: "/images/dummy/Customize-bot-analyics.png", label: "Analytics" },
-  { path: "script-generate", icon: "/images/dummy/Customize-bot-script.png", label: "Script Generate" },
+  { path: "script-generate", icon: "/images/dummy/Customize-bot-script.png", label: "Deploy" },
 ];
 
 export const Sidebar = () => {

@@ -743,10 +743,10 @@ const storageOptions = {
           Welcome, {user?.name}!
         </h1>
         <h2 className="text-3xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
-          Build your AI Bot in Minutes!
+          Build Your AI Bot in Minutes!
         </h2>
         <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
-          Enter your website URL, upload your docs, and let AI do the rest.
+         Enter your website URL, upload your contents, and let AI do the rest.
         </p>
         <button
           onClick={handleBuildBotClick}

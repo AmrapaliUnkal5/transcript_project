@@ -86,7 +86,7 @@ export const PlanSelection = () => {
             <li>🔹 <strong>Growth</strong> – For scaling teams</li>
             <li>🔹 <strong>Professional</strong> – For established businesses</li>
             <li>🔹 <strong>Enterprise</strong> – For large-scale custom needs</li>
-            <li>🔹 Includes <strong>Analytics, Priority Support, Multi-Website Deployment</strong></li>
+            {/* <li>🔹 Includes <strong>Analytics, Priority Support, Multi-Website Deployment</strong></li> */}
           </ul>
         </div>
       </div>

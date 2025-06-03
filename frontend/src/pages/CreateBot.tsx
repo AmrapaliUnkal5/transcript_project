@@ -49,7 +49,7 @@ const steps: Step[] = [
   {
     title: "Website information",
     description:
-      "Add your website URL to help your chatbot understand your domain.",
+      "Add your website URL to help your bot understand the contents.",
     icon: Globe,
   },
   {
@@ -1415,7 +1415,7 @@ export const CreateBot = () => {
           fontWeight: 600,
         }}
       >
-        Create your bot
+        Create Your Bot
       </div>
 
       <div className="max-w-3xl mx-auto px-4  ">

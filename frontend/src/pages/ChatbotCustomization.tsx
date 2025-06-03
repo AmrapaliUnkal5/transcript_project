@@ -1052,7 +1052,7 @@ useEffect(() => {
       icon: Type,
       fields: [
         {
-          label: "Chat Messages Font",
+          label: "Message Font",
           type: "select",
           value: settings.chatFontFamily,
           options: [
