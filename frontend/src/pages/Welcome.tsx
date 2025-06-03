@@ -600,7 +600,7 @@ export const Welcome = () => {
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: (ctx) => `${ctx.label}: ${ctx.raw}`,
+          label: (ctx) => `${ctx.raw}`,
         },
       },
     },
@@ -617,7 +617,7 @@ export const Welcome = () => {
     datasets: [
       {
         data: [chatUsed, chatLimit - chatUsed],
-        backgroundColor: ["#10b981", "#e5e7eb"], // green + light gray
+        backgroundColor: ["#8b5cf6", "#e5e7eb"], // green + light gray
         borderWidth: 0,
       },
     ],
@@ -629,7 +629,7 @@ export const Welcome = () => {
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: (ctx) => `${ctx.label}: ${formatNumberWithCommas(ctx.raw)}`,
+          label: (ctx) => `${formatNumberWithCommas(ctx.raw)}`,
         },
       },
     },
@@ -645,7 +645,7 @@ export const Welcome = () => {
     datasets: [
       {
         data: [wordsUsed, wordLimit - wordsUsed],
-        backgroundColor: ["#10b981", "#e5e7eb"], // green + light gray
+        backgroundColor: ["#8b5cf6", "#e5e7eb"], // green + light gray
         borderWidth: 0,
       },
     ],
@@ -657,7 +657,7 @@ export const Welcome = () => {
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: (ctx) => `${ctx.label}: ${formatNumberWithCommas(ctx.raw)}`,
+          label: (ctx) => `${formatNumberWithCommas(ctx.raw)}`,
         },
       },
     },
@@ -666,18 +666,24 @@ export const Welcome = () => {
   //Storage Used
 
 
-  const storageUsed = usageMetrics.total_storage_used || 0;
-const storageLimit = storagelimit || 1;
-const clampedUsed = Math.min(storageUsed, storageLimit);
-const remaining = Math.max(storageLimit - clampedUsed, 0);
+const storageUsedBytes = convertToBytes(usageMetrics.total_storage_used);
+const storageLimitBytes = convertToBytes(storagelimit);
+
+const formatStoragePrecise = (bytes: number) => {
+  if (bytes >= 1024 ** 4) return `${(bytes / 1024 ** 4).toFixed(2)} TB`;
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(2)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+  return `${bytes} B`;
+  };
 
 // Chart Data
 const storageData = {
   labels: ["Used", "Remaining"],
   datasets: [
     {
-      data: [clampedUsed, remaining],
-      backgroundColor: ["#3b82f6", "#e5e7eb"],
+      data: [storageUsedBytes, Math.max(storageLimitBytes - storageUsedBytes, 0)],
+      backgroundColor: ["#8b5cf6", "#e5e7eb"],
       borderWidth: 0,
     },
   ],
@@ -690,8 +696,11 @@ const storageOptions = {
     legend: { display: false },
     tooltip: {
       callbacks: {
-        label: (ctx) =>
-          `${ctx.label}: ${ctx.raw.toLocaleString()}`,
+        label: (ctx) =>{
+          // Type-safe handling of ctx.raw
+          const value = typeof ctx.raw === 'number' ? ctx.raw : 0;
+          return `${formatStoragePrecise(value)}`;
+        }
       },
     },
   },
@@ -1083,7 +1092,7 @@ const storageOptions = {
       <Doughnut data={storageData} options={storageOptions} />
     </div>
     <span className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-      {storageUsed.toLocaleString()} / {storagelimit.toLocaleString()}
+      {formatStoragePrecise(storageUsedBytes)} / {formatStoragePrecise(storageLimitBytes)}
     </span>
     <span className="text-sm text-gray-600 dark:text-gray-300">
       Storage Used
