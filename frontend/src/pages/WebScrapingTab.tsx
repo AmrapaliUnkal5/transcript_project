@@ -343,7 +343,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
           <div className="mt-4">
             <div className="flex justify-between mb-2">
               <div className="flex space-x-2">
-                <button
+                {/* <button
                   onClick={() => {
                     // Select all nodes on the current page
                     const currentPageNodes = getPaginatedNodes();
@@ -355,7 +355,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                   disabled={loading || isProcessing}
                 >
                   Select Page
-                </button>
+                </button> */}
                 <button
                   onClick={() => {
                     // Select all nodes across all pages
@@ -387,11 +387,11 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                 <label key={index} className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    value={node}
-                    checked={selectedNodes.includes(node)}
-                    onChange={() => handleCheckboxChange(node)}
-                    className="h-5 w-5 text-blue-600 border-gray-400 rounded focus:ring-blue-500 dark:focus:ring-blue-700 dark:border-gray-600"
-                    disabled={loading || isProcessing}
+                  value={node}
+                  checked={selectedNodes.includes(node)}
+                  onChange={() => handleCheckboxChange(node)}
+                  className="h-5 w-5 text-blue-600 border-gray-400 rounded shrink-0"
+                  disabled={loading || isProcessing}
                   />
                   <span className="text-sm text-gray-600 dark:text-gray-400 truncate">
                     <a
