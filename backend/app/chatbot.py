@@ -6,7 +6,7 @@ from app.vector_db import retrieve_similar_docs, add_document, delete_video_from
 import openai
 import os
 import pdfplumber
-from app.utils.upload_knowledge_utils import extract_text_from_file,validate_and_store_text_in_ChromaDB
+from app.utils.upload_knowledge_utils import extract_text_from_file
 from app.youtube import store_videos_in_chroma, process_videos_in_background
 from app.schemas import YouTubeRequest,VideoProcessingRequest, YouTubeScrapingRequest
 from app.youtube import store_videos_in_chroma,get_video_urls
@@ -495,41 +495,6 @@ def chatbot_response(request: Request, bot_id: int, user_id: int, user_message: 
     
     return {"bot_reply": bot_reply}
 
-@router.post("/upload_knowledge")
-async def upload_knowledge(
-    request: Request,
-    bot_id: int,
-    user_id: int,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db)
-):
-    request_id = getattr(request.state, "request_id", "unknown")
-    
-    logger.info(f"Knowledge upload initiated", 
-               extra={"request_id": request_id, "bot_id": bot_id, "user_id": user_id, 
-                     "filename": file.filename})
-    
-    try:
-        # Step 1: Extract text from the file
-        text = await extract_text_from_file(file)
-        
-        logger.debug(f"Text extracted from file", 
-                    extra={"request_id": request_id, "bot_id": bot_id, 
-                          "filename": file.filename, "text_length": len(text) if text else 0})
-
-        # Step 2: Validate and store the text in ChromaDB
-        validate_and_store_text_in_ChromaDB(text, bot_id, file, user_id=user_id)
-        
-        logger.info(f"Knowledge uploaded successfully", 
-                   extra={"request_id": request_id, "bot_id": bot_id, 
-                         "filename": file.filename})
-
-        return {"message": f"Knowledge uploaded successfully for Bot {bot_id}!"}
-    except Exception as e:
-        logger.exception(f"Error uploading knowledge", 
-                        extra={"request_id": request_id, "bot_id": bot_id, 
-                              "filename": file.filename, "error": str(e)})
-        raise HTTPException(status_code=500, detail=f"Error uploading knowledge: {str(e)}")
 
 
 def generate_response(bot_id: int, user_id: int, user_message: str, db: Session = Depends(get_db)):

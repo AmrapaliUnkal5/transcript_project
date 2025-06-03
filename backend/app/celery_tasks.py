@@ -40,6 +40,8 @@ import uuid
 import asyncio
 from app.utils.reembedding_utils import reembed_all_bot_data
 import time
+from app.utils.upload_knowledge_utils import extract_text_from_file
+from app.utils.upload_knowledge_utils import chunk_text
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -637,8 +639,19 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                 
                 logger.info(f"Adding document to vector database: {original_filename}")
                 
-                # Add the document to the vector database with user_id for model selection
-                add_document(bot_id, text=file_content_text, metadata=metadata, user_id=user_id)
+                # Split text into chunks before storing in vector database
+                text_chunks = chunk_text(file_content_text, bot_id=bot_id, user_id=user_id)
+                logger.info(f"📄 Split text into {len(text_chunks)} chunks")
+                
+                # Store each chunk with proper metadata
+                for i, chunk in enumerate(text_chunks):
+                    chunk_metadata = metadata.copy()
+                    chunk_metadata["id"] = f"{file_id}_chunk_{i+1}" if len(text_chunks) > 1 else file_id
+                    chunk_metadata["chunk_number"] = i + 1
+                    chunk_metadata["total_chunks"] = len(text_chunks)
+                    
+                    # Add the chunk to the vector database with user_id for model selection
+                    add_document(bot_id, text=chunk, metadata=chunk_metadata, user_id=user_id)
                 
                 # Update the database record
                 if file_record:
