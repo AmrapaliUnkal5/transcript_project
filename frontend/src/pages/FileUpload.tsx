@@ -26,7 +26,7 @@ import { useNavigate } from "react-router-dom";
 
 const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
   return (
-    <div className="absolute top-0 left-0 right-0 bottom--3 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+    <div className="absolute top-15 left-0 right-0 bottom--3 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
       <div className="bg-white p-6  m-10 rounded-lg border border-gray-200 shadow-lg max-w-sm mx-4">
         <Lock className="w-10 h-10 mx-auto text-gray-400 mb-3" />
         <h3 className="text-lg font-medium text-gray-900 mb-2 text-center">
@@ -1550,35 +1550,24 @@ export const FileUpload = () => {
 </div>
       {/* YouTube Videos Tab Content */}
       {activeTab === "youtube" && (
-        <div className="bg-white  p-6"
-  style={{
-    border: '1px solid #DFDFDF',
-    borderRadius: '13px'
-  }}>
-          {/* Show upgrade message only for plans 1 and 2 */}
-          {/* Overlay if plan is restricted */}
-          {[1, 2].includes(user.subscription_plan_id) && (
-            <div className="absolute inset-0 z-20 bg-white/80 dark:bg-gray-900/80 flex items-center justify-center pointer-events-auto">
-              <YouTubeUpgradeMessage requiredPlan="Growth" />
-            </div>
-          )}
-          <div
-            className={`${
-              [1, 2].includes(user.subscription_plan_id)
-                ? "pointer-events-none opacity-50"
-                : ""
-            }`}
-          >
-  <h1
-  style={{
-              fontFamily: "Instrument Sans, sans-serif",
-              fontSize: "20px",
-              color: "#333333",
-              fontWeight: "bold",
-              marginBottom: "20px",
-            }}
->  YouTube Videos
-</h1>
+  <div className="bg-white p-6 relative" style={{ border: '1px solid #DFDFDF', borderRadius: '13px' }}>
+    {/* Show upgrade message only for plans 1 and 2 */}
+    {[1, 2].includes(user.subscription_plan_id) && (
+      <div className="absolute inset-0 z-20 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-lg pointer-events-auto">
+        <YouTubeUpgradeMessage requiredPlan="Growth" />
+      </div>
+    )}
+    
+    <div className={[1, 2].includes(user.subscription_plan_id) ? "pointer-events-none opacity-50" : ""}>
+      <h1 style={{
+        fontFamily: "Instrument Sans, sans-serif",
+        fontSize: "20px",
+        color: "#333333",
+        fontWeight: "bold",
+        marginBottom: "20px",
+      }}>
+        YouTube Videos
+      </h1>
 
 
 
