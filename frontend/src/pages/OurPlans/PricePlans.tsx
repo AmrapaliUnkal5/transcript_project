@@ -84,6 +84,7 @@ export default function PricePlans() {
                   <Box display="flex" justifyContent="center" my={3}>
                     <Button
                       variant="text"
+                      href="/signup"
                       sx={{
                         width: "230px",
                         height: "50px",
@@ -222,6 +223,7 @@ export default function PricePlans() {
                   <Box display="flex" justifyContent="center" my={3}>
                     <Button
                       variant="text"
+                      href="/signup"
                       sx={{
                         width: "230px",
                         height: "50px",
@@ -395,6 +397,7 @@ export default function PricePlans() {
                   <Box display="flex" justifyContent="center" my={3}>
                     <Button
                       variant="text"
+                      href="/signup"
                       sx={{
                         width: "230px",
                         height: "50px",
@@ -530,6 +533,7 @@ export default function PricePlans() {
 
                   <Box display="flex" justifyContent="center" my={3}>
                     <Button
+                    href="/signup"
                       variant="text"
                       sx={{
                         width: "230px",
@@ -624,6 +628,7 @@ export default function PricePlans() {
           </Box>
           <Box my={6}>
             <Button
+            href='/login'
               variant="text"
               sx={{
                 width: "100%",

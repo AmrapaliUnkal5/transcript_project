@@ -111,6 +111,7 @@ export default function AddonExperience() {
                     </Box>
 
                     <Button
+                    href="/signup"
                       sx={{
                         bgcolor: "#fff",
                         color: "#2E2B9C",
@@ -201,6 +202,7 @@ export default function AddonExperience() {
                   </Box>
 
                   <Button
+                  href="/signup"
                     sx={{
                       bgcolor: "#fff",
                       color: "#2E2B9C",
@@ -288,6 +290,7 @@ export default function AddonExperience() {
                   </Box>
 
                   <Button
+                  href="/signup"
                     sx={{
                       bgcolor: "#fff",
                       color: "#2E2B9C",
@@ -377,6 +380,7 @@ export default function AddonExperience() {
                     </Box>
 
                     <Button
+                    href="/signup"
                       sx={{
                         bgcolor: "#fff",
                         color: "#2E2B9C",
@@ -468,6 +472,7 @@ export default function AddonExperience() {
                     </Box>
 
                     <Button
+                    href="/signup"
                       sx={{
                         bgcolor: "#fff",
                         color: "#2E2B9C",

@@ -216,6 +216,7 @@ export default function FAQ() {
             <Button
               variant='outlined'
               size='large'
+              href='/faq-page'
               sx={{
                 fontSize: '18px',
                 fontWeight: 500,

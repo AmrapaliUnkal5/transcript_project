@@ -325,6 +325,7 @@ export default function KeyBenefits() {
             <Button
               variant="contained"
               color="primary"
+              href="/login"
               size="large"
               sx={{
                 fontSize: "18px",

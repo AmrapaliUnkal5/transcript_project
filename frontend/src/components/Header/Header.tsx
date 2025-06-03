@@ -31,7 +31,7 @@ const drawerWidth = 240;
 const navItems = [
   { label: "Home", id: 1, url: "/" },
   { label: "Our Plans", id: 2, url: "/our-plans" },
-  { label: "Our Services", id: 3, url: "/" },
+  { label: "Our Services", id: 3, url: "" },
   { label: "Contact Us", id: 4, url: "/contact-us" },
 ];
 

@@ -215,6 +215,7 @@ export default function FAQ() {
           <Box display={'flex'} justifyContent={'center'} my={5}>
             <Button
               variant='outlined'
+              href='/faq-page'
               size='large'
               sx={{
                 fontSize: '18px',

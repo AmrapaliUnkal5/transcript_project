@@ -167,6 +167,7 @@ export const OurplanTable = () => {
                     <Box display="flex" justifyContent="center" my={0}>
                       <Button
                         variant="text"
+                         href="/signup"
                         sx={{
                           width: "137px",
                           height: "40px",
@@ -189,6 +190,7 @@ export const OurplanTable = () => {
                     <Box display="flex" justifyContent="center" my={0}>
                       <Button
                         variant="text"
+                         href="/signup"
                         sx={{
                           width: "137px",
                           height: "40px",
@@ -212,6 +214,7 @@ export const OurplanTable = () => {
                     <Box display="flex" justifyContent="center" my={0}>
                       <Button
                         variant="text"
+                         href="/signup"
                         sx={{
                           width: "137px",
                           height: "40px",
@@ -235,6 +238,7 @@ export const OurplanTable = () => {
                     <Box display="flex" justifyContent="center" my={0}>
                       <Button
                         variant="text"
+                         href="/signup"
                         sx={{
                           width: "137px",
                           height: "40px",
@@ -258,6 +262,7 @@ export const OurplanTable = () => {
                     <Box display="flex" justifyContent="center" my={0}>
                       <Button
                         variant="text"
+                        href="/signup"
                         sx={{
                           width: "137px",
                           height: "40px",
