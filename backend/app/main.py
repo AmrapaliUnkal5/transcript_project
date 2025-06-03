@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, Upl
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .models import Base, Captcha, User, UserSubscription, Bot, TeamMember, UserAddon
+from .models import Base, Captcha, User, UserSubscription, Bot, TeamMember, UserAddon, UserAuthProvider
 from .schemas import *
 from .crud import create_user,get_user_by_email, update_user_password,update_avatar
 from fastapi.security import OAuth2PasswordBearer
@@ -495,6 +495,17 @@ async def forgot_password(request: ForgotpasswordRequest,db: Session = Depends(g
     db_user = get_user_by_email(db, email=request.email)
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
+    # 2. Check if user is registered via OAuth (Google, etc.)
+    auth_provider = db.query(UserAuthProvider).filter(
+        UserAuthProvider.user_id == db_user.user_id
+    ).first()
+
+    if auth_provider:
+        raise HTTPException(
+            status_code=400,
+            detail="User not registered with password. Please sign in with Google."
+        )
+
     # Generate a secure JWT token
     token_data = {"email": request.email, "exp": datetime.utcnow() + timedelta(minutes=settings.FORGOT_PASSWORD_TOKEN_EXPIRY_MINUTES)}
     token = jwt.encode(token_data, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
