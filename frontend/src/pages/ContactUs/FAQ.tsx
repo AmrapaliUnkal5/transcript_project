@@ -144,9 +144,7 @@ export default function FAQ() {
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                Messages are counted based on interactions with the chatbot. Each user input and the corresponding AI response is considered a single message unit for billing and usage tracking purposes.
                 </Typography>
               </AccordionDetails>
             </Accordion>
@@ -172,12 +170,7 @@ export default function FAQ() {
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                Yes, depending on your subscription, you can invite additional admin users from your dashboard under the "Team" section. If you need more admin slots, you can purchase the Admin Add-on from the Add-ons section.
                 </Typography>
               </AccordionDetails>
             </Accordion>
@@ -203,12 +196,7 @@ export default function FAQ() {
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                Our system securely extracts content from your provided website URLs. The content is then processed, organized, and made searchable so the bot can provide accurate and relevant responses.
                 </Typography>
               </AccordionDetails>
             </Accordion>
