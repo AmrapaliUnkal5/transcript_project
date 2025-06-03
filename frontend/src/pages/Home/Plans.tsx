@@ -110,7 +110,8 @@ export default function Plans() {
                     Starter
                   </Typography>
                   <Typography variant="body2" color={"#B9B9B9"} fontSize={"14px"}>
-                    For individuals and small businesses
+                     Individuals freelancers and small businesses
+
                   </Typography>
 
                   <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
@@ -197,7 +198,8 @@ export default function Plans() {
                     Growth
                   </Typography>
                   <Typography variant="body2" color={"#B9B9B9"} fontSize={["14px"]}>
-                    For startups and small businesses
+                    Small to medium businesses and online retailers
+
                   </Typography>
 
                   <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
@@ -227,7 +229,7 @@ export default function Plans() {
                     <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
     height: ["22px", "24px"]}} />
                     <Typography variant="body1" color={"#FFF"} fontSize={["14px","16px"]}>
-                      Crawl 2 website
+                      Crawl 2 websites
                     </Typography>
                   </Box>
                   <Box display={"flex"} gap={1} my={2}>
@@ -284,7 +286,8 @@ export default function Plans() {
                     Professional
                   </Typography>
                   <Typography variant="body2" color={"#B9B9B9"}>
-                    For startups and small businesses
+                  Established multi-department companies, agencies.
+
                   </Typography>
 
                   <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>

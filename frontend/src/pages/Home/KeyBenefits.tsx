@@ -246,8 +246,8 @@ export default function KeyBenefits() {
                     1 Click Website Integration
                   </Typography>
                   <Typography variant="body1" color={"#9F9F9F"}>
-                    Easily integrate the bot into your website with a simple
-                    code snippet—ready in minutes
+                     Easily integrate the bot into your website with a simple code snippet, ready in minutes. 
+
                   </Typography>
                 </Box>
               </Grid>
@@ -298,9 +298,7 @@ export default function KeyBenefits() {
                     Insightful Analytics
                   </Typography>
                   <Typography variant="body1" color={"#9F9F9F"}>
-                    Explore rich analytics that deliver insights beyond basic
-                    metric – highlighting trends, behaviors and opportunities
-                    you can act on instantly.
+                    Explore rich analytics that deliver insights beyond basic metric, highlighting trends, behaviors and opportunities you can act on instantly. 
                   </Typography>
                 </Box>
               </Grid>
