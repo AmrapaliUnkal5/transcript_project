@@ -49,7 +49,7 @@ const steps: Step[] = [
   {
     title: "Website information",
     description:
-      "Add your website URL to help your chatbot understand your domain.",
+      "Add your website URL to help your bot understand the contents.",
     icon: Globe,
   },
   {
@@ -63,8 +63,8 @@ const steps: Step[] = [
 const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
   return (
     <div className="absolute top-0 left-0 right-0 bottom--3 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg ">
-      <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-lg max-w-sm mx-4">
-        <Lock className="w-10 h-10 mx-auto text-gray-400 mb-3" />
+      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-lg max-w-sm mx-4">
+        <Lock className="w-5 h-1 mx-auto text-gray-400 mb-0" />
         <h3 className="text-lg font-medium text-gray-900 mb-2 text-center">
           YouTube Videos Locked
         </h3>
@@ -1415,7 +1415,7 @@ export const CreateBot = () => {
           fontWeight: 600,
         }}
       >
-        Create your bot
+        Create Your Bot
       </div>
 
       <div className="max-w-3xl mx-auto px-4  ">
