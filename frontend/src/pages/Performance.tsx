@@ -27,9 +27,6 @@ import { useNavigate } from "react-router-dom";
 import ReactWordcloud from 'react-wordcloud';
 
 
-
-
-
 interface ConversationData {
   day: string;
   count: number;
@@ -70,7 +67,7 @@ const UpgradeMessage = ({
       </p>
       <div className="flex justify-center">
         <a
-          href="/subscription"
+          href="/dashboard/subscription"
           className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs font-medium"
         >
           Upgrade
@@ -431,13 +428,13 @@ const renderCustomLegend2 = (props: any) => {
   }
   
   // Advanced analytics only for professional plans (Plan 3+)
-  if (userPlan.id >= 3) {
+  if (userPlan.id >= 4) {
     fetchFaqData();
     fetchWordCloudData();
   }
   
   // Billing metrics for plans 2+
-  if (userPlan.id >= 2) {
+  if (userPlan.id >= 4) {
     fetchBillingCycleMetrics();
   }
 }, [selectedBot?.id, userPlan?.id]); // Add userPlan?.id to dependency array
@@ -681,7 +678,7 @@ const renderCustomLegend2 = (props: any) => {
           </div>
 
           {/* Detailed Metrics Table */}
-          <div   className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
+          <div   className="relative bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
   style={{
     border: '1px solid #DFDFDF',
     borderRadius: '13px'
@@ -785,7 +782,7 @@ const renderCustomLegend2 = (props: any) => {
               </table>
             </div>
             {!hasAdvancedAnalytics && (
-              <div className="absolute top-[50%] left-[75%] transform -translate-x-1/2 -translate-y-1/2 z-10">
+              <div className="absolute inset-0 flex items-center justify-center z-10">
                 <UpgradeMessage
                   requiredPlan="Professional"
                   feature=" detailed analytics"
@@ -846,7 +843,10 @@ const renderCustomLegend2 = (props: any) => {
           </div> */}
 
           </div>
-          <div className="flex flex-col w-full">
+          <div className="relative w-full ">
+          <div className={`flex flex-col w-full gap-6 ${
+            hasNoAnalyticsAccess ? "filter blur-xl pointer-events-none" : ""
+          }`}>
 
  <div  className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-4"
   style={{
@@ -900,7 +900,6 @@ const renderCustomLegend2 = (props: any) => {
             )}
           </div>
         ))}
-      </div>
 
       {faqData.length > 5 && (
         // <div className="flex justify-center mt-6">
@@ -928,18 +927,18 @@ const renderCustomLegend2 = (props: any) => {
 
       )}
 
-      {!hasAdvancedAnalytics && (
+      {/* {!hasAdvancedAnalytics && (
         <div className="absolute top-[85%] left-[25%] transform -translate-x-1/2 -translate-y-1/2 z-10">
           <UpgradeMessage
             requiredPlan="Professional"
             feature="FAQ analytics"
           />
         </div>
-      )}
+      )} */}
     </div>
-
+</div>
         {/* Word Cloud Chart - 6th graph */}
-          <div  className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-4"
+          <div  className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
   style={{
     border: '1px solid #DFDFDF',
     borderRadius: '13px'
@@ -972,7 +971,7 @@ const renderCustomLegend2 = (props: any) => {
               )}
             </div>
             {!hasAdvancedAnalytics && (
-              <div className="absolute top-[85%] left-[75%] transform -translate-x-1/2 -translate-y-1/2 z-10">
+              <div className="absolute top-[55%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
                 <UpgradeMessage
                   requiredPlan="Professional"
                   feature="word cloud analytics"
@@ -980,14 +979,11 @@ const renderCustomLegend2 = (props: any) => {
               </div>
             )}
           </div>
-
-
           </div>
-        
-
+    </div>
 
         {hasNoAnalyticsAccess && (
-          <div className="absolute top-[20%] left-[40%] transform -translate-x-1/8 -translate-y-1/16 z-10">
+          <div className="absolute top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
             <UpgradeMessage requiredPlan="Starter" feature="analytics" />
           </div>
         )}
