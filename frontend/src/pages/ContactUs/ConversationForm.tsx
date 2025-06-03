@@ -59,7 +59,7 @@ export default function ConversationForm() {
                   tailored to your region and time zone.
                 </Typography>
               
-                <Box display={"flex"} mb="31px">
+                {/* <Box display={"flex"} mb="31px">
                   <StyledImage
                     src="/images/icon-call.png"
                     sx={{ width: 28, height: 28, color: "#BAB8FF",mr:2}}
@@ -67,7 +67,7 @@ export default function ConversationForm() {
                   <Typography variant="body1" fontSize={16} color={"#cacaca"}>
                     978974574
                   </Typography>
-                </Box>
+                </Box> */}
                 <Box display={"flex"}  mb="31px">
                   <StyledImage
                     src="/images/icon-mail.png"
