@@ -1604,6 +1604,7 @@ export const FileUpload = () => {
               </div>
             <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md "
   style={{
+    
     border: '1px solid #DFDFDF',
     borderRadius: '13px'
   }}>
@@ -1697,7 +1698,12 @@ export const FileUpload = () => {
               <button
                 onClick={handleFinish}
                 className=" w-[102px]  h-[40px]  bg-blue-500 text-white rounded-lg hover:bg-[#5348CB] disabled:bg-[#AAAAAA] disabled:cursor-not-allowed"
-                disabled={!isVideoSelected || isVideoProcessing}
+                
+                style={{
+    backgroundColor: isVideoSelected ? "#5348CB" : "#AAAAAA",
+  }}
+  disabled={!isVideoSelected || isVideoProcessing}
+                
               >
                 {isVideoProcessing ? (
                   <span className="flex items-center">
@@ -1708,6 +1714,7 @@ export const FileUpload = () => {
                   "SAVE"
                 )}
               </button>
+              
             </div>
            
           </div>

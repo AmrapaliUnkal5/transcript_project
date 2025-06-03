@@ -29,6 +29,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
   const [refreshKeyState, setRefreshKeyState] = useState<number>(0);
   const [scrapeSuccess, setScrapeSuccess] = useState(false);
 
+
   // ✅ Reload video URLs when refreshKey changes
   useEffect(() => {
     setSelectedVideos([]);
@@ -282,7 +283,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
           onClick={handleFetchVideos}
           className="ml-2 flex items-center justify-center disabled:opacity-80 disabled:cursor-not-allowed"
   style={{
-    backgroundColor: "#AAAAAA",
+    backgroundColor: youtubeUrl.trim() ? "#5348CB" : "#AAAAAA",
     fontFamily: 'Instrument Sans, sans-serif',
     fontSize: '12px',
     fontWeight: 600,
