@@ -640,7 +640,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                 logger.info(f"Adding document to vector database: {original_filename}")
                 
                 # Split text into chunks before storing in vector database
-                text_chunks = chunk_text(file_content_text, bot_id=bot_id, user_id=user_id)
+                text_chunks = chunk_text(file_content_text, bot_id=bot_id, user_id=user_id, db=db)
                 logger.info(f"📄 Split text into {len(text_chunks)} chunks")
                 
                 # Store each chunk with proper metadata
