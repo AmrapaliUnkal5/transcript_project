@@ -456,7 +456,7 @@ const SubscriptionScrape: React.FC = () => {
         <div className="mt-4">
           <div className="flex justify-between mb-2">
             <div className="flex space-x-2">
-              <button
+              {/* <button
                 onClick={() => {
                   // Select all nodes on the current page
                   const currentPageNodes = getPaginatedNodes();
@@ -468,7 +468,7 @@ const SubscriptionScrape: React.FC = () => {
                 disabled={loading || isProcessing}
               >
                 Select Page
-              </button>
+              </button> */}
               <button
                 onClick={() => {
                   // Select all nodes across all pages
