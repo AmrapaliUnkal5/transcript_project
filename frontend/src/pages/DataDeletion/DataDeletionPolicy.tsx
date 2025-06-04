@@ -23,7 +23,7 @@ export const DataDeletionPolicy = () => {
     >
       <Container maxWidth="md">
         <Typography variant="h4" gutterBottom>
-          Data Deletion Policy
+          Data Deletion Policy 
         </Typography>
 
         <Typography variant="body1" gutterBottom>
