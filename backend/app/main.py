@@ -61,6 +61,7 @@ from app.current_billing_metrics import router as billing_metrics_router
 from app.celery_app import celery_app
 from app.celery_tasks import process_youtube_videos, process_file_upload, process_web_scraping
 from app.captcha_cleanup_thread import captcha_cleaner
+from app.utils.file_storage import save_file, get_file_url, FileStorageError
 
 
 # Import our custom logging components
@@ -124,7 +125,7 @@ initialize_scheduler()
 # Add the logging middleware
 #app.add_middleware(LoggingMiddleware)
 
-app.mount("/uploads_bot", StaticFiles(directory="uploads_bot"), name="uploads_bot")
+app.mount(f"/{settings.UPLOAD_BOT_DIR}", StaticFiles(directory=settings.UPLOAD_BOT_DIR), name=settings.UPLOAD_BOT_DIR)
 app.include_router(botsettings_router)
 app.include_router(social_login_router)
 app.include_router(bot_conversations_router)
@@ -646,9 +647,8 @@ def admin_user_dashboard(current_user= Depends(require_role(["admin","user"]))):
     return {"message": f"Welcome {current_user}, you have access!"}
 
 # Ensure the upload directory exists
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+app.mount(f"/{settings.UPLOAD_DIR}", StaticFiles(directory=settings.UPLOAD_DIR), name=settings.UPLOAD_DIR)
 
 @app.post("/upload-avatar/")
 async def upload_avatar(file: UploadFile = File(...)):
@@ -659,18 +659,22 @@ async def upload_avatar(file: UploadFile = File(...)):
         filename = f"{uuid.uuid4()}.{file_extension}"
         logger.debug("Filename: %s", filename)
         
-        # Define the file path to save the file
-        file_path = os.path.join(UPLOAD_DIR, filename)
-
-        # Save the file
-        with open(file_path, "wb") as buffer:
-            buffer.write(await file.read())
-
-        # Return the URL of the saved file
-        file_url = f"{settings.SERVER_URL}/{UPLOAD_DIR}/{filename}"
+        # Read file content
+        file_content = await file.read()
+        
+        # Save file using the new helper function
+        saved_path = save_file(settings.UPLOAD_DIR, filename, file_content)
+        
+        # Generate file URL
+        file_url = get_file_url(settings.UPLOAD_DIR, filename, settings.SERVER_URL)
+        
         return JSONResponse(content={"url": file_url}, status_code=200)
 
+    except FileStorageError as e:
+        logger.error(f"File storage error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"File storage error: {str(e)}")
     except Exception as e:
+        logger.error(f"Upload error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.put("/update-avatar/")

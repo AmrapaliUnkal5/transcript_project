@@ -1,6 +1,7 @@
 from decouple import config
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
 
 # Load environment variables from the .env file
 GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID")
@@ -8,6 +9,19 @@ FACEBOOK_APP_ID = config("FACEBOOK_APP_ID")
 FACEBOOK_APP_SECRET = config("FACEBOOK_APP_SECRET")
 REDIRECT_URI = config("REDIRECT_URI")
 SQLALCHEMY_DATABASE_URL = config("DATABASE_URL")
+
+# Folder path configurations with environment variable support
+UPLOAD_BOT_DIR = config("UPLOAD_BOT_DIR", default="uploads_bot")
+UPLOAD_DIR = config("UPLOAD_DIR", default="uploads")
+CHROMA_DIR = config("CHROMADB_STORE_DIR", default="chromadb_store")
+LOG_DIR = config("LOG_DIR", default="logs")
+
+# Create directories if they don't exist
+os.makedirs(UPLOAD_BOT_DIR, exist_ok=True)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(CHROMA_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
+
 # SMTP configuration using decouple
 SMTP_CONFIG = {
     "server": config("SMTP_SERVER"),
@@ -34,4 +48,10 @@ class Settings(BaseSettings):
     HUGGINGFACE_API_KEY: Optional[str] = HUGGINGFACE_API_KEY  # Use Optional to handle None values
     OPENAI_API_KEY: Optional[str] = OPENAI_API_KEY  # Add OpenAI API key
     WIDGET_API_URL:str =config("WIDGET_API_URL")
+    # Add folder path settings
+    UPLOAD_BOT_DIR: str = UPLOAD_BOT_DIR
+    UPLOAD_DIR: str = UPLOAD_DIR
+    CHROMA_DIR: str = CHROMA_DIR
+    LOG_DIR: str = LOG_DIR
+
 settings = Settings()

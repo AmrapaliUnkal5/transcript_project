@@ -23,7 +23,7 @@ if not api_key:
     raise ValueError("OPENAI_API_KEY is not set in configuration!")
 
 # Initialize ChromaDB Client
-chroma_client = chromadb.PersistentClient(path="./chromadb_store")
+chroma_client = chromadb.PersistentClient(path=f"./{settings.CHROMA_DIR}")
 
 
 def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None, user_id: int = None):

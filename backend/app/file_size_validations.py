@@ -32,6 +32,8 @@ from .crud import update_user_word_count
 from app.notifications import add_notification
 from app.vector_db import delete_document_from_chroma
 from app.celery_tasks import process_file_upload
+from app.utils.file_storage import delete_file as delete_file_storage
+from app.config import settings
 
 router = APIRouter()
 
@@ -81,21 +83,39 @@ async def validate_and_upload_files(
     current_user: UserOut = Depends(get_current_user)
 ):
     """Validates total file size, extracts text, stores in ChromaDB, and uploads files only if successful."""
+    print("🚀 DEBUG: Starting validate_and_upload_files function")
+    print(f"🚀 DEBUG: Received {len(files)} files for bot_id: {bot_id}")
+    print(f"🚀 DEBUG: Current user: {current_user['user_id']} (is_team_member: {current_user.get('is_team_member', 'N/A')})")
+    print(f"🚀 DEBUG: Storage configuration - UPLOAD_DIR: {settings.UPLOAD_DIR}")
+    print(f"🚀 DEBUG: Storage type: {'S3' if settings.UPLOAD_DIR.startswith('s3://') else 'Local'}")
+    
     # Validate total file size and get plan limits
-    plan_limits = await validate_file_size(files, current_user,db)
+    print("📏 DEBUG: Starting file size validation")
+    try:
+        plan_limits = await validate_file_size(files, current_user, db)
+        print(f"📏 DEBUG: File size validation passed. Plan: {plan_limits.get('name', 'Unknown')}")
+        print(f"📏 DEBUG: Plan limits - File size: {plan_limits.get('file_size_limit_mb', 'N/A')}MB, Storage: {plan_limits.get('storage_limit', 'N/A')}")
+    except Exception as e:
+        print(f"❌ DEBUG: File size validation failed: {str(e)}")
+        raise
 
     if not bot_id:
+        print("❌ DEBUG: Bot ID is missing")
         raise HTTPException(status_code=400, detail="Bot ID is required")
     
     # Parse the word and char counts from JSON strings
+    print("🔢 DEBUG: Parsing word and character counts")
     try:
         word_counts_list = json.loads(word_counts)
         char_counts_list = json.loads(char_counts)
-    except json.JSONDecodeError:
+        print(f"🔢 DEBUG: Parsed counts - Words: {word_counts_list}, Chars: {char_counts_list}")
+    except json.JSONDecodeError as e:
+        print(f"❌ DEBUG: Failed to parse counts JSON: {str(e)}")
         raise HTTPException(status_code=400, detail="Invalid word_counts or char_counts format")
 
     # Validate that counts lists match the number of files
     if len(word_counts_list) != len(files) or len(char_counts_list) != len(files):
+        print(f"❌ DEBUG: Count mismatch - Files: {len(files)}, Word counts: {len(word_counts_list)}, Char counts: {len(char_counts_list)}")
         raise HTTPException(
             status_code=400,
             detail=f"Counts lists must match number of files. Got {len(files)} files, "
@@ -105,56 +125,99 @@ async def validate_and_upload_files(
     # Calculate total word and character counts
     total_word_count = sum(word_counts_list)
     total_char_count = sum(char_counts_list)
+    print(f"🔢 DEBUG: Total counts - Words: {total_word_count}, Chars: {total_char_count}")
 
     # Validate file sizes and get plan limits
+    print("📏 DEBUG: Re-validating file size (duplicate call)")
     plan_limits = await validate_file_size(files, current_user, db)
     
     # Validate cumulative word count
-    await validate_cumulative_word_count(total_word_count, current_user, db)
+    print("📝 DEBUG: Validating cumulative word count")
+    try:
+        await validate_cumulative_word_count(total_word_count, current_user, db)
+        print("📝 DEBUG: Cumulative word count validation passed")
+    except Exception as e:
+        print(f"❌ DEBUG: Cumulative word count validation failed: {str(e)}")
+        raise
 
     uploaded_files = []
     knowledge_upload_messages = []
     
+    print(f"🔄 DEBUG: Starting file processing loop for {len(files)} files")
+    
     for i, file in enumerate(files):
+        print(f"\n📄 DEBUG: Processing file {i+1}/{len(files)}: {file.filename}")
+        print(f"📄 DEBUG: File details - Size: {file.size} bytes, Type: {file.content_type}")
+        
         original_filename = file.filename
         original_size_bytes = file.size  # Get original file size
 
         try:
             # Generate a file ID for tracking
+            print("🆔 DEBUG: Generating file ID")
             file_id = generate_file_id(bot_id, original_filename)
+            print(f"🆔 DEBUG: Generated file_id: {file_id}")
             
             # Create text file name with txt extension
             text_filename = f"{file_id}.txt"
+            print(f"📝 DEBUG: Text filename: {text_filename}")
             
             # Create path for the text file
+            print("📁 DEBUG: Creating hierarchical file path")
             text_file_path = get_hierarchical_file_path(bot_id, text_filename)
+            print(f"📁 DEBUG: Text file path: {text_file_path}")
             
             # Archive the original file to preserve it
-            archive_path = await archive_original_file(file, bot_id, file_id)
-            print(f"📦 Archived original file to {archive_path}")
+            print("📦 DEBUG: Starting archive process")
+            try:
+                archive_path = await archive_original_file(file, bot_id, file_id)
+                print(f"📦 DEBUG: Successfully archived original file to: {archive_path}")
+            except Exception as archive_error:
+                print(f"❌ DEBUG: Archive failed: {str(archive_error)}")
+                raise
 
             # Create an initial empty text file to reserve the path
-            await save_extracted_text("Processing file...", text_file_path)
+            print("💾 DEBUG: Creating initial placeholder text file")
+            try:
+                placeholder_result = await save_extracted_text("Processing file...", text_file_path)
+                print(f"💾 DEBUG: Placeholder file created at: {placeholder_result}")
+            except Exception as placeholder_error:
+                print(f"❌ DEBUG: Placeholder creation failed: {str(placeholder_error)}")
+                raise
             
             # Create initial file record in pending state
-            file_metadata = prepare_file_metadata(
-                original_filename=original_filename,
-                file_type=file.content_type,
-                bot_id=bot_id,
-                text_file_path=text_file_path,
-                file_id=file_id,
-                word_count=word_counts_list[i],
-                char_count=char_counts_list[i],
-                original_size_bytes=original_size_bytes
-            )
+            print("📊 DEBUG: Preparing file metadata")
+            try:
+                file_metadata = prepare_file_metadata(
+                    original_filename=original_filename,
+                    file_type=file.content_type,
+                    bot_id=bot_id,
+                    text_file_path=text_file_path,
+                    file_id=file_id,
+                    word_count=word_counts_list[i],
+                    char_count=char_counts_list[i],
+                    original_size_bytes=original_size_bytes
+                )
+                print(f"📊 DEBUG: File metadata prepared: {file_metadata}")
+            except Exception as metadata_error:
+                print(f"❌ DEBUG: Metadata preparation failed: {str(metadata_error)}")
+                raise
             
             # Set initial embedding status to pending
             file_metadata["embedding_status"] = "pending"
+            print("📊 DEBUG: Set embedding status to 'pending'")
             
             # Insert initial file metadata into database
-            db_file = insert_file_metadata(db, file_metadata)
+            print("💾 DEBUG: Inserting file metadata into database")
+            try:
+                db_file = insert_file_metadata(db, file_metadata)
+                print(f"💾 DEBUG: Database record created with ID: {db_file.file_id}")
+            except Exception as db_error:
+                print(f"❌ DEBUG: Database insertion failed: {str(db_error)}")
+                raise
             
             # Prepare data for async processing
+            print("🔄 DEBUG: Preparing data for Celery task")
             file_data = {
                 "file_id": file_id,
                 "original_filename": original_filename,
@@ -164,27 +227,43 @@ async def validate_and_upload_files(
                 "char_count": char_counts_list[i],
                 "original_size_bytes": original_size_bytes
             }
+            print(f"🔄 DEBUG: Celery task data: {file_data}")
             
             # Submit file for background processing
-            process_file_upload.delay(bot_id, file_data)
+            print("🚀 DEBUG: Submitting Celery task")
+            try:
+                task = process_file_upload.delay(bot_id, file_data)
+                print(f"🚀 DEBUG: Celery task submitted successfully with task_id: {task.id}")
+                print(f"🚀 DEBUG: Task state: {task.state}")
+            except Exception as celery_error:
+                print(f"❌ DEBUG: Celery task submission failed: {str(celery_error)}")
+                print(f"❌ DEBUG: Celery error type: {type(celery_error)}")
+                # Continue processing even if Celery fails
+                print("⚠️ DEBUG: Continuing without Celery task")
             
             # Add initial notification about file upload
-            event_type = "DOCUMENT_UPLOADED"
-            if current_user["is_team_member"] == True:
-                logged_in_team_member = current_user["member_id"]
-                event_data = f'"{original_filename}" uploaded to bot. {word_counts_list[i]} words extracted successfully by Team Member :{logged_in_team_member}'
-            else:
-                event_data = f'"{original_filename}" uploaded to bot. {word_counts_list[i]} words extracted successfully.'
-                              
-            add_notification(
-                    db=db,
-                    event_type=event_type,
-                    event_data=event_data,
-                    bot_id=bot_id,
-                    user_id=current_user["user_id"]
-                    )
+            print("📢 DEBUG: Adding notification")
+            try:
+                event_type = "DOCUMENT_UPLOADED"
+                if current_user["is_team_member"] == True:
+                    logged_in_team_member = current_user["member_id"]
+                    event_data = f'"{original_filename}" uploaded to bot. {word_counts_list[i]} words extracted successfully by Team Member :{logged_in_team_member}'
+                else:
+                    event_data = f'"{original_filename}" uploaded to bot. {word_counts_list[i]} words extracted successfully.'
+                                  
+                add_notification(
+                        db=db,
+                        event_type=event_type,
+                        event_data=event_data,
+                        bot_id=bot_id,
+                        user_id=current_user["user_id"]
+                        )
+                print(f"📢 DEBUG: Notification added: {event_data}")
+            except Exception as notification_error:
+                print(f"❌ DEBUG: Notification failed: {str(notification_error)}")
 
             # Append file details to response
+            print("📋 DEBUG: Preparing response data")
             uploaded_files.append({
                 "filename": original_filename,
                 "filetype": file.content_type,
@@ -204,17 +283,29 @@ async def validate_and_upload_files(
 
             # Success message
             knowledge_upload_messages.append(f"File upload initiated for: {original_filename}. Processing in background.")
+            print(f"✅ DEBUG: File {i+1}/{len(files)} processed successfully: {original_filename}")
 
         except HTTPException as e:
+            print(f"❌ DEBUG: HTTPException for file {original_filename}: {e.detail}")
             knowledge_upload_messages.append(f"Failed to upload file: {original_filename}. Error: {e.detail}")
         except Exception as e:
+            print(f"❌ DEBUG: Unexpected error for file {original_filename}: {str(e)}")
+            print(f"❌ DEBUG: Error type: {type(e)}")
+            import traceback
+            print(f"❌ DEBUG: Full traceback: {traceback.format_exc()}")
             knowledge_upload_messages.append(f"Failed to upload file: {original_filename}. Error: {str(e)}")
+
+    print(f"\n🏁 DEBUG: File processing loop completed")
+    print(f"🏁 DEBUG: Successfully processed: {len(uploaded_files)} files")
+    print(f"🏁 DEBUG: Total messages: {len(knowledge_upload_messages)}")
 
     # If no files were successfully uploaded, return an error
     if not uploaded_files:
+        print("❌ DEBUG: No files were successfully uploaded")
         raise HTTPException(status_code=400, detail="No files could be uploaded for processing.")
 
-    return {
+    print("✅ DEBUG: Preparing final response")
+    response_data = {
         "success": True,
         "message": "Files uploaded and queued for processing. You will be notified when processing is complete.",
         "files": uploaded_files,
@@ -226,6 +317,11 @@ async def validate_and_upload_files(
             "file_size_limit_mb": plan_limits["file_size_limit_mb"],
         }
     }
+    
+    print(f"✅ DEBUG: Final response prepared with {len(uploaded_files)} files")
+    print("🏆 DEBUG: validate_and_upload_files function completed successfully")
+    
+    return response_data
 
 @router.get("/files")
 async def get_files(
@@ -261,9 +357,25 @@ async def delete_file(
     if not bot:
         raise HTTPException(status_code=403, detail="Unauthorized access")
 
-    # Delete the file from the filesystem
-    if os.path.exists(file.file_path):
-        os.remove(file.file_path)
+    # Delete the file from storage (local or S3)
+    try:
+        if settings.UPLOAD_DIR.startswith('s3://'):
+            # For S3 storage, extract the relative path and use the file storage helper
+            upload_dir_path = settings.UPLOAD_DIR.rstrip('/')
+            if file.file_path.startswith(upload_dir_path + '/'):
+                relative_path = file.file_path[len(upload_dir_path + '/'):]
+                delete_file_storage("UPLOAD_DIR", relative_path)
+            else:
+                # Fallback: try to delete using just the filename
+                filename = os.path.basename(file.file_path)
+                delete_file_storage("UPLOAD_DIR", filename)
+        else:
+            # For local storage, use the existing method
+            if os.path.exists(file.file_path):
+                os.remove(file.file_path)
+    except Exception as e:
+        print(f"Error deleting file from storage: {str(e)}")
+        # Continue with deletion even if file deletion fails
     
     # Delete the document from ChromaDB
     try:

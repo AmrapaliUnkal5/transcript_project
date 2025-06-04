@@ -17,12 +17,14 @@ from app.utils.upload_knowledge_utils import extract_text_from_file,validate_and
 from app.fetchsubscripitonplans import get_subscription_plan_by_id
 import logging
 from app.utils.logger import get_module_logger
+from app.config import settings
+from app.utils.file_storage import save_file, FileStorageError
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
 
 # Update other constants to be dynamic
-UPLOAD_FOLDER = "uploads"  
+UPLOAD_FOLDER = settings.UPLOAD_DIR
 MAX_FILE_SIZE_MB = None  
 MAX_FILE_SIZE_BYTES = None 
 ARCHIVE_FOLDER = "archives"
@@ -74,8 +76,11 @@ def get_bot_user_id(bot_id: int):
     finally:
         db.close()
 
-def get_hierarchical_file_path(bot_id: int, filename: str, folder=UPLOAD_FOLDER, is_archive=False):
+def get_hierarchical_file_path(bot_id: int, filename: str, folder=None, is_archive=False):
     """Creates a hierarchical file path: uploads/account_X/bot_Y/filename."""
+    if folder is None:
+        folder = settings.UPLOAD_DIR
+        
     user_id = get_bot_user_id(bot_id)
     if not user_id:
         # Fallback to default folder if user not found
@@ -104,36 +109,111 @@ async def save_file_to_folder(file: UploadFile, file_path: str):
         buffer.write(await file.read())
 
 async def save_extracted_text(text: str, file_path: str):
-    """Saves extracted text to a .txt file."""
-    # Ensure directory exists
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(text)
-    
-    return file_path
+    """Saves extracted text to a .txt file, handling both local and S3 storage."""
+    try:
+        # Check if this looks like an S3 path (if UPLOAD_DIR is configured for S3)
+        if settings.UPLOAD_DIR.startswith('s3://'):
+            # For S3 storage, we need to extract the relative path and use the file storage helper
+            # The file_path will look like: s3://bucket/uploads/account_1/bot_2/filename.txt
+            # We need to extract just the filename and construct the proper S3 path
+            
+            # Extract the filename from the full path
+            filename = os.path.basename(file_path)
+            
+            # Get the relative path within the upload directory
+            # file_path structure: s3://bucket/uploads/account_X/bot_Y/filename.txt
+            # We want: account_X/bot_Y/filename.txt
+            upload_dir_path = settings.UPLOAD_DIR.rstrip('/')
+            if file_path.startswith(upload_dir_path + '/'):
+                relative_path = file_path[len(upload_dir_path + '/'):]
+            else:
+                # Fallback: just use the filename
+                relative_path = filename
+            
+            # Use the file storage helper for S3
+            text_bytes = text.encode('utf-8')
+            saved_path = save_file("UPLOAD_DIR", relative_path, text_bytes)
+            
+            logger.info(f"Successfully saved extracted text to S3: {saved_path}")
+            return saved_path
+        else:
+            # For local storage, use the existing direct file operations
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            
+            # Save directly to local storage
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(text)
+                
+            logger.info(f"Successfully saved extracted text to local storage: {file_path}")
+            return file_path
+        
+    except Exception as e:
+        logger.error(f"Error saving extracted text to {file_path}: {str(e)}")
+        raise
 
 async def archive_original_file(file: UploadFile, bot_id: int, file_id: str):
-    """Archives the original file."""
-    # Get the original extension
-    _, ext = os.path.splitext(file.filename)
-    archive_filename = f"{file_id}_original{ext}"
-    
-    # Create archive path
-    archive_path = get_hierarchical_file_path(bot_id, archive_filename, folder=UPLOAD_FOLDER, is_archive=True)
-    
-    # Reset file pointer to beginning
-    file.file.seek(0)
-    
-    # Save original file to archive
-    with open(archive_path, "wb") as buffer:
-        buffer.write(await file.read())
-    
-    return archive_path
+    """Archives the original file, handling both local and S3 storage."""
+    try:
+        # Get the original extension
+        _, ext = os.path.splitext(file.filename)
+        archive_filename = f"{file_id}_original{ext}"
+        
+        # Reset file pointer to beginning
+        file.file.seek(0)
+        file_content = await file.read()
+        
+        # Check if this should go to S3
+        if settings.UPLOAD_DIR.startswith('s3://'):
+            # For S3 storage, construct the archive path relative to the upload directory
+            user_id = get_bot_user_id(bot_id)
+            if user_id:
+                archive_relative_path = f"account_{user_id}/bot_{bot_id}/archives/{archive_filename}"
+            else:
+                archive_relative_path = f"archives/{archive_filename}"
+            
+            # Use the file storage helper for S3
+            saved_path = save_file("UPLOAD_DIR", archive_relative_path, file_content)
+            logger.info(f"Successfully archived original file to S3: {saved_path}")
+            return saved_path
+        else:
+            # For local storage, use the existing method
+            archive_path = get_hierarchical_file_path(bot_id, archive_filename, folder=UPLOAD_FOLDER, is_archive=True)
+            
+            # Save original file to archive
+            with open(archive_path, "wb") as buffer:
+                buffer.write(file_content)
+            
+            logger.info(f"Successfully archived original file to local storage: {archive_path}")
+            return archive_path
+            
+    except Exception as e:
+        logger.error(f"Error archiving original file: {str(e)}")
+        raise
 
 def prepare_file_metadata(original_filename: str, file_type: str, bot_id: int, text_file_path: str, file_id: str, word_count: int = 0, char_count: int = 0, original_size_bytes: int = 0 ):
     """Prepares file metadata for database insertion."""
-    file_size = os.path.getsize(text_file_path)
+    try:
+        # Check if this is an S3 path
+        if settings.UPLOAD_DIR.startswith('s3://') and text_file_path.startswith('s3://'):
+            # For S3 storage, we can't use os.path.getsize()
+            # Since we just created the file with "Processing file..." text, we know the size
+            # We'll calculate the size of the placeholder text
+            placeholder_text = "Processing file..."
+            file_size = len(placeholder_text.encode('utf-8'))
+            logger.info(f"S3 file size calculated for placeholder: {file_size} bytes")
+        else:
+            # For local storage, use the existing method
+            file_size = os.path.getsize(text_file_path)
+            logger.info(f"Local file size: {file_size} bytes")
+            
+    except Exception as e:
+        logger.error(f"Error getting file size for {text_file_path}: {str(e)}")
+        # Fallback to a reasonable default for placeholder text
+        placeholder_text = "Processing file..."
+        file_size = len(placeholder_text.encode('utf-8'))
+        logger.warning(f"Using fallback file size: {file_size} bytes")
+    
     file_size_readable = convert_size(file_size)
     original_size_readable = convert_size(original_size_bytes)
     
