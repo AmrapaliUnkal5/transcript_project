@@ -43,6 +43,7 @@ import time
 from app.utils.upload_knowledge_utils import extract_text_from_file
 from app.utils.upload_knowledge_utils import chunk_text
 from app.config import settings
+from app.utils.file_storage import save_file, get_file_url, delete_file as delete_file_storage, FileStorageError
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -219,20 +220,74 @@ def process_file_upload(self, bot_id: int, file_data: dict):
             
             # Process the file content - USING EXISTING TEXT EXTRACTION UTILITIES
             try:
-                # Check if file exists
-                if not os.path.exists(file_path):
-                    logger.error(f"File does not exist at path: {file_path}")
-                    raise Exception(f"File does not exist at path: {file_path}")
+                # Check storage type and handle file operations accordingly
+                is_s3_storage = settings.UPLOAD_DIR.startswith('s3://') and file_path.startswith('s3://')
                 
-                # Log file size
-                file_size = os.path.getsize(file_path)
-                logger.info(f"File size: {file_size} bytes")
-                
-                # Read the file content
-                logger.info(f"Reading file content from: {file_path}")
-                with open(file_path, 'rb') as f:
-                    file_content = f.read()
-                logger.info(f"Successfully read {len(file_content)} bytes from file")
+                if is_s3_storage:
+                    logger.info(f"Detected S3 storage for file: {file_path}")
+                    
+                    # For S3 storage, we need to extract relative path and use file storage helper
+                    upload_dir_path = settings.UPLOAD_DIR.rstrip('/')
+                    if file_path.startswith(upload_dir_path + '/'):
+                        relative_path = file_path[len(upload_dir_path + '/'):]
+                    else:
+                        # Fallback: extract from full S3 path
+                        relative_path = file_path.split('/')[-1]  # Just the filename as fallback
+                    
+                    logger.info(f"S3 relative path: {relative_path}")
+                    
+                    # Get file content from S3
+                    try:
+                        # Use get_file_url to download content (this reads the file content)
+                        # We'll need to implement a helper to get file content
+                        
+                        # Read the file content from S3
+                        import boto3
+                        from urllib.parse import urlparse
+                        
+                        # Parse S3 URL
+                        parsed_url = urlparse(file_path)
+                        bucket_name = parsed_url.netloc
+                        s3_key = parsed_url.path.lstrip('/')
+                        
+                        # Get S3 client
+                        s3_client = boto3.client('s3')
+                        
+                        # Check if object exists and get its size
+                        try:
+                            response = s3_client.head_object(Bucket=bucket_name, Key=s3_key)
+                            file_size = response['ContentLength']
+                            logger.info(f"S3 file size: {file_size} bytes")
+                        except Exception as head_error:
+                            logger.error(f"S3 file does not exist or cannot be accessed: {file_path}")
+                            raise Exception(f"File does not exist at path: {file_path}")
+                        
+                        # Get the file content
+                        logger.info(f"Reading file content from S3: {file_path}")
+                        response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+                        file_content = response['Body'].read()
+                        logger.info(f"Successfully read {len(file_content)} bytes from S3")
+                        
+                    except Exception as s3_error:
+                        logger.error(f"Error accessing S3 file {file_path}: {str(s3_error)}")
+                        raise Exception(f"File does not exist at path: {file_path}")
+                else:
+                    logger.info(f"Detected local storage for file: {file_path}")
+                    
+                    # Check if file exists
+                    if not os.path.exists(file_path):
+                        logger.error(f"File does not exist at path: {file_path}")
+                        raise Exception(f"File does not exist at path: {file_path}")
+                    
+                    # Log file size
+                    file_size = os.path.getsize(file_path)
+                    logger.info(f"File size: {file_size} bytes")
+                    
+                    # Read the file content
+                    logger.info(f"Reading file content from: {file_path}")
+                    with open(file_path, 'rb') as f:
+                        file_content = f.read()
+                    logger.info(f"Successfully read {len(file_content)} bytes from file")
                 
                 # For text files, directly read the content to avoid any potential truncation
                 file_content_text = None
@@ -249,27 +304,50 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                     user_id = bot.user_id if bot else None
                     
                     if user_id:
-                        # Build archive path
-                        account_dir = os.path.join(settings.UPLOAD_DIR, f"account_{user_id}")
-                        bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
-                        archive_dir = os.path.join(bot_dir, "archives")
-                        archive_path = os.path.join(archive_dir, archive_filename)
-                        
-                        logger.info(f"Looking for original PDF at: {archive_path}")
-                        
-                        if os.path.exists(archive_path):
-                            logger.info(f"Found original PDF at {archive_path}")
+                        # Build archive path - handle both S3 and local
+                        if is_s3_storage:
+                            # For S3, construct the archive S3 path
+                            archive_relative_path = f"account_{user_id}/bot_{bot_id}/archives/{archive_filename}"
+                            archive_s3_path = f"{settings.UPLOAD_DIR.rstrip('/')}/{archive_relative_path}"
                             
-                            # Try multiple PDF extraction libraries in sequence
-                            # 1. Try PyPDF2
+                            logger.info(f"Looking for S3 PDF archive at: {archive_s3_path}")
+                            
                             try:
-                                import PyPDF2
-                                logger.info(f"Attempting extraction with PyPDF2")
+                                # Parse S3 URL for archive
+                                from urllib.parse import urlparse
+                                parsed_url = urlparse(archive_s3_path)
+                                bucket_name = parsed_url.netloc
+                                s3_key = parsed_url.path.lstrip('/')
                                 
-                                pdf_text = ""
-                                with open(archive_path, 'rb') as pdf_file:
+                                # Get archive content from S3
+                                import boto3
+                                s3_client = boto3.client('s3')
+                                
+                                # Check if file exists first
+                                try:
+                                    s3_client.head_object(Bucket=bucket_name, Key=s3_key)
+                                    logger.info(f"Found original PDF in S3")
+                                except:
+                                    logger.error(f"Original PDF file not found in S3 at: {archive_s3_path}")
+                                    raise Exception("PDF archive not found in S3")
+                                
+                                # Get the archive content
+                                response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+                                archive_pdf_content = response['Body'].read()
+                                
+                                logger.info(f"Successfully downloaded PDF from S3, got {len(archive_pdf_content)} bytes")
+                                
+                                # Try multiple PDF extraction libraries in sequence
+                                # 1. Try PyPDF2
+                                try:
+                                    import PyPDF2
+                                    import io
+                                    logger.info(f"Attempting extraction with PyPDF2")
+                                    
+                                    pdf_text = ""
                                     try:
-                                        pdf_reader = PyPDF2.PdfReader(pdf_file)
+                                        pdf_file_obj = io.BytesIO(archive_pdf_content)
+                                        pdf_reader = PyPDF2.PdfReader(pdf_file_obj)
                                         logger.info(f"PDF has {len(pdf_reader.pages)} pages according to PyPDF2")
                                         
                                         for page_num in range(len(pdf_reader.pages)):
@@ -288,99 +366,239 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                                             logger.warning(f"PyPDF2 extraction yielded no text, trying next method")
                                     except Exception as pypdf_err:
                                         logger.error(f"PyPDF2 extraction error: {str(pypdf_err)}")
-                            except ImportError:
-                                logger.warning(f"PyPDF2 not available, skipping this extraction method")
-                            
-                            # 2. If PyPDF2 failed, try pdfplumber
-                            if not file_content_text:
-                                try:
-                                    import pdfplumber
-                                    logger.info(f"Attempting extraction with pdfplumber")
-                                    
-                                    pdf_text = ""
+                                except ImportError:
+                                    logger.warning(f"PyPDF2 not available, skipping this extraction method")
+                                
+                                # 2. If PyPDF2 failed, try pdfplumber
+                                if not file_content_text:
                                     try:
-                                        with pdfplumber.open(archive_path) as pdf:
-                                            logger.info(f"PDF has {len(pdf.pages)} pages according to pdfplumber")
+                                        import pdfplumber
+                                        import io
+                                        logger.info(f"Attempting extraction with pdfplumber")
+                                        
+                                        pdf_text = ""
+                                        try:
+                                            pdf_file_obj = io.BytesIO(archive_pdf_content)
+                                            with pdfplumber.open(pdf_file_obj) as pdf:
+                                                logger.info(f"PDF has {len(pdf.pages)} pages according to pdfplumber")
+                                                
+                                                for page_num, page in enumerate(pdf.pages):
+                                                    page_text = page.extract_text() or ""
+                                                    pdf_text += page_text + "\n\n"
+                                                    logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
                                             
-                                            for page_num, page in enumerate(pdf.pages):
-                                                page_text = page.extract_text() or ""
+                                            if pdf_text.strip():
+                                                logger.info(f"Successfully extracted {len(pdf_text)} chars with pdfplumber")
+                                                file_content_text = pdf_text
+                                            else:
+                                                logger.warning(f"Pdfplumber extraction yielded no text, trying next method")
+                                        except Exception as plumber_err:
+                                            logger.error(f"Pdfplumber extraction error: {str(plumber_err)}")
+                                    except ImportError:
+                                        logger.warning(f"pdfplumber not available, skipping this extraction method")
+                                
+                                # 3. If both failed, try PyMuPDF (fitz)
+                                if not file_content_text:
+                                    try:
+                                        import fitz  # PyMuPDF
+                                        import io
+                                        logger.info(f"Attempting extraction with PyMuPDF (fitz)")
+                                        
+                                        pdf_text = ""
+                                        try:
+                                            pdf_file_obj = io.BytesIO(archive_pdf_content)
+                                            doc = fitz.open(stream=pdf_file_obj, filetype="pdf")
+                                            logger.info(f"PDF has {len(doc)} pages according to PyMuPDF")
+                                            
+                                            for page_num in range(len(doc)):
+                                                page = doc[page_num]
+                                                page_text = page.get_text()
                                                 pdf_text += page_text + "\n\n"
                                                 logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
-                                        
-                                        if pdf_text.strip():
-                                            logger.info(f"Successfully extracted {len(pdf_text)} chars with pdfplumber")
-                                            file_content_text = pdf_text
-                                        else:
-                                            logger.warning(f"Pdfplumber extraction yielded no text, trying next method")
-                                    except Exception as plumber_err:
-                                        logger.error(f"Pdfplumber extraction error: {str(plumber_err)}")
-                                except ImportError:
-                                    logger.warning(f"pdfplumber not available, skipping this extraction method")
-                            
-                            # 3. If both failed, try PyMuPDF (fitz)
-                            if not file_content_text:
-                                try:
-                                    import fitz  # PyMuPDF
-                                    logger.info(f"Attempting extraction with PyMuPDF (fitz)")
-                                    
-                                    pdf_text = ""
-                                    try:
-                                        doc = fitz.open(archive_path)
-                                        logger.info(f"PDF has {len(doc)} pages according to PyMuPDF")
-                                        
-                                        for page_num in range(len(doc)):
-                                            page = doc[page_num]
-                                            page_text = page.get_text()
-                                            pdf_text += page_text + "\n\n"
-                                            logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
-                                        
-                                        if pdf_text.strip():
-                                            logger.info(f"Successfully extracted {len(pdf_text)} chars with PyMuPDF")
-                                            file_content_text = pdf_text
-                                        else:
-                                            logger.warning(f"PyMuPDF extraction yielded no text")
-                                    except Exception as fitz_err:
-                                        logger.error(f"PyMuPDF extraction error: {str(fitz_err)}")
-                                except ImportError:
-                                    logger.warning(f"PyMuPDF not available, skipping this extraction method")
-                            
-                            # 4. As a last resort, try to OCR with pytesseract
-                            if not file_content_text:
-                                try:
-                                    import fitz  # PyMuPDF for image extraction
-                                    from PIL import Image
-                                    import pytesseract
-                                    import io
-                                    
-                                    logger.info(f"Attempting OCR with pytesseract")
-                                    
-                                    pdf_text = ""
-                                    try:
-                                        doc = fitz.open(archive_path)
-                                        for page_num in range(len(doc)):
-                                            page = doc[page_num]
                                             
-                                            # Get page as image
-                                            pix = page.get_pixmap()
-                                            img_data = pix.tobytes("png")
-                                            img = Image.open(io.BytesIO(img_data))
-                                            
-                                            # OCR the image
-                                            page_text = pytesseract.image_to_string(img)
-                                            pdf_text += page_text + "\n\n"
-                                            logger.info(f"OCR extracted {len(page_text)} chars from page {page_num+1}")
+                                            if pdf_text.strip():
+                                                logger.info(f"Successfully extracted {len(pdf_text)} chars with PyMuPDF")
+                                                file_content_text = pdf_text
+                                            else:
+                                                logger.warning(f"PyMuPDF extraction yielded no text")
+                                        except Exception as fitz_err:
+                                            logger.error(f"PyMuPDF extraction error: {str(fitz_err)}")
+                                    except ImportError:
+                                        logger.warning(f"PyMuPDF not available, skipping this extraction method")
+                                
+                                # 4. As a last resort, try to OCR with pytesseract
+                                if not file_content_text:
+                                    try:
+                                        import fitz  # PyMuPDF for image extraction
+                                        from PIL import Image
+                                        import pytesseract
+                                        import io
                                         
-                                        if pdf_text.strip():
-                                            logger.info(f"Successfully extracted {len(pdf_text)} chars with OCR")
-                                            file_content_text = pdf_text
-                                        else:
-                                            logger.warning(f"OCR extraction yielded no text")
-                                    except Exception as ocr_err:
-                                        logger.error(f"OCR extraction error: {str(ocr_err)}")
-                                except ImportError as imp_err:
-                                    logger.warning(f"OCR libraries not available: {str(imp_err)}")
+                                        logger.info(f"Attempting OCR with pytesseract")
+                                        
+                                        pdf_text = ""
+                                        try:
+                                            pdf_file_obj = io.BytesIO(archive_pdf_content)
+                                            doc = fitz.open(stream=pdf_file_obj, filetype="pdf")
+                                            for page_num in range(len(doc)):
+                                                page = doc[page_num]
+                                                
+                                                # Get page as image
+                                                pix = page.get_pixmap()
+                                                img_data = pix.tobytes("png")
+                                                img = Image.open(io.BytesIO(img_data))
+                                                
+                                                # OCR the image
+                                                page_text = pytesseract.image_to_string(img)
+                                                pdf_text += page_text + "\n\n"
+                                                logger.info(f"OCR extracted {len(page_text)} chars from page {page_num+1}")
+                                            
+                                            if pdf_text.strip():
+                                                logger.info(f"Successfully extracted {len(pdf_text)} chars with OCR")
+                                                file_content_text = pdf_text
+                                            else:
+                                                logger.warning(f"OCR extraction yielded no text")
+                                        except Exception as ocr_err:
+                                            logger.error(f"OCR extraction error: {str(ocr_err)}")
+                                    except ImportError as imp_err:
+                                        logger.warning(f"OCR libraries not available: {str(imp_err)}")
+                                
+                            except Exception as s3_pdf_err:
+                                logger.error(f"Error accessing S3 PDF archive: {str(s3_pdf_err)}")
                         else:
-                            logger.error(f"Original PDF file not found at expected path: {archive_path}")
+                            # For local storage, use existing method
+                            # Build archive path
+                            account_dir = os.path.join(settings.UPLOAD_DIR, f"account_{user_id}")
+                            bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
+                            archive_dir = os.path.join(bot_dir, "archives")
+                            archive_path = os.path.join(archive_dir, archive_filename)
+                            
+                            logger.info(f"Looking for original PDF at: {archive_path}")
+                            
+                            if os.path.exists(archive_path):
+                                logger.info(f"Found original PDF at {archive_path}")
+                                
+                                # Try multiple PDF extraction libraries in sequence
+                                # 1. Try PyPDF2
+                                try:
+                                    import PyPDF2
+                                    logger.info(f"Attempting extraction with PyPDF2")
+                                    
+                                    pdf_text = ""
+                                    with open(archive_path, 'rb') as pdf_file:
+                                        try:
+                                            pdf_reader = PyPDF2.PdfReader(pdf_file)
+                                            logger.info(f"PDF has {len(pdf_reader.pages)} pages according to PyPDF2")
+                                            
+                                            for page_num in range(len(pdf_reader.pages)):
+                                                page = pdf_reader.pages[page_num]
+                                                page_text = page.extract_text()
+                                                if page_text:
+                                                    pdf_text += page_text + "\n\n"
+                                                    logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
+                                                else:
+                                                    logger.warning(f"No text extracted from page {page_num+1} with PyPDF2")
+                                            
+                                            if pdf_text.strip():
+                                                logger.info(f"Successfully extracted {len(pdf_text)} chars with PyPDF2")
+                                                file_content_text = pdf_text
+                                            else:
+                                                logger.warning(f"PyPDF2 extraction yielded no text, trying next method")
+                                        except Exception as pypdf_err:
+                                            logger.error(f"PyPDF2 extraction error: {str(pypdf_err)}")
+                                except ImportError:
+                                    logger.warning(f"PyPDF2 not available, skipping this extraction method")
+                                
+                                # 2. If PyPDF2 failed, try pdfplumber
+                                if not file_content_text:
+                                    try:
+                                        import pdfplumber
+                                        logger.info(f"Attempting extraction with pdfplumber")
+                                        
+                                        pdf_text = ""
+                                        try:
+                                            with pdfplumber.open(archive_path) as pdf:
+                                                logger.info(f"PDF has {len(pdf.pages)} pages according to pdfplumber")
+                                                
+                                                for page_num, page in enumerate(pdf.pages):
+                                                    page_text = page.extract_text() or ""
+                                                    pdf_text += page_text + "\n\n"
+                                                    logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
+                                            
+                                            if pdf_text.strip():
+                                                logger.info(f"Successfully extracted {len(pdf_text)} chars with pdfplumber")
+                                                file_content_text = pdf_text
+                                            else:
+                                                logger.warning(f"Pdfplumber extraction yielded no text, trying next method")
+                                        except Exception as plumber_err:
+                                            logger.error(f"Pdfplumber extraction error: {str(plumber_err)}")
+                                    except ImportError:
+                                        logger.warning(f"pdfplumber not available, skipping this extraction method")
+                                
+                                # 3. If both failed, try PyMuPDF (fitz)
+                                if not file_content_text:
+                                    try:
+                                        import fitz  # PyMuPDF
+                                        logger.info(f"Attempting extraction with PyMuPDF (fitz)")
+                                        
+                                        pdf_text = ""
+                                        try:
+                                            doc = fitz.open(archive_path)
+                                            logger.info(f"PDF has {len(doc)} pages according to PyMuPDF")
+                                            
+                                            for page_num in range(len(doc)):
+                                                page = doc[page_num]
+                                                page_text = page.get_text()
+                                                pdf_text += page_text + "\n\n"
+                                                logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
+                                            
+                                            if pdf_text.strip():
+                                                logger.info(f"Successfully extracted {len(pdf_text)} chars with PyMuPDF")
+                                                file_content_text = pdf_text
+                                            else:
+                                                logger.warning(f"PyMuPDF extraction yielded no text")
+                                        except Exception as fitz_err:
+                                            logger.error(f"PyMuPDF extraction error: {str(fitz_err)}")
+                                    except ImportError:
+                                        logger.warning(f"PyMuPDF not available, skipping this extraction method")
+                                
+                                # 4. As a last resort, try to OCR with pytesseract
+                                if not file_content_text:
+                                    try:
+                                        import fitz  # PyMuPDF for image extraction
+                                        from PIL import Image
+                                        import pytesseract
+                                        import io
+                                        
+                                        logger.info(f"Attempting OCR with pytesseract")
+                                        
+                                        pdf_text = ""
+                                        try:
+                                            doc = fitz.open(archive_path)
+                                            for page_num in range(len(doc)):
+                                                page = doc[page_num]
+                                                
+                                                # Get page as image
+                                                pix = page.get_pixmap()
+                                                img_data = pix.tobytes("png")
+                                                img = Image.open(io.BytesIO(img_data))
+                                                
+                                                # OCR the image
+                                                page_text = pytesseract.image_to_string(img)
+                                                pdf_text += page_text + "\n\n"
+                                                logger.info(f"OCR extracted {len(page_text)} chars from page {page_num+1}")
+                                            
+                                            if pdf_text.strip():
+                                                logger.info(f"Successfully extracted {len(pdf_text)} chars with OCR")
+                                                file_content_text = pdf_text
+                                            else:
+                                                logger.warning(f"OCR extraction yielded no text")
+                                        except Exception as ocr_err:
+                                            logger.error(f"OCR extraction error: {str(ocr_err)}")
+                                    except ImportError as imp_err:
+                                        logger.warning(f"OCR libraries not available: {str(imp_err)}")
+                            else:
+                                logger.error(f"Original PDF file not found at expected path: {archive_path}")
                     else:
                         logger.error(f"Cannot build archive path - user_id not found for bot {bot_id}")
                 
@@ -388,31 +606,87 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                 elif original_filename.lower().endswith('.txt'):
                     logger.info(f"Text file detected. Using direct text extraction method")
                     try:
-                        # Try reading as UTF-8 first
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            file_content_text = f.read()
-                            logger.info(f"Direct UTF-8 extraction successful, got {len(file_content_text)} characters")
-                            
-                            # Check if text is just the placeholder
-                            if file_content_text.strip() == "Processing file...":
-                                logger.warning(f"Detected placeholder text 'Processing file...' - need to use original archived file")
-                                file_content_text = None  # Will try to get from archive file
-                                
-                                # Get the original archived file path based on archive_original_file function
-                                # The archive file uses the original filename extension
-                                _, ext = os.path.splitext(original_filename)
-                                archive_filename = f"{file_id}_original{ext}"
-                                
-                                # Get user_id for the bot to create path
-                                user_id = None
+                        # Handle text extraction based on storage type
+                        if is_s3_storage:
+                            # For S3, we already have the file_content from above
+                            # Decode it as text
+                            logger.info(f"Decoding S3 file content for text file")
+                            try:
+                                file_content_text = file_content.decode('utf-8')
+                                logger.info(f"Direct UTF-8 extraction successful, got {len(file_content_text)} characters")
+                            except UnicodeDecodeError:
+                                # Fall back to more lenient encoding
+                                logger.info(f"UTF-8 decoding failed, trying with 'utf-8-sig' encoding")
                                 try:
-                                    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
-                                    if bot:
-                                        user_id = bot.user_id
-                                except Exception as user_err:
-                                    logger.error(f"Error getting user_id: {user_err}")
-                                
-                                if user_id:
+                                    file_content_text = file_content.decode('utf-8-sig', errors='replace')
+                                    logger.info(f"Fallback text extraction successful, got {len(file_content_text)} characters")
+                                except Exception as decode_err:
+                                    logger.error(f"Error decoding S3 file content: {decode_err}")
+                                    file_content_text = None
+                        else:
+                            # For local files, use the existing method
+                            # Try reading as UTF-8 first
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                file_content_text = f.read()
+                                logger.info(f"Direct UTF-8 extraction successful, got {len(file_content_text)} characters")
+                        
+                        # Check if text is just the placeholder
+                        if file_content_text and file_content_text.strip() == "Processing file...":
+                            logger.warning(f"Detected placeholder text 'Processing file...' - need to use original archived file")
+                            file_content_text = None  # Will try to get from archive file
+                            
+                            # Get the original archived file path based on archive_original_file function
+                            # The archive file uses the original filename extension
+                            _, ext = os.path.splitext(original_filename)
+                            archive_filename = f"{file_id}_original{ext}"
+                            
+                            # Get user_id for the bot to create path
+                            user_id = None
+                            try:
+                                bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+                                if bot:
+                                    user_id = bot.user_id
+                            except Exception as user_err:
+                                logger.error(f"Error getting user_id: {user_err}")
+                            
+                            if user_id:
+                                # Build archive path - handle both S3 and local
+                                if is_s3_storage:
+                                    # For S3, construct the archive S3 path
+                                    archive_relative_path = f"account_{user_id}/bot_{bot_id}/archives/{archive_filename}"
+                                    archive_s3_path = f"{settings.UPLOAD_DIR.rstrip('/')}/{archive_relative_path}"
+                                    
+                                    logger.info(f"Looking for S3 archive file at: {archive_s3_path}")
+                                    
+                                    try:
+                                        # Parse S3 URL for archive
+                                        from urllib.parse import urlparse
+                                        parsed_url = urlparse(archive_s3_path)
+                                        bucket_name = parsed_url.netloc
+                                        s3_key = parsed_url.path.lstrip('/')
+                                        
+                                        # Get archive content from S3
+                                        import boto3
+                                        s3_client = boto3.client('s3')
+                                        response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+                                        archive_content = response['Body'].read()
+                                        
+                                        logger.info(f"Found original archive file in S3, got {len(archive_content)} bytes")
+                                        
+                                        # For text files, try to decode directly
+                                        if original_filename.lower().endswith(('.txt')):
+                                            for encoding in ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+                                                try:
+                                                    file_content_text = archive_content.decode(encoding, errors='replace')
+                                                    logger.info(f"Successfully decoded S3 archive file with {encoding}, got {len(file_content_text)} characters")
+                                                    break
+                                                except Exception as decode_err:
+                                                    logger.error(f"Failed to decode with {encoding}: {decode_err}")
+                                        
+                                    except Exception as s3_archive_err:
+                                        logger.error(f"Error accessing S3 archive file: {str(s3_archive_err)}")
+                                else:
+                                    # For local storage, use existing method
                                     # Build path similar to get_hierarchical_file_path with is_archive=True
                                     account_dir = os.path.join(settings.UPLOAD_DIR, f"account_{user_id}")
                                     bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
@@ -461,22 +735,25 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                                             logger.error(f"Error processing archive file: {archive_err}")
                                     else:
                                         logger.error(f"Archive file not found at: {archive_path}")
-                                else:
-                                    logger.error(f"Cannot build archive path - user_id not found for bot {bot_id}")
-                    except UnicodeDecodeError:
-                        # Fall back to a more lenient encoding if UTF-8 fails
-                        logger.info(f"UTF-8 decoding failed, trying with 'utf-8-sig' encoding")
-                        try:
-                            with open(file_path, 'r', encoding='utf-8-sig', errors='replace') as f:
-                                file_content_text = f.read()
-                                logger.info(f"Fallback text extraction successful, got {len(file_content_text)} characters")
-                                
-                                # Check if text is just the placeholder
-                                if file_content_text.strip() == "Processing file...":
-                                    logger.warning(f"Detected placeholder text 'Processing file...' even with fallback encoding")
-                                    file_content_text = None  # Will proceed to next methods
-                        except Exception as txt_err:
-                            logger.error(f"Error with direct text file reading: {txt_err}")
+                            else:
+                                logger.error(f"Cannot build archive path - user_id not found for bot {bot_id}")
+                    except Exception as txt_err:
+                        logger.error(f"Error with text file reading: {txt_err}")
+                        if not is_s3_storage:
+                            # For local files, try fallback encoding
+                            try:
+                                with open(file_path, 'r', encoding='utf-8-sig', errors='replace') as f:
+                                    file_content_text = f.read()
+                                    logger.info(f"Fallback text extraction successful, got {len(file_content_text)} characters")
+                                    
+                                    # Check if text is just the placeholder
+                                    if file_content_text.strip() == "Processing file...":
+                                        logger.warning(f"Detected placeholder text 'Processing file...' even with fallback encoding")
+                                        file_content_text = None  # Will proceed to next methods
+                            except Exception as fallback_err:
+                                logger.error(f"Error with fallback text file reading: {fallback_err}")
+                                file_content_text = None
+                        else:
                             file_content_text = None
                 
                 # If not a text file or direct extraction failed, use the standard extraction method
@@ -503,17 +780,43 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                                     user_id = bot.user_id
                                 
                                 if user_id:
-                                    # Build path to the archive file
-                                    account_dir = os.path.join(settings.UPLOAD_DIR, f"account_{user_id}")
-                                    bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
-                                    archive_dir = os.path.join(bot_dir, "archives")
-                                    archive_path = os.path.join(archive_dir, archive_filename)
-                                    
-                                    if os.path.exists(archive_path):
-                                        logger.info(f"Using archive file for OCR: {archive_path}")
-                                        with open(archive_path, 'rb') as f:
-                                            archive_content = f.read()
-                                        file_content_text = extract_text_from_image(archive_content)
+                                    # Build path to the archive file - handle both S3 and local
+                                    if is_s3_storage:
+                                        # For S3, construct the archive S3 path
+                                        archive_relative_path = f"account_{user_id}/bot_{bot_id}/archives/{archive_filename}"
+                                        archive_s3_path = f"{settings.UPLOAD_DIR.rstrip('/')}/{archive_relative_path}"
+                                        
+                                        logger.info(f"Looking for S3 image archive at: {archive_s3_path}")
+                                        
+                                        try:
+                                            # Parse S3 URL for archive
+                                            from urllib.parse import urlparse
+                                            parsed_url = urlparse(archive_s3_path)
+                                            bucket_name = parsed_url.netloc
+                                            s3_key = parsed_url.path.lstrip('/')
+                                            
+                                            # Get archive content from S3
+                                            import boto3
+                                            s3_client = boto3.client('s3')
+                                            response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+                                            archive_content = response['Body'].read()
+                                            
+                                            logger.info(f"Using S3 archive file for OCR, got {len(archive_content)} bytes")
+                                            file_content_text = extract_text_from_image(archive_content)
+                                        except Exception as s3_image_err:
+                                            logger.error(f"Error accessing S3 image archive: {str(s3_image_err)}")
+                                    else:
+                                        # For local storage, use existing method
+                                        account_dir = os.path.join(settings.UPLOAD_DIR, f"account_{user_id}")
+                                        bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
+                                        archive_dir = os.path.join(bot_dir, "archives")
+                                        archive_path = os.path.join(archive_dir, archive_filename)
+                                        
+                                        if os.path.exists(archive_path):
+                                            logger.info(f"Using archive file for OCR: {archive_path}")
+                                            with open(archive_path, 'rb') as f:
+                                                archive_content = f.read()
+                                            file_content_text = extract_text_from_image(archive_content)
                             
                             if file_content_text:
                                 logger.info(f"✅ OCR successful: extracted {len(file_content_text)} characters")
@@ -597,37 +900,83 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                                     user_id = bot.user_id
                                 
                                 if user_id:
-                                    # Build path to the archive file
-                                    account_dir = os.path.join(settings.UPLOAD_DIR, f"account_{user_id}")
-                                    bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
-                                    archive_dir = os.path.join(bot_dir, "archives")
-                                    archive_path = os.path.join(archive_dir, archive_filename)
-                                    
-                                    if os.path.exists(archive_path):
-                                        logger.info(f"Found original image at {archive_path}, attempting OCR")
-                                        with open(archive_path, 'rb') as f:
-                                            image_data = f.read()
+                                    # Build path to the archive file - handle both S3 and local
+                                    if is_s3_storage:
+                                        # For S3, construct the archive S3 path
+                                        archive_relative_path = f"account_{user_id}/bot_{bot_id}/archives/{archive_filename}"
+                                        archive_s3_path = f"{settings.UPLOAD_DIR.rstrip('/')}/{archive_relative_path}"
                                         
-                                        # Try OCR with enhanced settings
-                                        file_content_text = extract_text_from_image(image_data)
-                                        if file_content_text:
-                                            logger.info(f"✅ OCR successful on second attempt: extracted {len(file_content_text)} chars")
-                                        else:
-                                            logger.warning("📉 OCR failed on second attempt")
+                                        logger.info(f"Looking for S3 image archive at: {archive_s3_path}")
+                                        
+                                        try:
+                                            # Parse S3 URL for archive
+                                            from urllib.parse import urlparse
+                                            parsed_url = urlparse(archive_s3_path)
+                                            bucket_name = parsed_url.netloc
+                                            s3_key = parsed_url.path.lstrip('/')
+                                            
+                                            # Get archive content from S3
+                                            import boto3
+                                            s3_client = boto3.client('s3')
+                                            response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+                                            archive_content = response['Body'].read()
+                                            
+                                            logger.info(f"Using S3 archive file for OCR, got {len(archive_content)} bytes")
+                                            file_content_text = extract_text_from_image(archive_content)
+                                        except Exception as s3_image_err:
+                                            logger.error(f"Error accessing S3 image archive: {str(s3_image_err)}")
+                                    else:
+                                        # For local storage, use existing method
+                                        account_dir = os.path.join(settings.UPLOAD_DIR, f"account_{user_id}")
+                                        bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
+                                        archive_dir = os.path.join(bot_dir, "archives")
+                                        archive_path = os.path.join(archive_dir, archive_filename)
+                                        
+                                        if os.path.exists(archive_path):
+                                            logger.info(f"Using archive file for OCR: {archive_path}")
+                                            with open(archive_path, 'rb') as f:
+                                                archive_content = f.read()
+                                            file_content_text = extract_text_from_image(archive_content)
+                                
+                                if file_content_text:
+                                    logger.info(f"✅ OCR successful on second attempt: extracted {len(file_content_text)} chars")
+                                else:
+                                    logger.warning("📉 OCR failed on second attempt")
                             except Exception as ocr_retry_err:
                                 logger.error(f"Error in OCR retry: {str(ocr_retry_err)}")
                         
-                            # If still no text, raise an error
-                            if not file_content_text:
-                                logger.error(f"Failed to extract content from file and no fallback available")
-                                raise Exception("Failed to extract content from file and no fallback available")
+                        # If still no text, raise an error
+                        if not file_content_text:
+                            logger.error(f"Failed to extract content from file and no fallback available")
+                            raise Exception("Failed to extract content from file and no fallback available")
                 
                 # Update the text file with the extracted content
-                if os.path.exists(file_path):
-                    logger.info(f"Updating text file with extracted content")
-                    with open(file_path, 'w', encoding='utf-8') as f:
-                        f.write(file_content_text)
-                    logger.info(f"✅ Successfully updated text file with {len(file_content_text)} characters")
+                if is_s3_storage:
+                    # For S3 storage, use the file storage helper to update the content
+                    logger.info(f"Updating S3 text file with extracted content")
+                    try:
+                        # Extract relative path from the full S3 path
+                        upload_dir_path = settings.UPLOAD_DIR.rstrip('/')
+                        if file_path.startswith(upload_dir_path + '/'):
+                            relative_path = file_path[len(upload_dir_path + '/'):]
+                        else:
+                            # Fallback: extract from full S3 path
+                            relative_path = file_path.split('/')[-1]
+                        
+                        # Save the extracted content to S3
+                        text_bytes = file_content_text.encode('utf-8')
+                        updated_path = save_file("UPLOAD_DIR", relative_path, text_bytes)
+                        logger.info(f"✅ Successfully updated S3 text file with {len(file_content_text)} characters at: {updated_path}")
+                    except Exception as s3_update_err:
+                        logger.error(f"Error updating S3 text file: {str(s3_update_err)}")
+                        # Continue processing even if update fails
+                else:
+                    # For local storage, use existing method
+                    if os.path.exists(file_path):
+                        logger.info(f"Updating text file with extracted content")
+                        with open(file_path, 'w', encoding='utf-8') as f:
+                            f.write(file_content_text)
+                        logger.info(f"✅ Successfully updated text file with {len(file_content_text)} characters")
                 
                 # Create metadata for embedding - ENSURE CONSISTENT FORMAT
                 metadata = {
