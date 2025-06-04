@@ -1699,8 +1699,8 @@ useEffect(() => {
                        z-50 transition-all duration-300 ease-in-out
                        ${
                          settings.appearance === "Popup"
-                           ? "w-[380px] h-[600px]"
-                           : "w-screen h-screen top-0 left-0"
+                           ? "w-[331px] h-[517px]"
+                           : "w-screen h-screen bottom-[50px]  right-[32px] "
                        }`}
         >
           <div
@@ -1715,38 +1715,38 @@ useEffect(() => {
           >
             {/* Preview Header */}
             <div
-              className="flex justify-between items-center "
+              className="flex justify-between items-center   h-[70px] flex-none "
               style={{
                 backgroundColor: settings.headerBgColor,
                 color: settings.headerTextColor,
               }}
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center ml-2 gap-2">
                 {settings.icon && (
                   <img
                     src={settings.icon}
                     alt="Bot Icon"
                     style={{
-                      width: "32px",
-                      height: "32px",
+                      width: "40px",
+                      height: "35px",
                       borderRadius: "50%",
                       objectFit: "cover",
                     }}
                   />
                 )}
                 <h2
-                  className="text-lg font-semibold flex items-center"
-                  style={{ color: settings.headerTextColor }}
+                  className="text-lg font-semibold flex items-center" 
+                  style={{fontFamily: "Instrument Sans, sans-serif", color: settings.headerTextColor }}
                 >
                   {settings.name}{" "}
-                  <span className="text-xs ml-2 opacity-70">(preview)</span>
+                  {/* <span className="text-xs ml-2 opacity-70">(preview)</span> */}
                 </h2>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="flex flex-col space-y-1 text-sm bg-opacity-20 bg-white px-3 py-2 rounded-lg">
+              <div className="flex items-center space-x-4 ">
+                <div className="flex flex-col space-y-1 text-sm bg-opacity-20 bg-white px-3 py-2 rounded-lg ">
                   <div
                     className="font-medium"
-                    style={{ color: settings.headerTextColor }}
+                    style={{ color: settings.headerTextColor,fontStyle: "Instrument Sans, sans-serif" }}
                   >
                     <span>
                       Msgs: {messageUsage.totalUsed}/
@@ -1759,7 +1759,12 @@ useEffect(() => {
                   style={{ color: settings.headerTextColor }}
                   className="hover:opacity-75"
                 >
-                  <X className="w-5 h-5" />
+                  {/* <X className="w-5 h-5" /> */}
+                  <img
+  src="/images/dummy/close-icons.png"
+  alt="Close"
+  className="w-5 h-5 object-contain mr-2"
+/>
                 </button>
               </div>
             </div>
@@ -1767,7 +1772,7 @@ useEffect(() => {
             {/* Chat Window */}
             <div
               ref={chatContainerRef}
-              className="relative rounded-lg p-4 flex-grow overflow-y-auto flex flex-col"
+              className="relative rounded-lg p-4 flex-grow overflow-y-auto flex flex-col  "
               style={{
                 backgroundColor: settings.windowBgColor,
                 fontFamily: settings.chatFontFamily || settings.fontStyle,
@@ -1780,7 +1785,7 @@ useEffect(() => {
                   <div key={index} className="mb-4">
                     {/* Message Bubble */}
                     <div
-                      className={`p-3 rounded-lg max-w-[80%] ${
+                      className={`p-3 rounded-lg max-w-[80%]   ${
                         msg.sender === "user" ? "ml-auto" : "mr-auto"
                       }`}
                       style={{
@@ -1819,10 +1824,10 @@ useEffect(() => {
                     </div>
                     {/* Reaction Buttons BELOW the bubble, only for bot */}
                     {msg.sender === "bot" && index > 0 && (
-                      <div className="flex gap-2 mt-1 ml-2">
+                      <div className="flex gap-2 mt-1 ml-2 ">
                         <button
                           onClick={() => handleReaction("like", index)}
-                          className={`p-1 rounded-full transition-colors ${
+                          className={`p-1 rounded-full transition-colors  ${
                             msg.reaction === "like"
                               ? "text-green-500 fill-green-500"
                               : "text-gray-500 hover:text-gray-700"
@@ -1832,7 +1837,7 @@ useEffect(() => {
                         </button>
                         <button
                           onClick={() => handleReaction("dislike", index)}
-                          className={`p-1 rounded-full transition-colors ${
+                          className={`p-1 rounded-full transition-colors  ${
                             msg.reaction === "dislike"
                               ? "text-red-500 fill-red-500"
                               : "text-gray-500 hover:text-gray-700"
@@ -1887,7 +1892,7 @@ useEffect(() => {
               )}
               {isBotTyping && (
                 <div
-                  className="mr-auto rounded-lg max-w-[80%] p-3"
+                  className="mr-auto rounded-lg max-w-[80%] p-3  "
                   style={{
                     backgroundColor: settings.botColor,
                     color: settings.chatTextColor,
@@ -1900,7 +1905,7 @@ useEffect(() => {
                   }}
                 >
                   {currentBotMessage}
-                  <span className="inline-flex items-center ml-1">
+                  <span className="inline-flex items-center ml-1  ">
                     <span
                       className="h-1.5 w-1.5 rounded-full mx-0.5 animate-bounce"
                       style={{
@@ -1942,18 +1947,18 @@ useEffect(() => {
 
             {/* Chat Input */}
             <div
-              className="p-4 border-t dark:border-gray-700"
+              className="p-4  "
               style={{
                 borderColor: settings.borderColor,
                 // backgroundColor: settings.windowBgColor,
               }}
             >
-              <div className="flex items-center">
+              <div className="flex items-center rounded-lg bg-[#E8EBF0]">
                 <input
                   type="text"
-                  className="flex-grow p-2 border rounded-lg"
+                  className="flex-grow p-2 bg-[#E8EBF0]"
                   style={{
-                    backgroundColor: settings.inputBgColor,
+                    // backgroundColor: settings.inputBgColor,
                     borderColor: settings.borderColor,
                     color: settings.chatTextColor,
                     borderRadius:
@@ -1964,7 +1969,7 @@ useEffect(() => {
                   placeholder={
                     !canSendMessage()
                       ? "We are facing technical issue. Kindly reach out to website admin for assistance"
-                      : "Type a message..."
+                      : "Type your message..."
                   }
                   value={inputMessage}
                   onChange={(e) => {
@@ -1986,9 +1991,9 @@ useEffect(() => {
                   disabled={!canSendMessage()}
                 />
                 <button
-                  className="ml-2 px-4 py-2 rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="ml-2 px-4 py-2 rounded-lg  disabled:cursor-not-allowed"
                   style={{
-                    backgroundColor: settings.buttonColor,
+                    //  backgroundColor: settings.buttonColor,
                     color: settings.buttonTextColor,
                     borderRadius:
                       settings.borderRadius === "rounded-full"
@@ -2005,7 +2010,13 @@ useEffect(() => {
                     inputMessage.length > MAX_USER_MESSAGE_LENGTH
                   }
                 >
-                  Send
+                  {/* Send */}
+                  <img
+    src="/images/dummy/send-icons.png"
+    alt="Send"
+    className="w-5 h-5 object-contain"  
+  
+  />
                 </button>
               </div>
               {/* Show warning if max length reached */}
