@@ -193,7 +193,27 @@ async def archive_original_file(file: UploadFile, bot_id: int, file_id: str):
 
 def prepare_file_metadata(original_filename: str, file_type: str, bot_id: int, text_file_path: str, file_id: str, word_count: int = 0, char_count: int = 0, original_size_bytes: int = 0 ):
     """Prepares file metadata for database insertion."""
-    file_size = os.path.getsize(text_file_path)
+    try:
+        # Check if this is an S3 path
+        if settings.UPLOAD_DIR.startswith('s3://') and text_file_path.startswith('s3://'):
+            # For S3 storage, we can't use os.path.getsize()
+            # Since we just created the file with "Processing file..." text, we know the size
+            # We'll calculate the size of the placeholder text
+            placeholder_text = "Processing file..."
+            file_size = len(placeholder_text.encode('utf-8'))
+            logger.info(f"S3 file size calculated for placeholder: {file_size} bytes")
+        else:
+            # For local storage, use the existing method
+            file_size = os.path.getsize(text_file_path)
+            logger.info(f"Local file size: {file_size} bytes")
+            
+    except Exception as e:
+        logger.error(f"Error getting file size for {text_file_path}: {str(e)}")
+        # Fallback to a reasonable default for placeholder text
+        placeholder_text = "Processing file..."
+        file_size = len(placeholder_text.encode('utf-8'))
+        logger.warning(f"Using fallback file size: {file_size} bytes")
+    
     file_size_readable = convert_size(file_size)
     original_size_readable = convert_size(original_size_bytes)
     
