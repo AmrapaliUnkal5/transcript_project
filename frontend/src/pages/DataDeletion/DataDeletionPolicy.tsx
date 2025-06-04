@@ -18,20 +18,20 @@ export const DataDeletionPolicy = () => {
         background: "linear-gradient(135deg, #172041, #1D1C56)",
         color: "#ffffff",
         pt: 15,
-        pb:10
+        pb: 10,
       }}
     >
       <Container maxWidth="md">
         <Typography variant="h4" gutterBottom>
-          Data Deletion Policy 
+          Data Deletion Policy
         </Typography>
 
         <Typography variant="body1" gutterBottom>
-          How to Delete Your Facebook User Data from Our Tool
+          How to Delete Your User Data from Our Tool
         </Typography>
 
         <Typography variant="body2" gutterBottom>
-          We respect your privacy and give you full control over your data. If you’ve signed in using Facebook and wish to delete your data from our system, please follow the steps below:
+          We respect your privacy and give you full control over your data. If you wish to delete your account and all associated data from our system, please follow the steps below:
         </Typography>
 
         <Box mt={4}>
@@ -41,7 +41,7 @@ export const DataDeletionPolicy = () => {
           <List>
             <ListItem>
               <ListItemIcon sx={{ color: "#ffffff" }}><Delete /></ListItemIcon>
-              <ListItemText primary="Sign in to your account using the same Facebook account you used to register." />
+              <ListItemText primary="Sign in to your account using your registered login credentials." />
             </ListItem>
             <ListItem>
               <ListItemIcon sx={{ color: "#ffffff" }}><Delete /></ListItemIcon>
@@ -65,11 +65,11 @@ export const DataDeletionPolicy = () => {
           <List>
             <ListItem>
               <ListItemIcon sx={{ color: "#ffffff" }}><Lock /></ListItemIcon>
-              <ListItemText primary="All your personal information, including your Facebook user ID, will be permanently removed from our database." />
+              <ListItemText primary="All your personal information and associated data will be permanently removed from our database." />
             </ListItem>
             <ListItem>
               <ListItemIcon sx={{ color: "#ffffff" }}><Lock /></ListItemIcon>
-              <ListItemText primary="You will no longer have access to your data or services linked to that account." />
+              <ListItemText primary="You will no longer have access to your data or services linked to your account." />
             </ListItem>
           </List>
         </Box>
@@ -95,3 +95,4 @@ export const DataDeletionPolicy = () => {
     </Box>
   );
 };
+
