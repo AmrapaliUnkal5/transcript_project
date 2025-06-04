@@ -33,11 +33,11 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
                      "document_type": metadata.get('source', 'unknown')})
     
     # Add more detailed metadata logging
-    logger.debug(f"Document metadata details", 
+    logger.info(f"Document metadata details", 
                extra={"bot_id": bot_id, "metadata": metadata})
     
     # Log text length to check if there's content to embed
-    logger.debug(f"Document text length: {len(text)}", 
+    logger.info(f"Document text length: {len(text)}", 
                extra={"bot_id": bot_id})
     
     try:
@@ -47,17 +47,17 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             logger.info(f"Using forced embedding model", 
                        extra={"bot_id": bot_id, "model_name": model_name})
             # Initialize embedding manager with forced model
-            logger.debug(f"Initializing EmbeddingManager with forced model", 
+            logger.info(f"Initializing EmbeddingManager with forced model", 
                        extra={"bot_id": bot_id, "model_name": model_name})
             embedder = EmbeddingManager(model_name=model_name)
-            logger.debug(f"Embedder initialized successfully", 
+            logger.info(f"Embedder initialized successfully", 
                        extra={"bot_id": bot_id, "model_name": model_name})
         else:
             # Otherwise, use the model selection utility if user_id is provided
             if user_id:
-                logger.debug(f"Using model selection based on user subscription", 
+                logger.info(f"Using model selection based on user subscription", 
                            extra={"bot_id": bot_id, "user_id": user_id})
-                logger.debug(f"Initializing EmbeddingManager with bot_id and user_id", 
+                logger.info(f"Initializing EmbeddingManager with bot_id and user_id", 
                            extra={"bot_id": bot_id, "user_id": user_id})
                 embedder = EmbeddingManager(bot_id=bot_id, user_id=user_id)
                 model_name = embedder.model_name
@@ -65,20 +65,20 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
                            extra={"bot_id": bot_id, "model_name": model_name})
             else:
                 # Otherwise, get from DB (normal case)
-                logger.debug(f"Getting bot configuration", extra={"bot_id": bot_id})
+                logger.info(f"Getting bot configuration", extra={"bot_id": bot_id})
                 model_name = get_bot_config(bot_id)
                 logger.info(f"Using embedding model from bot config", 
                            extra={"bot_id": bot_id, "model_name": model_name})
                 # Initialize embedding manager with model name
-                logger.debug(f"Initializing EmbeddingManager with model name", 
+                logger.info(f"Initializing EmbeddingManager with model name", 
                            extra={"bot_id": bot_id, "model_name": model_name})
                 embedder = EmbeddingManager(model_name=model_name)
-                logger.debug(f"Embedder initialized successfully", 
+                logger.info(f"Embedder initialized successfully", 
                            extra={"bot_id": bot_id, "model_name": model_name})
         
         # Test the embedder with a small piece of text before proceeding
         try:
-            logger.debug(f"Testing embedder with sample text", 
+            logger.info(f"Testing embedder with sample text", 
                        extra={"bot_id": bot_id, "model_name": model_name})
             test_embedding = embedder.embed_query("test")
             if not test_embedding:
@@ -88,7 +88,7 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             
             # Get the embedding dimension from the test
             embedding_dimension = len(test_embedding)
-            logger.debug(f"Embedding dimension verified", 
+            logger.info(f"Embedding dimension verified", 
                         extra={"bot_id": bot_id, "dimension": embedding_dimension, "model": model_name})
             
         except Exception as e:
@@ -99,14 +99,14 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             raise ValueError(error_msg)
         
         # Sanitize model name for collection name
-        logger.debug(f"Sanitizing model name for collection", 
+        logger.info(f"Sanitizing model name for collection", 
                    extra={"bot_id": bot_id, "model_name": model_name})
         sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
         
         # IMPORTANT: Always use a consistent collection name format based ONLY on bot_id and model
         # This ensures all data sources (YouTube, files, websites) share the same collection
         base_collection_name = f"bot_{bot_id}_{sanitized_model_name}"
-        logger.debug(f"Using collection name", 
+        logger.info(f"Using collection name", 
                    extra={"bot_id": bot_id, "collection": base_collection_name})
 
         # Log collection name with source type for debugging purposes
@@ -126,20 +126,20 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             # Standard case for all document types - use the consistent base collection name
             collection_name = base_collection_name
             
-        logger.debug(f"Getting or creating ChromaDB collection", 
+        logger.info(f"Getting or creating ChromaDB collection", 
                     extra={"bot_id": bot_id, "collection": collection_name})
         try:
             # Check if collection already exists
             try:
                 existing_collection = chroma_client.get_collection(name=collection_name)
-                logger.debug(f"Existing collection found", 
+                logger.info(f"Existing collection found", 
                            extra={"bot_id": bot_id, "collection": collection_name, 
                                  "count": existing_collection.count()})
                 logger.info(f"*** USING EXISTING COLLECTION: {collection_name} - DOCUMENT COUNT: {existing_collection.count()} ***", 
                            extra={"bot_id": bot_id})
                 bot_collection = existing_collection
             except Exception as e:
-                logger.debug(f"Collection not found, creating new collection", 
+                logger.info(f"Collection not found, creating new collection", 
                             extra={"bot_id": bot_id, "collection": collection_name, "error": str(e)})
                 bot_collection = chroma_client.create_collection(
                     name=collection_name,
@@ -160,11 +160,11 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             logger.warning(f"Used fallback method to create collection", 
                           extra={"bot_id": bot_id, "collection": collection_name})
             
-        logger.debug(f"Collection status", 
+        logger.info(f"Collection status", 
                     extra={"bot_id": bot_id, "collection": collection_name, 
                           "is_new": bot_collection.count() == 0})
 
-        logger.debug(f"Generating document embedding", 
+        logger.info(f"Generating document embedding", 
                     extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown'),
                           "text_length": len(text), "model": model_name})
         try:
@@ -174,7 +174,7 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
                             extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown')})
                 raise ValueError("Failed to generate document embedding")
                 
-            logger.debug(f"Embedding generated successfully", 
+            logger.info(f"Embedding generated successfully", 
                         extra={"bot_id": bot_id, "vector_length": len(vector), 
                               "first_values": str(vector[:3])})
         except Exception as e:
@@ -182,7 +182,7 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
                         extra={"bot_id": bot_id, "error": str(e)})
             raise ValueError(f"Error generating document embedding: {str(e)}")
 
-        logger.debug(f"Adding document to ChromaDB collection", 
+        logger.info(f"Adding document to ChromaDB collection", 
                     extra={"bot_id": bot_id, "collection": collection_name, 
                           "id": metadata["id"]})
         try:
@@ -192,7 +192,7 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
                 metadatas=[metadata],
                 documents=[text]
             )
-            logger.debug(f"Add result: {add_result}", 
+            logger.info(f"Add result: {add_result}", 
                         extra={"bot_id": bot_id, "collection": collection_name})
             logger.info(f"Document added successfully", 
                    extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown'), 
