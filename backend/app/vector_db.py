@@ -9,6 +9,8 @@ from app.models import Bot, EmbeddingModel, UserSubscription, SubscriptionPlan
 from app.utils.logger import get_module_logger
 from app.config import settings
 import time
+import signal
+from contextlib import contextmanager
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -24,6 +26,50 @@ if not api_key:
 
 # Initialize ChromaDB Client
 chroma_client = chromadb.PersistentClient(path=f"./{settings.CHROMA_DIR}")
+
+
+@contextmanager
+def timeout_handler(timeout_seconds=30):
+    """Context manager to handle timeouts for ChromaDB operations."""
+    def timeout_signal_handler(signum, frame):
+        raise TimeoutError(f"Operation timed out after {timeout_seconds} seconds")
+    
+    # Set up the signal handler
+    old_handler = signal.signal(signal.SIGALRM, timeout_signal_handler)
+    signal.alarm(timeout_seconds)
+    
+    try:
+        yield
+    finally:
+        # Reset the alarm and restore the old handler
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
+
+
+def safe_get_collection(client, collection_name, timeout_seconds=30):
+    """Safely get a collection with timeout and detailed logging."""
+    logger.info(f"[DEBUG] Attempting to get collection: {collection_name}")
+    logger.info(f"[DEBUG] ChromaDB client type: {type(client)}")
+    logger.info(f"[DEBUG] Collection name type: {type(collection_name)}, value: '{collection_name}'")
+    
+    try:
+        with timeout_handler(timeout_seconds):
+            logger.info(f"[DEBUG] About to call client.get_collection() with timeout {timeout_seconds}s")
+            start_time = time.time()
+            
+            collection = client.get_collection(name=collection_name)
+            
+            elapsed_time = time.time() - start_time
+            logger.info(f"[DEBUG] Successfully got collection in {elapsed_time:.2f} seconds")
+            return collection
+            
+    except TimeoutError as e:
+        logger.error(f"[DEBUG] TIMEOUT: get_collection() timed out after {timeout_seconds} seconds for collection '{collection_name}'")
+        raise
+    except Exception as e:
+        logger.error(f"[DEBUG] ERROR in get_collection(): {type(e).__name__}: {str(e)}")
+        logger.error(f"[DEBUG] Full traceback:", exc_info=True)
+        raise
 
 
 def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None, user_id: int = None):
@@ -131,7 +177,8 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
         try:
             # Check if collection already exists
             try:
-                existing_collection = chroma_client.get_collection(name=collection_name)
+                logger.info(f"[DEBUG] About to check for existing collection: {collection_name}")
+                existing_collection = safe_get_collection(chroma_client, collection_name, timeout_seconds=30)
                 logger.info(f"Existing collection found", 
                            extra={"bot_id": bot_id, "collection": collection_name, 
                                  "count": existing_collection.count()})
@@ -279,7 +326,8 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
         
         # Try to get the collection
         try:
-            bot_collection = chroma_client.get_collection(name=collection_name)
+            logger.info(f"[DEBUG] About to get collection for querying: {collection_name}")
+            bot_collection = safe_get_collection(chroma_client, collection_name, timeout_seconds=30)
             
             # Check if it has documents
             doc_count = bot_collection.count()
@@ -416,7 +464,8 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
         for collection_name in bot_collections:
             try:
                 logger.info(f"Trying collection: {collection_name}")
-                collection = chroma_client.get_collection(name=collection_name)
+                logger.info(f"[DEBUG] About to get collection in fallback: {collection_name}")
+                collection = safe_get_collection(chroma_client, collection_name, timeout_seconds=30)
                 
                 if collection.count() == 0:
                     logger.warning(f"Collection {collection_name} is empty, skipping")
