@@ -53,6 +53,34 @@ def safe_get_collection(client, collection_name, timeout_seconds=30):
     logger.info(f"[DEBUG] Collection name type: {type(collection_name)}, value: '{collection_name}'")
     
     try:
+        # First, check if the collection exists by listing all collections
+        logger.info(f"[DEBUG] Checking if collection exists by listing all collections")
+        with timeout_handler(timeout_seconds):
+            start_time = time.time()
+            all_collections = client.list_collections()
+            list_time = time.time() - start_time
+            logger.info(f"[DEBUG] Listed collections in {list_time:.2f}s, found {len(all_collections)} total")
+            
+            # Determine API version and get collection names
+            if all_collections and len(all_collections) > 0:
+                if isinstance(all_collections[0], str):
+                    logger.info(f"[DEBUG] Using new ChromaDB API (v0.6.0+)")
+                    collection_names = all_collections
+                else:
+                    logger.info(f"[DEBUG] Using old ChromaDB API (pre-0.6.0)")
+                    collection_names = [col.name for col in all_collections]
+            else:
+                collection_names = []
+            
+            logger.info(f"[DEBUG] Available collections: {collection_names[:10]}{'...' if len(collection_names) > 10 else ''}")
+            
+            # Check if our target collection exists
+            if collection_name not in collection_names:
+                logger.warning(f"[DEBUG] Collection '{collection_name}' not found in available collections")
+                raise ValueError(f"Collection '{collection_name}' does not exist")
+            
+            logger.info(f"[DEBUG] Collection '{collection_name}' exists, proceeding to get it")
+        
         with timeout_handler(timeout_seconds):
             logger.info(f"[DEBUG] About to call client.get_collection() with timeout {timeout_seconds}s")
             start_time = time.time()
@@ -65,6 +93,9 @@ def safe_get_collection(client, collection_name, timeout_seconds=30):
             
     except TimeoutError as e:
         logger.error(f"[DEBUG] TIMEOUT: get_collection() timed out after {timeout_seconds} seconds for collection '{collection_name}'")
+        raise
+    except ValueError as e:
+        logger.error(f"[DEBUG] Collection does not exist: {str(e)}")
         raise
     except Exception as e:
         logger.error(f"[DEBUG] ERROR in get_collection(): {type(e).__name__}: {str(e)}")
