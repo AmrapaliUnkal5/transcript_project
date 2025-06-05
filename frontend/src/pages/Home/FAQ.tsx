@@ -111,13 +111,13 @@ export default function FAQ() {
                 sx={{ borderRadius: '14px' }}
               >
                 <Typography component='span' fontWeight={600}>
-                  Can I change my plan after signing up?
+  Does the platform support multiple languages?
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Yes, you can upgrade or downgrade your subscription at any
-                  time. Changes will be reflected in your next billing cycle.
+                         Yes, our platform offers multilingual support, allowing your bot to understand and respond in various languages. This feature is perfect for businesses with global audiences.
+
                 </Typography>
               </AccordionDetails>
             </Accordion>
@@ -138,12 +138,12 @@ export default function FAQ() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                  How do you count messages
+            Can the bot retrieve information from YouTube videos?
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                Messages are counted based on interactions with the chatbot. Each user input and the corresponding AI response is considered a single message unit for billing and usage tracking purposes.
+             Yes, our YouTube video insights feature allows the bot to extract valuable information from your uploaded YouTube videos, making it a powerful tool for businesses that rely on video content.
                 </Typography>
               </AccordionDetails>
             </Accordion>
@@ -164,12 +164,13 @@ export default function FAQ() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                    Can I add more admin users to my plan?
+                How do I integrate the bot into my website?
+
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                Yes, depending on your subscription, you can invite additional admin users from your dashboard under the "Team" section. If you need more admin slots, you can purchase the Admin Add-on from the Add-ons section.
+       Integrating the bot into your website is simple. You can deploy the bot in minutes with a single code snippet, making it instantly accessible to your website visitors.
                 </Typography>
               </AccordionDetails>
             </Accordion>
@@ -190,12 +191,13 @@ export default function FAQ() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                    How does website crawling work?
+                       Can I request a custom solution for my organization?
+
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                Our system securely extracts content from your provided website URLs. The content is then processed, organized, and made searchable so the bot can provide accurate and relevant responses.
+       Yes, we offer tailored solutions for organizations with unique requirements or high-volume needs. Contact our sales team to discuss your specific goals, and we will work with you to develop a solution that fits your organization perfectly.
                 </Typography>
               </AccordionDetails>
             </Accordion>

@@ -114,13 +114,12 @@ export default function MoreFaq() {
                 sx={{ borderRadius: '14px' }}
               >
                 <Typography component='span' fontWeight={600}>
-                  Can I change my plan after signing up?
+                   How does website crawling work?
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Yes, you can upgrade or downgrade your subscription at any
-                  time. Changes will be reflected in your next billing cycle.
+                  Our system automatically scans and indexes content from your specified websites, converting the information into a knowledge base that your AI bot can use to answer questions.
                 </Typography>
               </AccordionDetails>
             </Accordion>
@@ -141,14 +140,12 @@ export default function MoreFaq() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                  How do you count messages
+                  What is YouTube video grounding?
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                  This feature allows your AI bot to extract and understand information from YouTube videos, enabling it to answer questions based on the video content.
                 </Typography>
               </AccordionDetails>
             </Accordion>
@@ -169,20 +166,18 @@ export default function MoreFaq() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                    Can I add more admin users to my plan?
+                    How can I remove the "Powered by Evolra" branding?
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                  You can remove our branding from the widget by purchasing the white-labeling add-on.
+
+
                 </Typography>
               </AccordionDetails>
             </Accordion>
+            
             <Accordion
               expanded={expanded === 'panel4'}
               onChange={handleChange('panel4')}
@@ -200,28 +195,23 @@ export default function MoreFaq() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                    How does website crawling work?
+                     Can I customize the look of my bot?
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                  Yes, all paid plans include full UI and branding customization options to match your brand’s identity.
                 </Typography>
               </AccordionDetails>
             </Accordion>
-
+ 
 
 <Accordion
-              expanded={expanded === 'panel4'}
-              onChange={handleChange('panel4')}
+              expanded={expanded === 'panel5'}
+              onChange={handleChange('panel5')}
               sx={{
                 borderRadius: '14px !important',
-                background: expanded === 'panel4'
+                background: expanded === 'panel5'
                   ? 'linear-gradient(0deg, #1D2051 0%, #3A419F 100%)'
                   : '#0F0A2D',
                 marginBottom: '16px',
@@ -233,27 +223,25 @@ export default function MoreFaq() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                    How does website crawling work?
+                    How many admin users can manage the bot?
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                  The number of admin users varies by plan, ranging from 1 in the Starter Plan to unlimited in the Enterprise Plan. You can also purchase additional AI Admin user licenses based on your need.
                 </Typography>
               </AccordionDetails>
             </Accordion>
 
+          
+
+
             <Accordion
-              expanded={expanded === 'panel4'}
-              onChange={handleChange('panel4')}
+              expanded={expanded === 'panel7'}
+              onChange={handleChange('panel7')}
               sx={{
                 borderRadius: '14px !important',
-                background: expanded === 'panel4'
+                background: expanded === 'panel7'
                   ? 'linear-gradient(0deg, #1D2051 0%, #3A419F 100%)'
                   : '#0F0A2D',
                 marginBottom: '16px',
@@ -265,28 +253,24 @@ export default function MoreFaq() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                    How does website crawling work?
+                   How does the bot generate human-like conversations?
+
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                 Our platform uses advanced Large Language Models (LLMs) to generate intelligent, human-like responses. The bot continuously learns and adapts from user interactions, enhancing its conversational abilities over time
                 </Typography>
               </AccordionDetails>
             </Accordion>
 
 
             <Accordion
-              expanded={expanded === 'panel4'}
-              onChange={handleChange('panel4')}
+              expanded={expanded === 'panel8'}
+              onChange={handleChange('panel8')}
               sx={{
                 borderRadius: '14px !important',
-                background: expanded === 'panel4'
+                background: expanded === 'panel8'
                   ? 'linear-gradient(0deg, #1D2051 0%, #3A419F 100%)'
                   : '#0F0A2D',
                 marginBottom: '16px',
@@ -298,28 +282,25 @@ export default function MoreFaq() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                    How does website crawling work?
+                     Can I customize the bot to match my brand?
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                  Absolutely! You can personalize your bot’s appearance—such as colors, typography, and style—to perfectly align with your brand identity and deliver a seamless customer experience.
+
+
                 </Typography>
               </AccordionDetails>
             </Accordion>
 
 
             <Accordion
-              expanded={expanded === 'panel4'}
-              onChange={handleChange('panel4')}
+              expanded={expanded === 'panel9'}
+              onChange={handleChange('panel9')}
               sx={{
                 borderRadius: '14px !important',
-                background: expanded === 'panel4'
+                background: expanded === 'panel9'
                   ? 'linear-gradient(0deg, #1D2051 0%, #3A419F 100%)'
                   : '#0F0A2D',
                 marginBottom: '16px',
@@ -331,28 +312,23 @@ export default function MoreFaq() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                    How does website crawling work?
+                    Does the platform provide analytics for the bot’s performance?
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                  Yes, our Usage Analytics feature lets you track key metrics like user interactions, response accuracy, and engagement rates. These insights help you continuously optimize your bot’s performance.
                 </Typography>
               </AccordionDetails>
             </Accordion>
 
 
             <Accordion
-              expanded={expanded === 'panel4'}
-              onChange={handleChange('panel4')}
+              expanded={expanded === 'pane20'}
+              onChange={handleChange('pane20')}
               sx={{
                 borderRadius: '14px !important',
-                background: expanded === 'panel4'
+                background: expanded === 'pane20'
                   ? 'linear-gradient(0deg, #1D2051 0%, #3A419F 100%)'
                   : '#0F0A2D',
                 marginBottom: '16px',
@@ -364,28 +340,25 @@ export default function MoreFaq() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                    How does website crawling work?
+                    What types of content can I use to train my bot?
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                  You can train your bot using various content sources, including websites, PDFs, FAQs, Word documents, plain text files, and YouTube videos. This helps create a comprehensive knowledge base for accurate responses.
+
+
                 </Typography>
               </AccordionDetails>
             </Accordion>
 
 
             <Accordion
-              expanded={expanded === 'panel4'}
-              onChange={handleChange('panel4')}
+              expanded={expanded === 'panel20'}
+              onChange={handleChange('panel20')}
               sx={{
                 borderRadius: '14px !important',
-                background: expanded === 'panel4'
+                background: expanded === 'panel20'
                   ? 'linear-gradient(0deg, #1D2051 0%, #3A419F 100%)'
                   : '#0F0A2D',
                 marginBottom: '16px',
@@ -397,56 +370,18 @@ export default function MoreFaq() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                    How does website crawling work?
+                     How do you count messages?
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                 A message is counted each time a user interacts with your bot. Each user question and each bot response are counted as one message each.
                 </Typography>
               </AccordionDetails>
             </Accordion>
 
 
-            <Accordion
-              expanded={expanded === 'panel4'}
-              onChange={handleChange('panel4')}
-              sx={{
-                borderRadius: '14px !important',
-                background: expanded === 'panel4'
-                  ? 'linear-gradient(0deg, #1D2051 0%, #3A419F 100%)'
-                  : '#0F0A2D',
-                marginBottom: '16px',
-              }}
-            >
-              <AccordionSummary
-                expandIcon={<ExpandMoreIcon sx={{ color: '#FFF' }} />}
-                aria-controls='panel4-content'
-                id='panel2-header'
-              >
-                <Typography component='span' fontWeight={600}>
-                    How does website crawling work?
-                </Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                </Typography>
-              </AccordionDetails>
-            </Accordion>
-
-
-            <Accordion
+            {/* <Accordion
               expanded={expanded === 'panel4'}
               onChange={handleChange('panel4')}
               sx={{
@@ -509,7 +444,7 @@ export default function MoreFaq() {
                   eget.
                 </Typography>
               </AccordionDetails>
-            </Accordion>
+            </Accordion> */}
             
 
 
