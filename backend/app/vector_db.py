@@ -24,9 +24,19 @@ if not api_key:
     logger.critical("OPENAI_API_KEY is not configured in settings")
     raise ValueError("OPENAI_API_KEY is not set in configuration!")
 
-# Initialize ChromaDB Client
-chroma_client = chromadb.PersistentClient(path=f"./{settings.CHROMA_DIR}")
-
+# Remove global chroma_client initialization - we'll create it per operation instead
+def get_chroma_client():
+    """
+    Create a new ChromaDB client instance for each operation.
+    This prevents thread-safety issues when using Celery with multiple workers.
+    """
+    try:
+        client = chromadb.PersistentClient(path=f"./{settings.CHROMA_DIR}")
+        logger.debug(f"Created new ChromaDB client with path: {settings.CHROMA_DIR}")
+        return client
+    except Exception as e:
+        logger.error(f"Failed to create ChromaDB client: {str(e)}")
+        raise
 
 @contextmanager
 def timeout_handler(timeout_seconds=30):
@@ -46,8 +56,9 @@ def timeout_handler(timeout_seconds=30):
         signal.signal(signal.SIGALRM, old_handler)
 
 
-def safe_get_collection(client, collection_name, timeout_seconds=30):
+def safe_get_collection(collection_name, timeout_seconds=30):
     """Safely get a collection with timeout and detailed logging."""
+    client = get_chroma_client()  # Create new client instance
     logger.info(f"[DEBUG] Attempting to get collection: {collection_name}")
     logger.info(f"[DEBUG] ChromaDB client type: {type(client)}")
     logger.info(f"[DEBUG] Collection name type: {type(collection_name)}, value: '{collection_name}'")
@@ -101,6 +112,11 @@ def safe_get_collection(client, collection_name, timeout_seconds=30):
         logger.error(f"[DEBUG] ERROR in get_collection(): {type(e).__name__}: {str(e)}")
         logger.error(f"[DEBUG] Full traceback:", exc_info=True)
         raise
+    finally:
+        # Clean up the client after we're done
+        if 'client' in locals():
+            del client
+            logger.debug("ChromaDB client cleaned up")
 
 
 def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None, user_id: int = None):
@@ -206,10 +222,13 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
         logger.info(f"Getting or creating ChromaDB collection", 
                     extra={"bot_id": bot_id, "collection": collection_name})
         try:
+            # Create new client instance for this operation
+            chroma_client = get_chroma_client()
+            
             # Check if collection already exists
             try:
                 logger.info(f"[DEBUG] About to check for existing collection: {collection_name}")
-                existing_collection = safe_get_collection(chroma_client, collection_name, timeout_seconds=30)
+                existing_collection = safe_get_collection(collection_name, timeout_seconds=30)
                 logger.info(f"Existing collection found", 
                            extra={"bot_id": bot_id, "collection": collection_name, 
                                  "count": existing_collection.count()})
@@ -288,6 +307,11 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
                         extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown'), 
                               "error": str(e)})
         raise ValueError(error_msg)
+    finally:
+        # Clean up the client after we're done
+        if 'chroma_client' in locals():
+            del chroma_client
+            logger.debug("ChromaDB client cleaned up in add_document")
 
 
 def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = None):
@@ -358,7 +382,7 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
         # Try to get the collection
         try:
             logger.info(f"[DEBUG] About to get collection for querying: {collection_name}")
-            bot_collection = safe_get_collection(chroma_client, collection_name, timeout_seconds=30)
+            bot_collection = safe_get_collection(collection_name, timeout_seconds=30)
             
             # Check if it has documents
             doc_count = bot_collection.count()
@@ -441,6 +465,9 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
     logger.info(f"Attempting fallback retrieval for bot {bot_id}")
     
     try:
+        # Create new client instance for this operation
+        chroma_client = get_chroma_client()
+        
         # List all collections
         collections = chroma_client.list_collections()
         
@@ -496,7 +523,7 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
             try:
                 logger.info(f"Trying collection: {collection_name}")
                 logger.info(f"[DEBUG] About to get collection in fallback: {collection_name}")
-                collection = safe_get_collection(chroma_client, collection_name, timeout_seconds=30)
+                collection = safe_get_collection(collection_name, timeout_seconds=30)
                 
                 if collection.count() == 0:
                     logger.warning(f"Collection {collection_name} is empty, skipping")
@@ -614,6 +641,11 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
         logger.error(f"Error in fallback retrieval", 
                     extra={"bot_id": bot_id, "error": str(e)})
         return []
+    finally:
+        # Clean up the client after we're done
+        if 'chroma_client' in locals():
+            del chroma_client
+            logger.debug("ChromaDB client cleaned up in fallback_retrieve_similar_docs")
 
 
 def get_bot_config(bot_id: int) -> str:
@@ -690,6 +722,9 @@ def delete_document_from_chroma(bot_id: int, file_id: str):
     logger.info(f"Starting document deletion process for bot {bot_id}, file_id {file_id}")
     
     try:
+        # Create new client instance for this operation
+        chroma_client = get_chroma_client()
+        
         # List all collections
         collections = chroma_client.list_collections()
         
@@ -702,16 +737,13 @@ def delete_document_from_chroma(bot_id: int, file_id: str):
             if not is_new_api:
                 # Try to get collection names using old API style
                 try:
-                    # Just try with the first item
                     if collections and len(collections) > 0:
                         test_name = collections[0].name
-                        # If we got here without exception, it's the old API
                         logger.debug("Using old ChromaDB API style (pre-0.6.0)")
                         bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
                     else:
                         bot_collections = []
                 except Exception as e:
-                    # If accessing 'name' causes an error, we're using the new API
                     logger.debug(f"Error checking collection type: {str(e)}")
                     logger.debug("Defaulting to new ChromaDB API style (0.6.0+)")
                     bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
@@ -804,6 +836,11 @@ def delete_document_from_chroma(bot_id: int, file_id: str):
     except Exception as e:
         logger.error(f"Error in delete_document_from_chroma: {str(e)}")
         # Don't re-raise to prevent disrupting the calling function
+    finally:
+        # Clean up the client after we're done
+        if 'chroma_client' in locals():
+            del chroma_client
+            logger.debug("ChromaDB client cleaned up in delete_document_from_chroma")
 
 
 def delete_video_from_chroma(bot_id: int, video_id: str):
@@ -814,6 +851,9 @@ def delete_video_from_chroma(bot_id: int, video_id: str):
         # Format the video ID consistently with how it was stored
         standard_id = f"youtube_{video_id}"
         video_id_str = str(video_id)
+        
+        # Create new client instance for this operation
+        chroma_client = get_chroma_client()
         
         # List all collections
         collections = chroma_client.list_collections()
@@ -902,6 +942,11 @@ def delete_video_from_chroma(bot_id: int, video_id: str):
         logger.error(f"YouTube document deletion failed", 
                     extra={"bot_id": bot_id, "video_id": video_id, "error": str(e)})
         return False
+    finally:
+        # Clean up the client after we're done
+        if 'chroma_client' in locals():
+            del chroma_client
+            logger.debug("ChromaDB client cleaned up in delete_video_from_chroma")
 
 
 def delete_url_from_chroma(bot_id: int, url: str):
@@ -913,6 +958,9 @@ def delete_url_from_chroma(bot_id: int, url: str):
         import hashlib
         website_id = hashlib.md5(url.encode()).hexdigest()
         url_str = str(url)
+        
+        # Create new client instance for this operation
+        chroma_client = get_chroma_client()
         
         # List all collections
         collections = chroma_client.list_collections()
@@ -1008,6 +1056,11 @@ def delete_url_from_chroma(bot_id: int, url: str):
         logger.error(f"Website document deletion failed", 
                     extra={"bot_id": bot_id, "url": url, "error": str(e)})
         return False
+    finally:
+        # Clean up the client after we're done
+        if 'chroma_client' in locals():
+            del chroma_client
+            logger.debug("ChromaDB client cleaned up in delete_url_from_chroma")
 
 
 def delete_bot_collections(bot_id: int):
@@ -1015,6 +1068,9 @@ def delete_bot_collections(bot_id: int):
     logger.info(f"Starting Chroma collection deletion for bot {bot_id}")
     
     try:
+        # Create new client instance for this operation
+        chroma_client = get_chroma_client()
+        
         # List all collections
         collections = chroma_client.list_collections()
         
@@ -1067,6 +1123,11 @@ def delete_bot_collections(bot_id: int):
         logger.error(f"Chroma collection deletion failed", 
                     extra={"bot_id": bot_id, "error": str(e)})
         return False
+    finally:
+        # Clean up the client after we're done
+        if 'chroma_client' in locals():
+            del chroma_client
+            logger.debug("ChromaDB client cleaned up in delete_bot_collections")
 
 
 def delete_user_collections(bot_ids: list):
