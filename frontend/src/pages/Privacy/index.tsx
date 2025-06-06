@@ -8,7 +8,7 @@ import { PrivacyPolicy } from './PrivacyPolicy';
 
 export default function Privacy() {
     return (
-        <Box>
+        <Box fontFamily={"'Instrument Sans', sans-serif"}>
         <HomeHeader/>
         <PrivacyPolicy/>
         <Footer/> 
