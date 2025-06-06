@@ -7,13 +7,14 @@ import os
 from fastapi.responses import JSONResponse
 import shutil
 from app.config import settings
-from app.schemas import  BotUpdateStatus, ReactionCreate
+from app.schemas import  BotThemeUpdate, BotUpdateStatus, ReactionCreate
 from app.models import Bot, User, InteractionReaction, Notification
 from datetime import datetime
 from app.utils.reembedding_utils import reembed_all_files
 from app.dependency import get_current_user
 from datetime import datetime, timezone
 from app.notifications import add_notification
+from app import models
 from .utils.email_helper import send_email
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
 
@@ -189,3 +190,38 @@ def send_bot_activation_email(user_name: str, user_email: str, bot_name: str):
     </html>
     """
     send_email(user_email, subject, body)
+
+
+@router.put("/theme/{bot_id}")
+async def update_theme(
+    bot_id: int,
+    theme: schemas.BotThemeUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Simple endpoint to update a bot's theme
+    Example: PUT /botsettings/theme/1 with body {"theme_id": "ocean"}
+    """
+    # Get the bot
+    bot = db.query(models.Bot).filter(models.Bot.bot_id == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    # Update the theme
+    bot.theme_id = theme.theme_id
+    
+    # Save to database
+    db.commit()
+    
+    return {"message": f"Theme updated to {theme.theme_id}", "bot_id": bot_id}
+
+@router.get("/theme/{bot_id}")
+async def get_theme(
+    bot_id: int,
+    db: Session = Depends(get_db)
+):
+    bot = db.query(models.Bot).filter(models.Bot.bot_id == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    return {"theme_id": bot.theme_id or "default"}

@@ -20,6 +20,8 @@ import { useLoader } from "../context/LoaderContext";
 import Loader from "../components/Loader";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
+import { Theme , THEMES } from '../types/index'; 
+
 
 interface MessageUsage {
   totalUsed: number;
@@ -41,6 +43,7 @@ interface MessageUsage {
   };
   effectiveRemaining: number;
 }
+
 
 const saveBotSettings = async (
   settings: BotSettings,
@@ -253,24 +256,24 @@ export const ChatbotCustomization = () => {
     fontStyle: "Inter",
     position: "bottom-right",
     maxMessageLength: 200,
-    botColor: "#E3F2FD",
-    userColor: "#F3E5F5",
+    botColor: "#cfcfcf",
+    userColor: "#9e9e9e",
     appearance: "Popup",
     temperature: 0,
     windowBgColor: "#F9FAFB",
     welcomeMessage: "Hi there! How can I help you today?",
     inputBgColor: "#FFFFFF",
     // New customization defaults
-    headerBgColor: "#3B82F6",
-    headerTextColor: "#FFFFFF",
+    headerBgColor: "#292929",
+    headerTextColor: "#efebeb",
     chatTextColor: "#1F2937",
-    userTextColor: "#121111",
-    buttonColor: "#3B82F6",
-    buttonTextColor: "#FFFFFF",
+    userTextColor: "#171616",
+    buttonColor: "#0f0f0f",
+    buttonTextColor: "#faf9f9",
     timestampColor: "#1F2937",
     userTimestampColor: "#FFFFFF",
     borderRadius: "12px",
-    borderColor: "#E5E7EB",
+    borderColor: "#0a0a0a",
     chatFontFamily: "Inter",
   });
 
@@ -301,6 +304,11 @@ export const ChatbotCustomization = () => {
 
   const [showPreview, setShowPreview] = useState(false);
   const [activeTab, setActiveTab] = useState("identity");
+
+const [selectedTheme, setSelectedTheme] = useState<string>('none');
+const [showCustomize, setShowCustomize] = useState(false);
+
+const [customizedThemes, setCustomizedThemes] = useState<Record<string, Partial<BotSettings>>>({});
 
   useEffect(() => {
     interactionIdRef.current = interactionId;
@@ -412,6 +420,9 @@ export const ChatbotCustomization = () => {
         if (response) {
           setBotId(selectedBot.id);
           setIsBotExisting(true);
+
+          // Set the selected theme from database
+        setSelectedTheme(response.theme_id || 'none');
 
           setSettings({
             name: response.bot_name,
@@ -962,6 +973,60 @@ useEffect(() => {
     });
   };
 
+const ThemeSelector: React.FC<{
+  themes: Theme[];
+  selectedTheme: string;
+  onSelect: (themeId: string) => void;
+  onReset: () => void;
+}> = ({ themes, selectedTheme, onSelect, onReset }) => {
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-medium">Select a theme</h3>
+      <div className="flex flex-wrap gap-4">
+        {themes.map((theme) => (
+          <div
+            key={theme.id}
+            onClick={() => onSelect(theme.id)}
+            className={`cursor-pointer p-2 border-2 rounded-lg transition-all ${
+              selectedTheme === theme.id
+                ? 'border-blue-500 ring-2 ring-blue-200'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+            style={{ width: '120px' }}
+          >
+            <div className="flex flex-col items-center">
+              <div
+                className="w-full h-16 rounded mb-2"
+                style={{
+                  background: `linear-gradient(135deg, ${theme.botColor} 50%, ${theme.userColor} 50%)`
+                }}
+              ></div>
+              <span className="text-sm font-medium text-center">{theme.name}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      {selectedTheme !== 'none' && (
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-gray-500">
+            Using <span className="font-medium">
+              {selectedTheme === 'custom' ? 'Custom' : themes.find(t => t.id === selectedTheme)?.name}
+            </span> theme
+          </div>
+          {/* {selectedTheme !== 'custom' && (
+            <button 
+              onClick={onReset}
+              className="px-2 py-1 text-sm border border-blue-500 text-blue-500 rounded hover:bg-blue-50"
+            >
+              Reset The Changes
+</button>
+          )} */}
+        </div>
+      )}
+    </div>
+  );
+};
   const tabOptions = [
     { id: "identity", label: "Bot Identity", icon: MessageSquare },
     { id: "typography", label: "Typography", icon: Type },
@@ -980,10 +1045,11 @@ useEffect(() => {
           ...sections.filter((s) => s.title === "Typography Advanced"),
         ];
       case "colors":
-        return [
-          ...sections.filter((s) => s.title === "Message Colors"),
-          ...sections.filter((s) => s.title === "Interface Colors"),
-        ];
+        return sections.filter(s => 
+        s.title === "Theme Selection" || 
+        s.title === "Message Colors" || 
+        s.title === "Interface Colors"
+      );
       case "layout":
         return [
           ...sections.filter((s) => s.title === "Window Appearance"),
@@ -1018,6 +1084,153 @@ useEffect(() => {
   // Return dark or light color based on luminance
   return luminance > 0.5 ? '#1F2937' : '#FFFFFF';
 };
+
+const handleColorChangeWithThemeSwitch = <K extends keyof BotSettings>(
+  field: K,
+  value: BotSettings[K]
+) => {
+  // If current theme is not custom and user is changing a color, switch to custom theme
+  if (selectedTheme !== 'custom' && field !== 'borderRadius' && field !== 'chatFontFamily') {
+    setSelectedTheme('custom');
+    toast.info('Switched to Custom theme as you modified colors');
+    
+  // Also update the theme in database if we have a botId
+    if (botId) {
+      authApi.updateBotTheme(botId, { theme_id: 'custom' })
+        .catch(error => console.error("Failed to update theme:", error));
+    }
+  }
+
+  // Then proceed with the normal color change handling
+  handleColorChange(field, value);
+};
+
+const handleColorChange = <K extends keyof BotSettings>(
+  field: K,
+  value: BotSettings[K]
+) => {
+  setSettings(prev => {
+    const newSettings = { ...prev, [field]: value };
+
+    // // Save the customization for the current theme
+    // if (selectedTheme !== 'none') {
+    //   setCustomizedThemes(prevCustom => ({
+    //     ...prevCustom,
+    //     [selectedTheme]: {
+    //       ...prevCustom[selectedTheme],
+    //       [field]: value
+    //     }
+    //   }));
+    // }
+
+    // Two-way synchronization between text colors and timestamp colors
+    if (field === "chatTextColor") {
+      newSettings.timestampColor = value as string;
+    } else if (field === "timestampColor") {
+      newSettings.chatTextColor = value as string;
+    } else if (field === "userTextColor") {
+      newSettings.userTimestampColor = value as string;
+    } else if (field === "userTimestampColor") {
+      newSettings.userTextColor = value as string;
+    }
+
+    return newSettings;
+  });
+};
+
+
+const resetThemeToDefault = () => {
+  console.log("Reset called"); 
+  if (selectedTheme === 'none') return;
+
+  const theme = THEMES.find(t => t.id === selectedTheme);
+  if (!theme) return;
+
+  // Remove customizations for this theme first
+  setCustomizedThemes(prev => {
+    const newCustom = { ...prev };
+    delete newCustom[selectedTheme];
+    return newCustom;
+  });
+
+  // Reset settings to default values of selected theme
+  const defaultSettings: Partial<BotSettings> = {
+    botColor: theme.botColor,
+    userColor: theme.userColor,
+    chatTextColor: theme.chatTextColor,
+    userTextColor: theme.userTextColor,
+    windowBgColor: theme.windowBgColor,
+    inputBgColor: theme.inputBgColor,
+    headerBgColor: theme.headerBgColor,
+    headerTextColor: theme.headerTextColor,
+    buttonColor: theme.buttonColor,
+    buttonTextColor: theme.buttonTextColor,
+    timestampColor: theme.timestampColor,
+    userTimestampColor: theme.userTimestampColor,
+    borderColor: theme.borderColor
+  };
+
+  // Also update the settings
+  setSettings(prev => ({
+    ...prev,
+    ...defaultSettings
+  }));
+};
+
+const handleThemeSelect = async (themeId: string) => {
+  if (!botId) return;
+  
+  try {
+    // If selecting custom theme, don't change settings
+    if (themeId === 'custom') {
+      setSelectedTheme('custom');
+      return;
+    }
+
+    // Save to database
+    await authApi.updateBotTheme(botId, { theme_id: themeId });
+    
+    // If we already have customizations for this theme, apply them
+    if (customizedThemes[themeId]) {
+      setSettings(prev => ({
+        ...prev,
+        ...customizedThemes[themeId]
+      }));
+      setSelectedTheme(themeId);
+      return;
+    }
+
+    // Otherwise apply the default theme
+    setSelectedTheme(themeId);
+    const theme = THEMES.find(t => t.id === themeId);
+    if (!theme) return;
+    
+    const defaultThemeSettings = {
+      botColor: theme.botColor,
+      userColor: theme.userColor,
+      chatTextColor: theme.chatTextColor,
+      userTextColor: theme.userTextColor,
+      windowBgColor: theme.windowBgColor,
+      inputBgColor: theme.inputBgColor,
+      headerBgColor: theme.headerBgColor,
+      headerTextColor: theme.headerTextColor,
+      buttonColor: theme.buttonColor,
+      buttonTextColor: theme.buttonTextColor,
+      timestampColor: theme.timestampColor,
+      userTimestampColor: theme.userTimestampColor,
+      borderColor: theme.borderColor
+    };
+
+    setSettings(prev => ({
+      ...prev,
+      ...defaultThemeSettings
+    }));
+  } catch (error) {
+    console.error("Failed to save theme:", error);
+    toast.error("Failed to save theme selection");
+  }
+};
+
 
   const sections = [
     {
@@ -1078,6 +1291,21 @@ useEffect(() => {
       ],
     },
     {
+      title: "Theme Selection",
+      icon: Palette,
+      fields: [
+        {
+          type: "theme-selector",
+          themes: THEMES,
+          selectedTheme: selectedTheme,
+          onSelect: handleThemeSelect,
+          onReset: resetThemeToDefault,
+          onCustomize: () => setShowCustomize(true)
+        }
+      ]
+    },
+   ...(selectedTheme !== 'none' || showCustomize) ? [
+    {
       title: "Message Colors",
       icon: Palette,
       fields: [
@@ -1086,47 +1314,33 @@ useEffect(() => {
           type: "color",
           value: settings.botColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("botColor", e.target.value),
+            handleColorChangeWithThemeSwitch("botColor", e.target.value),
+          
         },
         {
           label: "User Message Background",
           type: "color",
           value: settings.userColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("userColor", e.target.value),
+            handleColorChangeWithThemeSwitch("userColor", e.target.value),
         },
-        {
+{
           label: "Bot Message Text",
           type: "color",
           value: settings.chatTextColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("chatTextColor", e.target.value),
+            handleColorChangeWithThemeSwitch("chatTextColor", e.target.value),
         },
-
         {
           label: "User Message Text",
           type: "color",
           value: settings.userTextColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("userTextColor", e.target.value),
-        },
-    //     {
-    //   label: "Bot Timestamp Color",
-    //   type: "color",
-    //   value: settings.timestampColor,
-    //   onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-    //     handleChange("timestampColor", e.target.value),
-    // },
-    // {
-    //   label: "User Timestamp Color",
-    //   type: "color",
-    //   value: settings.userTimestampColor,
-    //   onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-    //     handleChange("userTimestampColor", e.target.value),
-    // },
-      ],
-    },
-    {
+            handleColorChangeWithThemeSwitch("userTextColor", e.target.value),
+        }
+      ]
+    }] : [],
+  ...((selectedTheme !== 'none' || showCustomize) ? [{
       title: "Interface Colors",
       icon: Palette,
       fields: [
@@ -1135,46 +1349,52 @@ useEffect(() => {
           type: "color",
           value: settings.windowBgColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("windowBgColor", e.target.value),
+            handleColorChangeWithThemeSwitch("windowBgColor", e.target.value),
         },
         {
           label: "Input Box Background",
           type: "color",
           value: settings.inputBgColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("inputBgColor", e.target.value),
+            handleColorChangeWithThemeSwitch("inputBgColor", e.target.value),
         },
         {
           label: "Header Background",
           type: "color",
           value: settings.headerBgColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("headerBgColor", e.target.value),
+            handleColorChangeWithThemeSwitch("headerBgColor", e.target.value),
         },
         {
           label: "Header Text Color",
           type: "color",
           value: settings.headerTextColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("headerTextColor", e.target.value),
+            handleColorChangeWithThemeSwitch("headerTextColor", e.target.value),
         },
         {
           label: "Button Color",
           type: "color",
           value: settings.buttonColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("buttonColor", e.target.value),
+            handleColorChangeWithThemeSwitch("buttonColor", e.target.value),
         },
         {
           label: "Button Text Color",
           type: "color",
           value: settings.buttonTextColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("buttonTextColor", e.target.value),
+            handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value),
         },
-      ],
-    },
-
+        {
+          label: "Border Color",
+          type: "color",
+          value: settings.borderColor,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            handleColorChangeWithThemeSwitch("borderColor", e.target.value),
+        }
+      ]
+    }] : []),
     {
       title: "Layout & Borders",
       icon: Move,
@@ -1200,7 +1420,7 @@ useEffect(() => {
           type: "color",
           value: settings.borderColor,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("borderColor", e.target.value),
+            handleColorChangeWithThemeSwitch("borderColor", e.target.value),
         },
       ],
     },
@@ -1226,7 +1446,7 @@ useEffect(() => {
           onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
             handleChange("appearance", e.target.value),
         },
-
+      
       {
   label: (
     <div className="flex items-center">
@@ -1423,7 +1643,17 @@ useEffect(() => {
                             </option>
                           ))}
                         </select>
-                      ) : field.type === "color" ? (
+                      ) : field.type === "theme-selector" ? (
+  <ThemeSelector
+    themes={field.themes}
+    selectedTheme={field.selectedTheme}
+    onSelect={field.onSelect}
+    showCustomize={field.showCustomize}
+    setShowCustomize={field.setShowCustomize}
+    onReset={resetThemeToDefault}
+  />
+) : 
+                      field.type === "color" ? (
                         <div className="flex items-center space-x-3 ">
                           <input
                             type="color"

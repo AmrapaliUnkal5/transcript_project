@@ -431,6 +431,12 @@ fetchCaptcha: async () => {
     const response = await api.get(`/botsettings/bot/${botId}`);  // API endpoint to fetch bot settings
     return response.data;
   },
+
+  updateBotTheme: async (botId: number, themeData: { theme_id: string }) => {
+  const response = await api.put(`/botsettings/theme/${botId}`, themeData);  // API endpoint to update bot theme
+  return response.data;
+},
+
   getConversationTrends: async (userId: number) => {
     const response = await api.get(`/conversation-trends?user_id=${userId}`);
     return response.data;
