@@ -64,7 +64,7 @@ export default function PricePlans() {
                   <Typography variant="body2" color={"#B9B9B9"}>
                     Explore risk free for one month
                   </Typography>
-
+{/* 
                   <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
                     <Typography
                       variant="h3"
@@ -79,7 +79,41 @@ export default function PricePlans() {
                       {" "}
                       (30 days)
                     </Typography>
-                  </Box>
+                  </Box> */}
+
+
+
+                  <Box display={"flex"} alignItems={"center"} gap={1} mt={4}>
+<Typography
+  variant="h4"
+  fontWeight={600}
+  fontSize={["32px", "36px"]}
+  color="white"
+>
+  $0 / 
+</Typography></Box>
+<Typography
+  variant="h4"
+  fontWeight={600}
+  fontSize={["32px", "36px"]}
+  color="white"
+  style={{ opacity: 0.7, marginTop: 0 }}
+>
+ ₹0
+</Typography>
+
+<Typography
+  variant="body2"
+  fontSize="16px"
+  color="rgba(255, 255, 255, 0.6)"
+  mt={0.5}
+>
+  per month
+</Typography>
+
+
+
+
 
                   <Box display="flex" justifyContent="center" my={3}>
                     <Button
@@ -204,7 +238,7 @@ export default function PricePlans() {
                     For individuals and small businesses
                   </Typography>
 
-                  <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
+                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
                     <Typography
                       variant="h3"
                       fontWeight={600}
@@ -217,6 +251,27 @@ export default function PricePlans() {
                     <Typography variant="h6" fontWeight={"400"}>
                       {" "}
                       /month
+                    </Typography>
+                  </Box> */}
+
+
+                   <Box display="flex" flexDirection="column" alignItems="flex-start" mt={4}>
+                    <Typography
+                      variant="h4"
+                      fontWeight={600}
+                      fontSize={["32px", "36px"]}
+                      color="white"
+                    >
+                      $14.99 <span style={{ opacity: 0.7 }}>/ ₹1300</span>
+                    </Typography>
+                  
+                    <Typography
+                      variant="body2"
+                      fontSize="16px"
+                      color="rgba(255, 255, 255, 0.6)"
+                      mt={0.5}
+                    >
+                      per month
                     </Typography>
                   </Box>
 
@@ -327,15 +382,7 @@ export default function PricePlans() {
                       "linear-gradient(148.01deg, #6637CC 54.39%, #2E2B9C 78.52%)",
                   }}
                 >
-                  {/* <Typography
-                    variant="h3"
-                    fontWeight={600}
-                    fontSize={"22px"}
-                    lineHeight="32px"
-                    mb={1}
-                  >
-                    Growth
-                  </Typography> */}
+                
 
                   <Box
                     display="flex"
@@ -378,7 +425,7 @@ export default function PricePlans() {
                     For startups and small businesses
                   </Typography>
 
-                  <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
+                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
                     <Typography
                       variant="h3"
                       fontWeight={600}
@@ -391,6 +438,28 @@ export default function PricePlans() {
                     <Typography variant="h6" fontWeight={"400"}>
                       {" "}
                       /month
+                    </Typography>
+                  </Box> */}
+
+
+
+                   <Box display="flex" flexDirection="column" alignItems="flex-start" mt={4}>
+                    <Typography
+                      variant="h4"
+                      fontWeight={600}
+                      fontSize={["32px", "36px"]}
+                      color="white"
+                    >
+                    $24.99 <span style={{ opacity: 0.7 }}>/ ₹2150</span>
+                    </Typography>
+                  
+                    <Typography
+                      variant="body2"
+                      fontSize="16px"
+                      color="rgba(255, 255, 255, 0.6)"
+                      mt={0.5}
+                    >
+                      per month
                     </Typography>
                   </Box>
 
@@ -515,7 +584,7 @@ export default function PricePlans() {
                     For growing businesses
                   </Typography>
 
-                  <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
+                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
                     <Typography
                       variant="h3"
                       fontWeight={600}
@@ -528,6 +597,26 @@ export default function PricePlans() {
                     <Typography variant="h6" fontWeight={"400"}>
                       {" "}
                       /month
+                    </Typography>
+                  </Box> */}
+
+                   <Box display="flex" flexDirection="column" alignItems="flex-start" mt={4}>
+                    <Typography
+                      variant="h4"
+                      fontWeight={600}
+                      fontSize={["32px", "36px"]}
+                      color="white"
+                    >
+                      $54.99 <span style={{ opacity: 0.7 }}>/ ₹4750</span>
+                    </Typography>
+                  
+                    <Typography
+                      variant="body2"
+                      fontSize="16px"
+                      color="rgba(255, 255, 255, 0.6)"
+                      mt={0.5}
+                    >
+                      per month
                     </Typography>
                   </Box>
 

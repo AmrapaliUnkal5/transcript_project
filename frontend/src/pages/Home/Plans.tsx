@@ -116,7 +116,7 @@ export default function Plans() {
 
                   </Typography>
 
-                  <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
+                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3} >
                     <Typography
                       variant="h3"
                       fontWeight={600}
@@ -130,7 +130,36 @@ export default function Plans() {
                       {" "}
                       /month
                     </Typography>
-                  </Box>
+
+                     
+                   
+                  </Box> */}
+
+
+<Box display="flex" flexDirection="column" alignItems="flex-start" mt={4}>
+  <Typography
+    variant="h4"
+    fontWeight={600}
+    fontSize={["32px", "36px"]}
+    color="white"
+  >
+    $14.99 <span style={{ opacity: 0.7 }}>/ ₹1300</span>
+  </Typography>
+
+  <Typography
+    variant="body2"
+    fontSize="16px"
+    color="rgba(255, 255, 255, 0.6)"
+    mt={0.5}
+  >
+    per month
+  </Typography>
+</Box>
+
+
+
+
+                  
 
                   <Box display={"flex"} gap={1} my={2}>
                     <CheckCircleIcon sx={{ color: "#BAB8FF"  , width: ["22px", "24px"],
@@ -205,7 +234,7 @@ export default function Plans() {
 
                   </Typography>
 
-                  <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
+                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
                     <Typography
                       variant="h3"
                       fontWeight={600}
@@ -219,7 +248,28 @@ export default function Plans() {
                       {" "}
                       /month
                     </Typography>
-                  </Box>
+                  </Box> */}
+
+                  <Box display="flex" flexDirection="column" alignItems="flex-start" mt={4}>
+  <Typography
+    variant="h4"
+    fontWeight={600}
+    fontSize={["32px", "36px"]}
+    color="white"
+  >
+    $24.99 <span style={{ opacity: 0.7 }}>/ ₹2150</span>
+  </Typography>
+
+  <Typography
+    variant="body2"
+    fontSize="16px"
+    color="rgba(255, 255, 255, 0.6)"
+    mt={0.5}
+  >
+    per month
+  </Typography>
+</Box>
+
 
                   <Box display={"flex"} gap={1} my={2}>
                     <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
@@ -294,7 +344,7 @@ export default function Plans() {
 
                   </Typography>
 
-                  <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
+                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
                     <Typography
                       variant="h3"
                       fontWeight={600}
@@ -308,7 +358,28 @@ export default function Plans() {
                       {" "}
                       /month
                     </Typography>
-                  </Box>
+                  </Box> */}
+
+                  <Box display="flex" flexDirection="column" alignItems="flex-start" mt={4}>
+  <Typography
+    variant="h4"
+    fontWeight={600}
+    fontSize={["32px", "36px"]}
+    color="white"
+  >
+    $54.99 <span style={{ opacity: 0.7 }}>/ ₹4750</span>
+  </Typography>
+
+  <Typography
+    variant="body2"
+    fontSize="16px"
+    color="rgba(255, 255, 255, 0.6)"
+    mt={0.5}
+  >
+    per month
+  </Typography>
+</Box>
+
 
                   <Box display={"flex"} gap={1} my={2}>
                     <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],

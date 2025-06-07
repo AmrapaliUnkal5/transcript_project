@@ -287,16 +287,16 @@ export const OurplanTable = () => {
                     Price
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    $0
+                    $0 / ₹0
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    $14.99
+                    $14.99 /₹1300
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    $24.99
+                    $24.99 /₹2150
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    $54.99
+                    $54.99/₹4750
                   </TableCell>
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
                     Custom price
