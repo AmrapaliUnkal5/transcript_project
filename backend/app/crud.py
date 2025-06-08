@@ -2,7 +2,7 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from .models import User, Bot, File, TeamMember, TeamMemberRole,InteractionReaction, ReactionType,Interaction
-from .schemas import UserCreate, BotCreate, BotUpdate, BotResponse, TeamMemberCreate, TeamMemberUpdate
+from .schemas import BotThemeUpdate, UserCreate, BotCreate, BotUpdate, BotResponse, TeamMemberCreate, TeamMemberUpdate
 from passlib.context import CryptContext
 import secrets
 import string
@@ -13,6 +13,10 @@ from sqlalchemy import text  # Add this import at the top of your file
 from sqlalchemy import case
 import logging
 from app.utils.logger import get_module_logger
+
+from app import models
+
+from app import schemas
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -466,3 +470,23 @@ def update_user_word_count(db: Session, user_id: int, word_count: int):
     db.commit()
     db.refresh(user)
     return user
+
+def update_bot_theme(db: Session, bot_id: int, theme_data: schemas.BotThemeUpdate):
+    try:
+        db_bot = db.query(models.Bot).filter(models.Bot.bot_id == bot_id).first()
+        if not db_bot:
+            return None
+        
+        # Update all theme-related fields
+        update_data = theme_data.dict(exclude_unset=True)
+        for field, value in update_data.items():
+            if hasattr(db_bot, field):
+                setattr(db_bot, field, value)
+        
+        db.commit()
+        db.refresh(db_bot)
+        return db_bot
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating bot theme: {str(e)}")
+        raise  # Re-raise to be handled by the route

@@ -148,6 +148,7 @@ class BotRename(BaseModel):
 
 class BotResponse(BotBase):
     bot_id: int
+    theme_id: Optional[str]
 
     class Config:
         from_attributes = True  
@@ -241,6 +242,9 @@ class BotUpdateStatus(BaseModel):
     
     status: str
     is_active: bool
+
+class BotThemeUpdate(BaseModel):
+    theme_id:str
 
 # Define Enum for reactions
 class ReactionEnum(str, Enum):
