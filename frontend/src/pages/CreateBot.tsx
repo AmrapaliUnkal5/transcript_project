@@ -931,9 +931,23 @@ export const CreateBot = () => {
 
               <div className="flex flex-col space-y-4">
                 {/* First radio - always selected, not clickable */}
-                <label className="inline-flex items-center cursor-not-allowed ">
-                  <span className="h-4 w-4 mr-2 inline-block rounded-full border-2 border-blue-600 bg-blue-600"
-                  style={{ borderColor: "#5348CB", backgroundColor: "#5348CB" }}></span>
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    className="hidden"
+                    name="knowledgeSource"
+                    checked={!useExternalKnowledge}
+                    onChange={() => setUseExternalKnowledge(false)}
+                  />
+                  <span
+                    className={`h-4 w-4 mr-2 inline-block rounded-full border-2 flex items-center justify-center ${
+                      !useExternalKnowledge ? "border-blue-600 bg-blue-600" : "border-gray-400"
+                    }`}
+                    style={{
+                      borderColor: !useExternalKnowledge ? "#5348CB" : "#9CA3AF",
+                      backgroundColor: !useExternalKnowledge ? "#5348CB" : "transparent"
+                    }}
+                  ></span>
                   <span
                     className="text-sm font-medium text-gray-700 dark:text-gray-300"
                     style={{
@@ -948,23 +962,25 @@ export const CreateBot = () => {
                 </label>
 
                 {/* Second radio - toggleable */}
-                <label
-                  className="inline-flex items-center cursor-pointer"
-                  onClick={() => setUseExternalKnowledge(!useExternalKnowledge)}
-                >
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    className="hidden"
+                    name="knowledgeSource"
+                    checked={useExternalKnowledge}
+                    onChange={() => setUseExternalKnowledge(true)}
+                  />
                   <span
-                    className={`h-4 w-4 mr-2 inline-block rounded-full border-2 ${
-    useExternalKnowledge ? "border-gray-400" : "border-gray-400"
-  }`}
-  style={
-    useExternalKnowledge
-      ? { borderColor: "#5348CB", backgroundColor: "#5348CB" }
-      : { borderColor: "#9CA3AF" } // Tailwind's gray-400 hex, optional
-  }
-
+                    className={`h-4 w-4 mr-2 inline-block rounded-full border-2 flex items-center justify-center ${
+                      useExternalKnowledge ? "border-blue-600 bg-blue-600" : "border-gray-400"
+                    }`}
+                    style={{
+                      borderColor: useExternalKnowledge ? "#5348CB" : "#9CA3AF",
+                      backgroundColor: useExternalKnowledge ? "#5348CB" : "transparent"
+                    }}
                   ></span>
                   <span
-                    className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
                     style={{
                       fontFamily: "Instrument Sans, sans-serif",
                       fontSize: "16px",

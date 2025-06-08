@@ -151,7 +151,7 @@ export const ReportIssue = () => {
 };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-white text-white py-12 px-4 sm:px-6 lg:px-8 ">
       <ToastContainer position="top-right" autoClose={5000} />
       {isSubmitted ? (
         <div className="text-center">
@@ -161,23 +161,28 @@ export const ReportIssue = () => {
           </p>
         </div>
       ) : (
-        <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white py-12 px-4 sm:px-6 lg:px-8">
-          <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
+        <div className="min-h-screen flex items-center justify-center bg-white py-12 px-4 sm:px-6 lg:px-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
+  style={{
+    border: '1px solid #DFDFDF',
+    borderRadius: '13px'
+  }}>
             <button
               onClick={handleGoBack}
-              className="flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 mb-4"
+              className="flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 mb-4" style={{ fontFamily: "'Instrument Sans', sans-serif" }}
             >
-              <ArrowLeft className="w-5 h-5 mr-2" />
-              <span className="text-sm font-medium">Back</span>
+              <ArrowLeft className="w-5 h-5 mr-2 text-[#5348CB]" />
+              <span className="text-sm font-medium text-[#5348CB]" style={{ fontFamily: "'Instrument Sans', sans-serif" }}>Back</span>
             </button>
 
-            <h2 className="block text-sm font-medium text-gray-300 mb-2">
-              Report an Issue
-            </h2>
+          <h2 className="block text-sm font-medium text-black mb-2" style={{ fontFamily: "'Instrument Sans', sans-serif" }}>
+  Report an Issue
+</h2>
+
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="issueType" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="issueType" className="block text-sm font-small text-black mb-2" style={{ fontFamily: "'Instrument Sans', sans-serif" }}>
                   Issue Type *
                 </label>
                 <select
@@ -186,7 +191,7 @@ export const ReportIssue = () => {
                   value={formData.issueType}
                   onChange={handleChange}
                   required
-                  className="w-full p-3 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-700 text-white"
+                  className="w-full p-3 border border-gray-600 rounded-lg focus:ring-2  bg-white-700 text-black" style={{ fontFamily: "'Instrument Sans', sans-serif" }}
                 >
                   {!formData.issueType && (
                   <option value="" disabled hidden>
@@ -203,7 +208,7 @@ export const ReportIssue = () => {
               </div>
 
               <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="description" className="block text-sm font-small text-black mb-2" style={{ fontFamily: "'Instrument Sans', sans-serif" }}>
                   Describe the issue *
                 </label>
                 <textarea
@@ -214,7 +219,7 @@ export const ReportIssue = () => {
                   onChange={handleChange}
                   required
                   maxLength={MAX_DESCRIPTION_LENGTH}
-                  className="w-full p-3 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-700 text-white"
+                  className="w-full p-3 border border-gray-600 rounded-lg focus:ring-2  bg-white-700 text-black" style={{ fontFamily: "'Instrument Sans', sans-serif" }}
                   rows={4}
                 />
                 <div className="text-right text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -223,7 +228,7 @@ export const ReportIssue = () => {
               </div>
 
               <div>
-                <label htmlFor="file" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="file" className="block text-sm font-small text-black mb-2" style={{ fontFamily: "'Instrument Sans', sans-serif" }}>
                   Attach files or screenshots (Max Size 2MB)
                 </label>
                 <div className="flex items-center gap-2">
@@ -238,15 +243,21 @@ export const ReportIssue = () => {
                   />
                   <label
                     htmlFor="file"
-                    className="p-2 border border-gray-300 rounded-lg cursor-pointer bg-blue-600 hover:bg-blue-700"
-                  >
-                    <span className="text-white py-3">Choose File</span>
+                    className="p-2 border border-gray-300 rounded-lg cursor-pointer text-white transition-colors duration-200"
+  style={{
+    backgroundColor: '#5348CB',
+  }}
+  onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#4539A0')}
+  onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#5348CB')}
+>
+                  
+                    <span className="text-white py-3" style={{ fontFamily: "'Instrument Sans', sans-serif" ,fontSize:"14px"}}>Choose File</span>
                   </label>
                 </div>
 
                 {formData.files.length > 0 && (
                   <div className="mt-4">
-                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"  style={{ fontFamily: "'Instrument Sans', sans-serif" }}>
                       Uploaded Files:
                     </h3>
                     <ul className="space-y-2">
@@ -275,8 +286,15 @@ export const ReportIssue = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold transition-all duration-200"
-              >
+               className="w-full text-white py-3 rounded-lg font-semibold transition-all duration-200"
+  style={{
+    fontFamily: "'Instrument Sans', sans-serif",
+    backgroundColor: '#5348CB',
+  }}
+  onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#4539A0')}  
+  onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#5348CB')}  
+>
+              
                 {isLoading ? "Submitting..." : "Submit"}
               </button>
             </form>

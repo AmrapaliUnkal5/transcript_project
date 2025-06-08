@@ -5,6 +5,7 @@ from app.models import InteractionReaction, ReactionType, Interaction
 from app.schemas import ReactionResponse
 from sqlalchemy.sql import func
 from sqlalchemy import text
+from datetime import datetime, timedelta,timezone
 
 router = APIRouter()
 
@@ -12,22 +13,25 @@ router = APIRouter()
 def get_bot_metrics(bot_id: int, db: Session = Depends(get_db)):
     """Fetches bot reactions and average time spent per day in a single API call."""
 
-   
+    seven_days_ago = datetime.now() - timedelta(days=7)
 
     # ✅ Count reactions (likes, dislikes, neutral)
     likes = db.query(InteractionReaction).filter(
         InteractionReaction.bot_id == bot_id,
-        InteractionReaction.reaction == ReactionType.LIKE.value
+        InteractionReaction.reaction == ReactionType.LIKE.value,
+        InteractionReaction.reaction_time >= seven_days_ago
     ).count()
 
      # ✅ Count total interactions
     total_interactions = db.query(InteractionReaction).filter(
-        InteractionReaction.bot_id == bot_id
+        InteractionReaction.bot_id == bot_id,
+        InteractionReaction.reaction_time >= seven_days_ago
     ).count()
 
     dislikes = db.query(InteractionReaction).filter(
         InteractionReaction.bot_id == bot_id,
-        InteractionReaction.reaction == ReactionType.DISLIKE.value
+        InteractionReaction.reaction == ReactionType.DISLIKE.value,
+        InteractionReaction.reaction_time >= seven_days_ago
     ).count()
 
     # neutral = db.query(InteractionReaction).filter(

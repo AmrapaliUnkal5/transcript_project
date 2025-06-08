@@ -92,7 +92,8 @@ from app.addon_router import router as addon_router
 from app.addon_scheduler import start_addon_scheduler
 from app.features_router import router as features_router
 from app.cron import init_scheduler
-
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 app = FastAPI(debug=True)
 
@@ -104,6 +105,15 @@ app.add_exception_handler(ResourceNotFoundError, http_exception_handler)
 app.add_exception_handler(DatabaseError, http_exception_handler)
 app.add_exception_handler(ExternalServiceError, http_exception_handler)
 app.add_exception_handler(RateLimitExceededError, http_exception_handler)
+
+class ForceHTTPSMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Override scheme
+        request.scope["scheme"] = "https"
+        response = await call_next(request)
+        return response
+
+app.add_middleware(ForceHTTPSMiddleware)
 
 # Initialize the scheduler
 scheduler = init_scheduler()
