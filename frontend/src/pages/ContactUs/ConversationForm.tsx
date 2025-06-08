@@ -74,7 +74,7 @@ export default function ConversationForm() {
                     sx={{ width: 28, height: 28, color: "#BAB8FF",mr:2 }}
                   />
                   <Typography variant="body1"  fontSize={16} color={"#cacaca"}>
-                    mail@evolra.ai
+                    support@evolra.ai
                   </Typography>
                 </Box>
                 {/* <Box 

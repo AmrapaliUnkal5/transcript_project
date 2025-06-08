@@ -44,11 +44,11 @@ function Footer() {
               {/* <Link href="#" color="#ffffff" underline="hover">
                 Our plans
               </Link> */}
-              <Link href="#" color="#ffffff" underline="hover">
+              <Link href="#" color="#ffffff" style={{ textDecoration: "none" }}  >
                 Our services
               </Link>
-              <Link href="#" color="#ffffff" underline="hover">
-                About Us
+              <Link href="#" color="#ffffff"  style={{ textDecoration: "none" }}>
+                About us
               </Link>
               <RouterLink
                 to="/data-deletion"
@@ -83,7 +83,7 @@ function Footer() {
                 to="/contact-us"
                 style={{ color: "#ffffff", textDecoration: "none" }}
               >
-                Contact Us
+                Contact us
               </RouterLink>
               <RouterLink
                 to="/terms-of-service"
