@@ -40,7 +40,7 @@ def save_file(target_dir_env: str, filename: str, file_content: Union[bytes, Bin
     """
     
     # Get the target directory from environment variable
-    target_path = os.getenv(target_dir_env)
+    target_path = target_dir_env
     if not target_path:
         raise FileStorageError(f"Environment variable '{target_dir_env}' is not set")
     
@@ -180,7 +180,7 @@ def get_file_url(target_dir_env: str, filename: str, base_url: str = None) -> st
     Raises:
         FileStorageError: If the operation fails or required parameters are missing
     """
-    target_path = os.getenv(target_dir_env)
+    target_path = target_dir_env
     if not target_path:
         raise FileStorageError(f"Environment variable '{target_dir_env}' is not set")
     
