@@ -92,7 +92,7 @@ export default function AddonExperience() {
                 >
                   
                     <Box display={"flex"} alignItems={"center"} gap={1}>
-                      <Typography
+                      {/* <Typography
                         variant="h3"
                         fontWeight={600}
                         fontSize={"30px"}
@@ -107,7 +107,25 @@ export default function AddonExperience() {
                         fontSize={"14px"}
                       >
                         /month
-                      </Typography>
+                      </Typography> */}
+
+                       <Typography
+  variant="h6"
+  fontWeight={600}
+  fontSize="20px"
+  lineHeight={1.5}
+  mb={1}
+>
+  $5/ ₹450
+</Typography>
+
+<Typography
+                      variant="h6"
+                      fontWeight={"400"}
+                      fontSize={"14px"}
+                    >
+                      /month
+                    </Typography>
                     </Box>
 
                     <Button
@@ -181,7 +199,7 @@ export default function AddonExperience() {
                   gap={1}
                   justifyContent={"space-between"}
                 >
-                  <Box display={"flex"} alignItems={"center"} gap={1}>
+                  {/* <Box display={"flex"} alignItems={"center"} gap={1}>
                     {" "}
                     <Typography
                       variant="h3"
@@ -199,8 +217,26 @@ export default function AddonExperience() {
                     >
                       /month
                     </Typography>
-                  </Box>
+                  </Box> */}
 
+                  <Box display={"flex"} alignItems={"center"} gap={1}>
+                       <Typography
+  variant="h6"
+  fontWeight={600}
+  fontSize="20px"
+  lineHeight={1.5}
+  mb={1}
+>
+  $5/ ₹450
+</Typography>
+
+<Typography
+                      variant="h6"
+                      fontWeight={"400"}
+                      fontSize={"14px"}
+                    >/month
+                    </Typography>
+</Box>
                   <Button
                   href="/signup"
                     sx={{
@@ -271,15 +307,25 @@ export default function AddonExperience() {
                   justifyContent={"space-between"}
                 >
                   <Box display={"flex"} alignItems={"center"} gap={1}>
-                    <Typography
+                    {/* <Typography
                       variant="h3"
                       fontWeight={600}
                       fontSize={"30px"}
                       lineHeight={1.5}
                       mb={1}
                     >
-                      $9.99
-                    </Typography>
+                      $9.99 
+                    </Typography> */}
+
+                    <Typography
+  variant="h6"
+  fontWeight={600}
+  fontSize="20px"
+  lineHeight={1.5}
+  mb={1}
+>
+  $9.99 / ₹900
+</Typography>
                     <Typography
                       variant="h6"
                       fontWeight={"400"}
@@ -350,7 +396,7 @@ export default function AddonExperience() {
                   }}
                   minHeight={128}
                 >
-                  Expand your knowledge base with an additional 1 million grounded words.
+                  Expand your knowledge base withan additional 1 million grounded words.
                 </Typography>
 
                 <Box
@@ -360,7 +406,7 @@ export default function AddonExperience() {
                   width="100%"
                 >
                   
-                    <Box display={"flex"} alignItems={"center"} gap={1}>
+                    {/* <Box display={"flex"} alignItems={"center"} gap={1}>
                       <Typography
                         variant="h3"
                         fontWeight={600}
@@ -377,7 +423,29 @@ export default function AddonExperience() {
                       >
                         /month
                       </Typography>
-                    </Box>
+                    </Box> */}
+
+<Box display={"flex"} alignItems={"center"} gap={1}>
+                       <Typography
+  variant="h6"
+  fontWeight={600}
+  fontSize="20px"
+  lineHeight={1.5}
+  mb={1}
+>
+  $5/ ₹450
+</Typography>
+
+<Typography
+                      variant="h6"
+                      fontWeight={"400"}
+                      fontSize={"14px"}>/month
+                    </Typography></Box>
+
+
+
+
+
 
                     <Button
                     href="/signup"
@@ -452,7 +520,7 @@ export default function AddonExperience() {
                   width="100%"
                 >
                   
-                    <Box display={"flex"} alignItems={"center"} gap={1}>
+                    {/* <Box display={"flex"} alignItems={"center"} gap={1}>
                       <Typography
                         variant="h3"
                         fontWeight={600}
@@ -460,7 +528,7 @@ export default function AddonExperience() {
                         lineHeight={1.5}
                         mb={1}
                       >
-                        $5
+                        $5  
                       </Typography>
                       <Typography
                         variant="h6"
@@ -469,7 +537,24 @@ export default function AddonExperience() {
                       >
                         /month
                       </Typography>
-                    </Box>
+                    </Box> */}
+
+                    <Box display={"flex"} alignItems={"center"} gap={1}>
+                       <Typography
+  variant="h6"
+  fontWeight={600}
+  fontSize="20px"
+  lineHeight={1.5}
+  mb={1}
+>
+  $5/ ₹450
+</Typography>
+
+<Typography
+                      variant="h6"
+                      fontWeight={"400"}
+                      fontSize={"14px"}>/month
+                    </Typography></Box>
 
                     <Button
                     href="/signup"
