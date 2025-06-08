@@ -218,15 +218,16 @@ const [activeFAQIndex, setActiveFAQIndex] = useState(null);
         Sat: "Saturday",
       };
 
-      const formattedData = orderedDays.map((shortDay) => {
-        const fullDay = fullDayMap[shortDay as keyof typeof fullDayMap];
-        return {
-          day: shortDay,
-          average_time_spent:
-            apiData.find((item) => item.day === fullDay)?.average_time_spent ||
-            0,
-        };
-      });
+      const formattedData = orderedDays.map((formattedDay) => {
+      // Extract just the day name from the formatted string to match with API data
+      const dayName = formattedDay.split(' ')[0];
+      const fullDay = fullDayMap[dayName as keyof typeof fullDayMap];
+      return {
+        day: formattedDay, // Now using the full formatted string
+        average_time_spent:
+          apiData.find((item) => item.day === fullDay)?.average_time_spent || 0,
+      };
+    });
 
       setTimeSpentData(formattedData);
       const totalMinutes = apiData.reduce(
@@ -379,8 +380,7 @@ const renderCustomLegend2 = (props: any) => {
     fontWeight: 500,
   }}
 >
-  {displayName}
-  {displayName === "Positive" && ` (${percent.toFixed(0)}%)`}
+  {displayName} ({percent.toFixed(0)}%)
 </span>
           </div>
         );
@@ -391,13 +391,19 @@ const renderCustomLegend2 = (props: any) => {
 
 
 
-  const getLast7Days = () => {
-    const shortDaysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const todayIndex = new Date().getDay();
-    return [...Array(7)].map(
-      (_, i) => shortDaysOfWeek[(todayIndex - 6 + i + 7) % 7]
-    );
-  };
+ const getLast7Days = () => {
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  return [...Array(7)].map((_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - 6 + i);
+    const dayName = days[date.getDay()];
+    const monthName = months[date.getMonth()];
+    const dayNumber = date.getDate();
+    return `${dayName} ${monthName} ${dayNumber}`;
+  });
+};
 
 
   
@@ -607,11 +613,11 @@ const renderCustomLegend2 = (props: any) => {
     </ResponsiveContainer>
   </div> */}
 
-  <div className="h-80 px-2 pb-2 pt-1">
+  <div className="h-80 ">
   <ResponsiveContainer width="100%" height="100%">
-    <AreaChart data={timeSpentData}>
+    <AreaChart data={timeSpentData} >
       <CartesianGrid stroke="#E0E0E0" strokeOpacity={0.6} strokeDasharray="3 3" />
-      <XAxis dataKey="day" angle={-20} textAnchor="end" tick={{ fill: '#1a1a1a' }} />
+      <XAxis dataKey="day" angle={-40} textAnchor="end" tick={{ fill: '#1a1a1a' }} height={60} interval={0} scale="point" />
       <YAxis
         label={{
           value: "Minutes",

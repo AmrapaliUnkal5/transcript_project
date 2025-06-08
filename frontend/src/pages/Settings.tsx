@@ -609,7 +609,7 @@ export const Settings = () => {
         </div>
         <div className="md:col-span-2 mt-6">
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4 text-white">
+            <h2 className="text-lg font-semibold mb-4 text-black">
               Subscription Details
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -699,7 +699,7 @@ export const Settings = () => {
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mt-6">
             <div className="flex items-center mb-4">
               <Key className="w-5 h-5 mr-2 text-gray-500" />
-              <h2 className="text-lg font-semibold mb-4 text-white">
+              <h2 className="text-lg font-semibold mb-4 text-black">
                 Change Password
               </h2>
             </div>
@@ -851,7 +851,7 @@ export const Settings = () => {
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mt-6">
           <div className="flex items-center mb-4">
             <AlertTriangle className="w-5 h-5 mr-2 text-red-500" />
-            <h2 className="text-lg font-semibold text-white">Delete Account</h2>
+            <h2 className="text-lg font-semibold text-black">Delete Account</h2>
           </div>
           <div className="space-y-4">
             <p className="text-gray-400">
