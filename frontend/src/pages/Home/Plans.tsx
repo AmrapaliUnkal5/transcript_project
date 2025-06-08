@@ -111,7 +111,7 @@ export default function Plans() {
                   >
                     Starter
                   </Typography>
-                  <Typography variant="body2" color={"#B9B9B9"} fontSize={"14px"}>
+                  <Typography variant="body2" color={"#B9B9B9"} fontSize={"14px"} sx={{ height: '40px', overflow: 'hidden' }} >
                     Individuals, freelancers, and small service businesses
 
                   </Typography>
@@ -229,7 +229,7 @@ export default function Plans() {
                   >
                     Growth
                   </Typography>
-                  <Typography variant="body2" color={"#B9B9B9"} fontSize={["14px"]}>
+                  <Typography variant="body2" color={"#B9B9B9"} fontSize={["14px"]} sx={{ height: '40px', overflow: 'hidden' }}>
                      Small to medium businesses and online retailers
 
                   </Typography>
@@ -339,7 +339,7 @@ export default function Plans() {
                   >
                     Professional
                   </Typography>
-                  <Typography variant="body2" color={"#B9B9B9"}>
+                  <Typography variant="body2" color={"#B9B9B9"} sx={{ height: '40px', overflow: 'hidden' }}>
                   Established companies and agencies with multiple departments
 
                   </Typography>

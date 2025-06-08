@@ -61,8 +61,9 @@ export default function PricePlans() {
                   >
                     Free
                   </Typography>
-                  <Typography variant="body2" color={"#B9B9B9"}>
+                  <Typography variant="body2" color={"#B9B9B9"} sx={{ height: '35px', overflow: 'hidden' }}>
                     Explore risk free for one month
+                    
                   </Typography>
 {/* 
                   <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
@@ -234,8 +235,8 @@ export default function PricePlans() {
                     Starter
                   </Typography>
 
-                  <Typography variant="body2" color={"#B9B9B9"} noWrap>
-                    For individuals and small businesses
+                  <Typography variant="body2" color={"#B9B9B9"}  sx={{ height: '35px', overflow: 'hidden' }}>
+                    Individuals, freelancers, and small service businesses
                   </Typography>
 
                   {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
@@ -421,8 +422,8 @@ export default function PricePlans() {
                     </Box>
                   </Box>
 
-                  <Typography variant="body2" color={"#B9B9B9"}>
-                    For startups and small businesses
+                  <Typography variant="body2" color={"#B9B9B9"} sx={{ height: '35px', overflow: 'hidden' }}>
+                    Small to medium businesses and online retailers
                   </Typography>
 
                   {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
@@ -580,8 +581,8 @@ export default function PricePlans() {
                   >
                     Professional
                   </Typography>
-                  <Typography variant="body2" color={"#B9B9B9"}>
-                    For growing businesses
+                  <Typography variant="body2" color={"#B9B9B9"} sx={{ height: '35px', overflow: 'hidden' }}>
+                    Established companies & agencies with multiple departments
                   </Typography>
 
                   {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
