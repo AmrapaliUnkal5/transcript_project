@@ -9,7 +9,7 @@ import { DataDeletionPolicy } from './DataDeletionPolicy';
 
 export default function DataDeletion() {
     return (
-        <Box>
+        <Box fontFamily={"'Instrument Sans', sans-serif"}>
         <HomeHeader/>
         <DataDeletionPolicy/>
         <Footer/> 

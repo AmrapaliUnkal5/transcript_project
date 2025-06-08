@@ -116,8 +116,7 @@ export default function FAQ() {
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Yes, you can upgrade or downgrade your subscription at any
-                  time. Changes will be reflected in your next billing cycle.
+                  You can upgrade or downgrade your subscription at any time, but downgrades are only allowed if your usage is within the target plan’s limits; otherwise, please contact us.
                 </Typography>
               </AccordionDetails>
             </Accordion>
@@ -138,14 +137,14 @@ export default function FAQ() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                  How do you count messages
+                  Are there any setup fees?
+
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                   No, there are no setup fees included with any of our plans.
+
                 </Typography>
               </AccordionDetails>
             </Accordion>
@@ -166,17 +165,12 @@ export default function FAQ() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                    Can I add more admin users to my plan?
+           What payment methods do you accept?
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                  We accept all major credit and debit cards.
                 </Typography>
               </AccordionDetails>
             </Accordion>
@@ -197,17 +191,13 @@ export default function FAQ() {
                 id='panel2-header'
               >
                 <Typography component='span' fontWeight={600}>
-                    How does website crawling work?
+          How many words can I include in my knowledge base?
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  Suspendisse malesuada lacus ex, sit amet blandit leo lobortis
-                  eget.
+                 Each plan includes a specific word limit for your knowledge base. If you need more, you can purchase additional word capacity as an add-on.
+
                 </Typography>
               </AccordionDetails>
             </Accordion>

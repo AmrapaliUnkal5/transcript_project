@@ -9,7 +9,7 @@ import { ShippingExchange } from './Shipingexchange';
 
 export default function ShippingAndExchange() {
     return (
-        <Box>
+        <Box fontFamily={"'Instrument Sans', sans-serif"}>
         <HomeHeader/>
        <ShippingExchange/>
         <Footer/> 

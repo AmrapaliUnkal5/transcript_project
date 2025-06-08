@@ -9,7 +9,7 @@ import { CancellationRefundPolicy } from './CancellationRefundPolicy';
 
 export default function CancellationAndRefund() {
     return (
-        <Box>
+        <Box fontFamily={"'Instrument Sans', sans-serif"}>
         <HomeHeader/>
         <CancellationRefundPolicy/>
         <Footer/> 
