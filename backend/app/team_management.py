@@ -10,11 +10,13 @@ from .schemas import (
     TeamMemberListItem,
     TeamMemberInviteRequest,TeamMemberOut
 )
-from .models import User, TeamMember
+from .models import User, TeamMember, UserAddon, Addon
 from typing import List, Dict, Any
 from .utils.email_helper import send_email
 from fastapi.responses import JSONResponse
 from app.config import settings
+from datetime import datetime
+from sqlalchemy import and_, or_
 
 router = APIRouter(prefix="/team", tags=["Team Management"])
 
@@ -262,4 +264,32 @@ async def remove_team_member(
     
     return {
         "message": "Team member removed successfully"
-    } 
+    }
+
+@router.get("/admin-users-count", response_model=Dict[str, int])
+def get_additional_admin_users_count(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Returns total number of additional admin users a user has purchased and are active."""
+    user_id = current_user["user_id"]
+    ADDON_ID_ADMIN_USERS = 5  # This is the ID for "Additional AI Admin Users"
+
+    active_addons = (
+        db.query(Addon.additional_admin_users)
+        .join(UserAddon, UserAddon.addon_id == Addon.id)
+        .filter(
+            UserAddon.user_id == user_id,
+            UserAddon.addon_id == ADDON_ID_ADMIN_USERS,
+            UserAddon.is_active == True,
+            UserAddon.status == "active",
+            or_(
+                UserAddon.expiry_date == None,
+                UserAddon.expiry_date > datetime.utcnow()
+            )
+        )
+        .all()
+    )
+
+    total_admin_users = sum(row.additional_admin_users for row in active_addons)
+    return {"total_additional_admin_users": total_admin_users}

@@ -56,23 +56,35 @@ const TeamManagement: React.FC = () => {
   const adminUserLimit = userPlan?.admin_user_limit ?? 0; // checking the Admin limit
   const [isLimitReachedModalOpen, setIsLimitReachedModalOpen] = useState(false);
   const [isAdminLimitReached, setIsAdminLimitReached] = useState(false);
-
+  const [additionalAdminCount, setadditionalAdminCount] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   // Fetch team members and invitations
   const fetchTeamData = async () => {
     setIsLoading(true);
     try {
-      const [membersData, invitationsData] = await Promise.all([
+      const [membersData, invitationsData,additionalAdminUsersCount] = await Promise.all([
         authApi.getTeamMembers(),
         authApi.getPendingInvitations(),
+        authApi.getAdditionalAdminUsersCount(),
       ]);
       const totalAdminsUsed =
         (membersData?.length || 0) + (invitationsData?.length || 0);
 
       setTeamMembers(membersData || []);
       setInvitations(invitationsData || []);
-      setIsAdminLimitReached(totalAdminsUsed >= adminUserLimit); // check limit here
+      console.log("totalAdminsUsed",totalAdminsUsed);
+      console.log("additionalAdminUsersCount.total_additional_admin_users ",additionalAdminUsersCount.total_additional_admin_users )
+      console.log("adminUserLimit",adminUserLimit)
+      setadditionalAdminCount(additionalAdminUsersCount.total_additional_admin_users || 0);
+      const sum=Number(additionalAdminUsersCount.total_additional_admin_users)+Number(adminUserLimit)
+      console.log("sum",sum)
+      setIsAdminLimitReached(
+      totalAdminsUsed >= (sum)
+      );
+      console.log("IsAdminLimitReached",isAdminLimitReached);
+
+
     } catch (error) {
       console.error('Error fetching team data:', error);
       toast.error("We couldn't load your team information. Please try again.");
@@ -183,7 +195,7 @@ const TeamManagement: React.FC = () => {
               Admin Limit Reached
             </h2>
             <p className="text-sm text-gray-700 mb-4">
-              You've reached your plan's admin user limit of {adminUserLimit}.
+              You've reached your plan's admin user limit of  {Number(adminUserLimit ?? 0) + Number(additionalAdminCount ?? 0)}.
               Please remove a team member or cancel a pending invitation to
               invite someone new.
             </p>

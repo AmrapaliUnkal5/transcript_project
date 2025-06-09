@@ -606,6 +606,11 @@ deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
     return response.data;
   },
 
+  getAdditionalAdminUsersCount: async () => {
+  const response = await api.get('/team/admin-users-count');
+  return response.data;
+  },
+
   fetchPlans: async () => {
     const response = await api.get("/subscriptionplans/");
     return response.data;
