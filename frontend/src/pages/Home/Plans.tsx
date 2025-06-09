@@ -21,7 +21,7 @@ export default function Plans() {
         alignItems={"center"}
         gap={2}
         color={"#fff"}
-        px={[1,2]}
+        px={[1, 2]}
         py={5}
         sx={{ backgroundColor: "#101035" }}
       >
@@ -45,17 +45,16 @@ export default function Plans() {
                 background: "-webkit-linear-gradient(#FFF, #959595)",
                 backgroundClip: "text",
                 textFillColor: "transparent",
-                pb:[2,0]
+                pb: [2, 0],
               }}
               textAlign={"center"}
               textTransform="none"
-              
             >
               Choose Your Plan
             </Typography>
           </Box>
 
-          <Box display={"flex"} justifyContent={"center"} mt={0} mb={[3.5,10]}>
+          <Box display={"flex"} justifyContent={"center"} mt={0} mb={[3.5, 10]}>
             <Button
               variant="contained"
               color="primary"
@@ -96,7 +95,6 @@ export default function Plans() {
                   minHeight={480}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
-                  
                   sx={{
                     background:
                       "linear-gradient(148.01deg, #172041 54.39%, #1D1C56 78.52%)",
@@ -111,9 +109,13 @@ export default function Plans() {
                   >
                     Starter
                   </Typography>
-                  <Typography variant="body2" color={"#B9B9B9"} fontSize={"14px"} sx={{ height: '40px', overflow: 'hidden' }} >
+                  <Typography
+                    variant="body2"
+                    color={"#B9B9B9"}
+                    fontSize={"14px"}
+                    sx={{ height: "40px", overflow: "hidden" }}
+                  >
                     Individuals, freelancers, and small service businesses
-
                   </Typography>
 
                   {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3} >
@@ -135,65 +137,100 @@ export default function Plans() {
                    
                   </Box> */}
 
+                  <Box
+                    display="flex"
+                    flexDirection="column"
+                    alignItems="flex-start"
+                    mt={4}
+                  >
+                    <Typography
+                      variant="h4"
+                      fontWeight={600}
+                      fontSize={["32px", "36px"]}
+                      color="white"
+                    >
+                      $14.99 <span style={{ opacity: 0.7 }}>/ ₹1,300</span>
+                    </Typography>
 
-<Box display="flex" flexDirection="column" alignItems="flex-start" mt={4}>
-  <Typography
-    variant="h4"
-    fontWeight={600}
-    fontSize={["32px", "36px"]}
-    color="white"
-  >
-    $14.99 <span style={{ opacity: 0.7 }}>/ ₹1300</span>
-  </Typography>
-
-  <Typography
-    variant="body2"
-    fontSize="16px"
-    color="rgba(255, 255, 255, 0.6)"
-    mt={0.5}
-  >
-    per month
-  </Typography>
-</Box>
-
-
-
-
-                  
+                    <Typography
+                      variant="body2"
+                      fontSize="16px"
+                      color="rgba(255, 255, 255, 0.6)"
+                      mt={0.5}
+                    >
+                      per month
+                    </Typography>
+                  </Box>
 
                   <Box display={"flex"} gap={1} my={2}>
-                    <CheckCircleIcon sx={{ color: "#BAB8FF"  , width: ["22px", "24px"],
-    height: ["22px", "24px"]}} />
-                    <Typography variant="body1" color={"#FFF"} fontSize={["14px","16px"]}>
+                    <CheckCircleIcon
+                      sx={{
+                        color: "#BAB8FF",
+                        width: ["22px", "24px"],
+                        height: ["22px", "24px"],
+                      }}
+                    />
+                    <Typography
+                      variant="body1"
+                      color={"#FFF"}
+                      fontSize={["14px", "16px"]}
+                    >
                       1 AI Chatbot
                     </Typography>
                   </Box>
                   <Box display={"flex"} gap={1} my={2}>
-                    <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
-    height: ["22px", "24px"] }} />
-                    <Typography variant="body1" color={"#FFF"}  fontSize={["14px","16px"]}>
+                    <CheckCircleIcon
+                      sx={{
+                        color: "#BAB8FF",
+                        width: ["22px", "24px"],
+                        height: ["22px", "24px"],
+                      }}
+                    />
+                    <Typography
+                      variant="body1"
+                      color={"#FFF"}
+                      fontSize={["14px", "16px"]}
+                    >
                       Crawl 1 website
                     </Typography>
                   </Box>
                   <Box display={"flex"} gap={1} my={2}>
-                    <CheckCircleIcon sx={{ color: "#BAB8FF"  , width: ["22px", "24px"],
-    height: ["22px", "24px"]}} />
-                    <Typography variant="body1" color={"#FFF" }  fontSize={["14px","16px"]}>
+                    <CheckCircleIcon
+                      sx={{
+                        color: "#BAB8FF",
+                        width: ["22px", "24px"],
+                        height: ["22px", "24px"],
+                      }}
+                    />
+                    <Typography
+                      variant="body1"
+                      color={"#FFF"}
+                      fontSize={["14px", "16px"]}
+                    >
                       1500 messages per month
                     </Typography>
                   </Box>
                   <Box display={"flex"} gap={1} my={2}>
-                    <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
-    height: ["22px", "24px"]}} />
-                    <Typography variant="body1" color={"#FFF"}  fontSize={["14px","16px"]}>
-                     500 MB storage
+                    <CheckCircleIcon
+                      sx={{
+                        color: "#BAB8FF",
+                        width: ["22px", "24px"],
+                        height: ["22px", "24px"],
+                      }}
+                    />
+                    <Typography
+                      variant="body1"
+                      color={"#FFF"}
+                      fontSize={["14px", "16px"]}
+                    >
+                      500 MB storage
                     </Typography>
                   </Box>
 
                   <Divider sx={{ borderBottom: "1px solid #4F5697", mt: 8 }} />
                   <Button
                     variant="text"
-                    href='/signup'
+                    href="/signup"
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -229,9 +266,13 @@ export default function Plans() {
                   >
                     Growth
                   </Typography>
-                  <Typography variant="body2" color={"#B9B9B9"} fontSize={["14px"]} sx={{ height: '40px', overflow: 'hidden' }}>
-                     Small to medium businesses and online retailers
-
+                  <Typography
+                    variant="body2"
+                    color={"#B9B9B9"}
+                    fontSize={["14px"]}
+                    sx={{ height: "40px", overflow: "hidden" }}
+                  >
+                    Small to medium businesses and online retailers
                   </Typography>
 
                   {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
@@ -250,52 +291,92 @@ export default function Plans() {
                     </Typography>
                   </Box> */}
 
-                  <Box display="flex" flexDirection="column" alignItems="flex-start" mt={4}>
-  <Typography
-    variant="h4"
-    fontWeight={600}
-    fontSize={["32px", "36px"]}
-    color="white"
-  >
-    $24.99 <span style={{ opacity: 0.7 }}>/ ₹2150</span>
-  </Typography>
+                  <Box
+                    display="flex"
+                    flexDirection="column"
+                    alignItems="flex-start"
+                    mt={4}
+                  >
+                    <Typography
+                      variant="h4"
+                      fontWeight={600}
+                      fontSize={["32px", "36px"]}
+                      color="white"
+                    >
+                      $24.99 <span style={{ opacity: 0.7 }}>/ ₹2,150</span>
+                    </Typography>
 
-  <Typography
-    variant="body2"
-    fontSize="16px"
-    color="rgba(255, 255, 255, 0.6)"
-    mt={0.5}
-  >
-    per month
-  </Typography>
-</Box>
-
+                    <Typography
+                      variant="body2"
+                      fontSize="16px"
+                      color="rgba(255, 255, 255, 0.6)"
+                      mt={0.5}
+                    >
+                      per month
+                    </Typography>
+                  </Box>
 
                   <Box display={"flex"} gap={1} my={2}>
-                    <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
-    height: ["22px", "24px"]}} />
-                    <Typography variant="body1" color={"#FFF"} fontSize={["14px","16px"]}>
+                    <CheckCircleIcon
+                      sx={{
+                        color: "#BAB8FF",
+                        width: ["22px", "24px"],
+                        height: ["22px", "24px"],
+                      }}
+                    />
+                    <Typography
+                      variant="body1"
+                      color={"#FFF"}
+                      fontSize={["14px", "16px"]}
+                    >
                       2 AI chatbots
                     </Typography>
                   </Box>
                   <Box display={"flex"} gap={1} my={2}>
-                    <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
-    height: ["22px", "24px"]}} />
-                    <Typography variant="body1" color={"#FFF"} fontSize={["14px","16px"]}>
+                    <CheckCircleIcon
+                      sx={{
+                        color: "#BAB8FF",
+                        width: ["22px", "24px"],
+                        height: ["22px", "24px"],
+                      }}
+                    />
+                    <Typography
+                      variant="body1"
+                      color={"#FFF"}
+                      fontSize={["14px", "16px"]}
+                    >
                       Crawl 2 websites
                     </Typography>
                   </Box>
                   <Box display={"flex"} gap={1} my={2}>
-                    <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
-    height: ["22px", "24px"]}} />
-                    <Typography variant="body1" color={"#FFF"} fontSize={["14px","16px"]}>
+                    <CheckCircleIcon
+                      sx={{
+                        color: "#BAB8FF",
+                        width: ["22px", "24px"],
+                        height: ["22px", "24px"],
+                      }}
+                    />
+                    <Typography
+                      variant="body1"
+                      color={"#FFF"}
+                      fontSize={["14px", "16px"]}
+                    >
                       2500 messages per month
                     </Typography>
                   </Box>
                   <Box display={"flex"} gap={1} my={2}>
-                    <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
-    height: ["22px", "24px"] }} />
-                    <Typography variant="body1" color={"#FFF"} fontSize={["14px","16px"]}>
+                    <CheckCircleIcon
+                      sx={{
+                        color: "#BAB8FF",
+                        width: ["22px", "24px"],
+                        height: ["22px", "24px"],
+                      }}
+                    />
+                    <Typography
+                      variant="body1"
+                      color={"#FFF"}
+                      fontSize={["14px", "16px"]}
+                    >
                       1 GB storage
                     </Typography>
                   </Box>
@@ -303,7 +384,7 @@ export default function Plans() {
                   <Divider sx={{ borderBottom: "1px solid #4F5697", mt: 8 }} />
                   <Button
                     variant="text"
-                    href='/signup'
+                    href="/signup"
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -339,9 +420,12 @@ export default function Plans() {
                   >
                     Professional
                   </Typography>
-                  <Typography variant="body2" color={"#B9B9B9"} sx={{ height: '40px', overflow: 'hidden' }}>
-                  Established companies and agencies with multiple departments
-
+                  <Typography
+                    variant="body2"
+                    color={"#B9B9B9"}
+                    sx={{ height: "40px", overflow: "hidden" }}
+                  >
+                    Established companies and agencies with multiple departments
                   </Typography>
 
                   {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
@@ -360,52 +444,92 @@ export default function Plans() {
                     </Typography>
                   </Box> */}
 
-                  <Box display="flex" flexDirection="column" alignItems="flex-start" mt={4}>
-  <Typography
-    variant="h4"
-    fontWeight={600}
-    fontSize={["32px", "36px"]}
-    color="white"
-  >
-    $54.99 <span style={{ opacity: 0.7 }}>/ ₹4750</span>
-  </Typography>
+                  <Box
+                    display="flex"
+                    flexDirection="column"
+                    alignItems="flex-start"
+                    mt={4}
+                  >
+                    <Typography
+                      variant="h4"
+                      fontWeight={600}
+                      fontSize={["32px", "36px"]}
+                      color="white"
+                    >
+                      $54.99 <span style={{ opacity: 0.7 }}>/ ₹4,750</span>
+                    </Typography>
 
-  <Typography
-    variant="body2"
-    fontSize="16px"
-    color="rgba(255, 255, 255, 0.6)"
-    mt={0.5}
-  >
-    per month
-  </Typography>
-</Box>
-
+                    <Typography
+                      variant="body2"
+                      fontSize="16px"
+                      color="rgba(255, 255, 255, 0.6)"
+                      mt={0.5}
+                    >
+                      per month
+                    </Typography>
+                  </Box>
 
                   <Box display={"flex"} gap={1} my={2}>
-                    <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
-    height: ["22px", "24px"]}} />
-                    <Typography variant="body1" color={"#FFF"} fontSize={["14px","16px"]}>
+                    <CheckCircleIcon
+                      sx={{
+                        color: "#BAB8FF",
+                        width: ["22px", "24px"],
+                        height: ["22px", "24px"],
+                      }}
+                    />
+                    <Typography
+                      variant="body1"
+                      color={"#FFF"}
+                      fontSize={["14px", "16px"]}
+                    >
                       5 AI chatbots
                     </Typography>
                   </Box>
                   <Box display={"flex"} gap={1} my={2}>
-                    <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
-    height: ["22px", "24px"] }} />
-                    <Typography variant="body1" color={"#FFF"} fontSize={["14px","16px"]}>
+                    <CheckCircleIcon
+                      sx={{
+                        color: "#BAB8FF",
+                        width: ["22px", "24px"],
+                        height: ["22px", "24px"],
+                      }}
+                    />
+                    <Typography
+                      variant="body1"
+                      color={"#FFF"}
+                      fontSize={["14px", "16px"]}
+                    >
                       Crawl multiple websites
                     </Typography>
                   </Box>
                   <Box display={"flex"} gap={1} my={2}>
-                    <CheckCircleIcon sx={{ color: "#BAB8FF" , width: ["22px", "24px"],
-    height: ["22px", "24px"] }} />
-                    <Typography variant="body1" color={"#FFF"} fontSize={["14px","16px"]}>
+                    <CheckCircleIcon
+                      sx={{
+                        color: "#BAB8FF",
+                        width: ["22px", "24px"],
+                        height: ["22px", "24px"],
+                      }}
+                    />
+                    <Typography
+                      variant="body1"
+                      color={"#FFF"}
+                      fontSize={["14px", "16px"]}
+                    >
                       6000 messages per month
                     </Typography>
                   </Box>
                   <Box display={"flex"} gap={1} my={2}>
-                    <CheckCircleIcon sx={{ color: "#BAB8FF"  , width: ["22px", "24px"],
-    height: ["22px", "24px"]}} />
-                    <Typography variant="body1" color={"#FFF"} fontSize={["14px","16px"]}>
+                    <CheckCircleIcon
+                      sx={{
+                        color: "#BAB8FF",
+                        width: ["22px", "24px"],
+                        height: ["22px", "24px"],
+                      }}
+                    />
+                    <Typography
+                      variant="body1"
+                      color={"#FFF"}
+                      fontSize={["14px", "16px"]}
+                    >
                       5 GB storage
                     </Typography>
                   </Box>
@@ -413,7 +537,7 @@ export default function Plans() {
                   <Divider sx={{ borderBottom: "1px solid #4F5697", mt: 8 }} />
                   <Button
                     variant="text"
-                    href='/signup'
+                    href="/signup"
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -429,10 +553,10 @@ export default function Plans() {
               </Grid>
             </Grid>
           </Box>
-          <Box mt={[0,3]}>
+          <Box mt={[0, 3]}>
             <Button
               variant="text"
-              href='/signup'
+              href="/signup"
               sx={{
                 width: "100%",
                 fontSize: "18px",
