@@ -95,10 +95,30 @@ def extract_text_from_image(image_bytes: bytes) -> str:
         return ""
 
 def extract_text_from_docx(docx_content: bytes) -> str:
-    """Extracts text from a DOCX file."""
+    """Extracts text from a DOCX file using multiple methods."""
     try:
+        # Method 1: Try docx2txt first (more reliable for both formats)
+        try:
+            import docx2txt
+            import tempfile
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_file:
+                temp_file.write(docx_content)
+                temp_path = temp_file.name
+            
+            text = docx2txt.process(temp_path)
+            logger.info(f"✅ Successfully extracted {len(text)} characters using docx2txt")
+            return text.strip()
+        except Exception as docx2txt_err:
+            logger.warning(f"⚠️ docx2txt extraction failed: {docx2txt_err}, trying python-docx")
+        finally:
+            if 'temp_path' in locals() and os.path.exists(temp_path):
+                os.unlink(temp_path)
+        
+        # Method 2: Fallback to python-docx
         doc = Document(io.BytesIO(docx_content))
-        return " ".join([para.text for para in doc.paragraphs])
+        text = " ".join([para.text for para in doc.paragraphs])
+        logger.info(f"✅ Successfully extracted {len(text)} characters using python-docx")
+        return text
     except Exception as e:
         logger.warning(f"⚠️ Error extracting text from DOCX: {e}")
         return ""
@@ -128,22 +148,56 @@ def extract_text_from_docx_images(docx_content: bytes) -> str:
             os.unlink(temp_path)
 
 def extract_text_from_doc(doc_content: bytes) -> str:
-    """Extracts text from older .doc files (requires antiword or similar tool)."""
+    """Extracts text from older .doc files using multiple methods."""
+    temp_path = None
     try:
-        # This requires antiword to be installed on the system
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".doc") as temp_file:
-            temp_file.write(doc_content)
-            temp_path = temp_file.name
+        # Method 1: Try docx2txt (works for some DOC files)
+        try:
+            import docx2txt
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".doc") as temp_file:
+                temp_file.write(doc_content)
+                temp_path = temp_file.name
+            
+            text = docx2txt.process(temp_path)
+            if text and text.strip():  # Check if we got meaningful content
+                logger.info(f"✅ Successfully extracted {len(text)} characters from DOC using docx2txt")
+                return text.strip()
+            else:
+                logger.warning("⚠️ docx2txt returned empty content for DOC file")
+        except Exception as docx2txt_err:
+            logger.warning(f"⚠️ docx2txt extraction failed for DOC: {docx2txt_err}")
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.unlink(temp_path)
+                    temp_path = None
+                except:
+                    pass
         
-        # Using antiword to extract text from .doc files
-        text = os.popen(f"antiword '{temp_path}'").read()
-        return text.strip()
+        # Method 2: Try olefile to check if it's a valid DOC file
+        try:
+            import olefile
+            logger.info("🔄 Checking if file is a valid DOC file using olefile")
+            
+            if olefile.isOleFile(io.BytesIO(doc_content)):
+                logger.info("✅ File is a valid OLE/DOC file")
+                # For now, we'll return a message indicating manual processing might be needed
+                # In production, you might want to use a different library or service
+                logger.warning("⚠️ File is a valid DOC file but text extraction requires more specialized tools")
+                return "This DOC file could not be automatically processed. Please convert it to DOCX format for better compatibility."
+            else:
+                logger.warning("⚠️ File does not appear to be a valid DOC file")
+                return ""
+        except ImportError:
+            logger.warning("⚠️ olefile library not available")
+        except Exception as ole_err:
+            logger.warning(f"⚠️ olefile processing failed: {ole_err}")
+        
+        logger.error("❌ All DOC extraction methods failed")
+        return ""
     except Exception as e:
         logger.warning(f"⚠️ Error extracting text from DOC file: {e}")
         return ""
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            os.unlink(temp_path)
 
 async def extract_text_from_file(file, filename=None) -> Union[str, None]:
     """
