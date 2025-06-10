@@ -43,6 +43,7 @@ import TermsService from "./pages/TermsOfService/index.tsx";
 import Privacy from "./pages/Privacy/index.tsx";
 import ScrollToTop from "./components/ScrolltoTop.tsx";
 import ShippingAndExchange from "./pages/ShippingAndExchange/index.tsx";
+import Investigation from "./pages/investigation.tsx";
 
 
 
@@ -126,6 +127,7 @@ function App() {
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="chatbot" element={<ChatbotCustomization />} />
                   <Route path="upload" element={<FileUpload />} />
+                  <Route path="investigation" element={<Investigation />} />
                   <Route path="performance" element={<Performance />} />
                   <Route
                     path="script-generate"
