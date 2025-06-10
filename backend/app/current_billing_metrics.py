@@ -116,6 +116,18 @@ def get_current_billing_metrics(
     minutes, seconds = divmod(remainder, 60)
     total_chat_duration = f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
 
+    # Count distinct session_ids
+    unique_session_ids = (
+        db.query(func.count(func.distinct(Interaction.session_id)))
+        .filter(
+            Interaction.bot_id == bot_id,
+            Interaction.session_id.isnot(None),
+            Interaction.start_time >= start_date,
+            Interaction.start_time <= end_date
+        )
+        .scalar() or 0
+    )
+
     return {
         "total_sessions": total_sessions,
         "total_user_messages": total_user_messages,
@@ -123,5 +135,6 @@ def get_current_billing_metrics(
         "total_dislikes": total_dislikes,
         "total_chat_duration": total_chat_duration,
         "billing_cycle_start": start_date,
-        "billing_cycle_end": end_date
+        "billing_cycle_end": end_date,
+        "unique_session_ids":unique_session_ids
     }

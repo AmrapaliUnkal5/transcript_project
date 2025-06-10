@@ -11,7 +11,7 @@ from app.database import get_db
 from jose import jwt
 from jose.exceptions import JWTError
 from app import crud
-from app.models import Bot, UserAddon, ChatMessage, Addon, User, UserSubscription, SubscriptionPlan, Interaction, InteractionReaction
+from app.models import Bot, UserAddon, ChatMessage, Addon, User, UserSubscription, SubscriptionPlan, Interaction, InteractionReaction,BotSlug
 from urllib.parse import urlparse
 from sqlalchemy import func, or_
 from chromadb import logger
@@ -26,6 +26,7 @@ import uuid
 from typing import Optional
 from sqlalchemy.future import select       # for select()
 from sqlalchemy.ext.asyncio import AsyncSession  # for AsyncSession type hint
+import secrets
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -50,6 +51,24 @@ def create_tokens(interaction_id: int) -> str:
     payload = {"interaction_id": interaction_id}
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
+def create_bot_slug(bot_id: int, db: Session) -> str:
+    # Step 1: Check if a slug already exists for this bot_id
+    existing = db.query(BotSlug).filter_by(bot_id=bot_id).first()
+    if existing:
+        return existing.slug
+
+    # Step 2: Generate a new unique slug
+    while True:
+        slug = secrets.token_urlsafe(6)[:8]  # Keep it short and clean (optional trim)
+        if not db.query(BotSlug).filter_by(slug=slug).first():
+            break
+
+    # Step 3: Save to database
+    bot_slug = BotSlug(bot_id=bot_id, slug=slug)
+    db.add(bot_slug)
+    db.commit()
+    db.refresh(bot_slug)
+    return slug
 
 def decode_interaction_id(token: str) -> int:
     try:
@@ -59,9 +78,9 @@ def decode_interaction_id(token: str) -> int:
         raise HTTPException(status_code=400, detail="Invalid or tampered interaction token")
 
 @router.get("/widget/bot/{bot_id}/token")
-def get_bot_token(bot_id: int, current_user=Depends(get_current_user)):
+def get_bot_token(bot_id: int, current_user=Depends(get_current_user),db: Session = Depends(get_db)):
     # Optional: validate if the user owns the bot
-    token = create_bot_token(bot_id)
+    token = create_bot_slug(bot_id,db)
     return {"token": token}
 
 # @router.get("/bot/{bot_id}", response_model=schemas.BotResponse)
@@ -79,7 +98,7 @@ async def get_bot_settings_for_widget(request: Request, db: Session = Depends(ge
     try:
 
         # 1. Get token from Authorization header
-        bot_id = get_bot_id_from_auth_header(request)
+        bot_id = get_bot_id_from_auth_header(request,db)
         logger.info("/widget/bot: %s", bot_id)
         
 
@@ -152,7 +171,7 @@ def check_white_labeling_addon(
     db: Session = Depends(get_db)
 ):
     # 1. Extract bot_id from Authorization header
-    bot_id = get_bot_id_from_auth_header(request)
+    bot_id = get_bot_id_from_auth_header(request,db)
     logger.info("/api/user/addon/white-labeling-check  %s", bot_id)
       
     try:
@@ -191,7 +210,7 @@ def check_message_limit(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    bot_id = get_bot_id_from_auth_header(request)
+    bot_id = get_bot_id_from_auth_header(request,db)
     try:
         # Get the bot and extract user_id
         bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
@@ -219,7 +238,8 @@ def check_message_limit(
             ).first()
             base_limit = plan.message_limit if plan else 100
         else:
-            base_limit = 100  # Free plan default
+            return {
+            "canSendMessage": False}
 
         # Calculate total available messages (base + addons)
         total_limit = base_limit
@@ -259,7 +279,7 @@ class StartChatRequest(BaseModel):
 def start_chat_widget(request_data: StartChatRequest,request: Request, db: Session = Depends(get_db)):
     #print("start_chat_widget")
 
-    bot_id = get_bot_id_from_auth_header(request)
+    bot_id = get_bot_id_from_auth_header(request,db)
     #print("bot_idwidget/start_chat",bot_id)
     bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
     if not bot:
@@ -283,29 +303,29 @@ def start_chat_widget(request_data: StartChatRequest,request: Request, db: Sessi
 
     return {"interaction_id": data_token}
 
-def get_bot_id_from_auth_header(request: Request) -> int:
+def get_bot_id_from_auth_header(request: Request,  db: Session) -> int:
     auth_header = request.headers.get("authorization")
     
     if not auth_header or not auth_header.startswith("Bot "):
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    token = auth_header.split("Bot ")[1]
+    slug  = auth_header.split("Bot ")[1]
     
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        bot_id = payload.get("bot_id")
+    # payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    # bot_id = payload.get("bot_id")
+    bot_slug = db.query(BotSlug).filter_by(slug=slug, is_active=True).first()
         
-        if not bot_id:
-            raise HTTPException(status_code=400, detail="Invalid token payload")
-        
-        return bot_id
+    if not bot_slug:
+        raise HTTPException(status_code=401, detail="Invalid or expired bot link")
 
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    return bot_slug.bot_id
+
+
+
     
 @router.post("/widget/interactions/reaction")
 async def submit_reaction_widget(payload: schemas.ReactionCreateWidget,request: Request, db: Session = Depends(get_db)):
-    bot_id = get_bot_id_from_auth_header(request)
+    bot_id = get_bot_id_from_auth_header(request,db)
     
     real_interaction_id = decode_interaction_id(payload.interaction_id)
     real_message_id = decode_interaction_id(payload.message_id)
@@ -608,15 +628,17 @@ async def embed_bot(token: str):
     return HTMLResponse(content=html_content)
 
 
-@router.get("/embed-full/{token}", response_class=HTMLResponse)
+@router.get("/bot/{token}", response_class=HTMLResponse)
 async def embed_full_bot(token: str,db: Session = Depends(get_db)):
     try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
-        )
-        bot_id = payload.get("bot_id")
+        # payload = jwt.decode(
+        #     token,
+        #     settings.SECRET_KEY,
+        #     algorithms=[settings.ALGORITHM],
+        # )
+        # bot_id = payload.get("bot_id")
+        bot_slug = db.query(BotSlug).filter_by(slug=token, is_active=True).first()
+        bot_id= bot_slug.bot_id
         if not bot_id:
             raise JWTError("bot_id not found in token")
     except JWTError:
@@ -657,7 +679,7 @@ async def get_bot_initial_settings_for_widget(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    bot_id = get_bot_id_from_auth_header(request)
+    bot_id = get_bot_id_from_auth_header(request,db)
     print("botid",bot_id)
 
     bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
