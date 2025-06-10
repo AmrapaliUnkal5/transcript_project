@@ -135,7 +135,8 @@ initialize_scheduler()
 # Add the logging middleware
 #app.add_middleware(LoggingMiddleware)
 
-app.mount(f"/{settings.UPLOAD_BOT_DIR}", StaticFiles(directory=settings.UPLOAD_BOT_DIR), name=settings.UPLOAD_BOT_DIR)
+# app.mount(f"/{settings.UPLOAD_BOT_DIR}", StaticFiles(directory=settings.UPLOAD_BOT_DIR), name=settings.UPLOAD_BOT_DIR)
+app.mount("/uploads_bot", StaticFiles(directory='uploads_bot'), name="uploads_bot")
 app.include_router(botsettings_router)
 app.include_router(social_login_router)
 app.include_router(bot_conversations_router)
