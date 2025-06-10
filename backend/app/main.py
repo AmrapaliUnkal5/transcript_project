@@ -135,8 +135,7 @@ initialize_scheduler()
 # Add the logging middleware
 #app.add_middleware(LoggingMiddleware)
 
-# app.mount(f"/{settings.UPLOAD_BOT_DIR}", StaticFiles(directory=settings.UPLOAD_BOT_DIR), name=settings.UPLOAD_BOT_DIR)
-app.mount("/uploads_bot", StaticFiles(directory='uploads_bot'), name="uploads_bot")
+app.mount("/uploads_bot", StaticFiles(directory="/uploads_bot"), name="uploads_bot")
 app.include_router(botsettings_router)
 app.include_router(social_login_router)
 app.include_router(bot_conversations_router)
@@ -660,7 +659,7 @@ def admin_user_dashboard(current_user= Depends(require_role(["admin","user"]))):
 # Ensure the upload directory exists
 if not settings.UPLOAD_DIR.startswith("s3://"):
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-app.mount(f"/{settings.UPLOAD_DIR}", StaticFiles(directory=settings.UPLOAD_DIR), name=settings.UPLOAD_DIR)
+app.mount("/uploads", StaticFiles(directory="/uploads"), name="uploads")
 
 @app.post("/upload-avatar/")
 async def upload_avatar(file: UploadFile = File(...)):
