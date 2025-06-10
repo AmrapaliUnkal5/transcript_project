@@ -214,6 +214,81 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
         }
     })
 
+    # ✅ DEBUG: Test ChromaDB connection before retrieval
+    try:
+        from app.vector_db import get_chroma_client
+        
+        # ✅ Log attempt to get ChromaDB client
+        ai_logger.info("Attempting to get ChromaDB client", extra={
+            "ai_task": {
+                "event_type": "chromadb_client_attempt",
+                "bot_id": interaction.bot_id,
+                "user_id": interaction.user_id
+            }
+        })
+        
+        test_client = get_chroma_client()
+        
+        # ✅ Check if client is None (shouldn't happen now)
+        if test_client is None:
+            raise Exception("get_chroma_client() returned None")
+        
+        # ✅ Log successful client creation
+        ai_logger.info("ChromaDB client created successfully", extra={
+            "ai_task": {
+                "event_type": "chromadb_client_success",
+                "bot_id": interaction.bot_id,
+                "user_id": interaction.user_id,
+                "client_type": str(type(test_client))
+            }
+        })
+        
+        all_collections = test_client.list_collections()
+        
+        # Safely get collection names
+        if all_collections:
+            if isinstance(all_collections[0], str):
+                collection_names = all_collections
+            else:
+                collection_names = [col.name for col in all_collections]
+        else:
+            collection_names = []
+        
+        bot_collections = [name for name in collection_names if f"bot_{interaction.bot_id}_" in name]
+        
+        ai_logger.info("Pre-retrieval ChromaDB check", extra={
+            "ai_task": {
+                "event_type": "pre_retrieval_chromadb_check",
+                "bot_id": interaction.bot_id,
+                "user_id": interaction.user_id,
+                "total_collections": len(collection_names),
+                "bot_collections_found": bot_collections,
+                "bot_collections_count": len(bot_collections),
+                "chromadb_accessible": True
+            }
+        })
+        
+        # Clean up test client
+        del test_client
+        
+    except Exception as test_e:
+        ai_logger.error("Pre-retrieval ChromaDB check failed", extra={
+            "ai_task": {
+                "event_type": "pre_retrieval_chromadb_error", 
+                "bot_id": interaction.bot_id,
+                "user_id": interaction.user_id,
+                "error": str(test_e),
+                "error_type": type(test_e).__name__,
+                "chromadb_accessible": False
+            }
+        })
+        
+        # ✅ Log the full exception details for debugging
+        logger.error(f"Pre-retrieval ChromaDB check failed: {str(test_e)}")
+        logger.error(f"Exception type: {type(test_e).__name__}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+
     # ✅ Retrieve context using vector database
     similar_docs = retrieve_similar_docs(interaction.bot_id, request.message_text, user_id=interaction.user_id)
     

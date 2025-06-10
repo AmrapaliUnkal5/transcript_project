@@ -9,8 +9,6 @@ from app.models import Bot, EmbeddingModel, UserSubscription, SubscriptionPlan
 from app.utils.logger import get_module_logger
 from app.config import settings
 import time
-import signal
-from contextlib import contextmanager
 from app.utils.ai_logger import ai_logger
 
 # Initialize logger
@@ -32,33 +30,81 @@ def get_chroma_client():
     This prevents thread-safety issues when using Celery with multiple workers.
     """
     try:
-        client = chromadb.PersistentClient(path=f"./{settings.CHROMA_DIR}")
-        logger.debug(f"Created new ChromaDB client with path: {settings.CHROMA_DIR}")
+        # ✅ Fix: Use the same path resolution as the working test script
+        # The test script works with "../chromadb_store" which resolves to the correct location
+        # Let's use an absolute path to avoid any relative path confusion
+        
+        # Get the directory where this script is located
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Go up one level to the backend directory, then access chromadb_store
+        backend_dir = os.path.dirname(current_dir)
+        chroma_path = os.path.join(backend_dir, settings.CHROMA_DIR)
+        
+        # ✅ Log the path being used for debugging
+        logger.info(f"ChromaDB path resolution:")
+        logger.info(f"  - Current file: {__file__}")
+        logger.info(f"  - Current dir: {current_dir}")
+        logger.info(f"  - Backend dir: {backend_dir}")
+        logger.info(f"  - CHROMA_DIR setting: {settings.CHROMA_DIR}")
+        logger.info(f"  - Final chroma_path: {chroma_path}")
+        logger.info(f"  - Path exists: {os.path.exists(chroma_path)}")
+        
+        # ✅ Additional path validation
+        if not os.path.exists(chroma_path):
+            logger.error(f"ChromaDB path does not exist: {chroma_path}")
+            # Try alternative paths that might work
+            alternative_paths = [
+                os.path.join(backend_dir, "chromadb_store"),  # Direct fallback
+                os.path.join(os.getcwd(), "chromadb_store"),  # Current working directory
+                "chromadb_store",  # Relative to current working directory
+                "../chromadb_store"  # Same as test script
+            ]
+            
+            logger.info("Trying alternative ChromaDB paths:")
+            for alt_path in alternative_paths:
+                abs_alt_path = os.path.abspath(alt_path)
+                exists = os.path.exists(abs_alt_path)
+                logger.info(f"  - {alt_path} -> {abs_alt_path} (exists: {exists})")
+                if exists:
+                    logger.info(f"Using alternative path: {abs_alt_path}")
+                    chroma_path = abs_alt_path
+                    break
+            else:
+                raise FileNotFoundError(f"ChromaDB directory not found. Tried: {chroma_path} and alternatives: {alternative_paths}")
+        
+        # ✅ Create the client with detailed error handling
+        logger.info(f"Creating ChromaDB client with path: {chroma_path}")
+        client = chromadb.PersistentClient(path=chroma_path)
+        
+        # ✅ Validate the client works by doing a simple operation
+        logger.info("Validating ChromaDB client by listing collections...")
+        try:
+            collections = client.list_collections()
+            logger.info(f"ChromaDB client validation successful. Found {len(collections)} collections.")
+        except Exception as validation_error:
+            logger.error(f"ChromaDB client validation failed: {str(validation_error)}")
+            raise Exception(f"ChromaDB client validation failed: {str(validation_error)}")
+        
+        logger.info(f"Successfully created ChromaDB client with path: {chroma_path}")
         return client
+        
     except Exception as e:
         logger.error(f"Failed to create ChromaDB client: {str(e)}")
-        raise
-
-@contextmanager
-def timeout_handler(timeout_seconds=30):
-    """Context manager to handle timeouts for ChromaDB operations."""
-    def timeout_signal_handler(signum, frame):
-        raise TimeoutError(f"Operation timed out after {timeout_seconds} seconds")
-    
-    # Set up the signal handler
-    old_handler = signal.signal(signal.SIGALRM, timeout_signal_handler)
-    signal.alarm(timeout_seconds)
-    
-    try:
-        yield
-    finally:
-        # Reset the alarm and restore the old handler
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, old_handler)
-
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Current working directory: {os.getcwd()}")
+        
+        # ✅ Log detailed debugging information
+        logger.error("ChromaDB client creation debugging info:")
+        logger.error(f"  - __file__: {__file__}")
+        logger.error(f"  - os.path.abspath(__file__): {os.path.abspath(__file__)}")
+        logger.error(f"  - os.path.dirname(os.path.abspath(__file__)): {os.path.dirname(os.path.abspath(__file__))}")
+        logger.error(f"  - settings.CHROMA_DIR: {settings.CHROMA_DIR}")
+        
+        # ✅ CRITICAL: Don't return None, re-raise the exception
+        raise Exception(f"ChromaDB client creation failed: {str(e)}") from e
 
 def safe_get_collection(collection_name, timeout_seconds=30):
-    """Safely get a collection with timeout and detailed logging."""
+    """Safely get a collection with detailed logging."""
     from app.utils.ai_logger import ai_logger
     
     client = get_chroma_client()  # Create new client instance
@@ -79,119 +125,115 @@ def safe_get_collection(collection_name, timeout_seconds=30):
     try:
         # First, check if the collection exists by listing all collections
         logger.info(f"[DEBUG] Checking if collection exists by listing all collections")
-        with timeout_handler(timeout_seconds):
-            start_time = time.time()
-            all_collections = client.list_collections()
-            list_time = time.time() - start_time
-            logger.info(f"[DEBUG] Listed collections in {list_time:.2f}s, found {len(all_collections)} total")
-            
-            # ✅ Log collection listing results
-            ai_logger.info("Collections listed from ChromaDB", extra={
-                "ai_task": {
-                    "event_type": "collections_listed",
-                    "collection_name": collection_name,
-                    "total_collections_found": len(all_collections),
-                    "list_duration_ms": int(list_time * 1000)
-                }
-            })
-            
-            # Determine API version and get collection names
-            if all_collections and len(all_collections) > 0:
-                if isinstance(all_collections[0], str):
-                    logger.info(f"[DEBUG] Using new ChromaDB API (v0.6.0+)")
-                    collection_names = all_collections
-                    api_version = "new (v0.6.0+)"
-                else:
-                    logger.info(f"[DEBUG] Using old ChromaDB API (pre-0.6.0)")
-                    collection_names = [col.name for col in all_collections]
-                    api_version = "old (pre-0.6.0)"
-            else:
-                collection_names = []
-                api_version = "unknown (no collections)"
-            
-            logger.info(f"[DEBUG] Available collections: {collection_names[:10]}{'...' if len(collection_names) > 10 else ''}")
-            
-            # ✅ Log API version detection and collection names
-            ai_logger.info("ChromaDB API version detected", extra={
-                "ai_task": {
-                    "event_type": "chromadb_api_version_detected",
-                    "collection_name": collection_name,
-                    "api_version": api_version,
-                    "available_collections": collection_names[:5],  # Log first 5 for brevity
-                    "total_available": len(collection_names)
-                }
-            })
-            
-            # Check if our target collection exists
-            collection_exists = collection_name in collection_names
-            if not collection_exists:
-                logger.warning(f"[DEBUG] Collection '{collection_name}' not found in available collections")
-                
-                # ✅ Log collection not found
-                ai_logger.warning("Target collection not found", extra={
-                    "ai_task": {
-                        "event_type": "collection_not_found",
-                        "collection_name": collection_name,
-                        "available_collections": collection_names[:10],
-                        "total_available": len(collection_names),
-                        "collection_exists": False
-                    }
-                })
-                
-                raise ValueError(f"Collection '{collection_name}' does not exist")
-            
-            logger.info(f"[DEBUG] Collection '{collection_name}' exists, proceeding to get it")
-            
-            # ✅ Log collection found
-            ai_logger.info("Target collection found", extra={
-                "ai_task": {
-                    "event_type": "collection_found_in_list",
-                    "collection_name": collection_name,
-                    "collection_exists": True,
-                    "total_available": len(collection_names)
-                }
-            })
+        start_time = time.time()
+        all_collections = client.list_collections()
+        list_time = time.time() - start_time
+        logger.info(f"[DEBUG] Listed collections in {list_time:.2f}s, found {len(all_collections)} total")
         
-        with timeout_handler(timeout_seconds):
-            logger.info(f"[DEBUG] About to call client.get_collection() with timeout {timeout_seconds}s")
-            start_time = time.time()
+        # ✅ Log collection listing results
+        ai_logger.info("Collections listed from ChromaDB", extra={
+            "ai_task": {
+                "event_type": "collections_listed",
+                "collection_name": collection_name,
+                "total_collections_found": len(all_collections),
+                "list_duration_ms": int(list_time * 1000)
+            }
+        })
+        
+        # Determine API version and get collection names
+        if all_collections and len(all_collections) > 0:
+            if isinstance(all_collections[0], str):
+                logger.info(f"[DEBUG] Using new ChromaDB API (v0.6.0+)")
+                collection_names = all_collections
+                api_version = "new (v0.6.0+)"
+            else:
+                logger.info(f"[DEBUG] Using old ChromaDB API (pre-0.6.0)")
+                collection_names = [col.name for col in all_collections]
+                api_version = "old (pre-0.6.0)"
+        else:
+            collection_names = []
+            api_version = "unknown (no collections)"
+        
+        logger.info(f"[DEBUG] Available collections: {collection_names[:10]}{'...' if len(collection_names) > 10 else ''}")
+        
+        # ✅ Log API version detection and collection names
+        ai_logger.info("ChromaDB API version detected", extra={
+            "ai_task": {
+                "event_type": "chromadb_api_version_detected",
+                "collection_name": collection_name,
+                "api_version": api_version,
+                "available_collections": collection_names[:5],  # Log first 5 for brevity
+                "total_available": len(collection_names)
+            }
+        })
+        
+        # Check if our target collection exists
+        collection_exists = collection_name in collection_names
+        if not collection_exists:
+            logger.warning(f"[DEBUG] Collection '{collection_name}' not found in available collections")
             
-            # ✅ Log collection retrieval attempt
-            ai_logger.info("Attempting to retrieve collection object", extra={
+            # ✅ Log collection not found
+            ai_logger.warning("Target collection not found", extra={
                 "ai_task": {
-                    "event_type": "collection_retrieval_attempt",
+                    "event_type": "collection_not_found",
                     "collection_name": collection_name,
-                    "timeout_seconds": timeout_seconds
+                    "available_collections": collection_names[:10],
+                    "total_available": len(collection_names),
+                    "collection_exists": False
                 }
             })
             
-            collection = client.get_collection(name=collection_name)
-            
-            elapsed_time = time.time() - start_time
-            logger.info(f"[DEBUG] Successfully got collection in {elapsed_time:.2f} seconds")
-            
-            # ✅ Log successful collection retrieval
-            ai_logger.info("Collection retrieved successfully", extra={
-                "ai_task": {
-                    "event_type": "collection_retrieved_successfully",
-                    "collection_name": collection_name,
-                    "retrieval_duration_ms": int(elapsed_time * 1000),
-                    "collection_type": str(type(collection)),
-                    "success": True
-                }
-            })
-            
-            return collection
-            
+            raise ValueError(f"Collection '{collection_name}' does not exist")
+        
+        logger.info(f"[DEBUG] Collection '{collection_name}' exists, proceeding to get it")
+        
+        # ✅ Log collection found
+        ai_logger.info("Target collection found", extra={
+            "ai_task": {
+                "event_type": "collection_found_in_list",
+                "collection_name": collection_name,
+                "collection_exists": True,
+                "total_available": len(collection_names)
+            }
+        })
+    
+        logger.info(f"[DEBUG] About to call client.get_collection()")
+        start_time = time.time()
+        
+        # ✅ Log collection retrieval attempt
+        ai_logger.info("Attempting to retrieve collection object", extra={
+            "ai_task": {
+                "event_type": "collection_retrieval_attempt",
+                "collection_name": collection_name
+            }
+        })
+        
+        collection = client.get_collection(name=collection_name)
+        
+        elapsed_time = time.time() - start_time
+        logger.info(f"[DEBUG] Successfully got collection in {elapsed_time:.2f} seconds")
+        
+        # ✅ Log successful collection retrieval
+        ai_logger.info("Collection retrieved successfully", extra={
+            "ai_task": {
+                "event_type": "collection_retrieved_successfully",
+                "collection_name": collection_name,
+                "retrieval_duration_ms": int(elapsed_time * 1000),
+                "collection_type": str(type(collection)),
+                "success": True
+            }
+        })
+        
+        return collection
+        
     except TimeoutError as e:
-        logger.error(f"[DEBUG] TIMEOUT: get_collection() timed out after {timeout_seconds} seconds for collection '{collection_name}'")
+        logger.error(f"[DEBUG] TIMEOUT: get_collection() timed out for collection '{collection_name}'")
         
         # ✅ Log timeout error
         ai_logger.error("Collection access timed out", extra={
             "ai_task": {
                 "event_type": "collection_access_timeout",
                 "collection_name": collection_name,
-                "timeout_seconds": timeout_seconds,
                 "error": str(e)
             }
         })
