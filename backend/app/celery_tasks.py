@@ -965,7 +965,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                         
                         # Save the extracted content to S3
                         text_bytes = file_content_text.encode('utf-8')
-                        updated_path = save_file("UPLOAD_DIR", relative_path, text_bytes)
+                        updated_path = save_file(settings.UPLOAD_DIR, relative_path, text_bytes)
                         logger.info(f"✅ Successfully updated S3 text file with {len(file_content_text)} characters at: {updated_path}")
                     except Exception as s3_update_err:
                         logger.error(f"Error updating S3 text file: {str(s3_update_err)}")

@@ -132,7 +132,7 @@ async def save_extracted_text(text: str, file_path: str):
             
             # Use the file storage helper for S3
             text_bytes = text.encode('utf-8')
-            saved_path = save_file("UPLOAD_DIR", relative_path, text_bytes)
+            saved_path = save_file(settings.UPLOAD_DIR, relative_path, text_bytes)
             
             logger.info(f"Successfully saved extracted text to S3: {saved_path}")
             return saved_path
@@ -173,7 +173,7 @@ async def archive_original_file(file: UploadFile, bot_id: int, file_id: str):
                 archive_relative_path = f"archives/{archive_filename}"
             
             # Use the file storage helper for S3
-            saved_path = save_file("UPLOAD_DIR", archive_relative_path, file_content)
+            saved_path = save_file(UPLOAD_FOLDER, archive_relative_path, file_content)
             logger.info(f"Successfully archived original file to S3: {saved_path}")
             return saved_path
         else:
