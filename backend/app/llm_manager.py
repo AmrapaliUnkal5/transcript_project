@@ -377,8 +377,9 @@ class LLMManager:
             bot_id: Optional bot ID for model selection
             user_id: Optional user ID for model selection
         """
-        # Store the user_id for addon feature checking
+        # Store the user_id and bot_id for addon feature checking and logging
         self.user_id = user_id
+        self.bot_id = bot_id
         
         db = SessionLocal()
         try:
