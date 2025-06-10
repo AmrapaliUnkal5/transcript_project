@@ -38,7 +38,8 @@ from app.config import settings
 router = APIRouter()
 
 # Ensure the upload folder exists
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+if not UPLOAD_FOLDER.startswith("s3://"):
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 async def validate_file_size(files: List[UploadFile], current_user: dict, db: Session):
     """Validate file sizes against user's subscription limits"""

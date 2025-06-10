@@ -657,7 +657,8 @@ def admin_user_dashboard(current_user= Depends(require_role(["admin","user"]))):
     return {"message": f"Welcome {current_user}, you have access!"}
 
 # Ensure the upload directory exists
-os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+if not settings.UPLOAD_DIR.startswith("s3://"):
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount(f"/{settings.UPLOAD_DIR}", StaticFiles(directory=settings.UPLOAD_DIR), name=settings.UPLOAD_DIR)
 
 @app.post("/upload-avatar/")

@@ -92,18 +92,22 @@ def get_hierarchical_file_path(bot_id: int, filename: str, folder=None, is_archi
     
     if is_archive:
         archive_dir = os.path.join(bot_dir, "archives")
-        # Create directories if they don't exist
-        os.makedirs(archive_dir, exist_ok=True)
+        # Create directories if they don't exist (skip if S3 paths)
+        if not archive_dir.startswith("s3://"):
+            os.makedirs(archive_dir, exist_ok=True)
         return os.path.join(archive_dir, filename)
     else:
-        # Create directories if they don't exist
-        os.makedirs(bot_dir, exist_ok=True)
+        # Create directories if they don't exist (skip if S3 paths)
+        if not bot_dir.startswith("s3://"):
+            os.makedirs(bot_dir, exist_ok=True)
         return os.path.join(bot_dir, filename)
 
 async def save_file_to_folder(file: UploadFile, file_path: str):
     """Saves the file to the upload folder."""
-    # Ensure directory exists
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    # Ensure directory exists (skip if S3 paths)
+    dir_path = os.path.dirname(file_path)
+    if not dir_path.startswith("s3://"):
+        os.makedirs(dir_path, exist_ok=True)
     
     with open(file_path, "wb") as buffer:
         buffer.write(await file.read())
@@ -138,8 +142,10 @@ async def save_extracted_text(text: str, file_path: str):
             return saved_path
         else:
             # For local storage, use the existing direct file operations
-            # Ensure directory exists
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            # Ensure directory exists (skip if S3 paths)
+            dir_path = os.path.dirname(file_path)
+            if not dir_path.startswith("s3://"):
+                os.makedirs(dir_path, exist_ok=True)
             
             # Save directly to local storage
             with open(file_path, "w", encoding="utf-8") as f:

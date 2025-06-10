@@ -16,11 +16,15 @@ UPLOAD_DIR = config("UPLOAD_DIR", default="uploads")
 CHROMA_DIR = config("CHROMADB_STORE_DIR", default="chromadb_store")
 LOG_DIR = config("LOG_DIR", default="logs")
 
-# Create directories if they don't exist
-os.makedirs(UPLOAD_BOT_DIR, exist_ok=True)
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(CHROMA_DIR, exist_ok=True)
-os.makedirs(LOG_DIR, exist_ok=True)
+# Create directories if they don't exist (skip if S3 paths)
+if not UPLOAD_BOT_DIR.startswith("s3://"):
+    os.makedirs(UPLOAD_BOT_DIR, exist_ok=True)
+if not UPLOAD_DIR.startswith("s3://"):
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+if not CHROMA_DIR.startswith("s3://"):
+    os.makedirs(CHROMA_DIR, exist_ok=True)
+if not LOG_DIR.startswith("s3://"):
+    os.makedirs(LOG_DIR, exist_ok=True)
 
 # SMTP configuration using decouple
 SMTP_CONFIG = {

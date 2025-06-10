@@ -14,8 +14,9 @@ except ImportError:
     # Fallback for cases where settings might not be available
     logs_dir = os.getenv("LOG_DIR", "logs")
 
-# Create logs directory if it doesn't exist
-os.makedirs(logs_dir, exist_ok=True)
+# Create logs directory if it doesn't exist (skip if S3 paths)
+if not logs_dir.startswith("s3://"):
+    os.makedirs(logs_dir, exist_ok=True)
 
 # Log file paths
 INFO_LOG_FILE = os.path.join(logs_dir, 'info.log')
