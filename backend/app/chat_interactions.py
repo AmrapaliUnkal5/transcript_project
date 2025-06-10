@@ -13,6 +13,14 @@ import threading
 from app.clustering import PGClusterer
 from app.utils.logger import get_module_logger
 from app.word_cloud_processor import WordCloudProcessor
+from app.utils.ai_logger import (
+    log_chat_completion, 
+    log_document_retrieval, 
+    log_llm_request, 
+    log_llm_response,
+    ai_logger
+)
+import time
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -100,11 +108,41 @@ def async_update_word_cloud(bot_id: int, message_text: str):
 @router.post("/send_message")
 def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     """Stores a user message, retrieves relevant context, and generates a bot response."""
+    start_time = time.time()
+    
+    # ✅ Log initial request details
+    ai_logger.info("Send message request initiated", extra={
+        "ai_task": {
+            "event_type": "send_message_request",
+            "interaction_id": request.interaction_id,
+            "sender": request.sender,
+            "message_length": len(request.message_text),
+            "message_preview": request.message_text[:100] + "..." if len(request.message_text) > 100 else request.message_text,
+            "is_addon_message": request.is_addon_message
+        }
+    })
 
     # ✅ Check if interaction exists
     interaction = db.query(Interaction).filter(Interaction.interaction_id == request.interaction_id).first()
     if not interaction:
+        ai_logger.error("Interaction not found", extra={
+            "ai_task": {
+                "event_type": "interaction_error",
+                "interaction_id": request.interaction_id,
+                "error": "Chat session not found"
+            }
+        })
         raise HTTPException(status_code=404, detail="Chat session not found")
+
+    # ✅ Log interaction details found
+    ai_logger.info("Interaction found", extra={
+        "ai_task": {
+            "event_type": "interaction_found",
+            "interaction_id": request.interaction_id,
+            "bot_id": interaction.bot_id,
+            "user_id": interaction.user_id
+        }
+    })
 
     logger.debug("interaction_botid=> %s", interaction.bot_id)
     
@@ -120,6 +158,16 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user_message)
 
+    # ✅ Log message stored
+    ai_logger.info("User message stored", extra={
+        "ai_task": {
+            "event_type": "message_stored",
+            "message_id": user_message.message_id,
+            "interaction_id": request.interaction_id,
+            "sender": request.sender
+        }
+    })
+
     def is_greeting(msg):
         greetings = ["hi", "hello", "hey", "good morning", "good evening", "good afternoon", "how are you"]
         msg = msg.strip().lower()
@@ -127,6 +175,14 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
 
     # ✅ Start clustering in background thread if sender is user
     if request.sender.lower() == "user" and not is_greeting(request.message_text):
+        ai_logger.info("Starting background clustering", extra={
+            "ai_task": {
+                "event_type": "clustering_initiated",
+                "bot_id": interaction.bot_id,
+                "message_id": user_message.message_id
+            }
+        })
+        
         threading.Thread(
             target=async_cluster_question,
             args=(interaction.bot_id, request.message_text,user_message.message_id)
@@ -137,22 +193,113 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
             target=async_update_word_cloud,
             args=(interaction.bot_id, request.message_text)
         ).start()
+    else:
+        ai_logger.info("Skipping clustering for greeting or bot message", extra={
+            "ai_task": {
+                "event_type": "clustering_skipped",
+                "reason": "greeting_or_bot_message",
+                "sender": request.sender,
+                "is_greeting": is_greeting(request.message_text)
+            }
+        })
         
 
+    # ✅ Log start of vector database retrieval
+    ai_logger.info("Starting vector database retrieval", extra={
+        "ai_task": {
+            "event_type": "vector_retrieval_start",
+            "bot_id": interaction.bot_id,
+            "user_id": interaction.user_id,
+            "query_text": request.message_text[:100] + "..." if len(request.message_text) > 100 else request.message_text
+        }
+    })
+
     # ✅ Retrieve context using vector database
-    similar_docs = retrieve_similar_docs(interaction.bot_id, request.message_text)
+    similar_docs = retrieve_similar_docs(interaction.bot_id, request.message_text, user_id=interaction.user_id)
+    
+    # ✅ Log vector database retrieval results
+    ai_logger.info("Vector database retrieval completed", extra={
+        "ai_task": {
+            "event_type": "vector_retrieval_complete",
+            "bot_id": interaction.bot_id,
+            "user_id": interaction.user_id,
+            "documents_found": len(similar_docs) if similar_docs else 0,
+            "has_relevant_docs": bool(similar_docs)
+        }
+    })
+
+    if similar_docs:
+        # ✅ Log details about retrieved documents
+        doc_details = []
+        for i, doc in enumerate(similar_docs[:3]):  # Log first 3 docs
+            doc_detail = {
+                "index": i,
+                "score": doc.get("score", 0),
+                "content_length": len(doc.get("content", "")),
+                "content_preview": doc.get("content", "")[:50] + "..." if len(doc.get("content", "")) > 50 else doc.get("content", ""),
+                "metadata": doc.get("metadata", {})
+            }
+            doc_details.append(doc_detail)
+        
+        ai_logger.info("Retrieved document details", extra={
+            "ai_task": {
+                "event_type": "retrieved_documents_details",
+                "bot_id": interaction.bot_id,
+                "user_id": interaction.user_id,
+                "documents": doc_details
+            }
+        })
+
     context = " ".join([doc.get('content', '') for doc in similar_docs]) if similar_docs else "No relevant documents found."
+    
+    # ✅ Log context preparation
+    ai_logger.info("Context prepared for LLM", extra={
+        "ai_task": {
+            "event_type": "context_prepared", 
+            "bot_id": interaction.bot_id,
+            "user_id": interaction.user_id,
+            "context_length": len(context),
+            "context_preview": context[:150] + "..." if len(context) > 150 else context,
+            "has_relevant_context": "No relevant documents found" not in context
+        }
+    })
+
+    # ✅ Log start of LLM generation
+    ai_logger.info("Starting LLM response generation", extra={
+        "ai_task": {
+            "event_type": "llm_generation_start",
+            "bot_id": interaction.bot_id,
+            "user_id": interaction.user_id,
+            "user_message": request.message_text[:100] + "..." if len(request.message_text) > 100 else request.message_text,
+            "context_provided": len(context) > 0
+        }
+    })
 
     # ✅ Generate chatbot response using LLM
+    llm_start_time = time.time()
     bot_reply_dict = generate_response(
         bot_id=interaction.bot_id, 
         user_id=interaction.user_id, 
         user_message=request.message_text, 
         db=db
     )
+    llm_duration = int((time.time() - llm_start_time) * 1000)
 
     # ✅ Extract actual response string
     bot_reply_text = bot_reply_dict["bot_reply"]
+    
+    # ✅ Log LLM generation completion
+    ai_logger.info("LLM response generation completed", extra={
+        "ai_task": {
+            "event_type": "llm_generation_complete",
+            "bot_id": interaction.bot_id,
+            "user_id": interaction.user_id,
+            "response_length": len(bot_reply_text),
+            "response_preview": bot_reply_text[:150] + "..." if len(bot_reply_text) > 150 else bot_reply_text,
+            "generation_duration_ms": llm_duration,
+            "success": True
+        }
+    })
 
     # ✅ Store bot response in DB
     bot_message = ChatMessage(
@@ -163,6 +310,16 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     db.add(bot_message)
     db.commit()
 
+    # ✅ Log bot message stored
+    ai_logger.info("Bot response stored", extra={
+        "ai_task": {
+            "event_type": "bot_response_stored",
+            "message_id": bot_message.message_id,
+            "interaction_id": request.interaction_id,
+            "response_length": len(bot_reply_text)
+        }
+    })
+
     logger.debug("is_addon_message=> %s", request.is_addon_message)
 
     # ✅ Update message count in background
@@ -171,6 +328,25 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
             target=update_message_counts,
             args=(interaction.bot_id, interaction.user_id)
         ).start()
+
+    # ✅ Log complete chat completion
+    total_duration = int((time.time() - start_time) * 1000)
+    log_chat_completion(
+        user_id=interaction.user_id,
+        bot_id=interaction.bot_id,
+        user_query=request.message_text,
+        bot_response=bot_reply_text,
+        similar_docs_count=len(similar_docs) if similar_docs else 0,
+        interaction_id=request.interaction_id,
+        extra={
+            "total_duration_ms": total_duration,
+            "llm_duration_ms": llm_duration,
+            "sender": request.sender,
+            "is_addon_message": request.is_addon_message,
+            "message_id": bot_message.message_id,
+            "user_message_id": user_message.message_id
+        }
+    )
 
     return {"message": bot_reply_text, "message_id": bot_message.message_id}
 

@@ -11,6 +11,7 @@ from app.config import settings
 import time
 import signal
 from contextlib import contextmanager
+from app.utils.ai_logger import ai_logger
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -58,10 +59,22 @@ def timeout_handler(timeout_seconds=30):
 
 def safe_get_collection(collection_name, timeout_seconds=30):
     """Safely get a collection with timeout and detailed logging."""
+    from app.utils.ai_logger import ai_logger
+    
     client = get_chroma_client()  # Create new client instance
     logger.info(f"[DEBUG] Attempting to get collection: {collection_name}")
     logger.info(f"[DEBUG] ChromaDB client type: {type(client)}")
     logger.info(f"[DEBUG] Collection name type: {type(collection_name)}, value: '{collection_name}'")
+    
+    # ✅ Log collection access attempt
+    ai_logger.info("Collection access attempt initiated", extra={
+        "ai_task": {
+            "event_type": "collection_access_initiated",
+            "collection_name": collection_name,
+            "timeout_seconds": timeout_seconds,
+            "client_type": str(type(client))
+        }
+    })
     
     try:
         # First, check if the collection exists by listing all collections
@@ -72,45 +85,145 @@ def safe_get_collection(collection_name, timeout_seconds=30):
             list_time = time.time() - start_time
             logger.info(f"[DEBUG] Listed collections in {list_time:.2f}s, found {len(all_collections)} total")
             
+            # ✅ Log collection listing results
+            ai_logger.info("Collections listed from ChromaDB", extra={
+                "ai_task": {
+                    "event_type": "collections_listed",
+                    "collection_name": collection_name,
+                    "total_collections_found": len(all_collections),
+                    "list_duration_ms": int(list_time * 1000)
+                }
+            })
+            
             # Determine API version and get collection names
             if all_collections and len(all_collections) > 0:
                 if isinstance(all_collections[0], str):
                     logger.info(f"[DEBUG] Using new ChromaDB API (v0.6.0+)")
                     collection_names = all_collections
+                    api_version = "new (v0.6.0+)"
                 else:
                     logger.info(f"[DEBUG] Using old ChromaDB API (pre-0.6.0)")
                     collection_names = [col.name for col in all_collections]
+                    api_version = "old (pre-0.6.0)"
             else:
                 collection_names = []
+                api_version = "unknown (no collections)"
             
             logger.info(f"[DEBUG] Available collections: {collection_names[:10]}{'...' if len(collection_names) > 10 else ''}")
             
+            # ✅ Log API version detection and collection names
+            ai_logger.info("ChromaDB API version detected", extra={
+                "ai_task": {
+                    "event_type": "chromadb_api_version_detected",
+                    "collection_name": collection_name,
+                    "api_version": api_version,
+                    "available_collections": collection_names[:5],  # Log first 5 for brevity
+                    "total_available": len(collection_names)
+                }
+            })
+            
             # Check if our target collection exists
-            if collection_name not in collection_names:
+            collection_exists = collection_name in collection_names
+            if not collection_exists:
                 logger.warning(f"[DEBUG] Collection '{collection_name}' not found in available collections")
+                
+                # ✅ Log collection not found
+                ai_logger.warning("Target collection not found", extra={
+                    "ai_task": {
+                        "event_type": "collection_not_found",
+                        "collection_name": collection_name,
+                        "available_collections": collection_names[:10],
+                        "total_available": len(collection_names),
+                        "collection_exists": False
+                    }
+                })
+                
                 raise ValueError(f"Collection '{collection_name}' does not exist")
             
             logger.info(f"[DEBUG] Collection '{collection_name}' exists, proceeding to get it")
+            
+            # ✅ Log collection found
+            ai_logger.info("Target collection found", extra={
+                "ai_task": {
+                    "event_type": "collection_found_in_list",
+                    "collection_name": collection_name,
+                    "collection_exists": True,
+                    "total_available": len(collection_names)
+                }
+            })
         
         with timeout_handler(timeout_seconds):
             logger.info(f"[DEBUG] About to call client.get_collection() with timeout {timeout_seconds}s")
             start_time = time.time()
             
+            # ✅ Log collection retrieval attempt
+            ai_logger.info("Attempting to retrieve collection object", extra={
+                "ai_task": {
+                    "event_type": "collection_retrieval_attempt",
+                    "collection_name": collection_name,
+                    "timeout_seconds": timeout_seconds
+                }
+            })
+            
             collection = client.get_collection(name=collection_name)
             
             elapsed_time = time.time() - start_time
             logger.info(f"[DEBUG] Successfully got collection in {elapsed_time:.2f} seconds")
+            
+            # ✅ Log successful collection retrieval
+            ai_logger.info("Collection retrieved successfully", extra={
+                "ai_task": {
+                    "event_type": "collection_retrieved_successfully",
+                    "collection_name": collection_name,
+                    "retrieval_duration_ms": int(elapsed_time * 1000),
+                    "collection_type": str(type(collection)),
+                    "success": True
+                }
+            })
+            
             return collection
             
     except TimeoutError as e:
         logger.error(f"[DEBUG] TIMEOUT: get_collection() timed out after {timeout_seconds} seconds for collection '{collection_name}'")
+        
+        # ✅ Log timeout error
+        ai_logger.error("Collection access timed out", extra={
+            "ai_task": {
+                "event_type": "collection_access_timeout",
+                "collection_name": collection_name,
+                "timeout_seconds": timeout_seconds,
+                "error": str(e)
+            }
+        })
+        
         raise
     except ValueError as e:
         logger.error(f"[DEBUG] Collection does not exist: {str(e)}")
+        
+        # ✅ Log collection does not exist error (already logged above, but for completeness)
+        ai_logger.error("Collection does not exist", extra={
+            "ai_task": {
+                "event_type": "collection_does_not_exist",
+                "collection_name": collection_name,
+                "error": str(e)
+            }
+        })
+        
         raise
     except Exception as e:
         logger.error(f"[DEBUG] ERROR in get_collection(): {type(e).__name__}: {str(e)}")
         logger.error(f"[DEBUG] Full traceback:", exc_info=True)
+        
+        # ✅ Log general collection access error
+        ai_logger.error("Collection access failed with general error", extra={
+            "ai_task": {
+                "event_type": "collection_access_general_error",
+                "collection_name": collection_name,
+                "error": str(e),
+                "error_type": type(e).__name__
+            }
+        })
+        
         raise
     finally:
         # Clean up the client after we're done
@@ -320,6 +433,18 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                extra={"bot_id": bot_id, "query_length": len(query_text), 
                      "top_k": top_k})
     
+    # ✅ Log detailed search initiation
+    ai_logger.info("Vector database search initiated", extra={
+        "ai_task": {
+            "event_type": "vector_search_start",
+            "bot_id": bot_id,
+            "user_id": user_id,
+            "query_text": query_text[:100] + "..." if len(query_text) > 100 else query_text,
+            "query_length": len(query_text),
+            "top_k": top_k
+        }
+    })
+    
     start_time = time.time()
     
     try:
@@ -331,6 +456,17 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
             model_name = embedder.model_name
             logger.info(f"Selected embedding model", 
                        extra={"bot_id": bot_id, "model_name": model_name})
+            
+            # ✅ Log embedding model selection
+            ai_logger.info("Embedding model selected", extra={
+                "ai_task": {
+                    "event_type": "embedding_model_selected",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "model_name": model_name,
+                    "selection_method": "user_subscription"
+                }
+            })
         else:
             # Otherwise get from bot config
             logger.debug(f"Getting bot configuration", 
@@ -338,6 +474,17 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
             model_name = get_bot_config(bot_id)
             logger.info(f"Using embedding model from bot config", 
                        extra={"bot_id": bot_id, "model_name": model_name})
+            
+            # ✅ Log embedding model from bot config
+            ai_logger.info("Embedding model from bot config", extra={
+                "ai_task": {
+                    "event_type": "embedding_model_selected",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "model_name": model_name,
+                    "selection_method": "bot_config"
+                }
+            })
             
             # Initialize embedding manager
             logger.debug(f"Initializing embedding manager", 
@@ -347,6 +494,18 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
             except Exception as e:
                 logger.error(f"Error initializing embedder", 
                             extra={"bot_id": bot_id, "model_name": model_name, "error": str(e)})
+                
+                # ✅ Log embedder initialization failure
+                ai_logger.error("Embedding manager initialization failed", extra={
+                    "ai_task": {
+                        "event_type": "embedder_init_error",
+                        "bot_id": bot_id,
+                        "user_id": user_id,
+                        "model_name": model_name,
+                        "error": str(e)
+                    }
+                })
+                
                 # Try to find any previous collection for this bot
                 logger.warning(f"Falling back to any available collection", 
                               extra={"bot_id": bot_id})
@@ -357,9 +516,33 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                     extra={"bot_id": bot_id})
         try:
             query_embedding = embedder.embed_query(query_text)
+            
+            # ✅ Log successful embedding generation
+            ai_logger.info("Query embedding generated", extra={
+                "ai_task": {
+                    "event_type": "query_embedding_generated",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "model_name": model_name,
+                    "embedding_dimension": len(query_embedding),
+                    "success": True
+                }
+            })
         except Exception as e:
             logger.error(f"Error generating query embedding", 
                         extra={"bot_id": bot_id, "error": str(e)})
+            
+            # ✅ Log embedding generation failure
+            ai_logger.error("Query embedding generation failed", extra={
+                "ai_task": {
+                    "event_type": "query_embedding_error",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "model_name": model_name,
+                    "error": str(e)
+                }
+            })
+            
             return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
         
         # Get the embedding dimension
@@ -375,6 +558,18 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
         logger.info(f"Using consistent collection name", 
                    extra={"bot_id": bot_id, "collection": collection_name})
         
+        # ✅ Log collection name determination
+        ai_logger.info("Collection name determined", extra={
+            "ai_task": {
+                "event_type": "collection_name_determined",
+                "bot_id": bot_id,
+                "user_id": user_id,
+                "collection_name": collection_name,
+                "model_name": model_name,
+                "sanitized_model_name": sanitized_model_name
+            }
+        })
+        
         # Add debug highlighting for query collection name
         logger.info(f"*** QUERYING COLLECTION: {collection_name} ***", 
                    extra={"bot_id": bot_id})
@@ -382,6 +577,17 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
         # Try to get the collection
         try:
             logger.info(f"[DEBUG] About to get collection for querying: {collection_name}")
+            
+            # ✅ Log collection access attempt
+            ai_logger.info("Attempting to access collection", extra={
+                "ai_task": {
+                    "event_type": "collection_access_attempt",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name
+                }
+            })
+            
             bot_collection = safe_get_collection(collection_name, timeout_seconds=30)
             
             # Check if it has documents
@@ -389,17 +595,67 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
             logger.info(f"Collection has {doc_count} documents", 
                        extra={"bot_id": bot_id, "collection": collection_name})
             
+            # ✅ Log collection found and document count
+            ai_logger.info("Collection found and accessed", extra={
+                "ai_task": {
+                    "event_type": "collection_found",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name,
+                    "document_count": doc_count,
+                    "collection_exists": True
+                }
+            })
+            
             if doc_count == 0:
                 logger.warning(f"Collection {collection_name} is empty, falling back to other collections")
+                
+                # ✅ Log empty collection
+                ai_logger.warning("Collection is empty, falling back", extra={
+                    "ai_task": {
+                        "event_type": "collection_empty",
+                        "bot_id": bot_id,
+                        "user_id": user_id,
+                        "collection_name": collection_name,
+                        "fallback_initiated": True
+                    }
+                })
+                
                 return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
         except Exception as e:
             logger.error(f"Error accessing collection {collection_name}", 
                         extra={"bot_id": bot_id, "error": str(e)})
             logger.warning(f"Collection not found, falling back to other collections")
+            
+            # ✅ Log collection access error
+            ai_logger.error("Collection access failed", extra={
+                "ai_task": {
+                    "event_type": "collection_access_error",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name,
+                    "error": str(e),
+                    "collection_exists": False,
+                    "fallback_initiated": True
+                }
+            })
+            
             return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
         
         # Query the collection
         try:
+            # ✅ Log query execution start
+            ai_logger.info("Starting collection query", extra={
+                "ai_task": {
+                    "event_type": "collection_query_start",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name,
+                    "embedding_dimension": embedding_dimension,
+                    "n_results": min(top_k, doc_count)
+                }
+            })
+            
             # Run the query
             results = bot_collection.query(
                 query_embeddings=[query_embedding],
@@ -407,10 +663,24 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                 include=["documents", "metadatas", "distances"]
             )
             
+            # ✅ Log query execution success
+            ai_logger.info("Collection query executed successfully", extra={
+                "ai_task": {
+                    "event_type": "collection_query_success",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name,
+                    "results_returned": len(results["documents"][0]) if results.get("documents") and results["documents"][0] else 0
+                }
+            })
+            
             # Process and return results
             docs = []
             if results["documents"] and len(results["documents"]) > 0 and len(results["documents"][0]) > 0:
                 logger.info(f"Found {len(results['documents'][0])} matching documents")
+                
+                # Process results and prepare detailed logging
+                result_details = []
                 for i, doc in enumerate(results["documents"][0]):
                     metadata = results["metadatas"][0][i]
                     distance = results["distances"][0][i]
@@ -421,8 +691,41 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                         "score": score
                     })
                     logger.info(f"Match {i+1}: Score {score:.4f}, Source: {metadata.get('source', 'unknown')}, Name: {metadata.get('file_name', 'unknown')}")
+                    
+                    # Prepare result detail for logging
+                    result_details.append({
+                        "index": i,
+                        "score": round(score, 4),
+                        "distance": round(distance, 4),
+                        "content_length": len(doc),
+                        "content_preview": doc[:100] + "..." if len(doc) > 100 else doc,
+                        "metadata": metadata
+                    })
+                
+                # ✅ Log detailed search results
+                ai_logger.info("Search results processed", extra={
+                    "ai_task": {
+                        "event_type": "search_results_processed",
+                        "bot_id": bot_id,
+                        "user_id": user_id,
+                        "collection_name": collection_name,
+                        "results_count": len(docs),
+                        "results_details": result_details[:3]  # Log only first 3 for brevity
+                    }
+                })
             else:
                 logger.warning("No documents returned from query")
+                
+                # ✅ Log no results found
+                ai_logger.warning("No documents returned from query", extra={
+                    "ai_task": {
+                        "event_type": "no_results_found",
+                        "bot_id": bot_id,
+                        "user_id": user_id,
+                        "collection_name": collection_name,
+                        "query_executed": True
+                    }
+                })
             
             # Calculate time taken
             duration_ms = int((time.time() - start_time) * 1000)
@@ -444,19 +747,70 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                     }
                 )
             
+            # ✅ Log final vector search completion
+            ai_logger.info("Vector database search completed", extra={
+                "ai_task": {
+                    "event_type": "vector_search_complete",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name,
+                    "total_duration_ms": duration_ms,
+                    "results_count": len(docs),
+                    "success": True
+                }
+            })
+            
             return docs
             
         except Exception as e:
             logger.error(f"Error querying collection", 
                         extra={"bot_id": bot_id, "error": str(e)})
+            
+            # ✅ Log collection query error
+            ai_logger.error("Collection query failed", extra={
+                "ai_task": {
+                    "event_type": "collection_query_error",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name,
+                    "error": str(e),
+                    "fallback_initiated": True
+                }
+            })
+            
             if "dimension" in str(e).lower():
                 logger.warning(f"Dimension mismatch error, trying fallback")
+                
+                # ✅ Log dimension mismatch specifically
+                ai_logger.warning("Dimension mismatch detected", extra={
+                    "ai_task": {
+                        "event_type": "dimension_mismatch",
+                        "bot_id": bot_id,
+                        "user_id": user_id,
+                        "collection_name": collection_name,
+                        "expected_dimension": embedding_dimension,
+                        "error": str(e)
+                    }
+                })
+            
             return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
             
     except Exception as e:
         error_msg = f"Error retrieving similar docs for bot {bot_id}: {str(e)}"
         logger.exception(f"Similarity search failed", 
                         extra={"bot_id": bot_id, "error": str(e)})
+        
+        # ✅ Log general vector search failure
+        ai_logger.error("Vector database search failed", extra={
+            "ai_task": {
+                "event_type": "vector_search_failed",
+                "bot_id": bot_id,
+                "user_id": user_id,
+                "error": str(e),
+                "total_duration_ms": int((time.time() - start_time) * 1000)
+            }
+        })
+        
         return []
 
 
