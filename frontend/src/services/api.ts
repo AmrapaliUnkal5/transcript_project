@@ -400,6 +400,20 @@ fetchCaptcha: async () => {
     return response.data;
   },
 
+  
+  getScrapedNodes: async (botId: number) => {
+    const response = await api.get(`/investigation/scraped-nodes/${botId}`);
+    return response.data;
+  },
+  getYouTubeVideos: async (botId: number) => {
+    const response = await api.get(`/investigation/youtube-videos/${botId}`);
+    return response.data;
+  },
+  getUploadedFiles: async (botId: number) => {
+    const response = await api.get(`/investigation/uploaded-files/${botId}`);
+    return response.data;
+  },
+
   getFiles: async (botId: number): Promise<ApiFile[]> => {
     const response = await api.get<ApiFile[]>('/files', {
       params: { bot_id: botId },

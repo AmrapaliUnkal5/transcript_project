@@ -62,6 +62,7 @@ from app.celery_app import celery_app
 from app.celery_tasks import process_youtube_videos, process_file_upload, process_web_scraping
 from app.captcha_cleanup_thread import captcha_cleaner
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
+from app.investigation import router as investigation
 
 
 # Import our custom logging components
@@ -171,6 +172,7 @@ start_addon_scheduler()
 app.include_router(billing_metrics_router)
 app.include_router(addon_router)
 app.include_router(features_router)
+app.include_router(investigation)
 
 # Start the add-on expiry scheduler
 start_addon_scheduler()
