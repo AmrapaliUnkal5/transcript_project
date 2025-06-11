@@ -104,6 +104,8 @@ def get_file_content_from_s3(file_path: str) -> str:
         s3 = boto3.client('s3')
         
         # Get object from S3
+        print("Bucket:",bucket_name)
+        print("Key:",key)
         response = s3.get_object(Bucket=bucket_name, Key=key)
         return response['Body'].read().decode('utf-8')
         
