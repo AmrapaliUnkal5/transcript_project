@@ -88,11 +88,27 @@ async def extract_text_from_pdf_images(pdf: UploadFile) -> str:
 
 ## DOCX Processing ##
 async def extract_text_from_docx(docx: UploadFile) -> str:
-    """Extract text from DOCX paragraphs"""
+    """Extract text from DOCX paragraphs using multiple methods"""
     try:
         docx_data = await docx.read()
-        doc = Document(io.BytesIO(docx_data))
-        return " ".join([para.text for para in doc.paragraphs])
+        
+        # Method 1: Try docx2txt first (more reliable)
+        try:
+            import docx2txt
+            import tempfile
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_file:
+                temp_file.write(docx_data)
+                temp_path = temp_file.name
+            
+            text = docx2txt.process(temp_path)
+            return text.strip()
+        except Exception:
+            # Method 2: Fallback to python-docx
+            doc = Document(io.BytesIO(docx_data))
+            return " ".join([para.text for para in doc.paragraphs])
+        finally:
+            if 'temp_path' in locals() and os.path.exists(temp_path):
+                os.unlink(temp_path)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -122,9 +138,77 @@ async def extract_text_from_docx_images(docx: UploadFile) -> str:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"DOCX image extraction error: {str(e)}"
         )
+
+## DOC Processing ##
+async def extract_text_from_doc(doc: UploadFile) -> str:
+    """Extract text from DOC files using docx2txt"""
+    temp_path = None
+    try:
+        doc_data = await doc.read()
+        
+        # Method 1: Try docx2txt first
+        try:
+            import docx2txt
+            import tempfile
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".doc") as temp_file:
+                temp_file.write(doc_data)
+                temp_path = temp_file.name
+            
+            text = docx2txt.process(temp_path)
+            if text and text.strip():
+                return text.strip()
+            
+            # If docx2txt returns empty content, fall through to validation
+            
+        except ImportError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="DOC file processing not available. Please contact support."
+            )
+        except Exception as docx2txt_err:
+            # Log the error but continue to validation step
+            pass
+        
+        # Method 2: If docx2txt failed or returned empty, validate if it's a proper DOC file
+        try:
+            import olefile
+            if olefile.isOleFile(io.BytesIO(doc_data)):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This DOC file format is not fully supported. Please convert to DOCX format for better compatibility."
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid DOC file format."
+                )
+        except ImportError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="DOC file processing failed. Please convert to DOCX format."
+            )
+        except HTTPException:
+            raise  # Re-raise our HTTP exceptions
+        except Exception:
+            # If validation also fails, raise a general error
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="DOC file could not be processed. Please convert to DOCX format."
+            )
+            
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"DOC file processing error: {str(e)}"
+        )
     finally:
         if temp_path and os.path.exists(temp_path):
-            os.unlink(temp_path)
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
 
 ## TXT Processing ##
 async def extract_text_from_txt(txt: UploadFile) -> str:
@@ -184,6 +268,8 @@ async def extract_text(file: UploadFile) -> str:
         return await extract_text_from_csv(file)
     elif file_ext in ("png", "jpg", "jpeg"):
         return await extract_text_from_image_file(file)
+    elif file_ext == "doc":
+        return await extract_text_from_doc(file)
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
