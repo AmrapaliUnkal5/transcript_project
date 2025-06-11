@@ -93,14 +93,7 @@ def get_file_content_from_s3(file_path: str) -> str:
         # Split into bucket and key
         bucket_name, *key_parts = path_without_prefix.split('/')
         key = '/'.join(key_parts)
-        
-        # Initialize S3 client
-        # s3 = boto3.client(
-        #     's3',
-        #     aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-        #     aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        #     region_name=settings.AWS_REGION
-        # )
+       
         s3 = boto3.client('s3')
         
         # Get object from S3
@@ -159,7 +152,6 @@ async def get_uploaded_files_content(
                     "id": file.file_id,
                     "file_name": file.file_name,
                     "file_type": file.file_type,
-                    "file_size": file.file_size,
                     "created_at": file.upload_date,
                     "word_count":file.word_count,
                     "content": content,
@@ -171,7 +163,6 @@ async def get_uploaded_files_content(
                     "id": file.file_id,
                     "file_name": file.file_name,
                     "file_type": file.file_type,
-                    "file_size": file.file_size,
                     "created_at": file.upload_date,
                     "word_count":file.word_count,
                     "content": f"Error reading file: {e.detail}",
@@ -182,7 +173,6 @@ async def get_uploaded_files_content(
                     "id": file.file_id,
                     "file_name": file.file_name,
                     "file_type": file.file_type,
-                    "file_size": file.file_size,
                     "created_at": file.upload_date,
                     "word_count":file.word_count,
                     "content": f"Unexpected error: {str(e)}",
