@@ -17,7 +17,7 @@ const navItems = [
   { path: "chatbot", icon: "/images/dummy/Customize-bot-customize-icon.png", label: "Design" },
   { path: "performance", icon: "/images/dummy/Customize-bot-analyics.png", label: "Analytics" },
   { path: "script-generate", icon: "/images/dummy/Customize-bot-script.png", label: "Deploy" },
-  {path: "investigation", icon:"/images/dummy/Customize-bot-knowledge-base.png", label:"Investigation"}
+  {path: "investigation", icon:"/images/dummy/investigation_icon.png", label:"Investigation"}
 ];
 
 export const Sidebar = () => {

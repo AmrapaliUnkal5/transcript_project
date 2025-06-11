@@ -95,12 +95,13 @@ def get_file_content_from_s3(file_path: str) -> str:
         key = '/'.join(key_parts)
         
         # Initialize S3 client
-        s3 = boto3.client(
-            's3',
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_REGION
-        )
+        # s3 = boto3.client(
+        #     's3',
+        #     aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        #     aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        #     region_name=settings.AWS_REGION
+        # )
+        s3 = boto3.client('s3')
         
         # Get object from S3
         response = s3.get_object(Bucket=bucket_name, Key=key)
