@@ -10,8 +10,54 @@ import {
 import React from "react";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EastOutlinedIcon from "@mui/icons-material/EastOutlined";
+import ReactGA from "react-ga4";
+
 
 export default function Plans() {
+
+
+  const handleChoosePlan1 = () => {
+  ReactGA.event({
+    category: "Sales",
+    action: "click_choose_plan_starter",
+    label: "starter",
+  });
+};
+const handleChoosePlan2 = () => {
+  ReactGA.event({
+    category: "pricing",
+    action: "click_choose_plan_growth",
+    label: "Growth",
+  });
+};
+
+const handleChoosePlan3 = () => {
+  ReactGA.event({
+    category: "pricing",
+    action: "click_choose_plan_professional",
+    label: "Professional",
+  });
+};
+
+const handleCompareAllplans = () => {
+  ReactGA.event({
+    category: "pricing",
+    action: "click_compare_all_plans",
+    label: "Compare_All_plans_home",
+  });
+};
+  const HandleFreePlanClick = () => {
+    
+  ReactGA.event({
+    category: "engagement",
+    action: "click_try_free_plan",
+    label: "try_evolra_with_free_plan_button"
+  });
+
+
+
+};
+
   return (
     <>
       <Box
@@ -59,6 +105,7 @@ export default function Plans() {
               variant="contained"
               color="primary"
               href="/login"
+              onClick={HandleFreePlanClick}
               size="large"
               sx={{
                 paddingLeft: "5%",
@@ -231,6 +278,8 @@ export default function Plans() {
                   <Button
                     variant="text"
                     href="/signup"
+                    onClick={() => handleChoosePlan1()}
+                    
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -385,6 +434,7 @@ export default function Plans() {
                   <Button
                     variant="text"
                     href="/signup"
+                     onClick={() => handleChoosePlan2()}
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -538,6 +588,7 @@ export default function Plans() {
                   <Button
                     variant="text"
                     href="/signup"
+                     onClick={() => handleChoosePlan3()}
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -557,6 +608,7 @@ export default function Plans() {
             <Button
               variant="text"
               href="/signup"
+              onClick={() => handleCompareAllplans()}
               sx={{
                 width: "100%",
                 fontSize: "18px",

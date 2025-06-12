@@ -1,8 +1,16 @@
 import { Box, Button, Container, Grid, Typography, styled } from '@mui/material';
 import React from 'react';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ReactGA from "react-ga4";
 
 export default function BotDataControl() {
+  const ClickGetSatrtedFree = () => {
+    ReactGA.event({
+      category: "Button",
+      action: "Click_Get_Satrted_Free_in_data_control",
+      label: "GetSatrted in  Data Control"
+    });
+  }
   return (
     <>
       <Box
@@ -98,6 +106,7 @@ export default function BotDataControl() {
                 color='primary'
                 size='large'
                 href='/login'
+                onClick={ClickGetSatrtedFree}
                 sx={{
                     fontSize: '18px',
                     fontWeight: 500,

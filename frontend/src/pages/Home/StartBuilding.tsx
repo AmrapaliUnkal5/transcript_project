@@ -1,8 +1,19 @@
 import { Box, Button, Typography } from '@mui/material';
 import React from 'react';
 import EastOutlinedIcon from '@mui/icons-material/EastOutlined';
+import ReactGA from "react-ga4";
 
 export default function StartBuilding() {
+
+const ClickLetsGetStart = () => {
+    ReactGA.event({
+      category: "Button",
+      action: "Click_Let's_Get_Satrted",
+      label: "GetSatrted in  Bottom Section"
+    });
+  }
+
+
   return (
     <Box 
         px={2} py={4} display='flex' 
@@ -47,6 +58,8 @@ export default function StartBuilding() {
         color='primary'
         size='large'
         href='/signup'
+        onClick={ClickLetsGetStart}
+        endIcon={<EastOutlinedIcon />}
         sx={{
           fontSize: '18px',
           fontWeight: 600,

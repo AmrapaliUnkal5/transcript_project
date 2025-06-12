@@ -1,8 +1,17 @@
 import React from "react";
 import { Box, Button, Typography } from "@mui/material";
 import Typical from "react-typical";
+import ReactGA from "react-ga4";
+
 
 export default function Hero() {
+const handleGetStartedClick = () => {
+  ReactGA.event({
+    category: "engagement",          
+    action: "click_get_started",     
+    label: "hero_section_button"     
+  });
+};
   return (
     <>
       <Box
@@ -117,6 +126,7 @@ export default function Hero() {
               color="primary"
               size="large"
               href="/signup"
+              onClick={handleGetStartedClick}
               sx={{
                 mt:["40px","70px"],
                 mb: "60px",

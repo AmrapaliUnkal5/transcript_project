@@ -43,13 +43,31 @@ import TermsService from "./pages/TermsOfService/index.tsx";
 import Privacy from "./pages/Privacy/index.tsx";
 import ScrollToTop from "./components/ScrolltoTop.tsx";
 import ShippingAndExchange from "./pages/ShippingAndExchange/index.tsx";
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
+import ReactGA from "react-ga4";
+const GA_MEASUREMENT_ID =import.meta.env.GA_MEASUREMENT_ID || "G-YXF6SH4ZZP";
+
+const TrackPageView = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    ReactGA.send({ hitType: "pageview", page: location.pathname + location.search });
+  }, [location]);
+
+  return null;
+};
 
 
 
 
 function App() {
+   useEffect(() => {
+    ReactGA.initialize(GA_MEASUREMENT_ID);
+  }, []);
   return (
     <BrowserRouter>
+    <TrackPageView />
     <ScrollToTop />
       <LoaderProvider>
         <AuthProvider>
@@ -72,23 +90,15 @@ function App() {
                   path="/team/invitation/:invitation_token"
                   element={<TeamInvitation />}
                 />
-              
-                <Route path="report-issue" element={<ReportIssue />} />
+               <Route path="report-issue" element={<ReportIssue />} />
                 <Route
                   path="customersupport"
                   element={<CustomerSupportRequest />}
                 />
-
-
                 <Route path="/contact-us" element={<ContactUs />} />             
-
                 <Route path="/faq-page" element={<FAQPage />} />
                 <Route path="/terms-of-service" element={<TermsService />} />
                 <Route path="/privacy-policy" element={<Privacy />} />
-           
-
- 
-
                 <Route path="/data-deletion" element={<DataDeletion />} />
                 <Route path="/cancellation-refund-policy" element={<CancellationRefundPolicy />} />
                 <Route path="/shipping-exchange-policy" element={<ShippingAndExchange />} />

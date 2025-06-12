@@ -7,8 +7,20 @@ import {
   Typography,
   styled,
 } from "@mui/material";
+import ReactGA from "react-ga4";
 
 export const Enterprise = () => {
+
+
+  const handleConactSales=()=>{
+    
+    ReactGA.event({
+      category: "Sales",
+      action: "click_contact_sales",
+      label: "contact_sales_button"
+    });
+  }
+  
   return (
     <Box color={"#fff"} px={[2,4]}  pb={6} sx={{ backgroundColor: "#101035" }}>
       <Container maxWidth="lg" disableGutters>
@@ -203,6 +215,7 @@ export const Enterprise = () => {
                   color="primary"
                   size="large"
                   href='/login'
+                  onClick={handleConactSales}
                   sx={{
                   
                     fontSize: "18px",
