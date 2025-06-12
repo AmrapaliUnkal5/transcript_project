@@ -8,6 +8,7 @@ import MuiAccordionSummary, {
 import MuiAccordionDetails from "@mui/material/AccordionDetails";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ReactGA from "react-ga4";
+import { trackGAEvent } from "./Hero"
 
 const AccordionSummary = styled((props: AccordionSummaryProps) => (
   <MuiAccordionSummary
@@ -18,19 +19,19 @@ const AccordionSummary = styled((props: AccordionSummaryProps) => (
   backgroundColor: "transparent",
   color: "#FFF",
   border: "1px solid #2E2C73",
-  //border: '1px solid red',
+ 
   borderRadius: "14px",
   minHeight: "65px",
   [`& .${accordionSummaryClasses.expandIconWrapper}.${accordionSummaryClasses.expanded}`]:
     {
-      // transform: 'rotate(90deg)',
+    
       color: "#FFF",
     },
 
   [`& .${accordionSummaryClasses.expanded}`]: {
-    // transform: 'rotate(90deg)',
+   
     color: "#FFF",
-    //border: '1px solid red'
+   
   },
 
   [`& .${accordionSummaryClasses.content}`]: {
@@ -43,7 +44,7 @@ const AccordionSummary = styled((props: AccordionSummaryProps) => (
 
 const AccordionDetails = styled(MuiAccordionDetails)(({ theme }) => ({
   padding: " 0 24px 24px",
-  //border: '1px solid red',
+ 
 }));
 
 export default function FAQ() {
@@ -53,16 +54,6 @@ export default function FAQ() {
     (panel: string) => (event: React.SyntheticEvent, newExpanded: boolean) => {
       setExpanded(newExpanded ? panel : false);
     };
-
-const ClickFAQ = () => {
-    ReactGA.event({
-      category: "FAQ_Section",
-      action: "Click_More_FAQ_from_Home",
-      label: "More_FAQ_from_Home"
-    });
-  }
-
-
 
   return (
     <>
@@ -229,7 +220,12 @@ const ClickFAQ = () => {
               variant="outlined"
               size="large"
               href="/faq-page"
-              onClick={ClickFAQ}
+              onClick={() => {
+                        trackGAEvent({
+                        category: "FAQ_Section",
+                        action: "Click More FAQ",
+                        label: "More FAQ from Home"
+                      });}}
               sx={{
                 fontSize: "18px",
                 fontWeight: 500,

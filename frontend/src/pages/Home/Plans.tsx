@@ -11,53 +11,10 @@ import React from "react";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EastOutlinedIcon from "@mui/icons-material/EastOutlined";
 import ReactGA from "react-ga4";
+import {trackGAEvent} from './Hero';
 
 
 export default function Plans() {
-
-
-  const handleChoosePlan1 = () => {
-  ReactGA.event({
-    category: "Sales",
-    action: "click_choose_plan_starter",
-    label: "starter",
-  });
-};
-const handleChoosePlan2 = () => {
-  ReactGA.event({
-    category: "pricing",
-    action: "click_choose_plan_growth",
-    label: "Growth",
-  });
-};
-
-const handleChoosePlan3 = () => {
-  ReactGA.event({
-    category: "pricing",
-    action: "click_choose_plan_professional",
-    label: "Professional",
-  });
-};
-
-const handleCompareAllplans = () => {
-  ReactGA.event({
-    category: "pricing",
-    action: "click_compare_all_plans",
-    label: "Compare_All_plans_home",
-  });
-};
-  const HandleFreePlanClick = () => {
-    
-  ReactGA.event({
-    category: "engagement",
-    action: "click_try_free_plan",
-    label: "try_evolra_with_free_plan_button"
-  });
-
-
-
-};
-
   return (
     <>
       <Box
@@ -105,7 +62,13 @@ const handleCompareAllplans = () => {
               variant="contained"
               color="primary"
               href="/login"
-              onClick={HandleFreePlanClick}
+              onClick={() => {
+                trackGAEvent({
+                          category: "Plans",
+                          action: "Click Try Evolra with our free plan",
+                          label: "Beside Choose your Plan"
+                          });
+                  }}
               size="large"
               sx={{
                 paddingLeft: "5%",
@@ -127,7 +90,6 @@ const handleCompareAllplans = () => {
               <EastOutlinedIcon sx={{ marginLeft: "10px" }} />
             </Button>
           </Box>
-
           <Box>
             <Grid
               container
@@ -165,25 +127,7 @@ const handleCompareAllplans = () => {
                     Individuals, freelancers, and small service businesses
                   </Typography>
 
-                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3} >
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={["40px", "43px"]}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $14.99
-                    </Typography>
-                    <Typography variant="h6" fontWeight={"400"} fontSize={["16px","20px"]}>
-                      {" "}
-                      /month
-                    </Typography>
-
-                     
-                   
-                  </Box> */}
-
+                 
                   <Box
                     display="flex"
                     flexDirection="column"
@@ -278,7 +222,13 @@ const handleCompareAllplans = () => {
                   <Button
                     variant="text"
                     href="/signup"
-                    onClick={() => handleChoosePlan1()}
+                    onClick={() => {
+                      trackGAEvent({
+                                      category: "Plans",
+                                      action: "Click Choose Plan Starter",
+                                      label: "starter",
+                                    });
+                                  }}
                     
                     sx={{
                       width: "100%",
@@ -324,22 +274,7 @@ const handleCompareAllplans = () => {
                     Small to medium businesses and online retailers
                   </Typography>
 
-                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={["40px", "43px"]}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $24.99
-                    </Typography>
-                    <Typography variant="h6" fontWeight={"400"} fontSize={["16px","20px"]}>
-                      {" "}
-                      /month
-                    </Typography>
-                  </Box> */}
-
+            
                   <Box
                     display="flex"
                     flexDirection="column"
@@ -434,7 +369,13 @@ const handleCompareAllplans = () => {
                   <Button
                     variant="text"
                     href="/signup"
-                     onClick={() => handleChoosePlan2()}
+                     onClick={() => {
+                        trackGAEvent({
+                                      category: "Plans",
+                                      action: "Click Choose Plan Growth",
+                                      label: "Growth",
+                                    });
+                                  }}
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -478,21 +419,7 @@ const handleCompareAllplans = () => {
                     Established companies and agencies with multiple departments
                   </Typography>
 
-                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={["32px", "42px"]}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $54.99
-                    </Typography>
-                    <Typography variant="h6" fontWeight={"400"}>
-                      {" "}
-                      /month
-                    </Typography>
-                  </Box> */}
+                  
 
                   <Box
                     display="flex"
@@ -588,7 +515,13 @@ const handleCompareAllplans = () => {
                   <Button
                     variant="text"
                     href="/signup"
-                     onClick={() => handleChoosePlan3()}
+                     onClick={() => {
+                        trackGAEvent({
+                                      category: "Plans",
+                                      action: "Click Choose Plan Professional",
+                                      label: "Professional",
+                                    });
+                                  }}
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -608,7 +541,13 @@ const handleCompareAllplans = () => {
             <Button
               variant="text"
               href="/signup"
-              onClick={() => handleCompareAllplans()}
+              onClick={() => {
+                        trackGAEvent({
+                                      category: "Plans",
+                                      action: "Click Compare All Plans",
+                                      label: "Compare_All_plans_home",
+                                    });
+                                  }}
               sx={{
                 width: "100%",
                 fontSize: "18px",

@@ -4,14 +4,17 @@ import Typical from "react-typical";
 import ReactGA from "react-ga4";
 
 
-export default function Hero() {
-const handleGetStartedClick = () => {
+
+ export const trackGAEvent = ({ category, action, label }) => {
   ReactGA.event({
-    category: "engagement",          
-    action: "click_get_started",     
-    label: "hero_section_button"     
-  });
-};
+    category,
+    action,
+    label,
+           }  );
+           };
+  export default function Hero() {
+
+
   return (
     <>
       <Box
@@ -118,15 +121,19 @@ const handleGetStartedClick = () => {
                 />
               </Typography>
             </Box>
-            {/* <Typography variant="h6" color="#B4B4B4" mt={2} mb={3}>
-              Build, personalize, and deploy AI-powered chatbots effortlessly
-            </Typography> */}
+
             <Button
               variant="contained"
               color="primary"
               size="large"
               href="/signup"
-              onClick={handleGetStartedClick}
+              onClick={() => {
+                trackGAEvent({
+                category: "Engagement",
+                action: "Click Get Started For Free",
+                label: "hero_section_button"
+              });
+            }}
               sx={{
                 mt:["40px","70px"],
                 mb: "60px",

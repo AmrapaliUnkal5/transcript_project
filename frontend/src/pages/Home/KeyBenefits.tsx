@@ -9,18 +9,11 @@ import {
 import React from "react";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ReactGA from "react-ga4";
+import {trackGAEvent} from './Hero';
 
 
 export default function KeyBenefits() {
-
-  const handleTryNowClick = () => {
-  ReactGA.event({
-    category: "engagement",
-    action: "click_try_now",
-    label: "key_benefits_section_button"
-  });
-};
-  return (
+return (
     <>
       <Box
         display={"flex"}
@@ -72,10 +65,7 @@ export default function KeyBenefits() {
                   pb={"34px"}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
-                  // sx={{
-                  //   background:
-                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  // }}
+                  
 
                   sx={{
                     background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
@@ -125,10 +115,7 @@ export default function KeyBenefits() {
                   pb={"34px"}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
-                  // sx={{
-                  //   background:
-                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  // }}
+                  
                   sx={{
                     background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
                     borderRadius: "12px",
@@ -172,10 +159,7 @@ export default function KeyBenefits() {
                   minHeight={510}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
-                  // sx={{
-                  //   background:
-                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  // }}
+                  
 
                   sx={{
                     background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
@@ -220,10 +204,7 @@ export default function KeyBenefits() {
                   minHeight={510}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
-                  // sx={{
-                  //   background:
-                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  // }}
+                  
 
 
                   sx={{
@@ -268,10 +249,7 @@ export default function KeyBenefits() {
                   minHeight={510}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
-                  // sx={{
-                  //   background:
-                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  // }}
+                  
 
                   sx={{
                       background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
@@ -335,7 +313,13 @@ export default function KeyBenefits() {
               variant="contained"
               color="primary"
               href="/login"
-              onClick={handleTryNowClick}
+              onClick={() => {
+                        trackGAEvent({
+                                      category: "Engagement",
+                                      action: "Click Try Evolra Now",
+                                      label: "key_benefits_section_button"
+                                    });
+                                  }}
               size="large"
               sx={{
                 fontSize: "18px",

@@ -47,25 +47,15 @@ export const SignUp = () => {
     phone_no: "",
     confirmPassword: "",
   });
-  // Track validation errors for each field
-  // const [formErrors, setFormErrors] = useState({
-  //   firstName: "",
-  //   lastName: "",
-  //   company_name: "",
-  //   email: "",
-  //   password: "",
-  //   phone_no: "",
-  //   confirmPassword: "",
-  // });
+  
 
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
-  // Toggle password visibility
+ 
   const handleClickShowPassword = () => {
     setShowPassword((prev) => !prev);
   };
 
-  // Toggle confirm password visibility
   const handleClickShowConfirmPassword = () => {
     setShowConfirmPassword((prev) => !prev);
   };
@@ -86,23 +76,23 @@ export const SignUp = () => {
         [name]: value,
       };
 
-      // Track if user has started typing in confirmPassword
+     
       if (name === "confirmPassword") {
         setIsConfirmPasswordTouched(true);
       }
 
-      // Validate the field as the user types
+     
       validateField(name, value, updatedForm);
 
       return updatedForm;
     });
 
-    // Clear error when user starts typing
+   
     if (error) setError(null);
   };
 
   useEffect(() => {
-    // Only validate confirmPassword if the user has started typing in it
+    
     if (isConfirmPasswordTouched) {
       validateField("confirmPassword", formData.confirmPassword);
     }
@@ -169,11 +159,11 @@ export const SignUp = () => {
   };
 
   const handleCredentialResponse = async (response: { credential: string }) => {
-    //console.log("Credential response:", response);
+   
     if (response.credential) {
       try {
         const res = await authApi.googleLogin(response.credential);
-        //console.log(res);
+      
         login(res.access_token, res.user);
         const from = location.state?.from?.pathname || "/";
         navigate(from, { replace: true });
@@ -206,11 +196,11 @@ export const SignUp = () => {
         window.google.accounts.id.renderButton(
           document.getElementById("g_signin"),
           {
-            theme: "outline", // Styles the button (possible values: outline, filled_black, filled_blue)
-            size: "large", // Button size (possible values: small, medium, large)
-            shape: "pill", // Rounded button (possible values: rectangular, pill, circle)
-            text: "none", // Controls the text (possible values: signin_with, continue_with, signup_with, none)
-            logo_alignment: "center", // Aligns the Google logo (possible values: left, center)
+            theme: "outline", 
+            size: "large", 
+            shape: "pill", 
+            text: "none", 
+            logo_alignment: "center", 
           }
         );
       }
@@ -225,9 +215,7 @@ export const SignUp = () => {
 
   const validateForm = () => {
     let isValid = true;
-    //const newErrors = { ...formErrors };
-
-    // Validate all fields
+    
     Object.keys(formData).forEach((fieldName) => {
       validateField(fieldName, formData[fieldName as keyof typeof formData]);
       if (formErrors[fieldName as keyof typeof formErrors]) {
@@ -238,23 +226,6 @@ export const SignUp = () => {
     return isValid;
   };
 
-  //const validateForm = () => {
-  //const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Simple email format validation
-
-  //if (!emailRegex.test(formData.email)) {
-  //  setError("Please enter a valid email address.");
-  //  return false;
-  //}
-  //if (formData.password !== formData.confirmPassword) {
-  //  setError("Passwords do not match");
-  //  return false;
-  //}
-  //if (formData.password.length < 8) {
-  //  setError("Password must be at least 8 characters long");
-  //  return false;
-  //}
-  //return true;
-  //};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -322,7 +293,7 @@ export const SignUp = () => {
           </Typography>
 
           <Box>
-            {/* <Typography variant='body1' color={grey[800]} mb={1}>Continue with:</Typography> */}
+       
 
             <Grid container spacing={2} justifyContent="center">
               <Grid size={5}>
@@ -330,43 +301,7 @@ export const SignUp = () => {
                   <div id="g_signin" style={{ width: "100%" }}></div>
                 </Box>
               </Grid>
-              {/*
-
-              <Grid size={4}>
-                <Box
-                  display={"flex"}
-                  justifyContent={"center"}
-                  gap={2}
-                  p={2}
-                  borderRadius={"12px"}
-                  boxShadow={"0px 2px 30px 2px rgba(0, 0, 0, 0.08);"}
-                  mb={"12px"}
-                  sx={{ cursor: "pointer" }}
-                >
-                  <AppleIcon />
-                  <Typography variant="body1" color={grey[800]}>
-                    Apple
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid size={4}>
-                <Box
-                  display={"flex"}
-                  justifyContent={"center"}
-                  gap={2}
-                  p={2}
-                  borderRadius={"12px"}
-                  boxShadow={"0px 2px 30px 2px rgba(0, 0, 0, 0.08);"}
-                  mb={"12px"}
-                  sx={{ cursor: "pointer" }}
-                >
-                  <FacebookIcon />
-                  <Typography variant="body1" color={grey[800]}>
-                    Facebook
-                  </Typography>
-                </Box>
-              </Grid>
-              */}
+             
             </Grid>
           </Box>
 
@@ -548,14 +483,14 @@ export const SignUp = () => {
                   <Typography variant="body2" color={grey[800]}>
                     By Creating your account you are agree to CheckMe&apos;s{" "}
                     <Link
-                      to="/privacy_policy"
+                      to="/privacy-policy"
                       className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       Privacy Policy
                     </Link>{" "}
                     and{" "}
                     <Link
-                      to="/terms"
+                      to="/terms-of-service"
                       className="font-medium text-blue-600 hover:text-blue-500"
                     >
                       Terms of Service
@@ -567,226 +502,12 @@ export const SignUp = () => {
           </form>
         </LightGBox>
 
-        {/* {error && (
-          <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
-            <div className="flex">
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                  {error}
-                </h3>
-              </div>
-            </div>
-          </div>
-        )} */}
+        
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
-            {/* <div>
-              <label htmlFor='company_name' className='sr-only'>
-                Company
-              </label>
-              <div className='relative'>
-                <div className='absolute inset-y-0 left-0 pl-3 flex items-center'>
-                  <Building2
-                    className='h-5 w-5 text-gray-400'
-                    style={{ zIndex: '9' }}
-                  />
-                </div>
-                <input
-                  id='company_name'
-                  name='company_name'
-                  type='text'
-                  required
-                  className='appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm'
-                  placeholder='Company Name'
-                  value={formData.company_name}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-            <div>
-              <label htmlFor='website' className='sr-only'>
-                Company Website
-              </label>
-              <div className='relative'>
-                <div className='absolute inset-y-0 left-0 pl-3 flex items-center'>
-                  <Braces
-                    className='h-5 w-5 text-gray-400'
-                    style={{ zIndex: '9' }}
-                  />
-                </div>
-                <input
-                  id='website'
-                  name='website'
-                  type='text'
-                  required
-                  className='appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm'
-                  placeholder='Company Website'
-                  value={formData.website}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-            <div>
-              <label htmlFor='country' className='sr-only'>
-                Country
-              </label>
-              <div className='relative'>
-                <div className='absolute inset-y-0 left-0 pl-3 flex items-center'>
-                  <MapPinned
-                    className='h-5 w-5 text-gray-400'
-                    style={{ zIndex: '9' }}
-                  />
-                </div>
-                <input
-                  id='country'
-                  name='country'
-                  type='text'
-                  required
-                  className='appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm'
-                  placeholder='Country'
-                  value={formData.country}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-            <div>
-              <label htmlFor='name' className='sr-only'>
-                Full name
-              </label>
-              <div className='relative'>
-                <div className='absolute inset-y-0 left-0 pl-3 flex items-center'>
-                  <User
-                    className='h-5 w-5 text-gray-400'
-                    style={{ zIndex: '9' }}
-                  />
-                </div>
-                <input
-                  id='name'
-                  name='name'
-                  type='text'
-                  required
-                  className='appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm'
-                  placeholder='Full name'
-                  value={formData.name}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-            <div>
-              <label htmlFor='email' className='sr-only'>
-                Email address
-              </label>
-              <div className='relative'>
-                <div className='absolute inset-y-0 left-0 pl-3 flex items-center'>
-                  <Mail
-                    className='h-5 w-5 text-gray-400'
-                    style={{ zIndex: '9' }}
-                  />
-                </div>
-                <input
-                  id='email'
-                  name='email'
-                  type='email'
-                  required
-                  className='appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm'
-                  placeholder='Email address'
-                  value={formData.email}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-
-             <div>
-              <label htmlFor="phone" className="sr-only">
-                 Phone Number
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-                  <MapPinned className="h-5 w-5 text-gray-400" style={{ zIndex: '9' }} />
-                </div>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"  
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Phone number" 
-                  value={formData.phone} 
-                  onChange={handleChange} />
-              </div>
-            </div>
-
-
-            <div>
-              <label htmlFor='password' className='sr-only'>
-                Password
-              </label>
-              <div className='relative'>
-                <div className='absolute inset-y-0 left-0 pl-3 flex items-center'>
-                  <Lock
-                    className='h-5 w-5 text-gray-400'
-                    style={{ zIndex: '9' }}
-                  />
-                </div>
-                <input
-                  id='password'
-                  name='password'
-                  type='password'
-                  required
-                  className='appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm'
-                  placeholder='Password'
-                  value={formData.password}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-            <div>
-              <label htmlFor='confirmPassword' className='sr-only'>
-                Confirm password
-              </label>
-              <div className='relative'>
-                <div className='absolute inset-y-0 left-0 pl-3 flex items-center'>
-                  <Lock
-                    className='h-5 w-5 text-gray-400'
-                    style={{ zIndex: '9' }}
-                  />
-                </div>
-                <input
-                  id='confirmPassword'
-                  name='confirmPassword'
-                  type='password'
-                  required
-                  className='appearance-none rounded-none relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm'
-                  placeholder='Confirm password'
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                />
-              </div>
-            </div> */}
+            
           </div>
-
-          {/* <div>
-            <button
-              type='submit'
-              disabled={loading}
-              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
-                loading
-                  ? 'bg-blue-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-              }`}
-            >
-              {loading ? 'Creating account...' : 'Sign up'}
-            </button>
-          </div>
-
-          <div className='text-center'>
-            <Link
-              to='/login'
-              className='font-medium text-blue-600 hover:text-blue-500'
-            >
-              Already have an account? Sign in
-            </Link>
-          </div> */}
         </form>
       </Box>
     </DarkGBox>

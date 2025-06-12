@@ -20,8 +20,8 @@ import { ForgotPassword } from "./pages/Auth/ForgotPassword";
 import LoginHome from "./pages/LoginHome";
 import { ResetPassword } from "./pages/Auth/ResetPassword";
 import { PlanSelection } from "./pages/Options";
-import { LoaderProvider } from "./context/LoaderContext"; // Import LoaderProvider
-import Loader from "./components/Loader"; // Import Loader component
+import { LoaderProvider } from "./context/LoaderContext"; 
+import Loader from "./components/Loader"; 
 import VerifyEmail from "./pages/Auth/VerifyEmail";
 import { Demo } from "./pages/Demo.tsx";
 
@@ -47,7 +47,6 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import ReactGA from "react-ga4";
 const GA_MEASUREMENT_ID =import.meta.env.GA_MEASUREMENT_ID || "G-YXF6SH4ZZP";
-
 const TrackPageView = () => {
   const location = useLocation();
 
@@ -57,9 +56,6 @@ const TrackPageView = () => {
 
   return null;
 };
-
-
-
 
 function App() {
    useEffect(() => {
@@ -85,7 +81,6 @@ function App() {
                 <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/demo" element={<Demo />} />
                 <Route path="/faq" element={<FAQ />} />
-          
                 <Route
                   path="/team/invitation/:invitation_token"
                   element={<TeamInvitation />}
@@ -102,10 +97,6 @@ function App() {
                 <Route path="/data-deletion" element={<DataDeletion />} />
                 <Route path="/cancellation-refund-policy" element={<CancellationRefundPolicy />} />
                 <Route path="/shipping-exchange-policy" element={<ShippingAndExchange />} />
-                
-
-
-                
                 {/* NoSidebar layout for specific pages */}
                 <Route
                   path="/dashboard"

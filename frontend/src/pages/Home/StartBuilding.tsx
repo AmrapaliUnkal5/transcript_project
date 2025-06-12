@@ -2,18 +2,9 @@ import { Box, Button, Typography } from '@mui/material';
 import React from 'react';
 import EastOutlinedIcon from '@mui/icons-material/EastOutlined';
 import ReactGA from "react-ga4";
+import {trackGAEvent} from './Hero';
 
 export default function StartBuilding() {
-
-const ClickLetsGetStart = () => {
-    ReactGA.event({
-      category: "Button",
-      action: "Click_Let's_Get_Satrted",
-      label: "GetSatrted in  Bottom Section"
-    });
-  }
-
-
   return (
     <Box 
         px={2} py={4} display='flex' 
@@ -26,9 +17,7 @@ const ClickLetsGetStart = () => {
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundColor:'#262372'
-        }} 
-        
-        >
+        }}>
       <Typography 
         variant='h2' 
         fontWeight={600} 
@@ -39,8 +28,7 @@ const ClickLetsGetStart = () => {
             background: 'linear-gradient(180deg, #FFFFFF 46.63%, #959595 100%)',
             backgroundClip: 'text',
             textFillColor: 'transparent',
-          }}
-    >
+          }}>
         Start building your AI Bots
       </Typography>
       <Typography 
@@ -58,7 +46,13 @@ const ClickLetsGetStart = () => {
         color='primary'
         size='large'
         href='/signup'
-        onClick={ClickLetsGetStart}
+        onClick={() => {
+          trackGAEvent({
+                  category: "Engagement",
+                  action: "Click Let's Get Satrted",
+                  label: "GetSatrted in  Bottom Section"
+                      });
+                    }}
         endIcon={<EastOutlinedIcon />}
         sx={{
           fontSize: '18px',
