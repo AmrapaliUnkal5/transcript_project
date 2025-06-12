@@ -868,6 +868,29 @@ useEffect(() => {
     }
   };
 
+
+const handlePredefinedIconSelect = async (iconUrl: string) => {
+  try {
+    setLoading(true);
+    // Fetch image as blob
+    const response = await fetch(iconUrl);
+    const blob = await response.blob();
+
+    // Convert blob to File
+    const fileName = iconUrl.split("/").pop() || "icon.png";
+    const file = new File([blob], fileName, { type: blob.type });
+
+    // Use the same upload handler
+    await handleIconUpload(file);
+  } catch (error) {
+    console.error("Failed to upload predefined icon:", error);
+    toast.error("Failed to upload predefined icon.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
       handleIconUpload(e.target.files[0]);
@@ -1704,104 +1727,83 @@ const handleThemeSelect = async (themeId: string) => {
                           </span>
                         </div>
                       ) : field.type === "file" ? (
-                        <div className="flex flex-row space-x-2">
-                          {settings.icon && (
-                            <div className="flex items-center space-x-2">
-                              <div className="relative w-[100px] h-[100px]">
-                              <img
-                                src={settings.icon}
-                                alt="Current icon"
-                                className="w-[100px] h-[100px] rounded-full object-cover  p-1 bg-white  border border-[#DFDFDF] "// border border-[#DFDFDF]  We can consider it , it is really looking good
-
-                              /></div>
-
-                              <div className="flex flex-col items-start px-4 ">
-                                {/* <label>
-                                  <div className="">
-                                    <div className="flex items-center space-x-1 border rounded-[10px] border-[#5348CB] p-2 w-[134px] h-[39px]">
-                                      
-
-                                      <img
-                                        src="/images/dummy/upload-icons.png" 
-                                        alt="Upload Icon"
-                                        className="w-[14px] h-[18px]"
-                                      />
-
-                                      
-                                      <span
-                                        className="text-[16px] font-medium text-[#5348CB] inline-block text-center"
-                                        style={{
-                                          fontFamily:
-                                            "Instrument Sans, sans-serif",
-                                          fontWeight: "600",
-                                          fontSize: "14px",
-                                        }}
-                                      >
-                                        Upload Icon
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  <input
-                                    type="file"
-                                    accept={(field as any).accept}
-                                    onChange={
-                                      field.onChange as React.ChangeEventHandler<HTMLInputElement>
-                                    }
-                                    className="hidden"
-                                  />
-                                </label> */}
-
-<label>
-
-<div className="flex items-center justify-center space-x-1 border rounded-[10px] border-[#5348CB] p-2 w-[134px] h-[39px]">
-  <img
-    src="/images/dummy/upload-icons.png"
-    alt="Upload Icon"
-    className="w-[14px] h-[18px]"
-  />
-  <span
-    className="text-[16px] font-medium text-[#5348CB] inline-block"
-    style={{
-      fontFamily: "Instrument Sans, sans-serif",
-      fontWeight: "600",
-      fontSize: "14px",
-    }}
-  >
-    Upload Icon
-  </span>
-</div>
-
- <input
-                                    type="file"
-                                    accept={(field as any).accept}
-                                    onChange={
-                                      field.onChange as React.ChangeEventHandler<HTMLInputElement>
-                                    }
-                                    className="hidden"
-                                  />
-
-
-
-                               </label> <p
-  className="mt-2 text-start text-gray-500"
-  style={{
-    fontSize: "14px",
-    fontWeight: 400,
-    fontFamily: "Instrument Sans, sans-serif",
-    whiteSpace:"nowrap"
-    
-    
-  }}
->
-  Upload only SVG, PNG, JPG (Max 800 x 800px)
-</p>
-                              </div>
-                            </div>
-                          )}
-                          
+                    <div className="flex flex-col md:flex-row items-start space-x-4">
+                      {settings.icon && (
+                        <div className="w-[100px] h-[100px] relative mb-4 md:mb-0">
+                          <img
+                            src={settings.icon}
+                            alt="Current icon"
+                            className="w-full h-full rounded-full object-cover p-1 bg-white border border-[#DFDFDF]"
+                          />
                         </div>
-                      ) : (
+                      )}
+
+                          <div className="flex flex-col">
+                            <label>
+                              <div className="flex items-center justify-center space-x-1 border rounded-[10px] border-[#5348CB] p-2 w-[134px] h-[39px]">
+                                <img
+                                  src="/images/dummy/upload-icons.png"
+                                  alt="Upload Icon"
+                                  className="w-[14px] h-[18px]"
+                                />
+                                <span
+                                  className="text-[16px] font-medium text-[#5348CB]"
+                                  style={{
+                                    fontFamily: "Instrument Sans, sans-serif",
+                                    fontWeight: 600,
+                                    fontSize: "14px",
+                                  }}
+                                >
+                                  Upload Icon
+                                </span>
+                              </div>
+                              <input
+                                type="file"
+                                accept={(field as any).accept}
+                                onChange={field.onChange as React.ChangeEventHandler<HTMLInputElement>}
+                                className="hidden"
+                              />
+                            </label>
+
+                            <p
+                              className="mt-2 text-start text-gray-500"
+                              style={{
+                                fontSize: "14px",
+                                fontWeight: 400,
+                                fontFamily: "Instrument Sans, sans-serif",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              Upload only SVG, PNG, JPG (Max 800 x 800px)
+                            </p>
+
+                            <p className="mt-4 mb-2 font-medium text-sm text-gray-700">Or select an icon:</p>
+                            <div className="flex space-x-4 pb-5">
+                              {[
+                                "/images/canva_design4.png",
+                                "/images/canva_design5.png",
+                                "/images/canva_design8.png",
+                                "/images/canva_design7.png",
+                                "/images/3.svg",
+                              ].map((icon, idx) => (
+                                <div
+                                  key={idx}
+                                  className={`w-[50px] h-[50px] rounded-full border-2 cursor-pointer ${
+                                    settings.icon === icon ? "border-[#5348CB]" : "border-gray-300"
+                                  } p-1 bg-white`}
+                                  onClick={() => handlePredefinedIconSelect(icon)}
+                                >
+                                  <img
+                                    src={icon}
+                                    alt={`Bot Icon ${idx + 1}`}
+                                    className="object-cover w-full h-full rounded-full"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ): (
                         <div className="relative">
                           <input
                             type={field.type}
