@@ -98,26 +98,7 @@ export default function BotDataControl() {
               </Grid>
             </Grid>
           </Box>
-          {/* <Box display={"flex"} justifyContent={"center"} my={2}>
-            <Button
-              variant="contained"
-              color="primary"
-              size="large"
-              href="/login"
-              sx={{
-                fontSize: "18px",
-                fontWeight: 500,
-                borderRadius: "40px",
-                height: "62px",
-                minWidth: "220px",
-                textTransform: "capitalize",
-                background:
-                  "linear-gradient(180deg,rgba(90, 108, 242, 1) 0%, rgba(75, 52, 152, 1) 100%);",
-              }}
-            >
-              Get started for free
-            </Button>
-          </Box> */}
+          
         </Container>
       </Box>
     </>

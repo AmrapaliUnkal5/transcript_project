@@ -17,19 +17,16 @@ const AccordionSummary = styled((props: AccordionSummaryProps) => (
   backgroundColor: "transparent",
   color: "#FFF",
   border: "1px solid #2E2C73",
-  //border: '1px solid red',
+  
   borderRadius: "14px",
   minHeight: "65px",
   [`& .${accordionSummaryClasses.expandIconWrapper}.${accordionSummaryClasses.expanded}`]:
     {
-      // transform: 'rotate(90deg)',
       color: "#FFF",
     },
 
   [`& .${accordionSummaryClasses.expanded}`]: {
-    // transform: 'rotate(90deg)',
     color: "#FFF",
-    //border: '1px solid red'
   },
 
   [`& .${accordionSummaryClasses.content}`]: {
@@ -42,7 +39,6 @@ const AccordionSummary = styled((props: AccordionSummaryProps) => (
 
 const AccordionDetails = styled(MuiAccordionDetails)(({ theme }) => ({
   padding: " 0 24px 24px",
-  //border: '1px solid red',
 }));
 
 export default function FAQ() {
@@ -93,34 +89,7 @@ export default function FAQ() {
           </Box>
 
           <Box mx={"auto"} maxWidth={646}>
-            {/* <Accordion
-              expanded={expanded === 'panel1'}
-              onChange={handleChange('panel1')}
-              sx={{
-                borderRadius: '14px !important',
-                background: expanded === 'panel1'
-                  ? 'linear-gradient(0deg, #1D2051 0%, #3A419F 100%)'
-                  : '#0F0A2D',
-                marginBottom: '16px',
-              }}
-            >
-              <AccordionSummary
-                expandIcon={<ExpandMoreIcon sx={{ color: '#FFF' }} />}
-                aria-controls='panel1-content'
-                id='panel1-header'
-                sx={{ borderRadius: '14px' }}
-              >
-                <Typography component='span' fontWeight={600}>
-                  Can I change my plan after signing up?
-                </Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Typography variant='body1' color='#D5D5D5'>
-                  Yes, you can upgrade or downgrade your subscription at any
-                  time. Changes will be reflected in your next billing cycle.
-                </Typography>
-              </AccordionDetails>
-            </Accordion> */}
+          
             <Accordion
               expanded={expanded === "panel2"}
               onChange={handleChange("panel2")}
@@ -211,24 +180,6 @@ export default function FAQ() {
                 </Typography>
               </AccordionDetails>
             </Accordion>
-          </Box>
-          <Box display={"flex"} justifyContent={"center"} my={5}>
-            {/* <Button
-              variant='outlined'
-              size='large'
-              sx={{
-                fontSize: '18px',
-                fontWeight: 500,
-                borderRadius: '40px',
-                height: '59px',
-                minWidth: '150px',
-                textTransform: 'capitalize',
-                borderColor: '#fff',
-                color: '#fff',
-              }}
-            >
-              More FAQs
-            </Button> */}
           </Box>
         </Container>
       </Box>

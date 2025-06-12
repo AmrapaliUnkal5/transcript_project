@@ -59,7 +59,6 @@ export const OurplanTable = () => {
               variant="h2"
               fontWeight={600}
               fontSize={["30px", "40px", "40px"]}
-              //maxWidth={["286px", "930px"]}
               lineHeight={["44px", "40px"]}
               mt={["46px", "87px"]}
               sx={{
@@ -78,38 +77,31 @@ export const OurplanTable = () => {
       <Box>
         <Box px={10} py={5} display={["none", "block"]}>
           <TableContainer
-            // component={Paper}
             sx={{
               backgroundPosition: "center",
               backgroundColor: "#101035",
               borderBottom: "none",
               "& td, & th": {
                 borderBottom: "none",
-                color: "white", // Optional: keep text white for dark background
+                color: "white", 
               },
             }}
           >
             <Table
-              // sx={{
-              //   "& td, & th": {
-              //     textAlign: "center",
-              //     verticalAlign: "middle",
-              //     padding: "20px 14px", // vertically center text in cells
-              //   },
-              // }}
+              
 
               sx={{
                 borderCollapse: "separate",
-                borderSpacing: "16px 16px", // optional: add spacing between rows
+                borderSpacing: "16px 16px", 
                 "& td, & th": {
-                  textAlign: "center", // default for all
+                  textAlign: "center", 
                   verticalAlign: "middle",
                   padding: "20px 14px",
                 },
-                // Override ONLY first column cells (both head and body)
+                
                 "& td:first-of-type, & th:first-of-type": {
                   textAlign: "left",
-                  paddingLeft: 0, // flush to the left edge
+                  paddingLeft: 0, 
                 },
               }}
             >
@@ -194,8 +186,8 @@ export const OurplanTable = () => {
                           backgroundColor: "transparent",
 
                           color: "inherit",
-                          border: "1px solid", // 1px solid border
-                          borderColor: "currentColor", // border color same as text color
+                          border: "1px solid", 
+                          borderColor: "currentColor", 
                           borderRadius: "40px",
                           textTransform: "none",
                         }}
@@ -217,8 +209,8 @@ export const OurplanTable = () => {
                           backgroundColor: "transparent",
 
                           color: "inherit",
-                          border: "1px solid", // 1px solid border
-                          borderColor: "currentColor", // border color same as text color
+                          border: "1px solid", 
+                          borderColor: "currentColor", 
                           borderRadius: "40px",
                           textTransform: "none",
                         }}
@@ -241,8 +233,8 @@ export const OurplanTable = () => {
                           backgroundColor: "transparent",
 
                           color: "inherit",
-                          border: "1px solid", // 1px solid border
-                          borderColor: "currentColor", // border color same as text color
+                          border: "1px solid", 
+                          borderColor: "currentColor", 
                           borderRadius: "40px",
                           textTransform: "none",
                         }}
@@ -265,8 +257,8 @@ export const OurplanTable = () => {
                           backgroundColor: "transparent",
 
                           color: "inherit",
-                          border: "1px solid", // 1px solid border
-                          borderColor: "currentColor", // border color same as text color
+                          border: "1px solid", 
+                          borderColor: "currentColor", 
                           borderRadius: "40px",
                           textTransform: "none",
                         }}
@@ -289,8 +281,8 @@ export const OurplanTable = () => {
                           backgroundColor: "transparent",
 
                           color: "inherit",
-                          border: "1px solid", // 1px solid border
-                          borderColor: "currentColor", // border color same as text color
+                          border: "1px solid", 
+                          borderColor: "currentColor", 
                           borderRadius: "40px",
                           textTransform: "none",
                         }}
@@ -415,7 +407,7 @@ export const OurplanTable = () => {
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
                     <Box display="flex" justifyContent="center">
                       <StyledImage
-                        src="/images/icons/icon-cancel.png" // Use a different icon if needed
+                        src="/images/icons/icon-cancel.png" 
                         sx={{ width: "24px", height: "24px", marginBottom: 0 }}
                       />
                     </Box>
@@ -423,7 +415,7 @@ export const OurplanTable = () => {
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
                     <Box display="flex" justifyContent="center">
                       <StyledImage
-                        src="/images/icons/icon-cancel.png" // Use a different icon if needed
+                        src="/images/icons/icon-cancel.png" 
                         sx={{ width: "24px", height: "24px", marginBottom: 0 }}
                       />
                     </Box>
@@ -431,16 +423,7 @@ export const OurplanTable = () => {
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
                     <Box display="flex" justifyContent="center">
                       <StyledImage
-                        src="/images/icons/icon-check.png" // Use a different icon if needed
-                        sx={{ width: "24px", height: "24px", marginBottom: 0 }}
-                      />
-                    </Box>
-                  </TableCell>
-                  <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    {" "}
-                    <Box display="flex" justifyContent="center">
-                      <StyledImage
-                        src="/images/icons/icon-check.png" // Use a different icon if needed
+                        src="/images/icons/icon-check.png" 
                         sx={{ width: "24px", height: "24px", marginBottom: 0 }}
                       />
                     </Box>
@@ -449,7 +432,16 @@ export const OurplanTable = () => {
                     {" "}
                     <Box display="flex" justifyContent="center">
                       <StyledImage
-                        src="/images/icons/icon-check.png" // Use a different icon if needed
+                        src="/images/icons/icon-check.png" 
+                        sx={{ width: "24px", height: "24px", marginBottom: 0 }}
+                      />
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
+                    {" "}
+                    <Box display="flex" justifyContent="center">
+                      <StyledImage
+                        src="/images/icons/icon-check.png" 
                         sx={{ width: "24px", height: "24px", marginBottom: 0 }}
                       />
                     </Box>
@@ -484,7 +476,7 @@ export const OurplanTable = () => {
                   <TableRow
                     sx={{
                       "& td": {
-                        paddingBottom: "1px", // Half of the desired 10px gap
+                        paddingBottom: "1px", 
                       },
                     }}
                   >
@@ -514,7 +506,7 @@ export const OurplanTable = () => {
                 <TableBody
                   sx={{
                     "& td": {
-                      paddingTop: "0px", // The other half
+                      paddingTop: "0px", 
                     },
                   }}
                 >
@@ -541,7 +533,7 @@ export const OurplanTable = () => {
                   <TableRow
                     sx={{
                       "& td": {
-                        paddingBottom: "1px", // Half of the desired 10px gap
+                        paddingBottom: "1px", 
                       },
                     }}
                   >
@@ -562,7 +554,7 @@ export const OurplanTable = () => {
                 <TableBody
                   sx={{
                     "& td": {
-                      paddingTop: "0px", // The other half
+                      paddingTop: "0px", 
                     },
                   }}
                 >
@@ -582,9 +574,9 @@ export const OurplanTable = () => {
               </Table>
               <Divider
                 sx={{
-                  width: "90%", // or '100%' if full width is preferred
-                  mx: "auto", // centers it horizontally
-                  mt: 1.5, // optional: margin top for spacing
+                  width: "90%", 
+                  mx: "auto", 
+                  mt: 1.5, 
                   borderBottom: 1,
                   borderColor: "#3D3D3D",
                 }}
@@ -615,7 +607,7 @@ export const OurplanTable = () => {
                   <TableRow
                     sx={{
                       "& td": {
-                        paddingBottom: "1px", // Half of the desired 10px gap
+                        paddingBottom: "1px", 
                       },
                     }}
                   >
@@ -645,7 +637,7 @@ export const OurplanTable = () => {
                 <TableBody
                   sx={{
                     "& td": {
-                      paddingTop: "0px", // The other half
+                      paddingTop: "0px", 
                     },
                   }}
                 >
@@ -672,7 +664,7 @@ export const OurplanTable = () => {
                   <TableRow
                     sx={{
                       "& td": {
-                        paddingBottom: "1px", // Half of the desired 10px gap
+                        paddingBottom: "1px", 
                       },
                     }}
                   >
@@ -693,7 +685,7 @@ export const OurplanTable = () => {
                 <TableBody
                   sx={{
                     "& td": {
-                      paddingTop: "0px", // The other half
+                      paddingTop: "0px", 
                     },
                   }}
                 >
@@ -713,9 +705,9 @@ export const OurplanTable = () => {
               </Table>
               <Divider
                 sx={{
-                  width: "90%", // or '100%' if full width is preferred
-                  mx: "auto", // centers it horizontally
-                  mt: 1.5, // optional: margin top for spacing
+                  width: "90%", 
+                  mx: "auto", 
+                  mt: 1.5, 
                   borderBottom: 1,
                   borderColor: "#3D3D3D",
                 }}
@@ -747,7 +739,7 @@ export const OurplanTable = () => {
                   <TableRow
                     sx={{
                       "& td": {
-                        paddingBottom: "1px", // Half of the desired 10px gap
+                        paddingBottom: "1px", 
                       },
                     }}
                   >
@@ -777,7 +769,7 @@ export const OurplanTable = () => {
                 <TableBody
                   sx={{
                     "& td": {
-                      paddingTop: "0px", // The other half
+                      paddingTop: "0px", 
                     },
                   }}
                 >
@@ -787,7 +779,7 @@ export const OurplanTable = () => {
                     >
                       <Box display="flex" justifyContent="left">
                         <StyledImage
-                          src="/images/icons/icon-cancel.png" // Use a different icon if needed
+                          src="/images/icons/icon-cancel.png" 
                           sx={{
                             width: "24px",
                             height: "24px",
@@ -801,7 +793,7 @@ export const OurplanTable = () => {
                     >
                       <Box display="flex" justifyContent="left">
                         <StyledImage
-                          src="/images/icons/icon-check.png" // Use a different icon if needed
+                          src="/images/icons/icon-check.png" 
                           sx={{
                             width: "24px",
                             height: "24px",
@@ -815,7 +807,7 @@ export const OurplanTable = () => {
                     >
                       <Box display="flex" justifyContent="left">
                         <StyledImage
-                          src="/images/icons/icon-check.png" // Use a different icon if needed
+                          src="/images/icons/icon-check.png" 
                           sx={{
                             width: "24px",
                             height: "24px",
@@ -831,7 +823,7 @@ export const OurplanTable = () => {
                   <TableRow
                     sx={{
                       "& td": {
-                        paddingBottom: "1px", // Half of the desired 10px gap
+                        paddingBottom: "1px", 
                       },
                     }}
                   >
@@ -852,7 +844,7 @@ export const OurplanTable = () => {
                 <TableBody
                   sx={{
                     "& td": {
-                      paddingTop: "0px", // The other half
+                      paddingTop: "0px", 
                     },
                   }}
                 >
@@ -862,7 +854,7 @@ export const OurplanTable = () => {
                     >
                       <Box display="flex" justifyContent="left">
                         <StyledImage
-                          src="/images/icons/icon-check.png" // Use a different icon if needed
+                          src="/images/icons/icon-check.png" 
                           sx={{
                             width: "24px",
                             height: "24px",
@@ -876,7 +868,7 @@ export const OurplanTable = () => {
                     >
                       <Box display="flex" justifyContent="left">
                         <StyledImage
-                          src="/images/icons/icon-check.png" // Use a different icon if needed
+                          src="/images/icons/icon-check.png" 
                           sx={{
                             width: "24px",
                             height: "24px",

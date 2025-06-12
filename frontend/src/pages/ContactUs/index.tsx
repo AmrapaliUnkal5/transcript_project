@@ -14,8 +14,7 @@ export default function ContactUs() {
     <Box>
     <HomeHeader/>
     <ConversationForm/>
-    <Location/>
-     
+    <Location/> 
     <FAQ/>
     <StartBuilding/>
     <Footer/> 

@@ -166,7 +166,7 @@ export const Enterprise = () => {
                     {/* Row 2 */}
                     <Box display="flex" alignItems="center" gap={1}>
                       <StyledImage
-                        src="/images/icons/icon-check.png" // Use a different icon if needed
+                        src="/images/icons/icon-check.png" 
                         sx={{
                           width: ["15px","24px"],
                           height: ["15px","24px"],
@@ -193,8 +193,7 @@ export const Enterprise = () => {
                 bottom:"1px",               
                 left:0,                 
                 right:0,
-                // background:
-                //   "linear-gradient(180deg, rgba(39, 22, 78, 0.06) 0%, rgba(27, 14, 59, 0.758706) 23.83%, #170B33 96.63%)",
+                
               }}
               
               >

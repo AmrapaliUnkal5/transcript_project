@@ -3,7 +3,6 @@ import React from 'react';
 import Grid from '@mui/material/Grid2';
 import { Facebook, Apple } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
 import Hero from './Hero';
 import DashboardPreview from './DashboardPreview';
 import StartBuilding from './StartBuilding';

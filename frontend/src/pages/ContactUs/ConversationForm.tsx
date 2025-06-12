@@ -76,28 +76,29 @@ export default function ConversationForm() {
                 </Box>
               </Grid>
               <Grid item xs={12} sm={12} md={6}>
-                <Box >
-                <Box
+                <Box 
+
+                //  sx={{
+                //   background: "linear-gradient(148.01deg, #4644B3 74.39%, #000000 78.52%)", // Gradient border effect
+                //  p: "2px" // Border thickness
+                //  }}
+                >
+                <Box 
+
+                //  sx={{
+                //        borderRadius: "10px",
+                //         background: "linear-gradient(135deg, #BDCCE799 0%, #4C3B941A 50%, #BDCCE799 100%)", // Inner background
+                //         }}
                   sx={{
                     maxWidth: 550,
                     mx: "auto",
                     py: 1,
                     pt: 4,
-                    border: "0.5px solid white",
                     borderRadius: "12px",
                     px: "43px",
                     height: "514px",
                     background:
                       "linear-gradient(135deg, #BDCCE799 0%, #4C3B941A 50%, #BDCCE799 100%)",
-                    
-
-    //              background: `
-    //                linear-gradient(135deg, #BDCCE799 0%, #4C3B941A 50%, #BDCCE799 100%) padding-box,
-    //                linear-gradient(to right, #FFFFFF99, #FFFFFF00, #FFFFFF4D) border-box
-    //                  `,
-    //                 border: "1.5px solid transparent",
-    //                 backgroundOrigin: "padding-box, border-box",
-    //                 backgroundClip: "padding-box, border-box",
                   }}
                 >
                   <Typography
@@ -219,9 +220,9 @@ export default function ConversationForm() {
                           fontWeight: 600,
                           fontFamily: "Instrument Sans",
                           color: "black",
-                          padding: 0, // remove any default padding that may affect shape
+                          padding: 0, 
                           minWidth: 0,
-                          textTransform: "none", // ensures the width stays exactly 173px
+                          textTransform: "none", 
                         }}
                       >
                         Submit

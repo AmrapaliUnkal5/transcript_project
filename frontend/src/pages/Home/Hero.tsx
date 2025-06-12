@@ -46,7 +46,6 @@ export default function Hero() {
                 lineHeight={1.5}
                 sx={{
                   mt: ["82px","120px"],
-                  // Only show on medium and above
                   background: "-webkit-linear-gradient(#FFF, #959595)",
                   backgroundClip: "text",
                   textFillColor: "transparent",
@@ -109,9 +108,6 @@ export default function Hero() {
                 />
               </Typography>
             </Box>
-            {/* <Typography variant="h6" color="#B4B4B4" mt={2} mb={3}>
-              Build, personalize, and deploy AI-powered chatbots effortlessly
-            </Typography> */}
             <Button
               variant="contained"
               color="primary"

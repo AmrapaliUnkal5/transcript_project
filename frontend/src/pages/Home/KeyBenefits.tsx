@@ -62,11 +62,6 @@ export default function KeyBenefits() {
                   pb={"34px"}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
-                  // sx={{
-                  //   background:
-                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  // }}
-
                   sx={{
                     background:
                       "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
@@ -114,10 +109,7 @@ export default function KeyBenefits() {
                   pb={"34px"}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
-                  // sx={{
-                  //   background:
-                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  // }}
+                  
                   sx={{
                     background:
                       "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
@@ -167,10 +159,7 @@ export default function KeyBenefits() {
                   minHeight={510}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
-                  // sx={{
-                  //   background:
-                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  // }}
+                  
 
                   sx={{
                     background:
@@ -217,10 +206,6 @@ export default function KeyBenefits() {
                   minHeight={510}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
-                  // sx={{
-                  //   background:
-                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  // }}
 
                   sx={{
                     background:
@@ -266,11 +251,6 @@ export default function KeyBenefits() {
                   minHeight={510}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
-                  // sx={{
-                  //   background:
-                  //     "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                  // }}
-
                   sx={{
                     background:
                       "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",

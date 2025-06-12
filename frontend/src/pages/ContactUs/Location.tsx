@@ -58,7 +58,6 @@ export default function Location() {
                   pt: 1.5,
                   border: "1.5px ",
                   borderRadius: "22px",
-                  // height: 460,
                     height: {
                     md: 460, },
                   background:
@@ -71,13 +70,11 @@ export default function Location() {
                     src="/images/Contact/NewYork.png"
                     sx={{
                       width: "100%",
-                      // ml: 1.5,
-                      // mr:2,
                       maxHeight: 363,
                       color: "#BAB8FF",
-                      transition: "all 0.3s ease",
+                      transition: "all 0.2s ease",
                       "&:hover": {
-                        transform: "scale(0.97)",
+                        transform: "scale(1.01)",
                         boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
                       },
                     }}
@@ -105,7 +102,6 @@ export default function Location() {
                   pt: 1.5,
                   border: "1.5px ",
                   borderRadius: "22px",
-                  //maxheight: 460,
                     height: {
                     md: 460, },
                   background:
@@ -120,9 +116,9 @@ export default function Location() {
                       width: "100%",
                       maxHeight: 363,
                       color: "#BAB8FF",
-                      transition: "all 0.3s ease",
+                      transition: "all 0.2s ease",
                       "&:hover": {
-                        transform: "scale(0.97)",
+                        transform: "scale(1.01)",
                         boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
                       },
                     }}
@@ -150,7 +146,6 @@ export default function Location() {
                   pt: 1.5,
                   border: "1.5px ",
                   borderRadius: "22px",
-                  // height: 460,
                   height: {
                     md: 460, },
                   background:
@@ -165,9 +160,9 @@ export default function Location() {
                       width: "100%",
                       maxHeight: 363,
                       color: "#BAB8FF",
-                      transition: "all 0.3s ease",
+                      transition: "all 0.2s ease",
                       "&:hover": {
-                        transform: "scale(0.97)",
+                        transform: "scale(1.01)",
                         boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
                       },
                     }}
@@ -195,7 +190,6 @@ export default function Location() {
                   pt: 1.5,
                   border: "1.5px ",
                   borderRadius: "22px",
-                  // height: 460,
                     height: {
                     md: 460, },
                   background:
@@ -211,9 +205,9 @@ export default function Location() {
                       maxHeight: 363,
                       maxWidth: "100%",
                       color: "#BAB8FF",
-                      transition: "all 0.3s ease",
+                      transition: "all 0.2s ease",
                       "&:hover": {
-                        transform: "scale(0.97)",
+                        transform: "scale(1.01)",
                         boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
                       },
                     }}
@@ -242,7 +236,6 @@ export default function Location() {
                   pt: 1.5,
                   border: "1.5px ",
                   borderRadius: "22px",
-                  // height: 460,
                     height: {
                     md: 460, },
                   background:
@@ -258,9 +251,9 @@ export default function Location() {
                       maxHeight: 363,
                       maxWidth: "100%",
                       color: "#BAB8FF",
-                      transition: "all 0.3s ease",
+                      transition: "all 0.2s ease",
                       "&:hover": {
-                        transform: "scale(0.97)",
+                        transform: "scale(1.01)",
                         boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
                       },
                     }}

@@ -69,7 +69,7 @@ export default function FourStage() {
               }}
             >
               <StyledImage
-                src="/images/dummy/LoadData.png"
+                src="/images/home/LoadData.png"
                 sx={{
                   width: "104px",
                   height: "104px",
@@ -91,7 +91,7 @@ export default function FourStage() {
             {" "}
             <Box
               component="img"
-              src="/images/dummy/Union.png"
+              src="/images/home/Union.png"
               alt="Arrow"
               sx={{
                 display: { xs: "none", md: "block" },
@@ -125,7 +125,7 @@ export default function FourStage() {
                 }}
               >
                 <StyledImage
-                  src="/images/dummy/DesignYour.png"
+                  src="/images/home/DesignYour.png"
                   sx={{
                     width: "104px",
                     height: "104px",
@@ -149,7 +149,7 @@ export default function FourStage() {
             <Box
 
               component="img"
-              src="/images/dummy/Union.png"
+              src="/images/home/Union.png"
               alt="Arrow"
               sx={{
                 display: { xs: "none", md: "block" },
@@ -174,7 +174,7 @@ export default function FourStage() {
               }}
             >
               <StyledImage
-                src="/images/dummy/BuildYour.png"
+                src="/images/home/BuildYour.png"
                 sx={{
                   width: "104px",
                   height: "104px",
@@ -195,7 +195,7 @@ export default function FourStage() {
             {" "}
             <Box
               component="img"
-              src="/images/dummy/Union.png"
+              src="/images/home/Union.png"
               alt="Arrow"
               sx={{
                 display: { xs: "none", md: "block" },
@@ -229,7 +229,7 @@ export default function FourStage() {
                 }}
               >
                 <StyledImage
-                  src="/images/dummy/Deploy.png"
+                  src="/images/home/Deploy.png"
                   sx={{
                     width: "104px",
                     height: "104px",

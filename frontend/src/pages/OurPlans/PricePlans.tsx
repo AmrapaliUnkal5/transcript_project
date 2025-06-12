@@ -26,8 +26,7 @@ export default function PricePlans() {
         color={"#fff"}
         py={5}
         sx={{
-          // backgroundColor: "#101035",
-          xs: "324px", // phones
+         xs: "324px", 
           md: "508px",
         }}
       >
@@ -53,7 +52,7 @@ export default function PricePlans() {
                       base: "linear-gradient(148.01deg, #172041 64.39%, #1D1C56 38.52%)",
                       md: "linear-gradient(148.01deg, #070417)",
                     },
-                    // to visually confirm boundaries
+                   
                   }}
                 >
                   <Typography
@@ -72,22 +71,7 @@ export default function PricePlans() {
                   >
                     Explore risk free for one month
                   </Typography>
-                  {/* 
-                  <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={["32px", "42px"]}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $0
-                    </Typography>
-                    <Typography variant="h6" fontWeight={"400"}>
-                      {" "}
-                      (30 days)
-                    </Typography>
-                  </Box> */}
+                 
 
                   <Box display={"flex"} alignItems={"center"} gap={1} mt={4}>
                     <Typography
@@ -131,8 +115,8 @@ export default function PricePlans() {
                         backgroundColor: "transparent",
 
                         color: "inherit",
-                        border: "1px solid", // 1px solid border
-                        borderColor: "currentColor", // border color same as text color
+                        border: "1px solid", 
+                        borderColor: "currentColor", 
                         borderRadius: "40px",
                         textTransform: "none",
 
@@ -246,22 +230,7 @@ export default function PricePlans() {
                     Individuals, freelancers, and small service businesses
                   </Typography>
 
-                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={["32px", "42px"]}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $14.99
-                    </Typography>
-                    <Typography variant="h6" fontWeight={"400"}>
-                      {" "}
-                      /month
-                    </Typography>
-                  </Box> */}
-
+                  
                   <Box
                     display="flex"
                     flexDirection="column"
@@ -299,8 +268,8 @@ export default function PricePlans() {
                         backgroundColor: "transparent",
 
                         color: "inherit",
-                        border: "1px solid", // 1px solid border
-                        borderColor: "currentColor", // border color same as text color
+                        border: "1px solid", 
+                        borderColor: "currentColor", 
                         borderRadius: "40px",
                         textTransform: "none",
 
@@ -387,7 +356,6 @@ export default function PricePlans() {
                   pt={"30px"}
                   pb={"56px"}
                   minHeight={480}
-                  // border={"solid 1.5px "}
                   borderRadius={3}
                   sx={{
                     background:
@@ -439,21 +407,7 @@ export default function PricePlans() {
                     Small to medium businesses and online retailers
                   </Typography>
 
-                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={["32px", "42px"]}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $24.99
-                    </Typography>
-                    <Typography variant="h6" fontWeight={"400"}>
-                      {" "}
-                      /month
-                    </Typography>
-                  </Box> */}
+                 
 
                   <Box
                     display="flex"
@@ -492,8 +446,8 @@ export default function PricePlans() {
                         backgroundColor: "transparent",
 
                         color: "inherit",
-                        border: "1px solid", // 1px solid border
-                        borderColor: "currentColor", // border color same as text color
+                        border: "1px solid", 
+                        borderColor: "currentColor", 
                         borderRadius: "40px",
                         textTransform: "none",
 
@@ -604,23 +558,6 @@ export default function PricePlans() {
                   >
                     Established companies & agencies with multiple departments
                   </Typography>
-
-                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={6}>
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={["32px", "42px"]}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $54.99
-                    </Typography>
-                    <Typography variant="h6" fontWeight={"400"}>
-                      {" "}
-                      /month
-                    </Typography>
-                  </Box> */}
-
                   <Box
                     display="flex"
                     flexDirection="column"
@@ -659,8 +596,8 @@ export default function PricePlans() {
                         textTransform: "none",
 
                         color: "inherit",
-                        border: "1px solid", // 1px solid border
-                        borderColor: "currentColor", // border color same as text color
+                        border: "1px solid", 
+                        borderColor: "currentColor", 
                         borderRadius: "40px",
 
                         mb: 4,

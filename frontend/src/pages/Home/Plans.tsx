@@ -118,25 +118,7 @@ export default function Plans() {
                     Individuals, freelancers, and small service businesses
                   </Typography>
 
-                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3} >
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={["40px", "43px"]}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $14.99
-                    </Typography>
-                    <Typography variant="h6" fontWeight={"400"} fontSize={["16px","20px"]}>
-                      {" "}
-                      /month
-                    </Typography>
-
-                     
-                   
-                  </Box> */}
-
+                 
                   <Box
                     display="flex"
                     flexDirection="column"
@@ -275,22 +257,6 @@ export default function Plans() {
                     Small to medium businesses and online retailers
                   </Typography>
 
-                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={["40px", "43px"]}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $24.99
-                    </Typography>
-                    <Typography variant="h6" fontWeight={"400"} fontSize={["16px","20px"]}>
-                      {" "}
-                      /month
-                    </Typography>
-                  </Box> */}
-
                   <Box
                     display="flex"
                     flexDirection="column"
@@ -428,22 +394,6 @@ export default function Plans() {
                     Established companies and agencies with multiple departments
                   </Typography>
 
-                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={["32px", "42px"]}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $54.99
-                    </Typography>
-                    <Typography variant="h6" fontWeight={"400"}>
-                      {" "}
-                      /month
-                    </Typography>
-                  </Box> */}
-
                   <Box
                     display="flex"
                     flexDirection="column"
@@ -556,7 +506,6 @@ export default function Plans() {
           <Box mt={[0, 3]}>
             <Button
               variant="text"
-              // href="/our-plans"
               href="/our-plans#plans-table"
               sx={{
                 width: "100%",
