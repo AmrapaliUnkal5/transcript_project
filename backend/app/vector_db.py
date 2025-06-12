@@ -10,6 +10,7 @@ from app.utils.logger import get_module_logger
 from app.config import settings
 import time
 from app.utils.ai_logger import ai_logger
+import numpy as np
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -22,6 +23,41 @@ api_key = settings.OPENAI_API_KEY
 if not api_key:
     logger.critical("OPENAI_API_KEY is not configured in settings")
     raise ValueError("OPENAI_API_KEY is not set in configuration!")
+
+
+def normalize_embedding(embedding):
+    """
+    Normalize an embedding vector to unit length for consistent cosine similarity.
+    
+    Args:
+        embedding: List or array of floats representing the embedding vector
+        
+    Returns:
+        List of normalized floats
+    """
+    try:
+        # Convert to numpy array for efficient computation
+        embedding_array = np.array(embedding, dtype=np.float32)
+        
+        # Calculate the norm (magnitude) of the vector
+        norm = np.linalg.norm(embedding_array)
+        
+        # Avoid division by zero
+        if norm == 0:
+            logger.warning("Embedding vector has zero norm, returning original vector")
+            return embedding
+        
+        # Normalize the vector
+        normalized_embedding = embedding_array / norm
+        
+        # Convert back to list
+        return normalized_embedding.tolist()
+        
+    except Exception as e:
+        logger.error(f"Error normalizing embedding: {str(e)}")
+        # Return original embedding if normalization fails
+        return embedding
+
 
 # Remove global chroma_client initialization - we'll create it per operation instead
 def get_chroma_client():
@@ -429,6 +465,21 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             logger.info(f"Embedding generated successfully", 
                         extra={"bot_id": bot_id, "vector_length": len(vector), 
                               "first_values": str(vector[:3])})
+            
+            # ✅ NORMALIZE THE EMBEDDING BEFORE STORAGE
+            original_norm = np.linalg.norm(vector)
+            normalized_vector = normalize_embedding(vector)
+            normalized_norm = np.linalg.norm(normalized_vector)
+            
+            logger.info(f"Embedding normalization completed", 
+                        extra={"bot_id": bot_id, 
+                              "original_norm": float(original_norm),
+                              "normalized_norm": float(normalized_norm),
+                              "dimension": len(normalized_vector)})
+            
+            # Use the normalized vector for storage
+            vector = normalized_vector
+            
         except Exception as e:
             logger.error(f"Error generating document embedding", 
                         extra={"bot_id": bot_id, "error": str(e)})
@@ -559,6 +610,20 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
         try:
             query_embedding = embedder.embed_query(query_text)
             
+            # ✅ NORMALIZE THE QUERY EMBEDDING
+            original_norm = np.linalg.norm(query_embedding)
+            normalized_query_embedding = normalize_embedding(query_embedding)
+            normalized_norm = np.linalg.norm(normalized_query_embedding)
+            
+            logger.info(f"Query embedding normalization completed", 
+                        extra={"bot_id": bot_id, 
+                              "original_norm": float(original_norm),
+                              "normalized_norm": float(normalized_norm),
+                              "dimension": len(normalized_query_embedding)})
+            
+            # Use the normalized embedding for querying
+            query_embedding = normalized_query_embedding
+            
             # ✅ Log successful embedding generation
             ai_logger.info("Query embedding generated", extra={
                 "ai_task": {
@@ -567,6 +632,8 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                     "user_id": user_id,
                     "model_name": model_name,
                     "embedding_dimension": len(query_embedding),
+                    "original_norm": float(original_norm),
+                    "normalized_norm": float(normalized_norm),
                     "success": True
                 }
             })
@@ -726,13 +793,22 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                 for i, doc in enumerate(results["documents"][0]):
                     metadata = results["metadatas"][0][i]
                     distance = results["distances"][0][i]
-                    score = 1.0 - distance  # Convert distance to similarity score
+                    
+                    # ✅ IMPROVED SIMILARITY CALCULATION FOR NORMALIZED EMBEDDINGS
+                    # For normalized vectors, cosine distance should be between 0 and 2
+                    # Convert to cosine similarity: similarity = 1 - (distance / 2)
+                    if distance <= 2.0:
+                        score = 1.0 - (distance / 2.0)
+                    else:
+                        # Fallback for unexpected distances
+                        score = max(0.0, 1.0 - distance)
+                    
                     docs.append({
                         "content": doc,
                         "metadata": metadata,
                         "score": score
                     })
-                    logger.info(f"Match {i+1}: Score {score:.4f}, Source: {metadata.get('source', 'unknown')}, Name: {metadata.get('file_name', 'unknown')}")
+                    logger.info(f"Match {i+1}: Distance {distance:.4f}, Score {score:.4f}, Source: {metadata.get('file_name', 'unknown')}")
                     
                     # Prepare result detail for logging
                     result_details.append({
@@ -979,6 +1055,20 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
                 # Get query embedding with matching dimensions
                 query_embedding = hf_embedder.embed_query(query_text)
                 
+                # ✅ NORMALIZE THE FALLBACK QUERY EMBEDDING
+                original_norm = np.linalg.norm(query_embedding)
+                normalized_query_embedding = normalize_embedding(query_embedding)
+                normalized_norm = np.linalg.norm(normalized_query_embedding)
+                
+                logger.info(f"Fallback query embedding normalization completed", 
+                            extra={"bot_id": bot_id, 
+                                  "original_norm": float(original_norm),
+                                  "normalized_norm": float(normalized_norm),
+                                  "dimension": len(normalized_query_embedding)})
+                
+                # Use the normalized embedding for querying
+                query_embedding = normalized_query_embedding
+                
                 # Now, query the collection
                 try:
                     if len(query_embedding) != dimension:
@@ -1006,13 +1096,22 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
                         for i, doc in enumerate(results["documents"][0]):
                             metadata = results["metadatas"][0][i] if "metadatas" in results and results["metadatas"] and i < len(results["metadatas"][0]) else {}
                             distance = results["distances"][0][i] if "distances" in results and results["distances"] and i < len(results["distances"][0]) else 1.0
-                            score = 1.0 - distance
+                            
+                            # ✅ IMPROVED SIMILARITY CALCULATION FOR NORMALIZED EMBEDDINGS
+                            # For normalized vectors, cosine distance should be between 0 and 2
+                            # Convert to cosine similarity: similarity = 1 - (distance / 2)
+                            if distance <= 2.0:
+                                score = 1.0 - (distance / 2.0)
+                            else:
+                                # Fallback for unexpected distances
+                                score = max(0.0, 1.0 - distance)
+                            
                             docs.append({
                                 "content": doc,
                                 "metadata": metadata,
                                 "score": score
                             })
-                            logger.info(f"Match {i+1}: Score {score:.4f}, Source: {metadata.get('file_name', 'unknown')}")
+                            logger.info(f"Match {i+1}: Distance {distance:.4f}, Score {score:.4f}, Source: {metadata.get('file_name', 'unknown')}")
                         
                         if docs:
                             logger.info(f"Successfully retrieved documents from fallback collection: {collection_name}")
