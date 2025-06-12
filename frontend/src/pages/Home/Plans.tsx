@@ -556,7 +556,8 @@ export default function Plans() {
           <Box mt={[0, 3]}>
             <Button
               variant="text"
-              href="/signup"
+              // href="/our-plans"
+              href="/our-plans#plans-table"
               sx={{
                 width: "100%",
                 fontSize: "18px",

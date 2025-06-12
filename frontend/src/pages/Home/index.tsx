@@ -15,6 +15,7 @@ import Footer from '../../components/Footer/Footer';
 import FAQ from './FAQ';
 import { Enterprise } from './Enterprise';
 import HomeHeader from '../../components/Header/Header';
+import FourStage from './FourStage';
 
 export default function HomePage() {
   return (
@@ -22,11 +23,12 @@ export default function HomePage() {
       <HomeHeader/>
       <Hero/>
       <DashboardPreview/>
+      <BotDataControl/>
+      <FourStage/>
       <ExperienceAdvantage/>
       <KeyBenefits/>
       <Plans/>
       <Enterprise/>
-      <BotDataControl/>
       <FAQ/>
       <StartBuilding/>
       <Footer/> 

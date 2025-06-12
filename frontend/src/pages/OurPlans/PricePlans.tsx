@@ -10,11 +10,14 @@ import {
 import React from "react";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import { useEffect } from "react";
 
 export default function PricePlans() {
+
   return (
     <>
       <Box
+        id="plan-grid"
         display={"flex"}
         flexDirection={"column"}
         justifyContent={"center"}
@@ -29,14 +32,16 @@ export default function PricePlans() {
         }}
       >
         <Container maxWidth="lg">
-          <Box>
+          <Box >
             <Grid
+             
               container
               rowSpacing={3}
               columnSpacing={{ xs: 2, sm: 2, md: 3 }}
             >
-              <Grid item xs={12} md={6} lg={3}>
+              <Grid item xs={12} md={6} lg={3}  >
                 <Box
+                
                   px={"20px"}
                   pt={"30px"}
                   pb={"56px"}
@@ -103,6 +108,7 @@ export default function PricePlans() {
                   >
                     ₹0
                   </Typography>
+                  
 
                   <Typography
                     variant="body2"
