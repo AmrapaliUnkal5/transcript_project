@@ -340,8 +340,6 @@ const Investigation = () => {
                   }}>
                     <th className="px-6 py-3 text-left tracking-wider">S.No</th>
                     <th className="px-6 py-3 text-left tracking-wider">File Name</th>
-                    {/* <th className="px-6 py-3 text-left tracking-wider">File Type</th> */}
-                    <th className="px-6 py-3 text-left tracking-wider">File Size</th>
                     <th className="px-6 py-3 text-left tracking-wider">Text Count</th>
                     <th className="px-6 py-3 text-left tracking-wider">Created At</th>
                     <th className="px-6 py-3 text-right tracking-wider">Actions</th>
@@ -361,16 +359,6 @@ const Investigation = () => {
                       <td className="px-6 py-4">
                         <span className="text-sm text-gray-900 dark:text-white">
                           {file.file_name}
-                        </span>
-                      </td>
-                      {/* <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {file.file_type}
-                        </span>
-                      </td> */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {file.file_size}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
