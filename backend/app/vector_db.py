@@ -310,6 +310,123 @@ def safe_get_collection(collection_name, timeout_seconds=30):
             logger.debug("ChromaDB client cleaned up")
 
 
+def add_documents_batch(bot_id: int, documents_data: list, force_model: str = None, user_id: int = None):
+    """
+    Add multiple documents to ChromaDB in batch for better index performance.
+    
+    Args:
+        bot_id: Bot ID
+        documents_data: List of dicts with keys: text, metadata
+        force_model: Optional model override
+        user_id: Optional user ID
+    """
+    logger.info(f"Starting batch document addition", 
+               extra={"bot_id": bot_id, "batch_size": len(documents_data)})
+    
+    if not documents_data:
+        logger.warning(f"No documents provided for batch addition", extra={"bot_id": bot_id})
+        return
+    
+    try:
+        # Initialize embedder (same logic as add_document)
+        if force_model:
+            model_name = force_model
+            embedder = EmbeddingManager(model_name=model_name)
+        else:
+            if user_id:
+                embedder = EmbeddingManager(bot_id=bot_id, user_id=user_id)
+                model_name = embedder.model_name
+            else:
+                model_name = get_bot_config(bot_id)
+                embedder = EmbeddingManager(model_name=model_name)
+        
+        # Prepare batch data
+        batch_ids = []
+        batch_embeddings = []
+        batch_metadatas = []
+        batch_documents = []
+        
+        logger.info(f"Generating embeddings for batch", 
+                   extra={"bot_id": bot_id, "batch_size": len(documents_data)})
+        
+        for doc_data in documents_data:
+            text = doc_data["text"]
+            metadata = doc_data["metadata"]
+            
+            # Generate and normalize embedding
+            vector = embedder.embed_document(text)
+            normalized_vector = normalize_embedding(vector)
+            
+            batch_ids.append(metadata["id"])
+            batch_embeddings.append(normalized_vector)
+            batch_metadatas.append(metadata)
+            batch_documents.append(text)
+        
+        # Get collection
+        sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
+        collection_name = f"bot_{bot_id}_{sanitized_model_name}"
+        
+        chroma_client = get_chroma_client()
+        try:
+            bot_collection = safe_get_collection(collection_name, timeout_seconds=30)
+            logger.info(f"Using existing collection for batch", 
+                       extra={"bot_id": bot_id, "collection": collection_name})
+        except Exception:
+            # Create with HNSW config
+            hnsw_config = {
+                "hnsw:space": "cosine",
+                "hnsw:M": 64,
+                "hnsw:ef_construction": 200,
+                "hnsw:ef": 64,
+                "hnsw:max_elements": 10000,
+                "hnsw:allow_replace_deleted": True
+            }
+            bot_collection = chroma_client.create_collection(
+                name=collection_name,
+                embedding_function=None,
+                metadata=hnsw_config
+            )
+            logger.info(f"Created new collection for batch", 
+                       extra={"bot_id": bot_id, "collection": collection_name})
+        
+        # Add batch to collection
+        logger.info(f"Adding batch to ChromaDB", 
+                   extra={"bot_id": bot_id, "collection": collection_name, 
+                         "batch_size": len(batch_ids)})
+        
+        bot_collection.add(
+            ids=batch_ids,
+            embeddings=batch_embeddings,
+            metadatas=batch_metadatas,
+            documents=batch_documents
+        )
+        
+        # Force index refresh with a query
+        final_count = bot_collection.count()
+        if final_count > 1:
+            test_result = bot_collection.query(
+                query_embeddings=[batch_embeddings[0]],
+                n_results=min(3, final_count),
+                include=["documents", "distances"]
+            )
+            logger.info(f"Batch index refresh completed", 
+                       extra={"bot_id": bot_id, "collection": collection_name,
+                             "final_count": final_count})
+        
+        logger.info(f"Batch document addition completed successfully", 
+                   extra={"bot_id": bot_id, "collection": collection_name, 
+                         "added_count": len(batch_ids), "final_count": final_count})
+        
+    except Exception as e:
+        logger.error(f"Error in batch document addition", 
+                    extra={"bot_id": bot_id, "error": str(e)})
+        raise ValueError(f"Batch document addition failed: {str(e)}")
+    finally:
+        if 'chroma_client' in locals():
+            del chroma_client
+            logger.debug("ChromaDB client cleaned up in add_documents_batch")
+
+
 def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None, user_id: int = None):
     """Adds a document to a bot-specific vector database in ChromaDB."""
     logger.info(f"Adding document to vector database", 
@@ -429,12 +546,30 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             except Exception as e:
                 logger.info(f"Collection not found, creating new collection", 
                             extra={"bot_id": bot_id, "collection": collection_name, "error": str(e)})
+                
+                # ✅ CREATE COLLECTION WITH OPTIMIZED HNSW PARAMETERS
+                # Configure HNSW parameters for better indexing performance
+                hnsw_config = {
+                    "hnsw:space": "cosine",  # Use cosine distance for normalized embeddings
+                    "hnsw:M": 64,           # Number of bidirectional links for new elements (32-128)
+                    "hnsw:ef_construction": 200,  # Size of dynamic candidate list (100-800)
+                    "hnsw:ef": 64,          # Size of dynamic candidate list for queries (>= top_k)
+                    "hnsw:max_elements": 10000,   # Initial capacity
+                    "hnsw:allow_replace_deleted": True  # Allow replacing deleted elements
+                }
+                
+                logger.info(f"Creating collection with HNSW config", 
+                           extra={"bot_id": bot_id, "collection": collection_name, 
+                                 "hnsw_config": hnsw_config})
+                
                 bot_collection = chroma_client.create_collection(
                     name=collection_name,
-                    embedding_function=None  # We'll provide our own embeddings
+                    embedding_function=None,  # We'll provide our own embeddings
+                    metadata=hnsw_config
                 )
-                logger.info(f"*** CREATED NEW COLLECTION: {collection_name} ***", 
-                           extra={"bot_id": bot_id})
+                
+                logger.info(f"*** CREATED NEW COLLECTION WITH HNSW CONFIG: {collection_name} ***", 
+                           extra={"bot_id": bot_id, "hnsw_config": hnsw_config})
                 logger.info(f"New collection created", 
                            extra={"bot_id": bot_id, "collection": collection_name})
         except Exception as e:
@@ -497,6 +632,31 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             )
             logger.info(f"Add result: {add_result}", 
                         extra={"bot_id": bot_id, "collection": collection_name})
+            
+            # ✅ FORCE HNSW INDEX UPDATE AFTER ADDING DOCUMENT
+            try:
+                # Check if collection has enough documents to trigger HNSW indexing
+                doc_count = bot_collection.count()
+                logger.info(f"Collection document count after addition: {doc_count}", 
+                           extra={"bot_id": bot_id, "collection": collection_name})
+                
+                # For collections with multiple documents, try to trigger index refresh
+                if doc_count > 1:
+                    # Perform a small test query to force index update
+                    test_result = bot_collection.query(
+                        query_embeddings=[vector],
+                        n_results=1,
+                        include=["documents", "distances"]
+                    )
+                    logger.info(f"Index refresh query completed", 
+                               extra={"bot_id": bot_id, "collection": collection_name,
+                                     "test_results_count": len(test_result.get("documents", [[]])[0])})
+                    
+            except Exception as index_error:
+                logger.warning(f"Failed to refresh index, but document was added successfully", 
+                              extra={"bot_id": bot_id, "collection": collection_name, 
+                                    "index_error": str(index_error)})
+            
             logger.info(f"Document added successfully", 
                    extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown'), 
                          "collection": collection_name, 
@@ -1247,7 +1407,6 @@ def delete_document_from_chroma(bot_id: int, file_id: str):
                 bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
         except Exception as e:
             logger.warning(f"Error determining ChromaDB API version: {str(e)}")
-            # Safe default - treat as new API
             bot_collections = [name for name in collections if f"bot_{bot_id}_" in name] if isinstance(collections, list) else []
         
         if not bot_collections:
