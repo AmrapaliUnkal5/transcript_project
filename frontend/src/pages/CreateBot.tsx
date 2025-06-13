@@ -1111,7 +1111,7 @@ export const CreateBot = () => {
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 Maximum {userUsage.planLimit.toLocaleString()} words total,{" "}
-                {userPlan?.per_file_size_limit}MB per file ((PDF, TXT, Doc,
+                {userPlan?.per_file_size_limit}MB per file ((PDF, TXT,
                 Docx, .png, .jpg, .jpeg, .gif files only))
               </p>
             </div>
