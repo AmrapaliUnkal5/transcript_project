@@ -62,6 +62,7 @@ from app.celery_app import celery_app
 from app.celery_tasks import process_youtube_videos, process_file_upload, process_web_scraping
 from app.captcha_cleanup_thread import captcha_cleaner
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
+from app.investigation import router as investigation
 
 
 # Import our custom logging components
@@ -171,6 +172,7 @@ start_addon_scheduler()
 app.include_router(billing_metrics_router)
 app.include_router(addon_router)
 app.include_router(features_router)
+app.include_router(investigation)
 
 # Start the add-on expiry scheduler
 start_addon_scheduler()
@@ -490,16 +492,6 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
         }
     }
 
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    logging.debug("Rendering login page.")
-    return templates.TemplateResponse("login.html", {"request": request})
-
-
-@app.get("/welcome", response_class=HTMLResponse)
-async def welcome(request: Request):
-    return templates.TemplateResponse("welcome.html", {"request": request})
-
 # Route for password reset
 @app.post("/forgot-password/")
 async def forgot_password(request: ForgotpasswordRequest,db: Session = Depends(get_db)):
@@ -648,15 +640,6 @@ def login_for_access_token(
         "avatar_url": user.avatar_url,
     })
     return {"access_token": access_token, "token_type": "bearer"}
-
-#API's to check RBAC Functionality
-@app.get("/admin-dashboard")
-def admin_dashboard(current_user= Depends(require_role(["admin"]))):
-    return {"message": "Welcome, Admin!"}
-
-@app.get("/admin-user-dashboard")
-def admin_user_dashboard(current_user= Depends(require_role(["admin","user"]))):
-    return {"message": f"Welcome {current_user}, you have access!"}
 
 # Ensure the upload directory exists
 if not settings.UPLOAD_DIR.startswith("s3://"):

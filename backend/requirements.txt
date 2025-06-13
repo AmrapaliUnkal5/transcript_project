@@ -23,6 +23,8 @@ pymupdf
 pytesseract
 pillow
 python-docx
+docx2txt
+olefile
 pandas
 sentence-transformers
 numpy

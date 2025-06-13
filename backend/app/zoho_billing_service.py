@@ -606,7 +606,7 @@ class ZohoBillingService:
 
     def get_frontend_url(self) -> str:
         """Get the frontend URL from environment variables with a fallback default"""
-        return os.getenv('FRONTEND_URL', 'http://localhost:5173')
+        return os.getenv('FRONTEND_URL', 'https://evolra.ai')
 
     def get_addon_hosted_page_url(self, subscription_id: str, addon_data: Dict[str, Any]) -> str:
         """
@@ -719,7 +719,7 @@ def format_subscription_data_for_hosted_page(
     """Correct payload for Zoho Hosted Page subscription checkout"""
     
     # Get the frontend URL from environment variables or use default
-    frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+    frontend_url = os.getenv('FRONTEND_URL', 'https://evolra.ai')
     
     # Enhanced debugging logs
     print(f"\n==== DEBUG: Creating Zoho Checkout Payload ====")

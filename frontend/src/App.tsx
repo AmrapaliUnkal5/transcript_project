@@ -43,13 +43,13 @@ import TermsService from "./pages/TermsOfService/index.tsx";
 import Privacy from "./pages/Privacy/index.tsx";
 import ScrollToTop from "./components/ScrolltoTop.tsx";
 import ShippingAndExchange from "./pages/ShippingAndExchange/index.tsx";
+import Investigation from "./pages/investigation.tsx";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import ReactGA from "react-ga4";
 const GA_MEASUREMENT_ID =import.meta.env.GA_MEASUREMENT_ID || "G-YXF6SH4ZZP";
 const TrackPageView = () => {
   const location = useLocation();
-
   useEffect(() => {
     ReactGA.send({ hitType: "pageview", page: location.pathname + location.search });
   }, [location]);
@@ -127,6 +127,7 @@ function App() {
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="chatbot" element={<ChatbotCustomization />} />
                   <Route path="upload" element={<FileUpload />} />
+                  <Route path="investigation" element={<Investigation />} />
                   <Route path="performance" element={<Performance />} />
                   <Route
                     path="script-generate"
