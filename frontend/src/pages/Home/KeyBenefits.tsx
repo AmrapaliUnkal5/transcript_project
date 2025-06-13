@@ -13,7 +13,7 @@ import {trackGAEvent} from './Hero';
 
 
 export default function KeyBenefits() {
-return (
+  return (
     <>
       <Box
         display={"flex"}
@@ -64,22 +64,19 @@ return (
                   pt={"68px"}
                   pb={"34px"}
                   border={"solid 1px #8B96D661"}
-                  borderRadius={3}
+                  borderRadius={3}                  
 
                   sx={{
-                    background:
-                      "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+                    background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
                     borderRadius: "12px",
                     transition: "all 0.3s ease",
-
-
-                    "&:hover": {
-                      background:
-                        "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
-                      boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
-                      transform: "translateY(-2px)",
-                    },
-                  }}
+  
+                  "&:hover": {
+                    background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
+                    boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
+                    transform: "translateY(-2px)",
+                  },
+                }}
                 >
                   <StyledImage
                     src="/images/home/key-video.png"
@@ -116,19 +113,14 @@ return (
                   borderRadius={3}
                   
                   sx={{
-
-                    background:
-                      "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+                    background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
                     borderRadius: "12px",
                     transition: "all 0.3s ease",
-
-                    "&:hover": {
-                      background:
-                        "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
-                      boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
-                      transform: "translateY(-2px)",
-                    },
-
+  
+                  "&:hover": {
+                    background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
+                    boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
+                    transform: "translateY(-2px)",},
                   }}
                 >
                   <StyledImage
@@ -151,10 +143,7 @@ return (
                     Multilingual Support
                   </Typography>
                   <Typography variant="body1" color={"#9F9F9F"}>
-                    Expand your global reach by serving customers in their
-                    preferred language. The bot accurately understands and
-                    responds in multiple languages, making support seamless for
-                    diverse audiences.
+                    Expand your global reach by serving customers in their preferred language. The bot accurately understands and responds in multiple languages, making support seamless for diverse audiences.
                   </Typography>
                 </Box>
               </Grid>
@@ -166,23 +155,19 @@ return (
                   minHeight={510}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
-                  
+                 
 
                   sx={{
-
-                    background:
-                      "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+                    background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
                     borderRadius: "12px",
                     transition: "all 0.3s ease",
-
-                    "&:hover": {
-                      background:
-                        "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
-                      boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
-                      transform: "translateY(-2px)",
-                    },
-                  }}
-
+  
+                  "&:hover": {
+                    background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
+                    boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
+                    transform: "translateY(-2px)",
+                  },
+                }}
                 >
                   <Box height={175} mb={"65px"}>
                     <StyledImage
@@ -218,19 +203,17 @@ return (
 
 
                   sx={{
-                    background:
-                      "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+                    background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
                     borderRadius: "12px",
                     transition: "all 0.3s ease",
-
-                    "&:hover": {
-                      background:
-                        "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
-                      boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
-                      transform: "translateY(-2px)",
-                    },
-                
-                    >
+  
+                  "&:hover": {
+                    background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
+                    boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
+                    transform: "translateY(-2px)",
+                     },
+                      }}
+                >
                   <Box height={175} mb={"65px"}>
                     <StyledImage
                       src="/images/home/key-website.png"
@@ -248,8 +231,7 @@ return (
                     1 Click Website Integration
                   </Typography>
                   <Typography variant="body1" color={"#9F9F9F"}>
-                    Easily integrate the bot into your website with a simple
-                    code snippet, ready in minutes.
+                     Easily integrate the bot into your website with a simple code snippet, ready in minutes. 
                   </Typography>
                 </Box>
               </Grid>
@@ -262,19 +244,16 @@ return (
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
                   sx={{
-                    background:
-                      "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
-                    borderRadius: "12px",
-                    transition: "all 0.3s ease",
-
-                    "&:hover": {
-                      background:
-                        "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
+                      background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
+                      borderRadius: "12px",
+                      transition: "all 0.3s ease",
+  
+                  "&:hover": {
+                      background: "linear-gradient(115.95deg, rgba(84, 71, 157, 0.52) 10.92%, rgba(71, 53, 144, 0.15) 96.4%)",
                       boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
                       transform: "translateY(-2px)",
-                    },
-                  }}
-
+                               },
+                        }}
                 >
                   <Box
                     height={175}
@@ -298,15 +277,13 @@ return (
                     Insightful Analytics
                   </Typography>
                   <Typography variant="body1" color={"#9F9F9F"}>
-                    Explore rich analytics that deliver insights beyond basic
-                    metric, highlighting trends, behaviors and opportunities you
-                    can act on instantly.
+                    Explore rich analytics that deliver insights beyond basic metric, highlighting trends, behaviors and opportunities you can act on instantly. 
                   </Typography>
                 </Box>
               </Grid>
             </Grid>
           </Box>
-          <Box mt={4} mb={[4, 8.5]}>
+          <Box mt={4} mb={[4,8.5]}>
             <Typography
               variant="h6"
               color="#AFAFAF"
@@ -323,7 +300,7 @@ return (
               business needs.
             </Typography>
           </Box>
-          <Box display={"flex"} justifyContent={"center"} mb={[0, 2]} mt={1}>
+          <Box display={"flex"} justifyContent={"center"} mb={[0,2]} mt={1}>
             <Button
               variant="contained"
               color="primary"
@@ -340,8 +317,8 @@ return (
                 fontSize: "18px",
                 fontWeight: 500,
                 borderRadius: "40px",
-                height: ["52px", "62px"],
-                minWidth: ["180px", "220px"],
+                height: ["52px","62px"],
+                minWidth: ["180px","220px"],
                 textTransform: "capitalize",
                 background:
                   "linear-gradient(180deg,rgba(90, 108, 242, 1) 0%, rgba(75, 52, 152, 1) 100%);",
