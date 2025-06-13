@@ -615,3 +615,12 @@ class Captcha(Base):
     __table_args__ = (
         Index('idx_captcha_created_at', 'created_at'),
     )
+
+class BotSlug(Base):
+    __tablename__ = "bot_slugs"
+
+    id = Column(Integer, primary_key=True)
+    bot_id = Column(Integer, ForeignKey("bots.bot_id"), nullable=False)
+    slug = Column(String(20), unique=True, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(TIMESTAMP, default=func.current_timestamp())

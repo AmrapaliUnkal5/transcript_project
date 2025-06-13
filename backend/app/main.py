@@ -62,6 +62,7 @@ from app.celery_app import celery_app
 from app.celery_tasks import process_youtube_videos, process_file_upload, process_web_scraping
 from app.captcha_cleanup_thread import captcha_cleaner
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
+from app.investigation import router as investigation
 
 
 # Import our custom logging components
@@ -135,7 +136,9 @@ initialize_scheduler()
 # Add the logging middleware
 #app.add_middleware(LoggingMiddleware)
 
-app.mount(f"/{settings.UPLOAD_BOT_DIR}", StaticFiles(directory=settings.UPLOAD_BOT_DIR), name=settings.UPLOAD_BOT_DIR)
+# Mount static files directory only if it's not an S3 path
+if not settings.UPLOAD_BOT_DIR.startswith("s3://"):
+    app.mount(f"/{settings.UPLOAD_BOT_DIR}", StaticFiles(directory=settings.UPLOAD_BOT_DIR), name=settings.UPLOAD_BOT_DIR)
 app.include_router(botsettings_router)
 app.include_router(social_login_router)
 app.include_router(bot_conversations_router)
@@ -169,6 +172,7 @@ start_addon_scheduler()
 app.include_router(billing_metrics_router)
 app.include_router(addon_router)
 app.include_router(features_router)
+app.include_router(investigation)
 
 # Start the add-on expiry scheduler
 start_addon_scheduler()
@@ -488,16 +492,6 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
         }
     }
 
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    logging.debug("Rendering login page.")
-    return templates.TemplateResponse("login.html", {"request": request})
-
-
-@app.get("/welcome", response_class=HTMLResponse)
-async def welcome(request: Request):
-    return templates.TemplateResponse("welcome.html", {"request": request})
-
 # Route for password reset
 @app.post("/forgot-password/")
 async def forgot_password(request: ForgotpasswordRequest,db: Session = Depends(get_db)):
@@ -647,18 +641,12 @@ def login_for_access_token(
     })
     return {"access_token": access_token, "token_type": "bearer"}
 
-#API's to check RBAC Functionality
-@app.get("/admin-dashboard")
-def admin_dashboard(current_user= Depends(require_role(["admin"]))):
-    return {"message": "Welcome, Admin!"}
-
-@app.get("/admin-user-dashboard")
-def admin_user_dashboard(current_user= Depends(require_role(["admin","user"]))):
-    return {"message": f"Welcome {current_user}, you have access!"}
-
 # Ensure the upload directory exists
-os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-app.mount(f"/{settings.UPLOAD_DIR}", StaticFiles(directory=settings.UPLOAD_DIR), name=settings.UPLOAD_DIR)
+if not settings.UPLOAD_DIR.startswith("s3://"):
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+# Mount static files directory only if it's not an S3 path
+if not settings.UPLOAD_DIR.startswith("s3://"):
+    app.mount(f"/{settings.UPLOAD_DIR}", StaticFiles(directory=settings.UPLOAD_DIR), name=settings.UPLOAD_DIR)
 
 @app.post("/upload-avatar/")
 async def upload_avatar(file: UploadFile = File(...)):

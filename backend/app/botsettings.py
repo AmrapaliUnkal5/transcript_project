@@ -22,7 +22,8 @@ router = APIRouter(prefix="/botsettings", tags=["Bot Settings"])
 
 # Use environment variable-based path
 UPLOAD_DIR = settings.UPLOAD_BOT_DIR  # Directory to save uploaded images
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+if not UPLOAD_DIR.startswith("s3://"):
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("/bot/{bot_id}", response_model=schemas.BotResponse)
 def get_bot_settings(bot_id: int, db: Session = Depends(get_db)):

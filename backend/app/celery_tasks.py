@@ -945,6 +945,111 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                             except Exception as ocr_retry_err:
                                 logger.error(f"Error in OCR retry: {str(ocr_retry_err)}")
                         
+                        # Try dedicated DOCX fallback extraction if it's a DOCX file
+                        elif original_filename.lower().endswith(('.docx', '.doc')):
+                            logger.info(f"🔄 Attempting dedicated DOCX/DOC extraction fallback for: {original_filename}")
+                            try:
+                                # Get the original archived file path
+                                _, ext = os.path.splitext(original_filename)
+                                archive_filename = f"{file_id}_original{ext}"
+                                
+                                # Get user_id for the bot to create path
+                                user_id = None
+                                bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+                                if bot:
+                                    user_id = bot.user_id
+                                
+                                if user_id:
+                                    archive_content = None
+                                    
+                                    # Build path to the archive file - handle both S3 and local
+                                    if is_s3_storage:
+                                        # For S3, construct the archive S3 path
+                                        archive_relative_path = f"account_{user_id}/bot_{bot_id}/archives/{archive_filename}"
+                                        archive_s3_path = f"{settings.UPLOAD_DIR.rstrip('/')}/{archive_relative_path}"
+                                        
+                                        logger.info(f"Looking for S3 DOCX archive at: {archive_s3_path}")
+                                        
+                                        try:
+                                            # Parse S3 URL for archive
+                                            from urllib.parse import urlparse
+                                            parsed_url = urlparse(archive_s3_path)
+                                            bucket_name = parsed_url.netloc
+                                            s3_key = parsed_url.path.lstrip('/')
+                                            
+                                            # Get archive content from S3
+                                            import boto3
+                                            s3_client = boto3.client('s3')
+                                            response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+                                            archive_content = response['Body'].read()
+                                            
+                                            logger.info(f"Got S3 archive file for DOCX extraction, {len(archive_content)} bytes")
+                                        except Exception as s3_docx_err:
+                                            logger.error(f"Error accessing S3 DOCX archive: {str(s3_docx_err)}")
+                                    else:
+                                        # For local storage, use existing method
+                                        account_dir = os.path.join(settings.UPLOAD_DIR, f"account_{user_id}")
+                                        bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
+                                        archive_dir = os.path.join(bot_dir, "archives")
+                                        archive_path = os.path.join(archive_dir, archive_filename)
+                                        
+                                        if os.path.exists(archive_path):
+                                            logger.info(f"Found local archive file for DOCX extraction: {archive_path}")
+                                            with open(archive_path, 'rb') as f:
+                                                archive_content = f.read()
+                                            logger.info(f"Got local archive file for DOCX extraction, {len(archive_content)} bytes")
+                                        else:
+                                            logger.error(f"Local archive file not found: {archive_path}")
+                                    
+                                    # Try extracting text from the archive content
+                                    if archive_content:
+                                        logger.info(f"Attempting DOCX text extraction from archive content...")
+                                        
+                                        # Try using the extract functions directly
+                                        if original_filename.lower().endswith('.docx'):
+                                            from app.utils.upload_knowledge_utils import extract_text_from_docx, extract_text_from_docx_images
+                                            
+                                            # Try primary DOCX extraction
+                                            try:
+                                                text_from_docx = extract_text_from_docx(archive_content)
+                                                if text_from_docx and text_from_docx.strip():
+                                                    file_content_text = text_from_docx
+                                                    logger.info(f"✅ DOCX text extraction successful: {len(file_content_text)} chars")
+                                                else:
+                                                    logger.warning("DOCX text extraction returned empty, trying images...")
+                                                    # Try extracting from images in DOCX
+                                                    text_from_images = extract_text_from_docx_images(archive_content)
+                                                    if text_from_images and text_from_images.strip():
+                                                        file_content_text = text_from_images
+                                                        logger.info(f"✅ DOCX image extraction successful: {len(file_content_text)} chars")
+                                                    else:
+                                                        logger.warning("No text found in DOCX images either")
+                                            except Exception as docx_extract_err:
+                                                logger.error(f"DOCX extraction error: {str(docx_extract_err)}")
+                                        
+                                        elif original_filename.lower().endswith('.doc'):
+                                            from app.utils.upload_knowledge_utils import extract_text_from_doc
+                                            
+                                            # Try DOC extraction
+                                            try:
+                                                text_from_doc = extract_text_from_doc(archive_content)
+                                                if text_from_doc and text_from_doc.strip():
+                                                    file_content_text = text_from_doc
+                                                    logger.info(f"✅ DOC text extraction successful: {len(file_content_text)} chars")
+                                                else:
+                                                    logger.warning("DOC text extraction returned empty")
+                                            except Exception as doc_extract_err:
+                                                logger.error(f"DOC extraction error: {str(doc_extract_err)}")
+                                    else:
+                                        logger.error(f"Could not get archive content for DOCX/DOC extraction")
+                                
+                                if file_content_text:
+                                    logger.info(f"✅ DOCX/DOC fallback extraction successful: extracted {len(file_content_text)} chars")
+                                else:
+                                    logger.warning("📉 DOCX/DOC fallback extraction failed")
+                            except Exception as docx_retry_err:
+                                logger.error(f"Error in DOCX/DOC fallback extraction: {str(docx_retry_err)}")
+                        
                         # If still no text, raise an error
                         if not file_content_text:
                             logger.error(f"Failed to extract content from file and no fallback available")
@@ -965,7 +1070,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                         
                         # Save the extracted content to S3
                         text_bytes = file_content_text.encode('utf-8')
-                        updated_path = save_file("UPLOAD_DIR", relative_path, text_bytes)
+                        updated_path = save_file(settings.UPLOAD_DIR, relative_path, text_bytes)
                         logger.info(f"✅ Successfully updated S3 text file with {len(file_content_text)} characters at: {updated_path}")
                     except Exception as s3_update_err:
                         logger.error(f"Error updating S3 text file: {str(s3_update_err)}")

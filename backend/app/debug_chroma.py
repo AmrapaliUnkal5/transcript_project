@@ -59,8 +59,11 @@ def check_directory_permissions():
         
         # Try to create it
         try:
-            os.makedirs(abs_chroma_dir, exist_ok=True)
-            print(f"✓ Successfully created directory: {abs_chroma_dir}")
+            if not abs_chroma_dir.startswith("s3://"):
+                os.makedirs(abs_chroma_dir, exist_ok=True)
+                print(f"✓ Successfully created directory: {abs_chroma_dir}")
+            else:
+                print(f"↳ Skipping directory creation for S3 path: {abs_chroma_dir}")
         except Exception as e:
             print(f"✗ Failed to create directory: {e}")
 

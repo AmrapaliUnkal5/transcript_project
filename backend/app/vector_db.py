@@ -9,8 +9,8 @@ from app.models import Bot, EmbeddingModel, UserSubscription, SubscriptionPlan
 from app.utils.logger import get_module_logger
 from app.config import settings
 import time
-import signal
-from contextlib import contextmanager
+from app.utils.ai_logger import ai_logger
+import numpy as np
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -24,6 +24,41 @@ if not api_key:
     logger.critical("OPENAI_API_KEY is not configured in settings")
     raise ValueError("OPENAI_API_KEY is not set in configuration!")
 
+
+def normalize_embedding(embedding):
+    """
+    Normalize an embedding vector to unit length for consistent cosine similarity.
+    
+    Args:
+        embedding: List or array of floats representing the embedding vector
+        
+    Returns:
+        List of normalized floats
+    """
+    try:
+        # Convert to numpy array for efficient computation
+        embedding_array = np.array(embedding, dtype=np.float32)
+        
+        # Calculate the norm (magnitude) of the vector
+        norm = np.linalg.norm(embedding_array)
+        
+        # Avoid division by zero
+        if norm == 0:
+            logger.warning("Embedding vector has zero norm, returning original vector")
+            return embedding
+        
+        # Normalize the vector
+        normalized_embedding = embedding_array / norm
+        
+        # Convert back to list
+        return normalized_embedding.tolist()
+        
+    except Exception as e:
+        logger.error(f"Error normalizing embedding: {str(e)}")
+        # Return original embedding if normalization fails
+        return embedding
+
+
 # Remove global chroma_client initialization - we'll create it per operation instead
 def get_chroma_client():
     """
@@ -31,92 +66,365 @@ def get_chroma_client():
     This prevents thread-safety issues when using Celery with multiple workers.
     """
     try:
-        client = chromadb.PersistentClient(path=f"./{settings.CHROMA_DIR}")
-        logger.debug(f"Created new ChromaDB client with path: {settings.CHROMA_DIR}")
+        # ✅ Fix: Use the same path resolution as the working test script
+        # The test script works with "../chromadb_store" which resolves to the correct location
+        # Let's use an absolute path to avoid any relative path confusion
+        
+        # Get the directory where this script is located
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Go up one level to the backend directory, then access chromadb_store
+        backend_dir = os.path.dirname(current_dir)
+        chroma_path = os.path.join(backend_dir, settings.CHROMA_DIR)
+        
+        # ✅ Log the path being used for debugging
+        logger.info(f"ChromaDB path resolution:")
+        logger.info(f"  - Current file: {__file__}")
+        logger.info(f"  - Current dir: {current_dir}")
+        logger.info(f"  - Backend dir: {backend_dir}")
+        logger.info(f"  - CHROMA_DIR setting: {settings.CHROMA_DIR}")
+        logger.info(f"  - Final chroma_path: {chroma_path}")
+        logger.info(f"  - Path exists: {os.path.exists(chroma_path)}")
+        
+        # ✅ Additional path validation
+        if not os.path.exists(chroma_path):
+            logger.error(f"ChromaDB path does not exist: {chroma_path}")
+            # Try alternative paths that might work
+            alternative_paths = [
+                os.path.join(backend_dir, "chromadb_store"),  # Direct fallback
+                os.path.join(os.getcwd(), "chromadb_store"),  # Current working directory
+                "chromadb_store",  # Relative to current working directory
+                "../chromadb_store"  # Same as test script
+            ]
+            
+            logger.info("Trying alternative ChromaDB paths:")
+            for alt_path in alternative_paths:
+                abs_alt_path = os.path.abspath(alt_path)
+                exists = os.path.exists(abs_alt_path)
+                logger.info(f"  - {alt_path} -> {abs_alt_path} (exists: {exists})")
+                if exists:
+                    logger.info(f"Using alternative path: {abs_alt_path}")
+                    chroma_path = abs_alt_path
+                    break
+            else:
+                raise FileNotFoundError(f"ChromaDB directory not found. Tried: {chroma_path} and alternatives: {alternative_paths}")
+        
+        # ✅ Create the client with detailed error handling
+        logger.info(f"Creating ChromaDB client with path: {chroma_path}")
+        client = chromadb.PersistentClient(path=chroma_path)
+        
+        # ✅ Validate the client works by doing a simple operation
+        logger.info("Validating ChromaDB client by listing collections...")
+        try:
+            collections = client.list_collections()
+            logger.info(f"ChromaDB client validation successful. Found {len(collections)} collections.")
+        except Exception as validation_error:
+            logger.error(f"ChromaDB client validation failed: {str(validation_error)}")
+            raise Exception(f"ChromaDB client validation failed: {str(validation_error)}")
+        
+        logger.info(f"Successfully created ChromaDB client with path: {chroma_path}")
         return client
+        
     except Exception as e:
         logger.error(f"Failed to create ChromaDB client: {str(e)}")
-        raise
-
-@contextmanager
-def timeout_handler(timeout_seconds=30):
-    """Context manager to handle timeouts for ChromaDB operations."""
-    def timeout_signal_handler(signum, frame):
-        raise TimeoutError(f"Operation timed out after {timeout_seconds} seconds")
-    
-    # Set up the signal handler
-    old_handler = signal.signal(signal.SIGALRM, timeout_signal_handler)
-    signal.alarm(timeout_seconds)
-    
-    try:
-        yield
-    finally:
-        # Reset the alarm and restore the old handler
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, old_handler)
-
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Current working directory: {os.getcwd()}")
+        
+        # ✅ Log detailed debugging information
+        logger.error("ChromaDB client creation debugging info:")
+        logger.error(f"  - __file__: {__file__}")
+        logger.error(f"  - os.path.abspath(__file__): {os.path.abspath(__file__)}")
+        logger.error(f"  - os.path.dirname(os.path.abspath(__file__)): {os.path.dirname(os.path.abspath(__file__))}")
+        logger.error(f"  - settings.CHROMA_DIR: {settings.CHROMA_DIR}")
+        
+        # ✅ CRITICAL: Don't return None, re-raise the exception
+        raise Exception(f"ChromaDB client creation failed: {str(e)}") from e
 
 def safe_get_collection(collection_name, timeout_seconds=30):
-    """Safely get a collection with timeout and detailed logging."""
+    """Safely get a collection with detailed logging."""
+    from app.utils.ai_logger import ai_logger
+    
     client = get_chroma_client()  # Create new client instance
     logger.info(f"[DEBUG] Attempting to get collection: {collection_name}")
     logger.info(f"[DEBUG] ChromaDB client type: {type(client)}")
     logger.info(f"[DEBUG] Collection name type: {type(collection_name)}, value: '{collection_name}'")
     
+    # ✅ Log collection access attempt
+    ai_logger.info("Collection access attempt initiated", extra={
+        "ai_task": {
+            "event_type": "collection_access_initiated",
+            "collection_name": collection_name,
+            "timeout_seconds": timeout_seconds,
+            "client_type": str(type(client))
+        }
+    })
+    
     try:
         # First, check if the collection exists by listing all collections
         logger.info(f"[DEBUG] Checking if collection exists by listing all collections")
-        with timeout_handler(timeout_seconds):
-            start_time = time.time()
-            all_collections = client.list_collections()
-            list_time = time.time() - start_time
-            logger.info(f"[DEBUG] Listed collections in {list_time:.2f}s, found {len(all_collections)} total")
-            
-            # Determine API version and get collection names
-            if all_collections and len(all_collections) > 0:
-                if isinstance(all_collections[0], str):
-                    logger.info(f"[DEBUG] Using new ChromaDB API (v0.6.0+)")
-                    collection_names = all_collections
-                else:
-                    logger.info(f"[DEBUG] Using old ChromaDB API (pre-0.6.0)")
-                    collection_names = [col.name for col in all_collections]
-            else:
-                collection_names = []
-            
-            logger.info(f"[DEBUG] Available collections: {collection_names[:10]}{'...' if len(collection_names) > 10 else ''}")
-            
-            # Check if our target collection exists
-            if collection_name not in collection_names:
-                logger.warning(f"[DEBUG] Collection '{collection_name}' not found in available collections")
-                raise ValueError(f"Collection '{collection_name}' does not exist")
-            
-            logger.info(f"[DEBUG] Collection '{collection_name}' exists, proceeding to get it")
+        start_time = time.time()
+        all_collections = client.list_collections()
+        list_time = time.time() - start_time
+        logger.info(f"[DEBUG] Listed collections in {list_time:.2f}s, found {len(all_collections)} total")
         
-        with timeout_handler(timeout_seconds):
-            logger.info(f"[DEBUG] About to call client.get_collection() with timeout {timeout_seconds}s")
-            start_time = time.time()
+        # ✅ Log collection listing results
+        ai_logger.info("Collections listed from ChromaDB", extra={
+            "ai_task": {
+                "event_type": "collections_listed",
+                "collection_name": collection_name,
+                "total_collections_found": len(all_collections),
+                "list_duration_ms": int(list_time * 1000)
+            }
+        })
+        
+        # Determine API version and get collection names
+        if all_collections and len(all_collections) > 0:
+            if isinstance(all_collections[0], str):
+                logger.info(f"[DEBUG] Using new ChromaDB API (v0.6.0+)")
+                collection_names = all_collections
+                api_version = "new (v0.6.0+)"
+            else:
+                logger.info(f"[DEBUG] Using old ChromaDB API (pre-0.6.0)")
+                collection_names = [col.name for col in all_collections]
+                api_version = "old (pre-0.6.0)"
+        else:
+            collection_names = []
+            api_version = "unknown (no collections)"
+        
+        logger.info(f"[DEBUG] Available collections: {collection_names[:10]}{'...' if len(collection_names) > 10 else ''}")
+        
+        # ✅ Log API version detection and collection names
+        ai_logger.info("ChromaDB API version detected", extra={
+            "ai_task": {
+                "event_type": "chromadb_api_version_detected",
+                "collection_name": collection_name,
+                "api_version": api_version,
+                "available_collections": collection_names[:5],  # Log first 5 for brevity
+                "total_available": len(collection_names)
+            }
+        })
+        
+        # Check if our target collection exists
+        collection_exists = collection_name in collection_names
+        if not collection_exists:
+            logger.warning(f"[DEBUG] Collection '{collection_name}' not found in available collections")
             
-            collection = client.get_collection(name=collection_name)
+            # ✅ Log collection not found
+            ai_logger.warning("Target collection not found", extra={
+                "ai_task": {
+                    "event_type": "collection_not_found",
+                    "collection_name": collection_name,
+                    "available_collections": collection_names[:10],
+                    "total_available": len(collection_names),
+                    "collection_exists": False
+                }
+            })
             
-            elapsed_time = time.time() - start_time
-            logger.info(f"[DEBUG] Successfully got collection in {elapsed_time:.2f} seconds")
-            return collection
-            
+            raise ValueError(f"Collection '{collection_name}' does not exist")
+        
+        logger.info(f"[DEBUG] Collection '{collection_name}' exists, proceeding to get it")
+        
+        # ✅ Log collection found
+        ai_logger.info("Target collection found", extra={
+            "ai_task": {
+                "event_type": "collection_found_in_list",
+                "collection_name": collection_name,
+                "collection_exists": True,
+                "total_available": len(collection_names)
+            }
+        })
+    
+        logger.info(f"[DEBUG] About to call client.get_collection()")
+        start_time = time.time()
+        
+        # ✅ Log collection retrieval attempt
+        ai_logger.info("Attempting to retrieve collection object", extra={
+            "ai_task": {
+                "event_type": "collection_retrieval_attempt",
+                "collection_name": collection_name
+            }
+        })
+        
+        collection = client.get_collection(name=collection_name)
+        
+        elapsed_time = time.time() - start_time
+        logger.info(f"[DEBUG] Successfully got collection in {elapsed_time:.2f} seconds")
+        
+        # ✅ Log successful collection retrieval
+        ai_logger.info("Collection retrieved successfully", extra={
+            "ai_task": {
+                "event_type": "collection_retrieved_successfully",
+                "collection_name": collection_name,
+                "retrieval_duration_ms": int(elapsed_time * 1000),
+                "collection_type": str(type(collection)),
+                "success": True
+            }
+        })
+        
+        return collection
+        
     except TimeoutError as e:
-        logger.error(f"[DEBUG] TIMEOUT: get_collection() timed out after {timeout_seconds} seconds for collection '{collection_name}'")
+        logger.error(f"[DEBUG] TIMEOUT: get_collection() timed out for collection '{collection_name}'")
+        
+        # ✅ Log timeout error
+        ai_logger.error("Collection access timed out", extra={
+            "ai_task": {
+                "event_type": "collection_access_timeout",
+                "collection_name": collection_name,
+                "error": str(e)
+            }
+        })
+        
         raise
     except ValueError as e:
         logger.error(f"[DEBUG] Collection does not exist: {str(e)}")
+        
+        # ✅ Log collection does not exist error (already logged above, but for completeness)
+        ai_logger.error("Collection does not exist", extra={
+            "ai_task": {
+                "event_type": "collection_does_not_exist",
+                "collection_name": collection_name,
+                "error": str(e)
+            }
+        })
+        
         raise
     except Exception as e:
         logger.error(f"[DEBUG] ERROR in get_collection(): {type(e).__name__}: {str(e)}")
         logger.error(f"[DEBUG] Full traceback:", exc_info=True)
+        
+        # ✅ Log general collection access error
+        ai_logger.error("Collection access failed with general error", extra={
+            "ai_task": {
+                "event_type": "collection_access_general_error",
+                "collection_name": collection_name,
+                "error": str(e),
+                "error_type": type(e).__name__
+            }
+        })
+        
         raise
     finally:
         # Clean up the client after we're done
         if 'client' in locals():
             del client
             logger.debug("ChromaDB client cleaned up")
+
+
+def add_documents_batch(bot_id: int, documents_data: list, force_model: str = None, user_id: int = None):
+    """
+    Add multiple documents to ChromaDB in batch for better index performance.
+    
+    Args:
+        bot_id: Bot ID
+        documents_data: List of dicts with keys: text, metadata
+        force_model: Optional model override
+        user_id: Optional user ID
+    """
+    logger.info(f"Starting batch document addition", 
+               extra={"bot_id": bot_id, "batch_size": len(documents_data)})
+    
+    if not documents_data:
+        logger.warning(f"No documents provided for batch addition", extra={"bot_id": bot_id})
+        return
+    
+    try:
+        # Initialize embedder (same logic as add_document)
+        if force_model:
+            model_name = force_model
+            embedder = EmbeddingManager(model_name=model_name)
+        else:
+            if user_id:
+                embedder = EmbeddingManager(bot_id=bot_id, user_id=user_id)
+                model_name = embedder.model_name
+            else:
+                model_name = get_bot_config(bot_id)
+                embedder = EmbeddingManager(model_name=model_name)
+        
+        # Prepare batch data
+        batch_ids = []
+        batch_embeddings = []
+        batch_metadatas = []
+        batch_documents = []
+        
+        logger.info(f"Generating embeddings for batch", 
+                   extra={"bot_id": bot_id, "batch_size": len(documents_data)})
+        
+        for doc_data in documents_data:
+            text = doc_data["text"]
+            metadata = doc_data["metadata"]
+            
+            # Generate and normalize embedding
+            vector = embedder.embed_document(text)
+            normalized_vector = normalize_embedding(vector)
+            
+            batch_ids.append(metadata["id"])
+            batch_embeddings.append(normalized_vector)
+            batch_metadatas.append(metadata)
+            batch_documents.append(text)
+        
+        # Get collection
+        sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
+        collection_name = f"bot_{bot_id}_{sanitized_model_name}"
+        
+        chroma_client = get_chroma_client()
+        try:
+            bot_collection = safe_get_collection(collection_name, timeout_seconds=30)
+            logger.info(f"Using existing collection for batch", 
+                       extra={"bot_id": bot_id, "collection": collection_name})
+        except Exception:
+            # Create with HNSW config
+            hnsw_config = {
+                "hnsw:space": "cosine",
+                "hnsw:M": 64,
+                "hnsw:ef_construction": 200,
+                "hnsw:ef": 64,
+                "hnsw:max_elements": 10000,
+                "hnsw:allow_replace_deleted": True
+            }
+            bot_collection = chroma_client.create_collection(
+                name=collection_name,
+                embedding_function=None,
+                metadata=hnsw_config
+            )
+            logger.info(f"Created new collection for batch", 
+                       extra={"bot_id": bot_id, "collection": collection_name})
+        
+        # Add batch to collection
+        logger.info(f"Adding batch to ChromaDB", 
+                   extra={"bot_id": bot_id, "collection": collection_name, 
+                         "batch_size": len(batch_ids)})
+        
+        bot_collection.add(
+            ids=batch_ids,
+            embeddings=batch_embeddings,
+            metadatas=batch_metadatas,
+            documents=batch_documents
+        )
+        
+        # Force index refresh with a query
+        final_count = bot_collection.count()
+        if final_count > 1:
+            test_result = bot_collection.query(
+                query_embeddings=[batch_embeddings[0]],
+                n_results=min(3, final_count),
+                include=["documents", "distances"]
+            )
+            logger.info(f"Batch index refresh completed", 
+                       extra={"bot_id": bot_id, "collection": collection_name,
+                             "final_count": final_count})
+        
+        logger.info(f"Batch document addition completed successfully", 
+                   extra={"bot_id": bot_id, "collection": collection_name, 
+                         "added_count": len(batch_ids), "final_count": final_count})
+        
+    except Exception as e:
+        logger.error(f"Error in batch document addition", 
+                    extra={"bot_id": bot_id, "error": str(e)})
+        raise ValueError(f"Batch document addition failed: {str(e)}")
+    finally:
+        if 'chroma_client' in locals():
+            del chroma_client
+            logger.debug("ChromaDB client cleaned up in add_documents_batch")
 
 
 def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None, user_id: int = None):
@@ -238,12 +546,30 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             except Exception as e:
                 logger.info(f"Collection not found, creating new collection", 
                             extra={"bot_id": bot_id, "collection": collection_name, "error": str(e)})
+                
+                # ✅ CREATE COLLECTION WITH OPTIMIZED HNSW PARAMETERS
+                # Configure HNSW parameters for better indexing performance
+                hnsw_config = {
+                    "hnsw:space": "cosine",  # Use cosine distance for normalized embeddings
+                    "hnsw:M": 64,           # Number of bidirectional links for new elements (32-128)
+                    "hnsw:ef_construction": 200,  # Size of dynamic candidate list (100-800)
+                    "hnsw:ef": 64,          # Size of dynamic candidate list for queries (>= top_k)
+                    "hnsw:max_elements": 10000,   # Initial capacity
+                    "hnsw:allow_replace_deleted": True  # Allow replacing deleted elements
+                }
+                
+                logger.info(f"Creating collection with HNSW config", 
+                           extra={"bot_id": bot_id, "collection": collection_name, 
+                                 "hnsw_config": hnsw_config})
+                
                 bot_collection = chroma_client.create_collection(
                     name=collection_name,
-                    embedding_function=None  # We'll provide our own embeddings
+                    embedding_function=None,  # We'll provide our own embeddings
+                    metadata=hnsw_config
                 )
-                logger.info(f"*** CREATED NEW COLLECTION: {collection_name} ***", 
-                           extra={"bot_id": bot_id})
+                
+                logger.info(f"*** CREATED NEW COLLECTION WITH HNSW CONFIG: {collection_name} ***", 
+                           extra={"bot_id": bot_id, "hnsw_config": hnsw_config})
                 logger.info(f"New collection created", 
                            extra={"bot_id": bot_id, "collection": collection_name})
         except Exception as e:
@@ -274,6 +600,21 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             logger.info(f"Embedding generated successfully", 
                         extra={"bot_id": bot_id, "vector_length": len(vector), 
                               "first_values": str(vector[:3])})
+            
+            # ✅ NORMALIZE THE EMBEDDING BEFORE STORAGE
+            original_norm = np.linalg.norm(vector)
+            normalized_vector = normalize_embedding(vector)
+            normalized_norm = np.linalg.norm(normalized_vector)
+            
+            logger.info(f"Embedding normalization completed", 
+                        extra={"bot_id": bot_id, 
+                              "original_norm": float(original_norm),
+                              "normalized_norm": float(normalized_norm),
+                              "dimension": len(normalized_vector)})
+            
+            # Use the normalized vector for storage
+            vector = normalized_vector
+            
         except Exception as e:
             logger.error(f"Error generating document embedding", 
                         extra={"bot_id": bot_id, "error": str(e)})
@@ -291,6 +632,31 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             )
             logger.info(f"Add result: {add_result}", 
                         extra={"bot_id": bot_id, "collection": collection_name})
+            
+            # ✅ FORCE HNSW INDEX UPDATE AFTER ADDING DOCUMENT
+            try:
+                # Check if collection has enough documents to trigger HNSW indexing
+                doc_count = bot_collection.count()
+                logger.info(f"Collection document count after addition: {doc_count}", 
+                           extra={"bot_id": bot_id, "collection": collection_name})
+                
+                # For collections with multiple documents, try to trigger index refresh
+                if doc_count > 1:
+                    # Perform a small test query to force index update
+                    test_result = bot_collection.query(
+                        query_embeddings=[vector],
+                        n_results=1,
+                        include=["documents", "distances"]
+                    )
+                    logger.info(f"Index refresh query completed", 
+                               extra={"bot_id": bot_id, "collection": collection_name,
+                                     "test_results_count": len(test_result.get("documents", [[]])[0])})
+                    
+            except Exception as index_error:
+                logger.warning(f"Failed to refresh index, but document was added successfully", 
+                              extra={"bot_id": bot_id, "collection": collection_name, 
+                                    "index_error": str(index_error)})
+            
             logger.info(f"Document added successfully", 
                    extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown'), 
                          "collection": collection_name, 
@@ -320,6 +686,18 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                extra={"bot_id": bot_id, "query_length": len(query_text), 
                      "top_k": top_k})
     
+    # ✅ Log detailed search initiation
+    ai_logger.info("Vector database search initiated", extra={
+        "ai_task": {
+            "event_type": "vector_search_start",
+            "bot_id": bot_id,
+            "user_id": user_id,
+            "query_text": query_text[:100] + "..." if len(query_text) > 100 else query_text,
+            "query_length": len(query_text),
+            "top_k": top_k
+        }
+    })
+    
     start_time = time.time()
     
     try:
@@ -331,6 +709,17 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
             model_name = embedder.model_name
             logger.info(f"Selected embedding model", 
                        extra={"bot_id": bot_id, "model_name": model_name})
+            
+            # ✅ Log embedding model selection
+            ai_logger.info("Embedding model selected", extra={
+                "ai_task": {
+                    "event_type": "embedding_model_selected",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "model_name": model_name,
+                    "selection_method": "user_subscription"
+                }
+            })
         else:
             # Otherwise get from bot config
             logger.debug(f"Getting bot configuration", 
@@ -338,6 +727,17 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
             model_name = get_bot_config(bot_id)
             logger.info(f"Using embedding model from bot config", 
                        extra={"bot_id": bot_id, "model_name": model_name})
+            
+            # ✅ Log embedding model from bot config
+            ai_logger.info("Embedding model from bot config", extra={
+                "ai_task": {
+                    "event_type": "embedding_model_selected",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "model_name": model_name,
+                    "selection_method": "bot_config"
+                }
+            })
             
             # Initialize embedding manager
             logger.debug(f"Initializing embedding manager", 
@@ -347,6 +747,18 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
             except Exception as e:
                 logger.error(f"Error initializing embedder", 
                             extra={"bot_id": bot_id, "model_name": model_name, "error": str(e)})
+                
+                # ✅ Log embedder initialization failure
+                ai_logger.error("Embedding manager initialization failed", extra={
+                    "ai_task": {
+                        "event_type": "embedder_init_error",
+                        "bot_id": bot_id,
+                        "user_id": user_id,
+                        "model_name": model_name,
+                        "error": str(e)
+                    }
+                })
+                
                 # Try to find any previous collection for this bot
                 logger.warning(f"Falling back to any available collection", 
                               extra={"bot_id": bot_id})
@@ -357,9 +769,49 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                     extra={"bot_id": bot_id})
         try:
             query_embedding = embedder.embed_query(query_text)
+            
+            # ✅ NORMALIZE THE QUERY EMBEDDING
+            original_norm = np.linalg.norm(query_embedding)
+            normalized_query_embedding = normalize_embedding(query_embedding)
+            normalized_norm = np.linalg.norm(normalized_query_embedding)
+            
+            logger.info(f"Query embedding normalization completed", 
+                        extra={"bot_id": bot_id, 
+                              "original_norm": float(original_norm),
+                              "normalized_norm": float(normalized_norm),
+                              "dimension": len(normalized_query_embedding)})
+            
+            # Use the normalized embedding for querying
+            query_embedding = normalized_query_embedding
+            
+            # ✅ Log successful embedding generation
+            ai_logger.info("Query embedding generated", extra={
+                "ai_task": {
+                    "event_type": "query_embedding_generated",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "model_name": model_name,
+                    "embedding_dimension": len(query_embedding),
+                    "original_norm": float(original_norm),
+                    "normalized_norm": float(normalized_norm),
+                    "success": True
+                }
+            })
         except Exception as e:
             logger.error(f"Error generating query embedding", 
                         extra={"bot_id": bot_id, "error": str(e)})
+            
+            # ✅ Log embedding generation failure
+            ai_logger.error("Query embedding generation failed", extra={
+                "ai_task": {
+                    "event_type": "query_embedding_error",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "model_name": model_name,
+                    "error": str(e)
+                }
+            })
+            
             return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
         
         # Get the embedding dimension
@@ -375,6 +827,18 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
         logger.info(f"Using consistent collection name", 
                    extra={"bot_id": bot_id, "collection": collection_name})
         
+        # ✅ Log collection name determination
+        ai_logger.info("Collection name determined", extra={
+            "ai_task": {
+                "event_type": "collection_name_determined",
+                "bot_id": bot_id,
+                "user_id": user_id,
+                "collection_name": collection_name,
+                "model_name": model_name,
+                "sanitized_model_name": sanitized_model_name
+            }
+        })
+        
         # Add debug highlighting for query collection name
         logger.info(f"*** QUERYING COLLECTION: {collection_name} ***", 
                    extra={"bot_id": bot_id})
@@ -382,6 +846,17 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
         # Try to get the collection
         try:
             logger.info(f"[DEBUG] About to get collection for querying: {collection_name}")
+            
+            # ✅ Log collection access attempt
+            ai_logger.info("Attempting to access collection", extra={
+                "ai_task": {
+                    "event_type": "collection_access_attempt",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name
+                }
+            })
+            
             bot_collection = safe_get_collection(collection_name, timeout_seconds=30)
             
             # Check if it has documents
@@ -389,17 +864,67 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
             logger.info(f"Collection has {doc_count} documents", 
                        extra={"bot_id": bot_id, "collection": collection_name})
             
+            # ✅ Log collection found and document count
+            ai_logger.info("Collection found and accessed", extra={
+                "ai_task": {
+                    "event_type": "collection_found",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name,
+                    "document_count": doc_count,
+                    "collection_exists": True
+                }
+            })
+            
             if doc_count == 0:
                 logger.warning(f"Collection {collection_name} is empty, falling back to other collections")
+                
+                # ✅ Log empty collection
+                ai_logger.warning("Collection is empty, falling back", extra={
+                    "ai_task": {
+                        "event_type": "collection_empty",
+                        "bot_id": bot_id,
+                        "user_id": user_id,
+                        "collection_name": collection_name,
+                        "fallback_initiated": True
+                    }
+                })
+                
                 return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
         except Exception as e:
             logger.error(f"Error accessing collection {collection_name}", 
                         extra={"bot_id": bot_id, "error": str(e)})
             logger.warning(f"Collection not found, falling back to other collections")
+            
+            # ✅ Log collection access error
+            ai_logger.error("Collection access failed", extra={
+                "ai_task": {
+                    "event_type": "collection_access_error",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name,
+                    "error": str(e),
+                    "collection_exists": False,
+                    "fallback_initiated": True
+                }
+            })
+            
             return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
         
         # Query the collection
         try:
+            # ✅ Log query execution start
+            ai_logger.info("Starting collection query", extra={
+                "ai_task": {
+                    "event_type": "collection_query_start",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name,
+                    "embedding_dimension": embedding_dimension,
+                    "n_results": min(top_k, doc_count)
+                }
+            })
+            
             # Run the query
             results = bot_collection.query(
                 query_embeddings=[query_embedding],
@@ -407,22 +932,78 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                 include=["documents", "metadatas", "distances"]
             )
             
+            # ✅ Log query execution success
+            ai_logger.info("Collection query executed successfully", extra={
+                "ai_task": {
+                    "event_type": "collection_query_success",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name,
+                    "results_returned": len(results["documents"][0]) if results.get("documents") and results["documents"][0] else 0
+                }
+            })
+            
             # Process and return results
             docs = []
             if results["documents"] and len(results["documents"]) > 0 and len(results["documents"][0]) > 0:
                 logger.info(f"Found {len(results['documents'][0])} matching documents")
+                
+                # Process results and prepare detailed logging
+                result_details = []
                 for i, doc in enumerate(results["documents"][0]):
                     metadata = results["metadatas"][0][i]
                     distance = results["distances"][0][i]
-                    score = 1.0 - distance  # Convert distance to similarity score
+                    
+                    # ✅ IMPROVED SIMILARITY CALCULATION FOR NORMALIZED EMBEDDINGS
+                    # For normalized vectors, cosine distance should be between 0 and 2
+                    # Convert to cosine similarity: similarity = 1 - (distance / 2)
+                    if distance <= 2.0:
+                        score = 1.0 - (distance / 2.0)
+                    else:
+                        # Fallback for unexpected distances
+                        score = max(0.0, 1.0 - distance)
+                    
                     docs.append({
                         "content": doc,
                         "metadata": metadata,
                         "score": score
                     })
-                    logger.info(f"Match {i+1}: Score {score:.4f}, Source: {metadata.get('source', 'unknown')}, Name: {metadata.get('file_name', 'unknown')}")
+                    logger.info(f"Match {i+1}: Distance {distance:.4f}, Score {score:.4f}, Source: {metadata.get('file_name', 'unknown')}")
+                    
+                    # Prepare result detail for logging
+                    result_details.append({
+                        "index": i,
+                        "score": round(score, 4),
+                        "distance": round(distance, 4),
+                        "content_length": len(doc),
+                        "content_preview": doc[:100] + "..." if len(doc) > 100 else doc,
+                        "metadata": metadata
+                    })
+                
+                # ✅ Log detailed search results
+                ai_logger.info("Search results processed", extra={
+                    "ai_task": {
+                        "event_type": "search_results_processed",
+                        "bot_id": bot_id,
+                        "user_id": user_id,
+                        "collection_name": collection_name,
+                        "results_count": len(docs),
+                        "results_details": result_details[:3]  # Log only first 3 for brevity
+                    }
+                })
             else:
                 logger.warning("No documents returned from query")
+                
+                # ✅ Log no results found
+                ai_logger.warning("No documents returned from query", extra={
+                    "ai_task": {
+                        "event_type": "no_results_found",
+                        "bot_id": bot_id,
+                        "user_id": user_id,
+                        "collection_name": collection_name,
+                        "query_executed": True
+                    }
+                })
             
             # Calculate time taken
             duration_ms = int((time.time() - start_time) * 1000)
@@ -444,19 +1025,70 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                     }
                 )
             
+            # ✅ Log final vector search completion
+            ai_logger.info("Vector database search completed", extra={
+                "ai_task": {
+                    "event_type": "vector_search_complete",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name,
+                    "total_duration_ms": duration_ms,
+                    "results_count": len(docs),
+                    "success": True
+                }
+            })
+            
             return docs
             
         except Exception as e:
             logger.error(f"Error querying collection", 
                         extra={"bot_id": bot_id, "error": str(e)})
+            
+            # ✅ Log collection query error
+            ai_logger.error("Collection query failed", extra={
+                "ai_task": {
+                    "event_type": "collection_query_error",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "collection_name": collection_name,
+                    "error": str(e),
+                    "fallback_initiated": True
+                }
+            })
+            
             if "dimension" in str(e).lower():
                 logger.warning(f"Dimension mismatch error, trying fallback")
+                
+                # ✅ Log dimension mismatch specifically
+                ai_logger.warning("Dimension mismatch detected", extra={
+                    "ai_task": {
+                        "event_type": "dimension_mismatch",
+                        "bot_id": bot_id,
+                        "user_id": user_id,
+                        "collection_name": collection_name,
+                        "expected_dimension": embedding_dimension,
+                        "error": str(e)
+                    }
+                })
+            
             return fallback_retrieve_similar_docs(bot_id, query_text, top_k)
             
     except Exception as e:
         error_msg = f"Error retrieving similar docs for bot {bot_id}: {str(e)}"
         logger.exception(f"Similarity search failed", 
                         extra={"bot_id": bot_id, "error": str(e)})
+        
+        # ✅ Log general vector search failure
+        ai_logger.error("Vector database search failed", extra={
+            "ai_task": {
+                "event_type": "vector_search_failed",
+                "bot_id": bot_id,
+                "user_id": user_id,
+                "error": str(e),
+                "total_duration_ms": int((time.time() - start_time) * 1000)
+            }
+        })
+        
         return []
 
 
@@ -583,6 +1215,20 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
                 # Get query embedding with matching dimensions
                 query_embedding = hf_embedder.embed_query(query_text)
                 
+                # ✅ NORMALIZE THE FALLBACK QUERY EMBEDDING
+                original_norm = np.linalg.norm(query_embedding)
+                normalized_query_embedding = normalize_embedding(query_embedding)
+                normalized_norm = np.linalg.norm(normalized_query_embedding)
+                
+                logger.info(f"Fallback query embedding normalization completed", 
+                            extra={"bot_id": bot_id, 
+                                  "original_norm": float(original_norm),
+                                  "normalized_norm": float(normalized_norm),
+                                  "dimension": len(normalized_query_embedding)})
+                
+                # Use the normalized embedding for querying
+                query_embedding = normalized_query_embedding
+                
                 # Now, query the collection
                 try:
                     if len(query_embedding) != dimension:
@@ -610,13 +1256,22 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
                         for i, doc in enumerate(results["documents"][0]):
                             metadata = results["metadatas"][0][i] if "metadatas" in results and results["metadatas"] and i < len(results["metadatas"][0]) else {}
                             distance = results["distances"][0][i] if "distances" in results and results["distances"] and i < len(results["distances"][0]) else 1.0
-                            score = 1.0 - distance
+                            
+                            # ✅ IMPROVED SIMILARITY CALCULATION FOR NORMALIZED EMBEDDINGS
+                            # For normalized vectors, cosine distance should be between 0 and 2
+                            # Convert to cosine similarity: similarity = 1 - (distance / 2)
+                            if distance <= 2.0:
+                                score = 1.0 - (distance / 2.0)
+                            else:
+                                # Fallback for unexpected distances
+                                score = max(0.0, 1.0 - distance)
+                            
                             docs.append({
                                 "content": doc,
                                 "metadata": metadata,
                                 "score": score
                             })
-                            logger.info(f"Match {i+1}: Score {score:.4f}, Source: {metadata.get('file_name', 'unknown')}")
+                            logger.info(f"Match {i+1}: Distance {distance:.4f}, Score {score:.4f}, Source: {metadata.get('file_name', 'unknown')}")
                         
                         if docs:
                             logger.info(f"Successfully retrieved documents from fallback collection: {collection_name}")
@@ -752,7 +1407,6 @@ def delete_document_from_chroma(bot_id: int, file_id: str):
                 bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
         except Exception as e:
             logger.warning(f"Error determining ChromaDB API version: {str(e)}")
-            # Safe default - treat as new API
             bot_collections = [name for name in collections if f"bot_{bot_id}_" in name] if isinstance(collections, list) else []
         
         if not bot_collections:

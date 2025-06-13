@@ -251,6 +251,7 @@ const [activeFAQIndex, setActiveFAQIndex] = useState(null);
     totalLikes: 0,
     totalDislikes: 0,
     totalChatDuration: "0h 0m 0s",
+    uniqueSessionIds: 0,
   });
 
   const fetchBillingCycleMetrics = async () => {
@@ -267,6 +268,7 @@ const [activeFAQIndex, setActiveFAQIndex] = useState(null);
         totalLikes: response.total_likes,
         totalDislikes: response.total_dislikes,
         totalChatDuration: response.total_chat_duration,
+        uniqueSessionIds: response.unique_session_ids,
       });
     } catch (error) {
       console.error("Error fetching billing cycle metrics:", error);
@@ -748,6 +750,10 @@ const renderCustomLegend2 = (props: any) => {
                     {
                       metric: "Total Chat Duration",
                       value: billingCycleMetrics.totalChatDuration,
+                    },
+                    {
+                      metric: "Unique Session IDs", // new row
+                     value: billingCycleMetrics.uniqueSessionIds.toLocaleString(),
                     },
                     
                   ].map((item) => (

@@ -7,8 +7,11 @@ import {
   Typography,
   styled,
 } from "@mui/material";
+import ReactGA from "react-ga4";
+import { trackGAEvent } from "./Hero";
 
 export const Enterprise = () => {
+
   return (
     <Box color={"#fff"} px={[2,4]}  pb={6} sx={{ backgroundColor: "#101035" }}>
       <Container maxWidth="lg" disableGutters>
@@ -166,7 +169,9 @@ export const Enterprise = () => {
                     {/* Row 2 */}
                     <Box display="flex" alignItems="center" gap={1}>
                       <StyledImage
+
                         src="/images/icons/icon-check.png" 
+
                         sx={{
                           width: ["15px","24px"],
                           height: ["15px","24px"],
@@ -193,7 +198,6 @@ export const Enterprise = () => {
                 bottom:"1px",               
                 left:0,                 
                 right:0,
-                
               }}
               
               >
@@ -201,7 +205,17 @@ export const Enterprise = () => {
                   variant="contained"
                   color="primary"
                   size="large"
+
                   href='contact-us'
+
+             
+                  onClick={() => {
+                            trackGAEvent({
+                                          category: "Sales",
+                                          action: "Click_Contact_Sales",
+                                          label: "contact_sales_from enterprise",
+                                        });
+                                      }}
                   sx={{
                   
                     fontSize: "18px",

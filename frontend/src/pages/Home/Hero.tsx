@@ -1,8 +1,20 @@
 import React from "react";
 import { Box, Button, Typography } from "@mui/material";
 import Typical from "react-typical";
+import ReactGA from "react-ga4";
 
-export default function Hero() {
+
+
+ export const trackGAEvent = ({ category, action, label }) => {
+  ReactGA.event({
+    category,
+    action,
+    label,
+           }  );
+           };
+  export default function Hero() {
+
+
   return (
     <>
       <Box
@@ -108,11 +120,19 @@ export default function Hero() {
                 />
               </Typography>
             </Box>
+
             <Button
               variant="contained"
               color="primary"
               size="large"
               href="/signup"
+              onClick={() => {
+                trackGAEvent({
+                category: "Engagement",
+                action: "Click Get Started For Free",
+                label: "hero_section_button"
+              });
+            }}
               sx={{
                 mt:["40px","70px"],
                 mb: "60px",

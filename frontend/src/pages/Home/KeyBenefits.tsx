@@ -8,9 +8,12 @@ import {
 } from "@mui/material";
 import React from "react";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ReactGA from "react-ga4";
+import {trackGAEvent} from './Hero';
+
 
 export default function KeyBenefits() {
-  return (
+return (
     <>
       <Box
         display={"flex"}
@@ -62,11 +65,13 @@ export default function KeyBenefits() {
                   pb={"34px"}
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
+
                   sx={{
                     background:
                       "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
                     borderRadius: "12px",
                     transition: "all 0.3s ease",
+
 
                     "&:hover": {
                       background:
@@ -111,6 +116,7 @@ export default function KeyBenefits() {
                   borderRadius={3}
                   
                   sx={{
+
                     background:
                       "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
                     borderRadius: "12px",
@@ -122,6 +128,7 @@ export default function KeyBenefits() {
                       boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
                       transform: "translateY(-2px)",
                     },
+
                   }}
                 >
                   <StyledImage
@@ -162,6 +169,7 @@ export default function KeyBenefits() {
                   
 
                   sx={{
+
                     background:
                       "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
                     borderRadius: "12px",
@@ -174,6 +182,7 @@ export default function KeyBenefits() {
                       transform: "translateY(-2px)",
                     },
                   }}
+
                 >
                   <Box height={175} mb={"65px"}>
                     <StyledImage
@@ -207,6 +216,7 @@ export default function KeyBenefits() {
                   border={"solid 1px #8B96D661"}
                   borderRadius={3}
 
+
                   sx={{
                     background:
                       "linear-gradient(115.95deg, rgba(84, 71, 157, 0.42) 10.92%, rgba(71, 53, 144, 0.056) 96.4%)",
@@ -219,8 +229,8 @@ export default function KeyBenefits() {
                       boxShadow: "0 8px 20px rgba(84, 71, 157, 0.2)",
                       transform: "translateY(-2px)",
                     },
-                  }}
-                >
+                
+                    >
                   <Box height={175} mb={"65px"}>
                     <StyledImage
                       src="/images/home/key-website.png"
@@ -264,6 +274,7 @@ export default function KeyBenefits() {
                       transform: "translateY(-2px)",
                     },
                   }}
+
                 >
                   <Box
                     height={175}
@@ -317,6 +328,13 @@ export default function KeyBenefits() {
               variant="contained"
               color="primary"
               href="/login"
+              onClick={() => {
+                        trackGAEvent({
+                                      category: "Engagement",
+                                      action: "Click Try Evolra Now",
+                                      label: "key_benefits_section_button"
+                                    });
+                                  }}
               size="large"
               sx={{
                 fontSize: "18px",

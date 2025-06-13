@@ -14,6 +14,12 @@ import logging
 from app.utils.logger import get_module_logger
 # Add langchain imports
 from langchain.memory import ConversationBufferMemory
+import time
+from app.utils.ai_logger import (
+    log_llm_request, 
+    log_llm_response, 
+    ai_logger
+)
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -129,10 +135,36 @@ class HuggingFaceLLM:
     
     def generate(self, context: str, user_message: str, temperature: float = 0.7, chat_history: str = "") -> str:
         """Generate a response using the HuggingFace model."""
+        start_time = time.time()
+        
+        # ✅ Log HuggingFace generation start
+        ai_logger.info("HuggingFace LLM generation started", extra={
+            "ai_task": {
+                "event_type": "huggingface_generation_start",
+                "model_name": self.model_name,
+                "max_input_tokens": self.max_input_tokens,
+                "max_output_tokens": self.max_output_tokens,
+                "temperature": temperature,
+                "context_length": len(context),
+                "user_message": user_message[:100] + "..." if len(user_message) > 100 else user_message,
+                "chat_history_provided": bool(chat_history)
+            }
+        })
+        
         try:
             # Construct the prompt based on the type of model
             # Check if there's an instruction about external knowledge in the context
             use_external_knowledge = "general knowledge" in context.lower()
+            
+            # ✅ Log external knowledge detection
+            ai_logger.info("External knowledge detection", extra={
+                "ai_task": {
+                    "event_type": "external_knowledge_detection",
+                    "model_name": self.model_name,
+                    "use_external_knowledge": use_external_knowledge,
+                    "context_contains_instruction": "general knowledge" in context.lower()
+                }
+            })
             
             # For chat models like Llama and Mistral
             if use_external_knowledge:
@@ -157,8 +189,34 @@ class HuggingFaceLLM:
             # Log the final prompt being sent to HuggingFace
             logger.debug("final_prompt: %s", prompt)
             
+            # ✅ Log prompt construction details
+            ai_logger.info("HuggingFace prompt constructed", extra={
+                "ai_task": {
+                    "event_type": "huggingface_prompt_constructed",
+                    "model_name": self.model_name,
+                    "prompt_length": len(prompt),
+                    "prompt_preview": prompt[:200] + "..." if len(prompt) > 200 else prompt,
+                    "use_external_knowledge": use_external_knowledge,
+                    "chat_history_included": bool(chat_history),
+                    "temperature": temperature
+                }
+            })
+            
             # Truncate the prompt to respect token limits
             truncated_prompt = self._truncate_prompt(prompt)
+            
+            # ✅ Log prompt truncation if occurred
+            if len(truncated_prompt) != len(prompt):
+                ai_logger.warning("Prompt truncated for token limits", extra={
+                    "ai_task": {
+                        "event_type": "prompt_truncated",
+                        "model_name": self.model_name,
+                        "original_length": len(prompt),
+                        "truncated_length": len(truncated_prompt),
+                        "truncation_ratio": len(truncated_prompt) / len(prompt),
+                        "max_input_tokens": self.max_input_tokens
+                    }
+                })
             
             # Make request to the Hugging Face Inference API
             print(f"🔄 Sending request to HuggingFace Inference API for model: {self.model_name}")
@@ -173,23 +231,55 @@ class HuggingFaceLLM:
             print(f"📊 Token usage estimate: ~{estimated_tokens} input tokens + {max_new_tokens} output tokens")
             print(f"📊 Model token limit: {self.max_input_tokens} (max context window size)")
             
+            # ✅ Log API request details
+            api_request_payload = {
+                "inputs": truncated_prompt,
+                "parameters": {
+                    "max_new_tokens": max_new_tokens,
+                    "temperature": temperature,
+                    "do_sample": True,
+                    "return_full_text": False
+                },
+                "options": {
+                    "wait_for_model": True,
+                    "use_cache": True
+                }
+            }
+            
+            ai_logger.info("HuggingFace API request prepared", extra={
+                "ai_task": {
+                    "event_type": "huggingface_api_request",
+                    "model_name": self.model_name,
+                    "api_url": self.api_url,
+                    "estimated_input_tokens": estimated_tokens,
+                    "max_new_tokens": max_new_tokens,
+                    "temperature": temperature,
+                    "prompt_length": len(truncated_prompt),
+                    "model_limits": {
+                        "max_input_tokens": self.max_input_tokens,
+                        "max_output_tokens": self.max_output_tokens
+                    }
+                }
+            })
+            
+            api_start_time = time.time()
             response = requests.post(
                 self.api_url,
                 headers=self.headers,
-                json={
-                    "inputs": truncated_prompt,
-                    "parameters": {
-                        "max_new_tokens": max_new_tokens,
-                        "temperature": temperature,
-                        "do_sample": True,
-                        "return_full_text": False
-                    },
-                    "options": {
-                        "wait_for_model": True,
-                        "use_cache": True
-                    }
-                }
+                json=api_request_payload
             )
+            api_duration = int((time.time() - api_start_time) * 1000)
+            
+            # ✅ Log API response status
+            ai_logger.info("HuggingFace API response received", extra={
+                "ai_task": {
+                    "event_type": "huggingface_api_response",
+                    "model_name": self.model_name,
+                    "status_code": response.status_code,
+                    "api_duration_ms": api_duration,
+                    "response_size": len(response.content) if response.content else 0
+                }
+            })
             
             # Handle response
             if response.status_code != 200:
@@ -202,6 +292,19 @@ class HuggingFaceLLM:
                     pass
                 print(f"❌ {error_message}")
                 print(f"API Response: {response.text}")
+                
+                # ✅ Log API error
+                ai_logger.error("HuggingFace API error", extra={
+                    "ai_task": {
+                        "event_type": "huggingface_api_error",
+                        "model_name": self.model_name,
+                        "status_code": response.status_code,
+                        "error_message": error_message,
+                        "response_text": response.text[:500] + "..." if len(response.text) > 500 else response.text,
+                        "api_duration_ms": api_duration
+                    }
+                })
+                
                 raise ValueError(error_message)
             
             # Extract the generated text
@@ -209,13 +312,58 @@ class HuggingFaceLLM:
             if isinstance(result, list) and len(result) > 0:
                 generated_text = result[0].get("generated_text", "")
                 print(f"✅ Successfully generated response with HuggingFace")
+                
+                total_duration = int((time.time() - start_time) * 1000)
+                
+                # ✅ Log successful generation
+                ai_logger.info("HuggingFace generation completed successfully", extra={
+                    "ai_task": {
+                        "event_type": "huggingface_generation_success",
+                        "model_name": self.model_name,
+                        "response_length": len(generated_text),
+                        "response_preview": generated_text[:150] + "..." if len(generated_text) > 150 else generated_text,
+                        "total_duration_ms": total_duration,
+                        "api_duration_ms": api_duration,
+                        "estimated_input_tokens": estimated_tokens,
+                        "max_new_tokens": max_new_tokens
+                    }
+                })
+                
                 return generated_text
             else:
                 print(f"❌ Unexpected response format: {result}")
+                
+                # ✅ Log unexpected response format
+                ai_logger.error("Unexpected HuggingFace response format", extra={
+                    "ai_task": {
+                        "event_type": "huggingface_unexpected_response",
+                        "model_name": self.model_name,
+                        "response_type": type(result).__name__,
+                        "response_content": str(result)[:200] + "..." if len(str(result)) > 200 else str(result),
+                        "api_duration_ms": api_duration
+                    }
+                })
+                
                 return "I'm sorry, I'm experiencing some technical difficulties at the moment. Please try again later."
                 
         except Exception as e:
             print(f"❌ Error generating response with HuggingFace LLM: {str(e)}")
+            
+            total_duration = int((time.time() - start_time) * 1000)
+            
+            # ✅ Log generation error
+            ai_logger.error("HuggingFace generation failed", extra={
+                "ai_task": {
+                    "event_type": "huggingface_generation_error",
+                    "model_name": self.model_name,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "total_duration_ms": total_duration,
+                    "context_length": len(context),
+                    "user_message": user_message[:100] + "..." if len(user_message) > 100 else user_message
+                }
+            })
+            
             return "I'm sorry, I'm experiencing some technical difficulties at the moment. Please try again later."
 
 class LLMManager:
@@ -229,8 +377,9 @@ class LLMManager:
             bot_id: Optional bot ID for model selection
             user_id: Optional user ID for model selection
         """
-        # Store the user_id for addon feature checking
+        # Store the user_id and bot_id for addon feature checking and logging
         self.user_id = user_id
+        self.bot_id = bot_id
         
         db = SessionLocal()
         try:
@@ -417,6 +566,7 @@ class LLMManager:
             temperature (float): The temperature value to control randomness in LLM responses
             chat_history (str): The formatted chat history from previous messages
         """
+        start_time = time.time()
         provider = self.model_info.get("provider", "").lower()
         model_name = self.model_info.get("name", "")
         
@@ -425,8 +575,36 @@ class LLMManager:
         print(f"🌡️ Using temperature: {temperature}")
         print(f"💬 Chat history provided: {bool(chat_history)}")
         
+        # ✅ Log initial LLM request details
+        ai_logger.info("LLM generation initiated", extra={
+            "ai_task": {
+                "event_type": "llm_generation_initiated",
+                "user_id": self.user_id,
+                "bot_id": self.bot_id,
+                "model_name": model_name,
+                "provider": provider,
+                "temperature": temperature,
+                "use_external_knowledge": use_external_knowledge,
+                "context_length": len(context),
+                "user_message": user_message[:100] + "..." if len(user_message) > 100 else user_message,
+                "chat_history_provided": bool(chat_history),
+                "chat_history_length": len(chat_history) if chat_history else 0
+            }
+        })
+        
         # Detect language of user message
         detected_lang = detect_language(user_message)
+        
+        # ✅ Log language detection
+        ai_logger.info("Language detected", extra={
+            "ai_task": {
+                "event_type": "language_detected",
+                "user_id": self.user_id,
+                "bot_id": self.bot_id,
+                "detected_language": detected_lang,
+                "user_message": user_message[:50] + "..." if len(user_message) > 50 else user_message
+            }
+        })
         
         # Check for multilingual support if language is not English
         if detected_lang != 'en' and self.user_id:
@@ -436,8 +614,28 @@ class LLMManager:
                 # Check if user has multilingual addon
                 has_multilingual = AddonService.check_addon_active(db, self.user_id, "Multilingual")
                 
+                # ✅ Log multilingual check
+                ai_logger.info("Multilingual support check", extra={
+                    "ai_task": {
+                        "event_type": "multilingual_check",
+                        "user_id": self.user_id,
+                        "bot_id": self.bot_id,
+                        "detected_language": detected_lang,
+                        "has_multilingual_addon": has_multilingual
+                    }
+                })
+                
                 # If user doesn't have multilingual support, return message about the addon
                 if not has_multilingual:
+                    ai_logger.warning("Multilingual support not enabled", extra={
+                        "ai_task": {
+                            "event_type": "multilingual_not_enabled",
+                            "user_id": self.user_id,
+                            "bot_id": self.bot_id,
+                            "detected_language": detected_lang,
+                            "response": "Multilingual support required"
+                        }
+                    })
                     return "Multilingual support is not enabled for your account. Please contact the website admin to enable multilingual support."
             finally:
                 db.close()
@@ -471,6 +669,42 @@ class LLMManager:
                 }
                 logger.debug("final_prompt: %s", final_prompt)
                 
+                # ✅ Log OpenAI LLM request details
+                log_llm_request(
+                    user_id=self.user_id,
+                    bot_id=self.bot_id,
+                    model_name=model_name,
+                    provider=provider,
+                    temperature=temperature,
+                    query=user_message,
+                    context_length=len(context),
+                    use_external_knowledge=use_external_knowledge,
+                    chat_history_msgs=len(chat_history.split('\n')) if chat_history else 0,
+                    extra={
+                        "system_prompt": system_content[:200] + "..." if len(system_content) > 200 else system_content,
+                        "user_content_length": len(user_content),
+                        "max_tokens": 300
+                    }
+                )
+                
+                # ✅ Log detailed prompt structure
+                ai_logger.info("OpenAI prompt prepared", extra={
+                    "ai_task": {
+                        "event_type": "openai_prompt_prepared",
+                        "user_id": self.user_id,
+                        "bot_id": self.bot_id,
+                        "model_name": model_name,
+                        "system_content_length": len(system_content),
+                        "user_content_length": len(user_content),
+                        "system_preview": system_content[:150] + "..." if len(system_content) > 150 else system_content,
+                        "user_content_preview": user_content[:150] + "..." if len(user_content) > 150 else user_content,
+                        "use_external_knowledge": use_external_knowledge,
+                        "temperature": temperature,
+                        "max_tokens": 300
+                    }
+                })
+                
+                llm_request_start = time.time()
                 response = self.llm.chat.completions.create(
                     model=model_name,
                     messages=[
@@ -480,7 +714,37 @@ class LLMManager:
                     temperature=temperature,
                     max_tokens=300
                 )
-                return response.choices[0].message.content
+                llm_duration = int((time.time() - llm_request_start) * 1000)
+                
+                response_content = response.choices[0].message.content
+                
+                # ✅ Extract token usage if available
+                token_usage = None
+                if hasattr(response, 'usage') and response.usage:
+                    token_usage = {
+                        "prompt_tokens": response.usage.prompt_tokens,
+                        "completion_tokens": response.usage.completion_tokens,
+                        "total_tokens": response.usage.total_tokens
+                    }
+                
+                # ✅ Log OpenAI LLM response details
+                log_llm_response(
+                    user_id=self.user_id,
+                    bot_id=self.bot_id,
+                    model_name=model_name,
+                    provider=provider,
+                    duration_ms=llm_duration,
+                    response_length=len(response_content),
+                    success=True,
+                    response=response_content,
+                    token_usage=token_usage,
+                    extra={
+                        "finish_reason": response.choices[0].finish_reason if response.choices else None,
+                        "response_id": response.id if hasattr(response, 'id') else None
+                    }
+                )
+                
+                return response_content
                 
             elif provider == "huggingface":
                 # HuggingFaceLLM handles the API call
@@ -491,14 +755,113 @@ class LLMManager:
                     if chat_history:
                         enhanced_context += f"{chat_history}"
                     enhanced_context += "\n\nIf the context above doesn't answer the question, you can use your general knowledge."
-                    return self.llm.generate(enhanced_context, user_message, temperature, chat_history="")
+                    
+                    # ✅ Log HuggingFace LLM request with external knowledge
+                    log_llm_request(
+                        user_id=self.user_id,
+                        bot_id=self.bot_id,
+                        model_name=model_name,
+                        provider=provider,
+                        temperature=temperature,
+                        query=user_message,
+                        context_length=len(enhanced_context),
+                        use_external_knowledge=use_external_knowledge,
+                        chat_history_msgs=len(chat_history.split('\n')) if chat_history else 0,
+                        extra={
+                            "enhanced_context_length": len(enhanced_context),
+                            "external_knowledge_instruction": True
+                        }
+                    )
+                    
+                    llm_request_start = time.time()
+                    response_content = self.llm.generate(enhanced_context, user_message, temperature, chat_history="")
+                    llm_duration = int((time.time() - llm_request_start) * 1000)
                 else:
                     enhanced_context = context
                     if chat_history:
                         enhanced_context += f"{chat_history}"
-                    return self.llm.generate(enhanced_context, user_message, temperature, chat_history="")
+                    
+                    # ✅ Log HuggingFace LLM request without external knowledge
+                    log_llm_request(
+                        user_id=self.user_id,
+                        bot_id=self.bot_id,
+                        model_name=model_name,
+                        provider=provider,
+                        temperature=temperature,
+                        query=user_message,
+                        context_length=len(enhanced_context),
+                        use_external_knowledge=use_external_knowledge,
+                        chat_history_msgs=len(chat_history.split('\n')) if chat_history else 0,
+                        extra={
+                            "enhanced_context_length": len(enhanced_context),
+                            "external_knowledge_instruction": False
+                        }
+                    )
+                    
+                    llm_request_start = time.time()
+                    response_content = self.llm.generate(enhanced_context, user_message, temperature, chat_history="")
+                    llm_duration = int((time.time() - llm_request_start) * 1000)
+                
+                # ✅ Log HuggingFace LLM response details
+                log_llm_response(
+                    user_id=self.user_id,
+                    bot_id=self.bot_id,
+                    model_name=model_name,
+                    provider=provider,
+                    duration_ms=llm_duration,
+                    response_length=len(response_content),
+                    success=True,
+                    response=response_content,
+                    extra={
+                        "api_endpoint": "huggingface_inference_api",
+                        "enhanced_context_used": True
+                    }
+                )
+                
+                return response_content
             else:
+                # ✅ Log unsupported provider error
+                ai_logger.error("Unsupported LLM provider", extra={
+                    "ai_task": {
+                        "event_type": "unsupported_provider_error",
+                        "user_id": self.user_id,
+                        "bot_id": self.bot_id,
+                        "provider": provider,
+                        "model_name": model_name
+                    }
+                })
+                
                 raise ValueError(f"Unsupported provider: {provider}")
         except Exception as e:
             print(f"❌ Error generating response: {str(e)}")
+            
+            # ✅ Log LLM generation error
+            total_duration = int((time.time() - start_time) * 1000)
+            log_llm_response(
+                user_id=self.user_id,
+                bot_id=self.bot_id,
+                model_name=model_name,
+                provider=provider,
+                duration_ms=total_duration,
+                response_length=0,
+                success=False,
+                error=str(e),
+                extra={
+                    "error_type": type(e).__name__
+                }
+            )
+            
+            ai_logger.error("LLM generation failed", extra={
+                "ai_task": {
+                    "event_type": "llm_generation_error",
+                    "user_id": self.user_id,
+                    "bot_id": self.bot_id,
+                    "model_name": model_name,
+                    "provider": provider,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "total_duration_ms": total_duration
+                }
+            })
+            
             return "I'm sorry, I'm experiencing some technical difficulties at the moment. Please try again later."

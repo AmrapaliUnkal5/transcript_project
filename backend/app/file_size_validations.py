@@ -38,7 +38,8 @@ from app.config import settings
 router = APIRouter()
 
 # Ensure the upload folder exists
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+if not UPLOAD_FOLDER.startswith("s3://"):
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 async def validate_file_size(files: List[UploadFile], current_user: dict, db: Session):
     """Validate file sizes against user's subscription limits"""
@@ -364,11 +365,11 @@ async def delete_file(
             upload_dir_path = settings.UPLOAD_DIR.rstrip('/')
             if file.file_path.startswith(upload_dir_path + '/'):
                 relative_path = file.file_path[len(upload_dir_path + '/'):]
-                delete_file_storage("UPLOAD_DIR", relative_path)
+                delete_file_storage(settings.UPLOAD_DIR, relative_path)
             else:
                 # Fallback: try to delete using just the filename
                 filename = os.path.basename(file.file_path)
-                delete_file_storage("UPLOAD_DIR", filename)
+                delete_file_storage(settings.UPLOAD_DIR, filename)
         else:
             # For local storage, use the existing method
             if os.path.exists(file.file_path):

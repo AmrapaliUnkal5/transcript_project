@@ -252,13 +252,13 @@ export const ScriptGeneratePage = () => {
       <input
         type="text"
         readOnly
-        value={`${VITE_API_URL.replace(/\/$/, "")}/embed-full/${token}`}
+        value={`${VITE_API_URL.replace(/\/$/, "")}/bot/${token}`}
         className="flex-1 p-2 border border-gray-300 rounded-lg bg-white text-black text-sm"
       />
       <button
         onClick={() => {
           navigator.clipboard.writeText(
-            `${VITE_API_URL.replace(/\/$/, "")}/embed-full/${token}`
+            `${VITE_API_URL.replace(/\/$/, "")}/bot/${token}`
           );
           toast.success("Link copied!");
         }}
@@ -300,7 +300,7 @@ export const ScriptGeneratePage = () => {
             setDomainError("");
           }}
           placeholder="e.g., https://example.com"
-          className="flex-1 p-2 border border-gray-400 rounded-lg bg-white text-black placeholder-black"
+          className="flex-1 p-2 border border-gray-400 rounded-lg bg-white text-black placeholder-gray-500"
         />
         <button
           onClick={handleSaveDomain}

@@ -400,6 +400,20 @@ fetchCaptcha: async () => {
     return response.data;
   },
 
+  
+  getScrapedNodes: async (botId: number) => {
+    const response = await api.get(`/investigation/scraped-nodes/${botId}`);
+    return response.data;
+  },
+  getYouTubeVideos: async (botId: number) => {
+    const response = await api.get(`/investigation/youtube-videos/${botId}`);
+    return response.data;
+  },
+  getUploadedFiles: async (botId: number) => {
+    const response = await api.get(`/investigation/uploaded-files/${botId}`);
+    return response.data;
+  },
+
   getFiles: async (botId: number): Promise<ApiFile[]> => {
     const response = await api.get<ApiFile[]>('/files', {
       params: { bot_id: botId },
@@ -604,6 +618,11 @@ deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
   changePassword: async (data: { current_password: string; new_password: string }) => {
     const response = await api.post('/user/change-password', data);
     return response.data;
+  },
+
+  getAdditionalAdminUsersCount: async () => {
+  const response = await api.get('/team/admin-users-count');
+  return response.data;
   },
 
   fetchPlans: async () => {

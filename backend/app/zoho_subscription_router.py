@@ -268,35 +268,87 @@ async def create_subscription_checkout(
 @router.post("/webhook")
 async def zoho_webhook_handler(request: Request, db: Session = Depends(get_db)):
     try:
+        # TODO: Add webhook signature verification for production security
+        # Example: verify_webhook_signature(request.headers, payload)
+        
+        # Log webhook reception with timestamp
+        import time
+        timestamp = datetime.now().isoformat()
+        
         # Parse the webhook payload
         payload = await request.json()
         
-        # Log the incoming webhook
+        # Enhanced logging for debugging
         event_type = payload.get("event_type")
-        print(f"\n==== Zoho Webhook Received: {event_type} ====")
-        print(f"Webhook Headers: {dict(request.headers)}")
-        print(f"Webhook Payload: {payload}")
+        print(f"\n{'='*60}")
+        print(f"ZOHO WEBHOOK RECEIVED: {timestamp}")
+        print(f"Event Type: {event_type}")
+        print(f"Request Method: {request.method}")
+        print(f"Request URL: {request.url}")
+        print(f"Headers: {dict(request.headers)}")
+        print(f"Raw Payload: {payload}")
+        print(f"{'='*60}\n")
+        
+        # Also log to a file for persistence
+        try:
+            import json
+            with open("webhook_logs.txt", "a") as f:
+                log_entry = {
+                    "timestamp": timestamp,
+                    "event_type": event_type,
+                    "headers": dict(request.headers),
+                    "payload": payload
+                }
+                f.write(f"{json.dumps(log_entry, indent=2)}\n\n")
+        except Exception as log_error:
+            print(f"Error writing to log file: {log_error}")
         
         # Handle different event types
         if event_type == "subscription_created":
-            await handle_subscription_created(payload, db)
+            result = await handle_subscription_created(payload, db)
+            print(f"Subscription created handler result: {result}")
         elif event_type == "subscription_cancelled":
-            await handle_subscription_cancelled(payload, db)
+            result = await handle_subscription_cancelled(payload, db)
+            print(f"Subscription cancelled handler result: {result}")
         elif event_type == "subscription_renewed":
-            await handle_subscription_renewed(payload, db)
+            result = await handle_subscription_renewed(payload, db)
+            print(f"Subscription renewed handler result: {result}")
         elif event_type == "payment_failed" or event_type == "subscription_payment_failed" or event_type == "hostedpage_payment_failed":
-            await handle_payment_failed(payload, db)
+            result = await handle_payment_failed(payload, db)
+            print(f"Payment failed handler result: {result}")
         elif event_type == "payment_success":
-            await handle_payment_success(payload, db)
+            result = await handle_payment_success(payload, db)
+            print(f"Payment success handler result: {result}")
         else:
             print(f"Unhandled webhook event type: {event_type}")
         
-        return {"success": True}
+        print(f"Webhook processing completed successfully for event: {event_type}")
+        return {"success": True, "message": f"Processed {event_type}"}
     
     except Exception as e:
-        logger.error(f"Error processing Zoho webhook: {str(e)}")
-        print(f"ERROR processing webhook: {str(e)}")
+        error_msg = f"Error processing Zoho webhook: {str(e)}"
+        logger.error(error_msg)
+        print(f"ERROR: {error_msg}")
+        
+        # Log error to file as well
+        try:
+            with open("webhook_errors.txt", "a") as f:
+                f.write(f"{datetime.now().isoformat()}: {error_msg}\n")
+        except:
+            pass
+            
         return {"success": False, "error": str(e)}
+
+# Test endpoint to verify webhook connectivity
+@router.get("/webhook/test")
+async def test_webhook_connectivity():
+    """Test endpoint to verify webhook URL is accessible"""
+    return {
+        "status": "success", 
+        "message": "Webhook endpoint is accessible",
+        "timestamp": datetime.now().isoformat(),
+        "endpoint": "/zoho/webhook"
+    }
 
 async def handle_subscription_created(payload: Dict[str, Any], db: Session):
     """Handle subscription created webhook event"""

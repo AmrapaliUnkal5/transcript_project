@@ -1,15 +1,13 @@
-import {
-  Box,
-  Button,
-  Container,
-  Grid,
-  Typography,
-  styled,
-} from "@mui/material";
-import React from "react";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+
+import { Box, Button, Container, Grid, Typography, styled } from '@mui/material';
+import React from 'react';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ReactGA from "react-ga4";
+import { trackGAEvent } from './Hero';
+
 
 export default function BotDataControl() {
+
   return (
     <>
       <Box
@@ -98,7 +96,35 @@ export default function BotDataControl() {
               </Grid>
             </Grid>
           </Box>
-          
+
+         
+          <Box display={'flex'} justifyContent={'center'} my={2}>
+            <Button
+                variant='contained'
+                color='primary'
+                size='large'
+                href='/login'
+                onClick={() => {
+                          trackGAEvent({
+                                        category: "Engagement",
+                                        action: "Click Get Satrted For Free",
+                                        label: "GetSatrted above frequently asked question"
+                                      });
+                                    }}
+                sx={{
+                    fontSize: '18px',
+                    fontWeight: 500,
+                    borderRadius: '40px',
+                    height: '62px',
+                    minWidth: '220px',
+                    textTransform: 'capitalize',
+                    background:
+                    'linear-gradient(180deg,rgba(90, 108, 242, 1) 0%, rgba(75, 52, 152, 1) 100%);',
+                }}
+                >
+                Get started for free
+                </Button>
+          </Box>
         </Container>
       </Box>
     </>
