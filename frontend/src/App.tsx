@@ -44,6 +44,7 @@ import Privacy from "./pages/Privacy/index.tsx";
 import ScrollToTop from "./components/ScrolltoTop.tsx";
 import ShippingAndExchange from "./pages/ShippingAndExchange/index.tsx";
 import Investigation from "./pages/investigation.tsx";
+import OurServices from "./pages/OurService/Index.tsx";
 
 
 
@@ -93,6 +94,7 @@ function App() {
                 <Route path="/data-deletion" element={<DataDeletion />} />
                 <Route path="/cancellation-refund-policy" element={<CancellationRefundPolicy />} />
                 <Route path="/shipping-exchange-policy" element={<ShippingAndExchange />} />
+                <Route path="/our-services" element={<OurServices />} />
                 
 
 
