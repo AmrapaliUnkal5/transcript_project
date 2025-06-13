@@ -274,7 +274,7 @@ export default function Plans() {
                     Small to medium businesses and online retailers
                   </Typography>
 
-            
+
                   <Box
                     display="flex"
                     flexDirection="column"
@@ -419,7 +419,6 @@ export default function Plans() {
                     Established companies and agencies with multiple departments
                   </Typography>
 
-                  
 
                   <Box
                     display="flex"
@@ -540,7 +539,8 @@ export default function Plans() {
           <Box mt={[0, 3]}>
             <Button
               variant="text"
-              href="/signup"
+
+              href="/our-plans#plans-table"
               onClick={() => {
                         trackGAEvent({
                                       category: "Plans",
@@ -548,6 +548,7 @@ export default function Plans() {
                                       label: "Compare_All_plans_home",
                                     });
                                   }}
+
               sx={{
                 width: "100%",
                 fontSize: "18px",

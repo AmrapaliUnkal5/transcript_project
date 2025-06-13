@@ -72,8 +72,7 @@ export default function ExperienceAdvantage() {
                 mb={2}
                 mt={[3, 5]}
                 lineHeight={1.4}
-                // whiteSpace="nowrap"
-                // minWidth={["100%", "none"]}
+                
               >
                 Elevate Your Customer Experience
               </Typography>
@@ -107,7 +106,7 @@ export default function ExperienceAdvantage() {
               </Typography>
 
               <Typography variant="body1" color={"#9F9F9F"}  sx={{
-    fontSize: ['14px', '16px'], }}>
+                fontSize: ['14px', '16px'], }}>
                 Cut support time by 70% with bots that work 24/7, freeing your team for empathetic and  high-impact interactions. 
               </Typography>
             </Grid>
@@ -135,7 +134,7 @@ export default function ExperienceAdvantage() {
               </Typography>
 
               <Typography variant="body1" color={"#9F9F9F"} sx={{
-    fontSize: ['14px', '16px'], }}>
+                fontSize: ['14px', '16px'], }}>
                 Maintain consistent performance during traffic spikes, seasonal
                 rushes, or growth phases, scaling effortlessly.
               </Typography>

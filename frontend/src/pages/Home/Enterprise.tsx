@@ -169,7 +169,9 @@ export const Enterprise = () => {
                     {/* Row 2 */}
                     <Box display="flex" alignItems="center" gap={1}>
                       <StyledImage
-                        src="/images/icons/icon-check.png"
+
+                        src="/images/icons/icon-check.png" 
+
                         sx={{
                           width: ["15px","24px"],
                           height: ["15px","24px"],
@@ -196,7 +198,6 @@ export const Enterprise = () => {
                 bottom:"1px",               
                 left:0,                 
                 right:0,
-               
               }}
               
               >
@@ -204,7 +205,10 @@ export const Enterprise = () => {
                   variant="contained"
                   color="primary"
                   size="large"
-                  href='/login'
+
+                  href='contact-us'
+
+             
                   onClick={() => {
                             trackGAEvent({
                                           category: "Sales",

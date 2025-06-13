@@ -14,12 +14,11 @@ interface HeaderProps {
 }
 
 export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
-  const { user: authUser } = useAuth(); // Get user and logout from context
+  const { user: authUser } = useAuth(); 
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null); // Ref for dropdown
+  const dropdownRef = useRef<HTMLDivElement>(null); 
 
-  // Transform the authUser to match your existing user prop structure
   const user = {
     name: authUser?.name || "",
     avatar: authUser?.avatar_url || "default-avatar-url",
@@ -34,7 +33,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
     navigate("/login");
   };
 
-  // Close dropdown when clicking outside
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -60,7 +59,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
     background: "linear-gradient(to right, #231D53, #28377B)"
   }}
     >
-      {/* Left Section: Logo/Image */}
+     
       <div className="flex items-center space-x-4">
         <a 
           onClick={() => navigate("/dashboard/welcome")} 
@@ -86,53 +85,18 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
           Home
         </button>
 
-        {/* <Home color={isDark ? "white" : "black"} className="w-5 h-5" />
-        </button>
-         {/* Theme Toggle (Sun/Moon) */}
-        {/* <button
-          onClick={toggleTheme}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-          title="Change Theme"
-        >
-          {isDark ? <Sun color={isDark ? "white" : "black"} className="w-5 h-5" /> : <Moon color={isDark ? "white" : "black"} className="w-5 h-5" />}
-        </button>{/* Help/Doubt Button */}
-
-        {/*<button
-          onClick={() => navigate("/report-issue")}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-          title="Contact Support"
-        >
-          <HelpCircle color={isDark ? "white" : "black"} className="w-5 h-5" />
-        </button>*/}
+        
 
        <button
          onClick={() => window.open("/report-issue", "_blank")}
           className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
-          style={{
-    fontFamily: "Instrument Sans, sans-serif",
-    fontSize: "16px",
-    color: "#BFBFBF",
+          style={{fontFamily: "Instrument Sans, sans-serif",
+              fontSize: "16px",
+             
+              color:"FFFFFF"
     
-  }}
+              }}
           title="Have doubts? Ask here!">Help</button>
-
-        {/*
-        <button
-          onClick={() => navigate("/report-issue")}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white"
-          title="Have doubts? Ask here!"
-        >
-          Help
-        </button> */}
-       
-
-        {/* Notifications Button */}
-{/* 
-        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-        title="Notifications"
-        >
-          <Bell color={isDark ? "white" : "black"} className="w-5 h-5" />
-        </button> */}
       
     
         <NotificationDropdown />
@@ -147,7 +111,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
               alt={user?.name || "User"}
               className="w-8 h-8 rounded-full border border-gray-300 dark:border-white cursor-pointer"
             />
-            <span className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white">
+            <span className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white font-instrument sans ">
               {user?.name || "User"}
             </span>
           </button>

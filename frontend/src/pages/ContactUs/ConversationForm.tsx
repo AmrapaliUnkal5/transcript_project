@@ -8,8 +8,8 @@ import {
   Typography,
   styled,
 } from "@mui/material";
+import { red } from "@mui/material/colors";
 import React from "react";
-
 
 export default function ConversationForm() {
   return (
@@ -28,7 +28,7 @@ export default function ConversationForm() {
         <Container maxWidth="lg">
           <Box
             px={[0, 10]}
-            py={[2,8.85]}
+            py={[2, 8.85]}
             sx={{
               backgroundImage: "url(/images/title-bg.png)",
               backgroundSize: "contain",
@@ -48,165 +48,192 @@ export default function ConversationForm() {
                   variant="h1"
                   fontWeight={600}
                   fontSize={["18px", "40px"]}
-                  mt={["35px","25px"]}
+                  mt={["35px", "25px"]}
                   mb="23px"
                 >
                   Let’s Start A Conversation
                 </Typography>
-                <Typography variant="body1" fontSize={"16px"} lineHeight={"26px"} color={"#cacaca"} mb={"67px"}>
+                <Typography
+                  variant="body1"
+                  fontSize={"16px"}
+                  lineHeight={"26px"}
+                  color={"#cacaca"}
+                  mb={"67px"}
+                >
                   Our global support teams operate across the U.S., Europe, the
                   Middle East, and India, ensuring timely, localized assistance
                   tailored to your region and time zone.
                 </Typography>
-              
-                {/* <Box display={"flex"} mb="31px">
-                  <StyledImage
-                    src="/images/icon-call.png"
-                    sx={{ width: 28, height: 28, color: "#BAB8FF",mr:2}}
-                  />
-                  <Typography variant="body1" fontSize={16} color={"#cacaca"}>
-                    978974574
-                  </Typography>
-                </Box> */}
-                <Box display={"flex"}  mb="31px">
+
+                <Box display={"flex"} mb="31px">
                   <StyledImage
                     src="/images/icon-mail.png"
-                    sx={{ width: 28, height: 28, color: "#BAB8FF",mr:2 }}
+                    sx={{ width: 28, height: 28, color: "#BAB8FF", mr: 2 }}
                   />
-                  <Typography variant="body1"  fontSize={16} color={"#cacaca"}>
+                  <Typography variant="body1" fontSize={16} color={"#cacaca"}>
                     support@evolra.ai
                   </Typography>
                 </Box>
-                {/* <Box 
-                display={{ xs: "none", md: "flex" }} mb={3}>
-                  <StyledImage
-                    src="/images/icon-location-on.png"
-                    sx={{ width: 28, height: 28, color: "#BAB8FF",mr:2 }}
-                  />
-
-                  <Typography variant="body1" fontSize={"16px"} color={"#cacaca"}>
-                    202 Helga Springs Rd, Crawford, IN, 38554
-                  </Typography>
-                </Box> */}
               </Grid>
               <Grid item xs={12} sm={12} md={6}>
-                <Box
+                <Box 
+
+                //  sx={{
+                //   background: "linear-gradient(148.01deg, #4644B3 74.39%, #000000 78.52%)", // Gradient border effect
+                //  p: "2px" // Border thickness
+                //  }}
+                >
+                <Box 
+
+                //  sx={{
+                //        borderRadius: "10px",
+                //         background: "linear-gradient(135deg, #BDCCE799 0%, #4C3B941A 50%, #BDCCE799 100%)", // Inner background
+                //         }}
                   sx={{
                     maxWidth: 550,
                     mx: "auto",
-                    py:1,
-                    pt:4,
-                    border: "1.5px ",
-                    px:"43px",
-                    height:"582px",
-                    backgroundColor: "#1E1A35",
-                    borderRadius: "20px",
-                    borderColor: "#28284B",
-                    boxShadow: 3,
+                    py: 1,
+                    pt: 4,
+                    borderRadius: "12px",
+                    px: "43px",
+                    height: "514px",
+                    background:
+                      "linear-gradient(135deg, #BDCCE799 0%, #4C3B941A 50%, #BDCCE799 100%)",
                   }}
                 >
-                  <Typography variant="h5" fontWeight="bold" gutterBottom mb={"18px"}>
+                  <Typography
+                    fontSize={"24px"}
+                    fontFamily={"instrument sans"}
+                    fontWeight={600}
+                    gutterBottom
+                    mb={"18px"}
+                  >
                     Get In Touch
                   </Typography>
-                  <Typography variant="body1" color="white" gutterBottom>
-                    You can reach us anytime.
-                  </Typography>
 
-                  <Stack spacing={1} mt={"41px"}>
+                  <Stack spacing={1} mt={"27px"}>
                     <TextField
                       label="Your Name"
-                      
+                      variant="outlined"
                       fullWidth
                       sx={{
                         backgroundColor: "#070417",
                         borderRadius: "10px",
-                        borderWidth:1,
-                        borderColor: "#303030",
-                        
-                        height:"58px",
-                        input: { color: "#fff" },
-                         label: { color: "#888888" },
+
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "10px",
+                          color: "#fff",
+                        },
+                        "& .MuiInputLabel-root.Mui-focused": {
+                          color: "#ffffff",
+                        },
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "#303030",
+                        },
+                        "& .MuiInputLabel-root": {
+                          color: "#888888",
+                        },
+                        "& input": {
+                          color: "#fff",
+                          height: "58px",
+                          boxSizing: "border-box",
+                          padding: "16.5px 14px",
+                        },
                       }}
                     />
+
                     <TextField
                       label="Email"
                       type="email"
-                      variant="outlined"
                       fullWidth
+                      variant="outlined"
                       sx={{
-                        mt:"19px",
+                        mt: "19px",
                         backgroundColor: "#070417",
                         borderRadius: "10px",
-                        borderWidth:1,
-                        borderColor: "#303030",
-                      
-                        height:"58px",
-                        input: { color: "#fff" },
-                         label: { color: "#888888" },
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "10px",
+                          color: "#fff",
+                        },
+                        "& .MuiInputLabel-root.Mui-focused": {
+                          color: "#ffffff",
+                        },
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "#303030",
+                        },
+                        "& .MuiInputLabel-root": {
+                          color: "#888888",
+                        },
+                        "& input": {
+                          color: "#fff",
+                          height: "58px",
+                          boxSizing: "border-box",
+                        },
                       }}
                     />
+
                     <TextField
                       label="Your Message"
                       variant="outlined"
-                      
                       multiline
                       rows={4}
                       fullWidth
-                       sx={{
-                        mt:"19px",
+                      sx={{
+                        mt: "19px",
                         backgroundColor: "#070417",
                         borderRadius: "10px",
-                        borderWidth:"1px",
-                        borderColor: "#303030",
-                        
-                        height:"136px",
-                        input: { color: "#fff" },
-                         label: { color: "#888888" },
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "10px",
+                          color: "#fff",
+                        },
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "#303030",
+                        },
+                        "& .MuiInputLabel-root.Mui-focused": {
+                          color: "#ffffff",
+                        },
+                        "& .MuiInputLabel-root": {
+                          color: "#888888",
+                        },
+                        "& .MuiInputBase-inputMultiline": {
+                          color: "#fff",
+                        },
+                        "& input": {
+                          color: "#fff",
+                          height: "58px",
+                          boxSizing: "border-box",
+                        },
                       }}
                     />
-                    <Box pt={4} >
-                    <Button
-                      variant="contained"
-                      sx={{
-                        width: 173,
-                     
-                        height: 52,
-                        borderRadius: "40px",
-                        background:
-                          "linear-gradient(180deg, #5A6CF2 0%, #4B3498 100%)",
-                        color: "#fff",
-                        padding: 0, // remove any default padding that may affect shape
-                        minWidth: 0, 
-                        textTransform: "none",// ensures the width stays exactly 173px
-                      }}
-                    >
-                      Submit
-                    </Button>
+
+                    <Box pt={4}>
+                      <Button
+                        variant="contained"
+                        sx={{
+                          width: 173,
+
+                          height: 52,
+                          borderRadius: "40px",
+                          background:
+                            "linear-gradient(135deg, #F4F4F6 0%, #7C7C7C 100%)",
+                          fontSize: "16px",
+                          fontWeight: 600,
+                          fontFamily: "Instrument Sans",
+                          color: "black",
+                          padding: 0, 
+                          minWidth: 0,
+                          textTransform: "none", 
+                        }}
+                      >
+                        Submit
+                      </Button>
                     </Box>
                   </Stack>
+                </Box>
                 </Box>
               </Grid>
             </Grid>
           </Box>
-          {/* <Box display={"flex"} justifyContent={"center"} my={2}>
-            <Button
-              variant="contained"
-              color="primary"
-              size="large"
-              sx={{
-                fontSize: "18px",
-                fontWeight: 500,
-                borderRadius: "40px",
-                height: "62px",
-                minWidth: "220px",
-                textTransform: "capitalize",
-                background:
-                  "linear-gradient(180deg,rgba(90, 108, 242, 1) 0%, rgba(75, 52, 152, 1) 100%);",
-              }}
-            >
-              Get started for free
-            </Button>
-          </Box> */}
         </Container>
       </Box>
     </>

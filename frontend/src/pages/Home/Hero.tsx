@@ -58,7 +58,6 @@ import ReactGA from "react-ga4";
                 lineHeight={1.5}
                 sx={{
                   mt: ["82px","120px"],
-                  // Only show on medium and above
                   background: "-webkit-linear-gradient(#FFF, #959595)",
                   backgroundClip: "text",
                   textFillColor: "transparent",

@@ -16,6 +16,7 @@ const AccordionSummary = styled((props: AccordionSummaryProps) => (
     {...props}
   />
 ))(({ theme }) => ({
+
   backgroundColor: "transparent",
   color: "#FFF",
   border: "1px solid #2E2C73",
@@ -34,6 +35,7 @@ const AccordionSummary = styled((props: AccordionSummaryProps) => (
    
   },
 
+
   [`& .${accordionSummaryClasses.content}`]: {
     marginLeft: theme.spacing(1),
   },
@@ -43,8 +45,9 @@ const AccordionSummary = styled((props: AccordionSummaryProps) => (
 }));
 
 const AccordionDetails = styled(MuiAccordionDetails)(({ theme }) => ({
+
   padding: " 0 24px 24px",
- 
+
 }));
 
 export default function FAQ() {
@@ -113,7 +116,9 @@ export default function FAQ() {
                 id="panel1-header"
                 sx={{ borderRadius: "14px" }}
               >
+
                 <Typography component="span" fontWeight={600}>
+
                   Does the platform support multiple languages?
                 </Typography>
               </AccordionSummary>
@@ -142,6 +147,7 @@ export default function FAQ() {
                 aria-controls="panel2-content"
                 id="panel2-header"
               >
+
                 <Typography component="span" fontWeight={600}>
                   Can the bot retrieve information from YouTube videos?
                 </Typography>
@@ -151,7 +157,7 @@ export default function FAQ() {
                   Yes, our YouTube video insights feature allows the bot to
                   extract valuable information from your uploaded YouTube
                   videos, making it a powerful tool for businesses that rely on
-                  video content.
+
                 </Typography>
               </AccordionDetails>
             </Accordion>
@@ -177,10 +183,12 @@ export default function FAQ() {
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
+
                 <Typography variant="body1" color="#D5D5D5">
                   Integrating the bot into your website is simple. You can
                   deploy the bot in minutes with a single code snippet, making
                   it instantly accessible to your website visitors.
+
                 </Typography>
               </AccordionDetails>
             </Accordion>
@@ -206,11 +214,13 @@ export default function FAQ() {
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
+
                 <Typography variant="body1" color="#D5D5D5">
                   Yes, we offer tailored solutions for organizations with unique
                   requirements or high-volume needs. Contact our sales team to
                   discuss your specific goals, and we will work with you to
                   develop a solution that fits your organization perfectly.
+
                 </Typography>
               </AccordionDetails>
             </Accordion>
