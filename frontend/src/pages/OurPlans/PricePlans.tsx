@@ -680,7 +680,7 @@ export default function PricePlans() {
           </Box>
           <Box my={6}>
             <Button
-              href="/login"
+              href="/our-plans#plans-table"
               variant="text"
               sx={{
                 width: "100%",
