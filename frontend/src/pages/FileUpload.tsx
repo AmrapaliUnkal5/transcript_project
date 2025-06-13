@@ -1209,7 +1209,7 @@ export const FileUpload = () => {
               className="text-gray-600 dark:text-gray-400"
             >
               Maximum {userUsage.planLimit.toLocaleString()} words total,{" "}
-              {userPlan?.per_file_size_limit}MB per file (PDF, TXT, Doc, Docx,
+              {userPlan?.per_file_size_limit}MB per file (PDF, TXT, Docx,
               .png, .jpg, .jpeg, .gif files only)
             </p>
           </div>
