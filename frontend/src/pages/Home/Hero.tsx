@@ -1,8 +1,20 @@
 import React from "react";
 import { Box, Button, Typography } from "@mui/material";
 import Typical from "react-typical";
+import ReactGA from "react-ga4";
 
-export default function Hero() {
+
+
+ export const trackGAEvent = ({ category, action, label }) => {
+  ReactGA.event({
+    category,
+    action,
+    label,
+           }  );
+           };
+  export default function Hero() {
+
+
   return (
     <>
       <Box
@@ -109,14 +121,19 @@ export default function Hero() {
                 />
               </Typography>
             </Box>
-            {/* <Typography variant="h6" color="#B4B4B4" mt={2} mb={3}>
-              Build, personalize, and deploy AI-powered chatbots effortlessly
-            </Typography> */}
+
             <Button
               variant="contained"
               color="primary"
               size="large"
               href="/signup"
+              onClick={() => {
+                trackGAEvent({
+                category: "Engagement",
+                action: "Click Get Started For Free",
+                label: "hero_section_button"
+              });
+            }}
               sx={{
                 mt:["40px","70px"],
                 mb: "60px",

@@ -1,8 +1,11 @@
 import { Box, Button, Container, Grid, Typography, styled } from '@mui/material';
 import React from 'react';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ReactGA from "react-ga4";
+import { trackGAEvent } from './Hero';
 
 export default function BotDataControl() {
+
   return (
     <>
       <Box
@@ -98,6 +101,13 @@ export default function BotDataControl() {
                 color='primary'
                 size='large'
                 href='/login'
+                onClick={() => {
+                          trackGAEvent({
+                                        category: "Engagement",
+                                        action: "Click Get Satrted For Free",
+                                        label: "GetSatrted above frequently asked question"
+                                      });
+                                    }}
                 sx={{
                     fontSize: '18px',
                     fontWeight: 500,
