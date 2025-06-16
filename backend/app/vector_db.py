@@ -1,4 +1,6 @@
 import chromadb
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 import os
@@ -11,6 +13,8 @@ from app.config import settings
 import time
 from app.utils.ai_logger import ai_logger
 import numpy as np
+import uuid
+import hashlib
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -57,6 +61,34 @@ def normalize_embedding(embedding):
         logger.error(f"Error normalizing embedding: {str(e)}")
         # Return original embedding if normalization fails
         return embedding
+
+
+def get_qdrant_client():
+    """
+    Create a Qdrant client for file upload operations.
+    """
+    try:
+        if not settings.QDRANT_URL:
+            logger.warning("Qdrant URL not configured, falling back to ChromaDB")
+            return None
+        
+        logger.info(f"Creating Qdrant client with URL: {settings.QDRANT_URL}")
+        client = QdrantClient(url=settings.QDRANT_URL)
+        
+        # Validate the client works
+        try:
+            collections = client.get_collections()
+            logger.info(f"Qdrant client validation successful. Found {len(collections.collections)} collections.")
+        except Exception as validation_error:
+            logger.error(f"Qdrant client validation failed: {str(validation_error)}")
+            return None
+        
+        logger.info(f"Successfully created Qdrant client")
+        return client
+        
+    except Exception as e:
+        logger.error(f"Failed to create Qdrant client: {str(e)}")
+        return None
 
 
 # Remove global chroma_client initialization - we'll create it per operation instead
@@ -310,25 +342,20 @@ def safe_get_collection(collection_name, timeout_seconds=30):
             logger.debug("ChromaDB client cleaned up")
 
 
-def add_documents_batch(bot_id: int, documents_data: list, force_model: str = None, user_id: int = None):
-    """
-    Add multiple documents to ChromaDB in batch for better index performance.
-    
-    Args:
-        bot_id: Bot ID
-        documents_data: List of dicts with keys: text, metadata
-        force_model: Optional model override
-        user_id: Optional user ID
-    """
-    logger.info(f"Starting batch document addition", 
-               extra={"bot_id": bot_id, "batch_size": len(documents_data)})
-    
-    if not documents_data:
-        logger.warning(f"No documents provided for batch addition", extra={"bot_id": bot_id})
-        return
+def add_document_to_qdrant(bot_id: int, text: str, metadata: dict, force_model: str = None, user_id: int = None):
+    """Adds a document to Qdrant for file upload operations."""
+    logger.info(f"[QDRANT] Adding document to vector database", 
+               extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown'),
+                     "document_type": metadata.get('source', 'unknown')})
     
     try:
-        # Initialize embedder (same logic as add_document)
+        # Get Qdrant client
+        qdrant_client = get_qdrant_client()
+        if not qdrant_client:
+            logger.warning("[QDRANT] Qdrant client not available, skipping")
+            return False
+        
+        # Initialize embedder (same logic as ChromaDB version)
         if force_model:
             model_name = force_model
             embedder = EmbeddingManager(model_name=model_name)
@@ -340,91 +367,69 @@ def add_documents_batch(bot_id: int, documents_data: list, force_model: str = No
                 model_name = get_bot_config(bot_id)
                 embedder = EmbeddingManager(model_name=model_name)
         
-        # Prepare batch data
-        batch_ids = []
-        batch_embeddings = []
-        batch_metadatas = []
-        batch_documents = []
-        
-        logger.info(f"Generating embeddings for batch", 
-                   extra={"bot_id": bot_id, "batch_size": len(documents_data)})
-        
-        for doc_data in documents_data:
-            text = doc_data["text"]
-            metadata = doc_data["metadata"]
+        # Generate embedding
+        logger.info(f"[QDRANT] Generating document embedding", 
+                   extra={"bot_id": bot_id, "model": model_name})
+        vector = embedder.embed_document(text)
+        if not vector:
+            logger.error(f"[QDRANT] Failed to generate document embedding")
+            return False
             
-            # Generate and normalize embedding
-            vector = embedder.embed_document(text)
-            normalized_vector = normalize_embedding(vector)
-            
-            batch_ids.append(metadata["id"])
-            batch_embeddings.append(normalized_vector)
-            batch_metadatas.append(metadata)
-            batch_documents.append(text)
+        # Normalize embedding
+        normalized_vector = normalize_embedding(vector)
         
-        # Get collection
+        # Collection naming (same as ChromaDB)
         sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
         collection_name = f"bot_{bot_id}_{sanitized_model_name}"
         
-        chroma_client = get_chroma_client()
+        logger.info(f"[QDRANT] Using collection: {collection_name}")
+        
+        # Ensure collection exists
         try:
-            bot_collection = safe_get_collection(collection_name, timeout_seconds=30)
-            logger.info(f"Using existing collection for batch", 
-                       extra={"bot_id": bot_id, "collection": collection_name})
+            qdrant_client.get_collection(collection_name)
+            logger.info(f"[QDRANT] Collection exists: {collection_name}")
         except Exception:
-            # Create with HNSW config
-            hnsw_config = {
-                "hnsw:space": "cosine",
-                "hnsw:M": 64,
-                "hnsw:ef_construction": 200,
-                "hnsw:ef": 64,
-                "hnsw:max_elements": 10000,
-                "hnsw:allow_replace_deleted": True
-            }
-            bot_collection = chroma_client.create_collection(
-                name=collection_name,
-                embedding_function=None,
-                metadata=hnsw_config
+            # Create collection
+            embedding_dimension = len(normalized_vector)
+            qdrant_client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=embedding_dimension, distance=Distance.COSINE)
             )
-            logger.info(f"Created new collection for batch", 
-                       extra={"bot_id": bot_id, "collection": collection_name})
+            logger.info(f"[QDRANT] Created new collection: {collection_name}")
         
-        # Add batch to collection
-        logger.info(f"Adding batch to ChromaDB", 
-                   extra={"bot_id": bot_id, "collection": collection_name, 
-                         "batch_size": len(batch_ids)})
+        # Add document
+        # Convert string ID to valid Qdrant point ID (UUID)
+        original_id = metadata.get("id", str(uuid.uuid4()))
         
-        bot_collection.add(
-            ids=batch_ids,
-            embeddings=batch_embeddings,
-            metadatas=batch_metadatas,
-            documents=batch_documents
+        # If the original ID is already a valid UUID, use it
+        try:
+            point_id = uuid.UUID(original_id)
+        except ValueError:
+            # If not a UUID, generate a deterministic UUID from the string
+            # This ensures the same document always gets the same Qdrant ID
+            hash_object = hashlib.md5(original_id.encode())
+            point_id = uuid.UUID(hash_object.hexdigest())
+        
+        # Ensure the metadata includes the text content for retrieval
+        # Also preserve the original ID in the payload for reference
+        payload = metadata.copy()
+        payload["text"] = text
+        payload["original_id"] = original_id  # Keep the original ChromaDB ID for reference
+        
+        result = qdrant_client.upsert(
+            collection_name=collection_name,
+            points=[PointStruct(
+                id=str(point_id),  # Convert UUID to string
+                vector=normalized_vector,
+                payload=payload
+            )]
         )
-        
-        # Force index refresh with a query
-        final_count = bot_collection.count()
-        if final_count > 1:
-            test_result = bot_collection.query(
-                query_embeddings=[batch_embeddings[0]],
-                n_results=min(3, final_count),
-                include=["documents", "distances"]
-            )
-            logger.info(f"Batch index refresh completed", 
-                       extra={"bot_id": bot_id, "collection": collection_name,
-                             "final_count": final_count})
-        
-        logger.info(f"Batch document addition completed successfully", 
-                   extra={"bot_id": bot_id, "collection": collection_name, 
-                         "added_count": len(batch_ids), "final_count": final_count})
+        logger.info(f"[QDRANT] Document added successfully to Qdrant: {point_id}")
+        return True
         
     except Exception as e:
-        logger.error(f"Error in batch document addition", 
-                    extra={"bot_id": bot_id, "error": str(e)})
-        raise ValueError(f"Batch document addition failed: {str(e)}")
-    finally:
-        if 'chroma_client' in locals():
-            del chroma_client
-            logger.debug("ChromaDB client cleaned up in add_documents_batch")
+        logger.error(f"[QDRANT] Error adding document to Qdrant: {str(e)}")
+        return False
 
 
 def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None, user_id: int = None):
@@ -514,6 +519,25 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
         source_type = metadata.get('source', 'unknown')
         logger.info(f"*** COLLECTION: {base_collection_name} - SOURCE TYPE: {source_type} ***", 
                    extra={"bot_id": bot_id, "collection": base_collection_name, "source": source_type})
+        
+        # FOR ALL DOCUMENT TYPES: Try Qdrant first, then fallback to ChromaDB
+        logger.info(f"*** ROUTING ALL DOCUMENTS TO QDRANT - SOURCE TYPE: {source_type} ***", 
+                   extra={"bot_id": bot_id, "source": source_type})
+        
+        # Use Qdrant for all document types (files, YouTube, websites)
+        success = add_document_to_qdrant(bot_id, text, metadata, force_model, user_id)
+        if success:
+            logger.info(f"Document successfully added to Qdrant", 
+                       extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown')})
+            return  # Successfully added to Qdrant, exit early
+        else:
+            logger.warning(f"Failed to add document to Qdrant, falling back to ChromaDB",
+                          extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown')})
+            # Continue with ChromaDB as fallback
+        
+        # FALLBACK TO CHROMADB if Qdrant fails
+        logger.info(f"*** USING CHROMADB AS FALLBACK FOR SOURCE TYPE: {source_type} ***", 
+                   extra={"bot_id": bot_id, "source": source_type})
         
         # Check if this is a re-embedding process by looking at metadata
         is_reembedding = metadata.get("source") == "re-embed"
@@ -680,11 +704,115 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
             logger.debug("ChromaDB client cleaned up in add_document")
 
 
+def retrieve_similar_docs_from_qdrant(bot_id: int, query_text: str, top_k=5, user_id: int = None):
+    """Retrieves similar documents from Qdrant for file upload operations."""
+    logger.info(f"[QDRANT] Starting similarity search", 
+               extra={"bot_id": bot_id, "query_length": len(query_text), "top_k": top_k})
+    
+    try:
+        # Get Qdrant client
+        qdrant_client = get_qdrant_client()
+        if not qdrant_client:
+            logger.warning("[QDRANT] Qdrant client not available, falling back to ChromaDB")
+            return []
+        
+        # Initialize embedder (same logic as ChromaDB version)
+        if user_id:
+            embedder = EmbeddingManager(bot_id=bot_id, user_id=user_id)
+            model_name = embedder.model_name
+        else:
+            model_name = get_bot_config(bot_id)
+            embedder = EmbeddingManager(model_name=model_name)
+            
+        # Generate query embedding
+        logger.info(f"[QDRANT] Generating query embedding with model: {model_name}")
+        query_embedding = embedder.embed_query(query_text)
+        normalized_query_embedding = normalize_embedding(query_embedding)
+
+        # Collection naming (same as ChromaDB)
+        sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
+        collection_name = f"bot_{bot_id}_{sanitized_model_name}"
+        
+        logger.info(f"[QDRANT] Searching in collection: {collection_name}")
+        
+        # Check if collection exists
+        try:
+            collection_info = qdrant_client.get_collection(collection_name)
+            doc_count = collection_info.points_count
+            logger.info(f"[QDRANT] Collection has {doc_count} documents")
+            
+            if doc_count == 0:
+                logger.warning(f"[QDRANT] Collection is empty")
+                return []
+        except Exception as e:
+            logger.warning(f"[QDRANT] Collection not found: {collection_name}")
+            return []
+        
+        # Perform search
+        results = qdrant_client.search(
+            collection_name=collection_name,
+            query_vector=normalized_query_embedding,
+            limit=min(top_k, doc_count)
+        )
+        
+        logger.info(f"[QDRANT] Found {len(results)} results")
+
+        # Process results
+        docs = []
+        if results:
+            for i, result in enumerate(results):
+                metadata = result.payload
+                distance = result.score
+                
+                # Convert score (higher is better in Qdrant for cosine similarity)
+                score = distance
+                
+                # Get content from payload
+                content = metadata.get("text", "") or metadata.get("content", "")
+                
+                # Clean up metadata before returning (remove internal fields if needed)
+                clean_metadata = metadata.copy()
+                if "text" in clean_metadata:
+                    del clean_metadata["text"]  # Don't duplicate text in metadata
+                
+                docs.append({
+                    "content": content,
+                    "metadata": clean_metadata,
+                    "score": score
+                })
+                
+                logger.info(f"[QDRANT] Match {i+1}: Score {score:.4f}, Source: {metadata.get('file_name', 'unknown')}")
+                
+        logger.info(f"[QDRANT] Returning {len(docs)} documents")
+        return docs
+        
+    except Exception as e:
+        logger.error(f"[QDRANT] Error in Qdrant retrieval: {str(e)}")
+        # Fallback to ChromaDB
+        logger.info(f"[QDRANT] Falling back to ChromaDB")
+        return []
+
+
 def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = None):
     """Retrieves similar documents for a query from a bot-specific vector database in ChromaDB."""
     logger.info(f"Starting similarity search", 
                extra={"bot_id": bot_id, "query_length": len(query_text), 
                      "top_k": top_k})
+    
+    # FOR ALL DOCUMENT TYPES: Try Qdrant first, then fallback to ChromaDB
+    # Check if there are any documents in Qdrant by trying it first
+    try:
+        qdrant_results = retrieve_similar_docs_from_qdrant(bot_id, query_text, top_k, user_id)
+        if qdrant_results:
+            logger.info(f"[QDRANT] Successfully retrieved {len(qdrant_results)} documents from Qdrant")
+            return qdrant_results
+        else:
+            logger.info(f"[QDRANT] No results from Qdrant, falling back to ChromaDB")
+    except Exception as e:
+        logger.warning(f"[QDRANT] Error with Qdrant, falling back to ChromaDB: {str(e)}")
+    
+    # Continue with ChromaDB as fallback for all document types
+    logger.info(f"Using ChromaDB for retrieval (fallback)")
     
     # ✅ Log detailed search initiation
     ai_logger.info("Vector database search initiated", extra={
@@ -1609,7 +1737,6 @@ def delete_url_from_chroma(bot_id: int, url: str):
     
     try:
         # Create a consistent ID for the URL (MD5 hash, same as in scraper.py)
-        import hashlib
         website_id = hashlib.md5(url.encode()).hexdigest()
         url_str = str(url)
         
