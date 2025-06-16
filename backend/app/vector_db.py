@@ -520,32 +520,23 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
         logger.info(f"*** COLLECTION: {base_collection_name} - SOURCE TYPE: {source_type} ***", 
                    extra={"bot_id": bot_id, "collection": base_collection_name, "source": source_type})
         
-        # FOR FILE UPLOADS: Use Qdrant instead of ChromaDB
-        # Check if this is a file upload by examining metadata
-        is_file_upload = (
-            source_type in ['file', 'upload', 'document'] or 
-            metadata.get('file_name') is not None or 
-            metadata.get('file_path') is not None or
-            'file' in metadata.get('id', '').lower()
-        )
+        # FOR ALL DOCUMENT TYPES: Try Qdrant first, then fallback to ChromaDB
+        logger.info(f"*** ROUTING ALL DOCUMENTS TO QDRANT - SOURCE TYPE: {source_type} ***", 
+                   extra={"bot_id": bot_id, "source": source_type})
         
-        if is_file_upload:
-            logger.info(f"*** FILE UPLOAD DETECTED - ROUTING TO QDRANT ***", 
-                       extra={"bot_id": bot_id, "source": source_type})
-            
-            # Use Qdrant for file uploads
-            success = add_document_to_qdrant(bot_id, text, metadata, force_model, user_id)
-            if success:
-                logger.info(f"Document successfully added to Qdrant", 
-                           extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown')})
-                return  # Successfully added to Qdrant, exit early
-            else:
-                logger.warning(f"Failed to add document to Qdrant, falling back to ChromaDB",
-                              extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown')})
-                # Continue with ChromaDB as fallback
+        # Use Qdrant for all document types (files, YouTube, websites)
+        success = add_document_to_qdrant(bot_id, text, metadata, force_model, user_id)
+        if success:
+            logger.info(f"Document successfully added to Qdrant", 
+                       extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown')})
+            return  # Successfully added to Qdrant, exit early
+        else:
+            logger.warning(f"Failed to add document to Qdrant, falling back to ChromaDB",
+                          extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown')})
+            # Continue with ChromaDB as fallback
         
-        # FOR NON-FILE UPLOADS (YouTube, websites, etc.): Continue with ChromaDB
-        logger.info(f"*** USING CHROMADB FOR SOURCE TYPE: {source_type} ***", 
+        # FALLBACK TO CHROMADB if Qdrant fails
+        logger.info(f"*** USING CHROMADB AS FALLBACK FOR SOURCE TYPE: {source_type} ***", 
                    extra={"bot_id": bot_id, "source": source_type})
         
         # Check if this is a re-embedding process by looking at metadata
@@ -808,8 +799,8 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                extra={"bot_id": bot_id, "query_length": len(query_text), 
                      "top_k": top_k})
     
-    # FOR FILE UPLOADS: Try Qdrant first, then fallback to ChromaDB
-    # Check if there are any file upload documents by trying Qdrant first
+    # FOR ALL DOCUMENT TYPES: Try Qdrant first, then fallback to ChromaDB
+    # Check if there are any documents in Qdrant by trying it first
     try:
         qdrant_results = retrieve_similar_docs_from_qdrant(bot_id, query_text, top_k, user_id)
         if qdrant_results:
@@ -820,8 +811,8 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
     except Exception as e:
         logger.warning(f"[QDRANT] Error with Qdrant, falling back to ChromaDB: {str(e)}")
     
-    # Continue with ChromaDB for non-file uploads or as fallback
-    logger.info(f"Using ChromaDB for retrieval")
+    # Continue with ChromaDB as fallback for all document types
+    logger.info(f"Using ChromaDB for retrieval (fallback)")
     
     # ✅ Log detailed search initiation
     ai_logger.info("Vector database search initiated", extra={
