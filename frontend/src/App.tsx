@@ -46,7 +46,7 @@ import ShippingAndExchange from "./pages/ShippingAndExchange/index.tsx";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import ReactGA from "react-ga4";
-const GA_MEASUREMENT_ID =import.meta.env.GA_MEASUREMENT_ID || "G-YXF6SH4ZZP";
+const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID ;
 const TrackPageView = () => {
   const location = useLocation();
 
