@@ -194,7 +194,16 @@ export const ChatbotCustomization = () => {
       text: string;
       message_id?: number;
       reaction?: "like" | "dislike";
-    }[]
+      is_greeting?: boolean; 
+      sources?: Array<{  // Add sources to the message object
+      file_name: string;
+      source: string;
+      content_preview: string;
+      website_url: string;
+      url: string;
+    }>;
+    showSources?: boolean;  // Add flag to control visibility
+  }[]
   >([]);
 
   const [inputMessage, setInputMessage] = useState("");
@@ -216,6 +225,7 @@ export const ChatbotCustomization = () => {
   const userPlanId = user?.subscription_plan_id || 1;
   const userPlan = getPlanById(userPlanId);
   const userAddonIds = user?.addon_plan_ids || [];
+  // const [showSources, setShowSources] = useState(false);
   const userActiveAddons = addons
     ? addons.filter((addon) => userAddonIds.includes(addon.id))
     : [];
@@ -310,6 +320,14 @@ const [showCustomize, setShowCustomize] = useState(false);
 
 const [customizedThemes, setCustomizedThemes] = useState<Record<string, Partial<BotSettings>>>({});
 const [selectedPredefinedIcon, setSelectedPredefinedIcon] = useState<string | null>(null);
+
+// const [sources, setSources] = useState<Array<{
+//     file_name: string;
+//     source: string;
+//     content_preview: string;
+//     website_url: string;
+//     url:string,
+// }>>([]);
 
   useEffect(() => {
     interactionIdRef.current = interactionId;
@@ -686,6 +704,8 @@ useEffect(() => {
   };
 
   const sendMessage = async () => {
+
+   
     // First check if we can send (either base or addon messages available)
     if (!canSendMessage()) {
       toast.error(
@@ -693,7 +713,7 @@ useEffect(() => {
       );
       return;
     }
-
+     
     // Then check if we have any remaining messages (base or addon)
     if (messageUsage.effectiveRemaining <= 0) {
       toast.error("You've used all your available messages for this period.");
@@ -731,6 +751,16 @@ useEffect(() => {
         isAddonMessage
       );
       setBotMessageId(data.message_id);
+
+      const botMessage = {
+      sender: "bot",
+      text: data.message,
+      message_id: data.message_id,
+      is_greeting: data.is_greeting,
+      sources: data.sources || [], // Add sources to this message
+      showSources: false // Start with sources hidden
+    };
+
 
       // CALL RECORD USAGE IF USING ADDON
       if (isAddonMessage) {
@@ -788,21 +818,23 @@ useEffect(() => {
                   charIndex,
                   data.message,
                   data.message_id,
-                  newMessages
+                  newMessages,
+                  botMessage 
                 );
               }, 200 + Math.random() * 200);
             }
           } else {
             clearInterval(typingInterval);
             setIsBotTyping(false);
-            setMessages([
-              ...newMessages,
-              {
-                sender: "bot",
-                text: data.message,
-                message_id: data.message_id,
-              },
-            ]);
+            // setMessages([
+            //   ...newMessages,
+            //   {
+            //     sender: "bot",
+            //     text: data.message,
+            //     message_id: data.message_id,               
+            //   },
+            //   botMessage
+            // ]);
           }
         }, baseTypingSpeed);
       }, thinkingDelay);
@@ -815,11 +847,26 @@ useEffect(() => {
     }
   };
 
+ 
   const startTypingAnimation = (
     startIndex: number,
     fullMessage: string,
     message_id: number,
-    newMessages: Array<{ sender: string; text: string }>
+    newMessages: Array<{ sender: string; text: string }>,
+    botMessage: { // Add this parameter
+    sender: string;
+    text: string;
+    message_id?: number;
+    is_greeting?: boolean;
+    sources?: Array<{
+      file_name: string;
+      source: string;
+      content_preview: string;
+      website_url: string;
+      url: string;
+    }>;
+    showSources?: boolean;
+  }
   ) => {
     let charIndex = startIndex;
     const baseTypingSpeed = 25;
@@ -838,20 +885,36 @@ useEffect(() => {
               charIndex,
               fullMessage,
               message_id,
-              newMessages
+              newMessages,
+              botMessage
             );
           }, 200 + Math.random() * 200);
         }
       } else {
         clearInterval(typingInterval);
         setIsBotTyping(false);
-        setMessages([
-          ...newMessages,
-          { sender: "bot", text: fullMessage, message_id: message_id },
-        ]);
+        // setMessages([
+        //   ...newMessages,
+        //   { sender: "bot", text: fullMessage, message_id: message_id},
+        //   botMessage
+        // ]);
+        setMessages([...newMessages, botMessage]);
+        
       }
     }, baseTypingSpeed);
   };
+
+  const toggleSources = (index: number) => {
+  setMessages(prev => prev.map((msg, i) => {
+    if (i === index && msg.sender === "bot") {
+      return { 
+        ...msg, 
+        showSources: !msg.showSources 
+      };
+    }
+    return msg;
+  }));
+};
 
   const handleSaveSettings = async () => {
     try {
@@ -2069,6 +2132,7 @@ const handleThemeSelect = async (themeId: string) => {
                     {/* Reaction Buttons BELOW the bubble, only for bot */}
                     {msg.sender === "bot" && index > 0 && (
                       <div className="flex gap-2 mt-1 ml-2 ">
+                        <div className="flex gap-2">
                         <button
                           onClick={() => handleReaction("like", index)}
                           className={`p-1 rounded-full transition-colors  ${
@@ -2090,6 +2154,46 @@ const handleThemeSelect = async (themeId: string) => {
                           <ThumbsDown className="w-4 h-4" />
                         </button>
                       </div>
+                      {/* Add View Sources button */}
+                       {msg.sources && msg.sources.length > 0 && !msg.is_greeting && (
+                        <button 
+                        onClick={() => toggleSources(index)}
+                        className="text-xs text-blue-500 hover:text-blue-700 text-left"
+                      >
+                      {msg.showSources ? 'Hide Sources' : 'View Sources'}
+                        </button>
+                          )}
+                    {msg.showSources && msg.sources && msg.sources.length > 0 && !msg.is_greeting &&  (
+                    <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
+                       <ul className="space-y-2">
+                      {msg.sources.map((source, idx) =>(
+                      <li key={idx}>
+                          {/* Display type based on source */}
+                           {source.source === 'upload' && (
+                           <>
+                              <span className="font-semibold">Source Type: Files</span>
+                              <div className="text-gray-600">File Name: {source.file_name}</div>
+                            </>
+                      )}
+                        {source.source === 'website' && (
+                        <>
+                            <span className="font-semibold">Source Type: Website</span>
+                            <div className="text-gray-600">URL: {source.website_url}</div>
+                        </>
+                    )}
+                        {source.source === 'youtube' && (
+                        <>
+                            <span className="font-semibold">Source Type: YouTube</span>
+                            <div className="text-gray-600">URL: {source.url}</div>
+                        </>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                )}
+                      </div>
+                      
                     )}
                   </div>
                 ))

@@ -59,8 +59,7 @@ export interface ChatbotWidgetHandle {
 }
 
 const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
-  ({ botId, closeWidget, baseDomain, appearance: widgetAppearance  }, ref) => {
-    
+  ({ botId, closeWidget, baseDomain, appearance: widgetAppearance }, ref) => {
     const [botSettings, setBotSettings] = useState<BotSettings | null>(null);
     const isDirectLink = !!widgetAppearance; // If widgetAppearance exists, it's a direct link
     const isFullScreen = isDirectLink || botSettings?.appearance === "Full Screen";
@@ -70,6 +69,15 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         message: string;
         message_id?: number;
         reaction?: "like" | "dislike";
+        is_greeting?: boolean;
+        sources?: Array<{
+          file_name: string;
+          source: string;
+          content_preview: string;
+          website_url: string;
+          url: string;
+        }>;
+        showSources?: boolean;
       }[]
     >([]);
     const [inputMessage, setInputMessage] = useState("");
@@ -131,18 +139,18 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         try {
           // Call the API that checks if the user has the White-Labeling addon
           const response = await axios.get(
-        `${baseDomain}/api/user/addon/white-labeling-check`,
-        {
-          headers: {
-            Authorization: `Bot ${botId}`, // Securely send botId
-          },
-        }
-      );
+            `${baseDomain}/api/user/addon/white-labeling-check`,
+            {
+              headers: {
+                Authorization: `Bot ${botId}`,
+              },
+            }
+          );
           console.log("White-Labeling response", response);
           setHasWhiteLabeling(response.data.hasWhiteLabeling);
         } catch (error) {
           console.error("Error checking White-Labeling addon", error);
-          setHasWhiteLabeling(false); // Default to false in case of error
+          setHasWhiteLabeling(false);
         }
       };
 
@@ -167,53 +175,27 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       }
     }, [botSettings, hasWelcomeBeenShown, messages.length]);
 
-    // useEffect(() => {
-    //   if (
-    //     botSettings?.welcome_message &&
-    //     !welcomeMessage &&
-    //     !hasWelcomeBeenShown
-    //   ) {
-    //     let displayed = "";
-
-    //     let index = 0;
-    //     const typeInterval = setInterval(() => {
-    //       if (index < (botSettings?.welcome_message?.length ?? 0)) {
-    //         displayed += botSettings.welcome_message?.[index] ?? "";
-    //         setWelcomeMessage(displayed);
-    //         index++;
-    //       } else {
-    //         clearInterval(typeInterval);
-    //         setHasWelcomeBeenShown(true);
-    //       }
-    //     }, 30); // Typing speed
-    //   }
-    // }, [botSettings, welcomeMessage, hasWelcomeBeenShown]);
-
-    // Attach unload listener and idle timer
     useEffect(() => {
-  const sendEndRequest = () => {
-    if (!sessionIdRef.current) return;
+      const sendEndRequest = () => {
+        if (!sessionIdRef.current) return;
 
-    fetch(
-      `${baseDomain}/widget/interactions/${sessionIdRef.current}/end`,
-      {
-        method: "PUT",
-        keepalive: true,
-      }
-    );
-    sessionIdRef.current = null;
-  };
+        fetch(`${baseDomain}/widget/interactions/${sessionIdRef.current}/end`, {
+          method: "PUT",
+          keepalive: true,
+        });
+        sessionIdRef.current = null;
+      };
 
   // Only use pagehide — fired reliably on tab close, back, reload
   window.addEventListener("pagehide", sendEndRequest);
 
   resetIdleTimer(); // keep your idle timeout
 
-  return () => {
-    window.removeEventListener("pagehide", sendEndRequest);
-    if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
-  };
-}, [baseDomain]);
+      return () => {
+        window.removeEventListener("pagehide", sendEndRequest);
+        if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
+      };
+    }, [baseDomain]);
 
     useEffect(() => {
       const style = document.createElement("style");
@@ -281,19 +263,31 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         return luminance > 0.5 ? '#1F2937' : '#FFFFFF';
       };
 
+    const toggleSources = (index: number) => {
+      setMessages(prev => prev.map((msg, i) => {
+        if (i === index && msg.sender === "bot") {
+          return { 
+            ...msg, 
+            showSources: !msg.showSources 
+          };
+        }
+        return msg;
+      }));
+    };
+
     const sendMessage = async () => {
       const trimmedMessage = inputMessage.trim();
       if (!trimmedMessage) return;
-      console.log("I am here sendMessage")
+      console.log("I am here sendMessage");
 
       const quotaResponse = await axios.get(
-      `${baseDomain}/api/usage/messages/check`,
-      {
-        headers: {
-          Authorization: `Bot ${botId}`, // ✅ Securely send botId in header
-        },
-      }
-    );
+        `${baseDomain}/api/usage/messages/check`,
+        {
+          headers: {
+            Authorization: `Bot ${botId}`,
+          },
+        }
+      );
       if (!quotaResponse.data.canSendMessage) {
         setUsageError(
           "We are facing technical issue. Kindly reach out to website admin for assistance."
@@ -317,16 +311,16 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       ]);
       setInputMessage("");
       resetIdleTimer();
-      console.log("Current session ID:", sessionIdRef.current); // Debug log
+      console.log("Current session ID:", sessionIdRef.current);
 
       try {
-          if (!sessionIdRef.current) {
+        if (!sessionIdRef.current) {
           const startResponse = await axios.post(
             `${baseDomain}/widget/start_chat`,
-            {session_id: userIdRef.current }, // Empty body since backend doesn't require anything in the body
+            { session_id: userIdRef.current },
             {
               headers: {
-                Authorization: `Bot ${botId}`, // Bot ID passed in header
+                Authorization: `Bot ${botId}`,
               },
             }
           );
@@ -354,12 +348,12 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         });
         console.log("responsesend_message ", response);
 
-        //clearInterval(dotInterval); // Stop the dots animation
-        setCurrentBotMessage(""); // Clear the dots
-
+        setCurrentBotMessage("");
+        
         const botReply = response.data.message;
-        const botMessageId = response.data.message_id; // make sure backend sends this
-        // ✅ Handle backend error gracefully
+        const botMessageId = response.data.message_id;
+        const sources = response.data.sources || [];
+
         if (response.data.error) {
           setUsageError(
             "We are facing a technical issue. Kindly reach out to the website admin for assistance."
@@ -380,12 +374,18 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             clearInterval(typeInterval);
             setMessages((prev) => [
               ...prev,
-              { sender: "bot", message: botReply, message_id: botMessageId },
+              { 
+                sender: "bot", 
+                message: botReply, 
+                message_id: botMessageId,
+                sources: sources,
+                showSources: false
+              },
             ]);
             setCurrentBotMessage("");
             setIsBotTyping(false);
           }
-        }, 30); // speed of typing (adjust as needed)
+        }, 30);
       } catch (error) {
         console.error("Failed to send message:", error);
         setMessages((prev) => [
@@ -427,7 +427,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             headers: {
               "Content-Type": "application/json",
               Accept: "application/json",
-              Authorization: `Bot ${botId}`, // Securely send botId
+              Authorization: `Bot ${botId}`,
             },
             body: JSON.stringify({
               interaction_id: interaction_id,
@@ -475,7 +475,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         } catch (err) {
           console.error("Failed to end session:", err);
         } finally {
-          sessionIdRef.current = null; // ✅ Reset here
+          sessionIdRef.current = null;
         }
       }
     };
@@ -492,7 +492,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       idleTimeoutRef.current = setTimeout(() => {
         endSession();
         sessionIdRef.current = null;
-      }, 60 * 60 * 1000); // 1 hour
+      }, 60 * 60 * 1000);
     };
 
     if (!botSettings) return <div>Loading chatbot...</div>;
@@ -506,7 +506,6 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       user_color,
       position,
       window_bg_color,
-      
       input_bg_color,
       header_bg_color,
       header_text_color,
@@ -514,7 +513,6 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       chat_text_color,
       button_color,
       button_text_color,
-      
       chat_font_family,
       border_radius,
       border_color,
@@ -555,42 +553,38 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
-
       ...(isFullScreen
         ? {
             top: 0,
             left: 0,
-            right: 0, // Add right: 0 to ensure full width
-            bottom: 0, // Add bottom: 0 to ensure full height
+            right: 0,
+            bottom: 0,
             width: "100%",
             height: "100%",
             backgroundColor: window_bg_color || "#F9FAFB",
             border: "none",
             borderRadius: border_radius || "20px",
             boxShadow: "none",
-            // Adjust close button position to account for safe areas
             paddingTop: "env(safe-area-inset-top, 0px)",
             paddingBottom: "env(safe-area-inset-bottom, 0px)",
             paddingLeft: "env(safe-area-inset-left, 0px)",
             paddingRight: "env(safe-area-inset-right, 0px)",
             '@media (max-width: 768px)': {
               fontSize: font_size ? `${font_size * 0.9}px` : "13px",
-              // Add any other mobile-specific full screen adjustments
-        }
+            }
           }
         : {
             ...(vertical === "top" ? { top: "110px" } : { bottom: "90px" }),
             ...(horizontal === "left" ? { left: "20px" } : { right: "20px" }),
             width: "380px",
-            maxWidth: "calc(100dvw - 40px)", // Account for margins
+            maxWidth: "calc(100dvw - 40px)",
             height: "600px",
-            maxHeight: "calc(100dvh - 140px)", // Account for header and margins
+            maxHeight: "calc(100dvh - 140px)",
             backgroundColor: window_bg_color || "#F9FAFB",
             border: `1px solid ${border_color || "#E5E7EB"}`,
             borderRadius: border_radius || "12px",
             boxShadow:
               "rgba(0, 0, 0, 0.2) 5px 5px 25px -5px, rgba(0, 0, 0, 0.1) 0px 8px 10px -6px",
-            // Mobile adjustments for widget
             '@media (max-width: 768px)': {
                 width: "calc(100vw - 40px)",
                 height: "70vh",
@@ -608,7 +602,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       alignItems: "center",
       fontSize: "18px",
       gap: "8px",
-      fontWeight: 600,         // font-semibold
+      fontWeight: 600,
       fontFamily: `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif`,
     };
 
@@ -631,12 +625,11 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
     const inputStyle: React.CSSProperties = {
       display: "flex",
-
-      padding: "16px", // equivalent to p-4
+      padding: "16px",
       borderTop: `1px solid ${border_color || "#E5E7EB"}`,
       alignItems: "center",
       backgroundColor: "#374151",
-      gap: "0.5rem", // similar to spacing between input and button in Tailwind
+      gap: "0.5rem",
     };
 
     // const timestampStyle: React.CSSProperties = {
@@ -657,29 +650,29 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     return (
       <div ref={chatContainerRef} style={widgetStyle}>
         {!isDirectLink && (
-        <div
-          style={{
-            position: "absolute",
-            top: `calc(10px + env(safe-area-inset-top, 0px))`,
-            right: `calc(10px + env(safe-area-inset-right, 0px))`,
-            fontSize: chat_font_family ? `${font_size}px` : "14px",
-            color: "#fff",
-            cursor: "pointer",
-            zIndex: 1,
-          }}
-          onClick={() => {
-            endSession();
-            closeWidget(); // Close the widget when X is pressed
-          }}
-        >
-          ✕
-        </div>
-       )}
+          <div
+            style={{
+              position: "absolute",
+              top: `calc(10px + env(safe-area-inset-top, 0px)`,
+              right: `calc(10px + env(safe-area-inset-right, 0px)`,
+              fontSize: chat_font_family ? `${font_size}px` : "14px",
+              color: "#fff",
+              cursor: "pointer",
+              zIndex: 1,
+            }}
+            onClick={() => {
+              endSession();
+              closeWidget();
+            }}
+          >
+            ✕
+          </div>
+        )}
         <div style={headerStyle}>
           {bot_icon && <img src={bot_icon} alt="Bot Icon" style={iconStyle} />}
           {bot_name}
         </div>
- 
+
         <div style={chatBodyStyle}>
           <div style={{ marginTop: "auto" }}>
             {messages.map((msg, index) => (
@@ -706,10 +699,14 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                   }}
                 >
                   <div>{msg.message}</div>
-                  <div style={{fontSize: "11px",marginTop: "4px",textAlign: "right",color:
-      msg.sender === "user"
-        ? user_text_color || "#ffffff"
-        : chat_text_color || "#111827",}}>
+                  <div style={{
+                    fontSize: "11px",
+                    marginTop: "4px",
+                    textAlign: "right",
+                    color: msg.sender === "user"
+                      ? user_text_color || "#ffffff"
+                      : chat_text_color || "#111827"
+                  }}>
                     {new Date().toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -717,7 +714,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                   </div>
                 </div>
 
-                {/* Reaction Buttons - Only for Bot */}
+                {/* Reaction Buttons and Sources Toggle */}
                 {msg.sender === "bot" && index !== 0 && (
                   <div
                     style={{
@@ -754,12 +751,64 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                     >
                       <ThumbsDown size={16} />
                     </button>
+                    
+                    {/* View Sources button */}
+                    {msg.sources && msg.sources.length > 0 && !msg.is_greeting && (
+                      <button 
+                        onClick={() => toggleSources(index)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#3b82f6",
+                          fontSize: "12px",
+                          padding: "4px",
+                        }}
+                      >
+                        {msg.showSources ? 'Hide Sources' : 'View Sources'}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Sources display */}
+                {msg.showSources && msg.sources && msg.sources.length > 0 && !msg.is_greeting && (
+                  <div style={{
+                    marginTop: "8px",
+                    padding: "8px",
+                    backgroundColor: "rgba(0,0,0,0.05)",
+                    borderRadius: "8px",
+                    fontSize: "12px"
+                  }}>
+                    <ul style={{ listStyleType: "none", paddingLeft: 0 }}>
+                      {msg.sources.map((source, idx) => (
+                        <li key={idx} style={{ marginBottom: "8px" }}>
+                          {source.source === 'upload' && (
+                            <>
+                              <div style={{ fontWeight: "bold" }}>Source Type: Files</div>
+                              <div>File Name: {source.file_name}</div>
+                            </>
+                          )}
+                          {source.source === 'website' && (
+                            <>
+                              <div style={{ fontWeight: "bold" }}>Source Type: Website</div>
+                              <div>URL: {source.website_url}</div>
+                            </>
+                          )}
+                          {source.source === 'youtube' && (
+                            <>
+                              <div style={{ fontWeight: "bold" }}>Source Type: YouTube</div>
+                              <div>URL: {source.url}</div>
+                            </>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </div>
             ))}
-            {/* <div ref={chatEndRef} /> */}
-            {/* Bot is Typing */}
+
             {isBotTyping && (
               <div
                 className="mr-auto my-2"
@@ -927,7 +976,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             <div ref={messagesEndRef} />
           </div>
         </div>
-        {/* "Powered by Elvora" footer */}
+
         {!hasWhiteLabeling && (
           <div
             style={{
@@ -941,6 +990,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             Powered by Evolra AI
           </div>
         )}
+
         {usageError && (
           <div
             style={{
@@ -963,10 +1013,9 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             type="text"
             style={{
               flexGrow: 1,
-              padding: "0.5rem 0.75rem", // similar to Tailwind `p-2`
+              padding: "0.5rem 0.75rem",
               border: `1px solid ${border_color || "#d1d5db"}`,
-              borderRadius:border_radius || "20px",
-                
+              borderRadius: border_radius || "20px",
               backgroundColor: input_bg_color || "#ffffff",
               color: chat_text_color || "#111827",
               outline: "none",
@@ -981,8 +1030,8 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && inputMessage.trim() &&
-    !isSendDisabled &&
-    !isBotTyping) {
+                !isSendDisabled &&
+                !isBotTyping) {
                 sendMessage();
               }
             }}
@@ -993,13 +1042,13 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
               marginLeft: "0.5rem",
               padding: "0.5rem 1rem",
               lineHeight: "1.5rem",
-              backgroundColor: button_color || "#3b82f6", // tailwind blue-500
+              backgroundColor: button_color || "#3b82f6",
               color: button_text_color || "#ffffff",
               borderRadius: border_radius || "20px",
               cursor:
                 !inputMessage.trim() || isSendDisabled || isBotTyping
                   ? "not-allowed"
-                  : "pointer", // disabled:cursor-not-allowed
+                  : "pointer",
               border: "none",
               transition: "opacity 0.2s ease",
               opacity: !inputMessage.trim() || isSendDisabled || isBotTyping ? 0.7 : 1,
@@ -1007,7 +1056,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             }}
             onMouseOver={(e) => {
               (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                "#2563eb"; // blue-600
+                "#2563eb";
             }}
             onMouseOut={(e) => {
               (e.currentTarget as HTMLButtonElement).style.backgroundColor =
@@ -1020,12 +1069,10 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
               isBotTyping ||
               inputMessage.length > MAX_USER_MESSAGE_LENGTH
             }
-            
           >
             Send
           </button>
         </div>
-        {/* Show warning if max length reached */}
         {inputMessage.length > MAX_USER_MESSAGE_LENGTH && (
           <div
             style={{

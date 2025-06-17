@@ -315,6 +315,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
                 "metadata": doc.get("metadata", {})
             }
             doc_details.append(doc_detail)
+            print("doc_detail=>",doc_detail)
         
         ai_logger.info("Retrieved document details", extra={
             "ai_task": {
@@ -422,9 +423,34 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
             "user_message_id": user_message.message_id
         }
     )
+  
+    document_sources = []
+    
+    # Only show sources if:
+    # 1. Not a greeting
+    # 2. Not a default "no answer" response
+    # 3. We have similar docs
+    if (not is_greeting(request.message_text) and 
+       not bot_reply_dict.get("is_default_response", False) and
+       similar_docs):
+        
+        highest_score_doc = max(similar_docs, key=lambda x: x.get('score', 0))
+        metadata = highest_score_doc.get('metadata', {})
+        
+        document_sources.append({
+            'source': metadata.get('source', 'Unknown source'),
+            'file_name': metadata.get('file_name', 'Unknown source'),
+            'website_url': metadata.get('website_url', 'Unknown source'),
+            'url': metadata.get('url', 'Unknown source')
+        })
 
-    return {"message": bot_reply_text, "message_id": bot_message.message_id}
-
+    return {
+        "message": bot_reply_text,
+        "message_id": bot_message.message_id,
+        "sources": document_sources,
+        "is_greeting": is_greeting(request.message_text)
+    }
+   
 @router.get("/get_chat_messages")
 def get_chat_messages(interaction_id: int, db: Session = Depends(get_db)):
     """Fetches all messages for a given chat session."""
