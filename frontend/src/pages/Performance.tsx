@@ -752,7 +752,7 @@ const renderCustomLegend2 = (props: any) => {
                       value: billingCycleMetrics.totalChatDuration,
                     },
                     {
-                      metric: "Unique Session IDs", // new row
+                      metric: "Unique Users Count", // new row
                      value: billingCycleMetrics.uniqueSessionIds.toLocaleString(),
                     },
                     
