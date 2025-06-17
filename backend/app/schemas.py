@@ -129,6 +129,8 @@ class BotBase(BaseModel):
     border_radius: Optional[str] = "12px"
     border_color: Optional[str] = "#E5E7EB"
     chat_font_family: Optional[str] = "Inter"
+    lead_generation_enabled: Optional[bool] = False
+    lead_form_fields: Optional[List[str]] = Field(default_factory=list)
 
 class BotCreate(BotBase):
     pass  
@@ -510,6 +512,8 @@ class BotWidgetResponse(BaseModel):
     border_radius: Optional[str] = "12px"
     border_color: Optional[str] = "#E5E7EB"
     chat_font_family: Optional[str] = "Inter"
+    lead_generation_enabled: Optional[bool] = False
+    lead_form_fields: Optional[List[str]] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -525,3 +529,17 @@ class BotWidgetInitialResponse(BaseModel):
     avatarUrl: Optional[str]
     position: Literal["top-left", "top-right", "bottom-left", "bottom-right"]
     welcomeMessage: Optional[str]
+
+class LeadCreate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+
+class LeadOut(BaseModel):
+    id: int
+    name: Optional[str]
+    email: Optional[str]
+    phone: Optional[str]
+    address: Optional[str]
+    created_at: datetime
