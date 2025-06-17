@@ -350,7 +350,7 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         # db.add_all([user_msg, bot_msg])
         # db.commit()
         
-        return {"bot_reply": greeting_response}
+        return {"bot_reply": greeting_response,"is_default_response": True}
     
     # ✅ Check if this is a farewell message, to save tokens
     is_farewell_msg, farewell_response = is_farewell(user_message)
@@ -364,7 +364,7 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         # db.add_all([user_msg, bot_msg])
         # db.commit()
         
-        return {"bot_reply": farewell_response}
+        return {"bot_reply": farewell_response,"is_default_response": True}
     
     use_external_knowledge = bot.external_knowledge if bot else False
     temperature = bot.temperature if bot and bot.temperature is not None else 0.7
@@ -405,7 +405,8 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
             bot_reply = "I can only answer based on uploaded documents, but I don't have information on that topic."
             logger.info(f"No relevant documents found and external knowledge disabled", 
                        extra={"bot_id": bot_id})
-            return {"bot_reply": bot_reply}
+            return {"bot_reply": bot_reply,
+                "is_default_response": True }
     else:
         # Note: vector_db.py returns documents with a "content" field
         context = " ".join([doc.get("content", "") for doc in similar_docs])
@@ -436,11 +437,27 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         logger.debug(f"Stored conversation in database", 
                     extra={"bot_id": bot_id, "interaction_id": interaction.interaction_id})
 
-        return {"bot_reply": bot_reply}
+        is_default_response = any(
+            phrase.lower() in bot_reply.lower() 
+            for phrase in [
+                "i don't know",
+                "i don't have information",
+                "i couldn't find",
+                "no information available"
+            ]
+        )
+        return {
+            "bot_reply": bot_reply,
+            "is_default_response": is_default_response
+        }
     except Exception as e:
         logger.exception(f"Error generating response", 
                         extra={"bot_id": bot_id, "error": str(e)})
-        raise HTTPException(status_code=500, detail=f"Chatbot error: {str(e)}")
+        return {
+            "bot_reply": "I encountered an error processing your request. Please try again.",
+            "is_default_response": True
+        }
+        #raise HTTPException(status_code=500, detail=f"Chatbot error: {str(e)}")
 
 
 @router.post("/fetch-videos")
