@@ -36,6 +36,7 @@ nltk
 
 # For LLM Part
 chromadb
+qdrant_client
 langchain
 langchain_openai
 openai

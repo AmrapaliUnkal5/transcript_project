@@ -490,8 +490,32 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
     messageid_data_token = create_tokens(bot_message.message_id)
     print("bot_message.message_id",messageid_data_token)
 
-    return {"message": bot_reply_text, "message_id": messageid_data_token}
+    document_sources = []
+    
+    # Only show sources if:
+    # 1. Not a greeting
+    # 2. Not a default "no answer" response
+    # 3. We have similar docs
+    if (not is_greeting(request.message_text) and 
+       not bot_reply_dict.get("is_default_response", False) and
+       similar_docs):
+        
+        highest_score_doc = max(similar_docs, key=lambda x: x.get('score', 0))
+        metadata = highest_score_doc.get('metadata', {})
+        
+        document_sources.append({
+            'source': metadata.get('source', 'Unknown source'),
+            'file_name': metadata.get('file_name', 'Unknown source'),
+            'website_url': metadata.get('website_url', 'Unknown source'),
+            'url': metadata.get('url', 'Unknown source')
+        })
 
+    return {
+        "message": bot_reply_text,
+        "message_id": bot_message.message_id,
+        "sources": document_sources,
+        "is_greeting": is_greeting(request.message_text)
+    }
 
 def check_and_record_addon_usage(
     user_id: int,

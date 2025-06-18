@@ -17,6 +17,7 @@ from app.notifications import add_notification
 from app import models
 from .utils.email_helper import send_email
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
+import hashlib
 
 router = APIRouter(prefix="/botsettings", tags=["Bot Settings"])
 
@@ -57,12 +58,19 @@ async def upload_bot_icon(file: UploadFile = File(...)):
     try:
         # Read file content
         file_content = await file.read()
+
+         # Generate a SHA-256 hash from the content
+        hash_digest = hashlib.sha256(file_content).hexdigest()
+
+        # Get original extension (e.g., .png, .jpg)
+        _, ext = os.path.splitext(file.filename)
+        new_filename = f"{hash_digest}{ext}"
         
         # Save file using the new helper function
-        saved_path = save_file(UPLOAD_DIR, file.filename, file_content)
+        saved_path = save_file(UPLOAD_DIR, new_filename, file_content)
         
         # Generate file URL
-        file_url = get_file_url(UPLOAD_DIR, file.filename, settings.SERVER_URL)
+        file_url = get_file_url(UPLOAD_DIR, new_filename, settings.SERVER_URL)
         
         return JSONResponse(content={"url": file_url})
     

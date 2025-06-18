@@ -40,6 +40,8 @@ SMTP_CONFIG = {
 # Optional API keys - properly handled if not set
 HUGGINGFACE_API_KEY = config("HUGGINGFACE_API_KEY", default=None)
 OPENAI_API_KEY = config("OPENAI_API_KEY", default=None)
+QDRANT_URL = config("QDRANT_URL", default="http://159.89.165.123:6333")
+QDRANT_API_KEY = config("QDRANT_API_KEY", default=None)
 
 class Settings(BaseSettings):
     SECRET_KEY: str = "d75e89c82a0c7d588441cca9849935dd7c43c831a0191ffd821ba2abd307f4f3"
@@ -51,6 +53,8 @@ class Settings(BaseSettings):
     SERVER_URL: str = config("SERVER_URL")  # Add the SERVER_URL here
     HUGGINGFACE_API_KEY: Optional[str] = HUGGINGFACE_API_KEY  # Use Optional to handle None values
     OPENAI_API_KEY: Optional[str] = OPENAI_API_KEY  # Add OpenAI API key
+    QDRANT_URL: str = QDRANT_URL
+    QDRANT_API_KEY: Optional[str] = QDRANT_API_KEY
     WIDGET_API_URL:str =config("WIDGET_API_URL")
     # Add folder path settings
     UPLOAD_BOT_DIR: str = UPLOAD_BOT_DIR

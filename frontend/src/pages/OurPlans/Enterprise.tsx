@@ -345,7 +345,7 @@ export const Enterprise = () => {
               variant="contained"
               color="primary"
               size="large"
-              href="/login"
+              href="/contact-us"
               sx={{
                 fontSize: "18px",
                 fontWeight: 600,
