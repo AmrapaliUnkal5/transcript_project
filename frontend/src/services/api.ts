@@ -774,6 +774,11 @@ updateBotExternalKnowledge: async (botId: number) => {
     const response = await api.get(`/widget/bot/${botId}/token`);
     return response.data;
   },
+
+  getLeadsByBot: async (botId: number) => {
+    const response = await api.get(`/leads/${botId}`);
+    return response.data;
+  },
  
   getCurrentBillingMetrics: async (params: { bot_id: number }) => {
     const response = await api.get('/current-billing-metrics', {

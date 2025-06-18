@@ -45,6 +45,8 @@ interface BotSettings {
   border_radius?: string;
   border_color?: string;
   chat_font_family?: string;
+  lead_generation_enabled?: boolean;
+  lead_form_fields?: Array<"name" | "email" | "phone" | "address">;
 }
 
 interface ChatbotWidgetProps {
@@ -97,6 +99,15 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     const chatContainerRef = useRef<HTMLDivElement | null>(null);
     const [hasWhiteLabeling, setHasWhiteLabeling] = useState(false);
 
+      //for capturing user data
+    const [userName, setUserName] = useState("");
+    const [userEmail, setUserEmail] = useState("");
+    const [userPhone, setUserPhone] = useState("");
+    const [userAddress, setUserAddress] = useState("");
+    const [formSubmitted, setFormSubmitted] = useState(false);
+    const [emailError, setEmailError] = useState("");
+    const widgetdomain = import.meta.env.VITE_WIDGET_DOMAIN;
+
     // At top level of your component
     const userIdRef = useRef<string | null>(null);
 //This is to create the unique userId for first and save in his local storage, it will be saved in his
@@ -124,6 +135,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             }
           );
           console.log("response", response);
+          console.log("lead_form_fields from API:", response.data.lead_form_fields);
           setBotSettings(response.data);
         } catch (error) {
           console.error("Error fetching bot settings:", error);
@@ -506,7 +518,6 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       user_color,
       position,
       window_bg_color,
-      input_bg_color,
       header_bg_color,
       header_text_color,
       user_text_color,
@@ -516,10 +527,13 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       chat_font_family,
       border_radius,
       border_color,
+      lead_generation_enabled,
+      lead_form_fields,
     } = botSettings;
 
     const [vertical, horizontal] = (position || "bottom-right").split("-");
     const MAX_USER_MESSAGE_LENGTH = 1000;
+    const hasLeadFields = (lead_form_fields ?? []).length > 0;
 
     // Log the position values
     // console.log("Bot position:", position);
@@ -623,14 +637,15 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       height: "calc(100% - 120px)",
     };
 
-    const inputStyle: React.CSSProperties = {
-      display: "flex",
-      padding: "16px",
-      borderTop: `1px solid ${border_color || "#E5E7EB"}`,
-      alignItems: "center",
-      backgroundColor: "#374151",
-      gap: "0.5rem",
-    };
+    // const inputStyle: React.CSSProperties = {
+    //   display: "flex",
+
+    //   padding: "16px", // equivalent to p-4
+    //   borderTop: `1px solid ${border_color || "#E5E7EB"}`,
+    //   alignItems: "center",
+    //   backgroundColor: "#ffffff",
+    //   gap: "0.5rem", // similar to spacing between input and button in Tailwind
+    // };
 
     // const timestampStyle: React.CSSProperties = {
     //   fontSize: "11px",
@@ -669,7 +684,11 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
           </div>
         )}
         <div style={headerStyle}>
-          {bot_icon && <img src={bot_icon} alt="Bot Icon" style={iconStyle} />}
+          <img
+            src={bot_icon && bot_icon.trim() !== "" ? bot_icon : `${widgetdomain}/public/images/bot_1.png`}
+            alt="Bot Icon"
+            style={iconStyle}
+          />
           {bot_name}
         </div>
 
@@ -808,7 +827,234 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                 )}
               </div>
             ))}
+            {lead_generation_enabled && messages.length === 1 && !formSubmitted && hasLeadFields && (
+                    <div
+                      style={{
+                        marginBottom: "16px",
+                        maxWidth: isFullScreen ? "40%" : "80%",
+                        backgroundColor: bot_color || "#e5e7eb",
+                        color: chat_text_color || "#111827",
+                        borderRadius: border_radius || "20px",
+                        padding: "12px",
+                        fontFamily: chat_font_family || font_style,
+                        fontSize: font_size ? `${font_size}px` : "14px",
+                        marginLeft: "0px",
+                        marginRight: "auto",
+                        boxSizing: "border-box", // ✅ ensures padding doesn't overflow
+                      }}
 
+                    >
+                      <div style={{ marginBottom: "8px", fontWeight: 500 }}>
+                        Please enter your details to continue:
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                         {lead_form_fields?.includes("name") && (
+                        <div style={{ position: "relative", width: "100%" }}>
+                      <input
+                        type="text"
+                        placeholder="Name"
+                        value={userName}
+                        onChange={(e) => setUserName(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "10px",
+                          borderRadius: border_radius ||  "8px",
+                          border: `1px solid ${border_color || "#ccc"}`,
+                          fontSize: font_size ? `${font_size}px` : "14px",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                      <span
+                            style={{
+                              position: "absolute",
+                              right: "10px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              color: "red",
+                              fontWeight: "bold",
+                              pointerEvents: "none",
+                            }}
+                          >
+                            *
+                          </span>
+                        </div>
+                        )}
+                         {/* Phone (required) */}
+                               {lead_form_fields?.includes("phone") && (
+                              <div style={{ position: "relative", width: "100%" }}>
+                        <input
+                          type="tel"
+                          placeholder="Your Phone"
+                          value={userPhone}
+                          onChange={(e) => {
+                              const value = e.target.value;
+                              const filteredValue = value.replace(/[^0-9+-]/g, "");
+                              setUserPhone(filteredValue)}}
+                          maxLength={15}
+                          style={{
+                            width: "100%",
+                            padding: "10px",
+                            borderRadius: border_radius ||  "8px",
+                            border: `1px solid ${border_color || "#ccc"}`,
+                            fontSize: font_size ? `${font_size}px` : "14px",
+                            backgroundColor: "#fff",
+                            boxSizing: "border-box",
+                          }}
+                        />
+                        <span
+                            style={{
+                              position: "absolute",
+                              right: "10px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              color: "red",
+                              fontWeight: "bold",
+                              pointerEvents: "none",
+                            }}
+                          >
+                            *
+                          </span>
+                        </div>
+)}
+                        {/* Email (optional) */}
+
+                         {lead_form_fields?.includes("email") && (
+                          <div style={{ position: "relative", width: "100%" }}>
+                          <input
+                          type="email"
+                          placeholder="Email"
+                          value={userEmail}
+                          onChange={(e) => setUserEmail(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "10px",
+                            borderRadius: border_radius ||  "8px",
+                            border: `1px solid ${border_color || "#ccc"}`,
+                            fontSize: font_size ? `${font_size}px` : "14px",
+                            boxSizing: "border-box",
+                          }}
+                        />
+                            <span
+                            style={{
+                              position: "absolute",
+                              right: "10px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              color: "red",
+                              fontWeight: "bold",
+                              pointerEvents: "none",
+                            }}
+                          >
+                            *
+                          </span>
+                        </div>
+)}
+                          {/* Address (optional) */}
+                           {lead_form_fields?.includes("address") && (
+                            <div style={{ position: "relative", width: "100%" }}>
+                          <input
+                              type="text"
+                              placeholder="Address"
+                              value={userAddress}
+                              onChange={(e) => setUserAddress(e.target.value)}
+                              style={{
+                                width: "100%",
+                                padding: "10px",
+                                borderRadius: border_radius ||  "8px",
+                                border: `1px solid ${border_color || "#ccc"}`,
+                                fontSize: font_size ? `${font_size}px` : "14px",
+                                boxSizing: "border-box",
+                              }}
+                            />
+                          <span
+                            style={{
+                              position: "absolute",
+                              right: "10px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              color: "red",
+                              fontWeight: "bold",
+                              pointerEvents: "none",
+                            }}
+                          >
+                            *
+                          </span>
+                        </div>
+
+)}
+                        {emailError && (
+                          <div style={{ color: "red", fontSize: "13px" }}>{emailError}</div>
+                        )}
+
+                        <button
+                          onClick={async () => {
+                            // const requiredFields = lead_form_fields || [];
+                            let errorMessage = "";
+
+  if (lead_form_fields?.includes("name") && !userName.trim()) {
+    errorMessage = "Name is required.";
+  }
+
+  if (!errorMessage && lead_form_fields?.includes("phone") && !userPhone.trim()) {
+    errorMessage = "Phone is required.";
+  }
+
+  if (!errorMessage && lead_form_fields?.includes("email")) {
+    if (!userEmail.trim()) {
+      errorMessage = "Email is required.";
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(userEmail.trim())) {
+        errorMessage = "Please enter a valid email address.";
+      }
+    }
+  }
+
+  if (!errorMessage && lead_form_fields?.includes("address") && !userAddress.trim()) {
+    errorMessage = "Address is required.";
+  }
+
+  if (errorMessage) {
+    setEmailError(errorMessage); // or any other error handling logic
+    return;
+  }
+                            try {
+                            await axios.post(`${baseDomain}/widget/lead`, {
+                              name: userName,
+                              phone: userPhone,
+                              email: userEmail,
+                              address: userAddress,
+                            }, {
+                              headers: {
+                                Authorization: `Bot ${botId}`,
+                              },
+                            });
+                          } catch (err) {
+                            console.error("Failed to save lead info", err);
+                          }
+                            setFormSubmitted(true);
+                            setEmailError("");
+
+                          }}
+                          style={{
+                            padding: "10px",
+                            backgroundColor: button_color || "#3b82f6",
+                            color: button_text_color || "#fff",
+                            border: "none",
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            cursor: "pointer",
+                            boxSizing: "border-box",
+                          }}
+                        >
+                          Start Chat
+                        </button>
+                      </div>
+                    </div>
+                  )}
+            {/* <div ref={chatEndRef} /> */}
+            {/* Bot is Typing */}
             {isBotTyping && (
               <div
                 className="mr-auto my-2"
@@ -1008,71 +1254,88 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
           </div>
         )}
 
-        <div style={inputStyle}>
-          <input
-            type="text"
-            style={{
-              flexGrow: 1,
-              padding: "0.5rem 0.75rem",
-              border: `1px solid ${border_color || "#d1d5db"}`,
-              borderRadius: border_radius || "20px",
-              backgroundColor: input_bg_color || "#ffffff",
-              color: chat_text_color || "#111827",
-              outline: "none",
-              fontSize: font_size,
-              transition: "border-color 0.2s ease",
-            }}
-            placeholder="Type a message..."
-            value={inputMessage}
-            onChange={(e) => {
-              const value = e.target.value;
-              setInputMessage(value);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && inputMessage.trim() &&
-                !isSendDisabled &&
-                !isBotTyping) {
-                sendMessage();
-              }
-            }}
-          />
+        {/* New div */}
+                    <div style={{ backgroundColor: "rgb(255, 255, 255)" }}>
+                        <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          backgroundColor: "#E8EBF0",
+                          borderRadius: border_radius || "20px",
+                          padding: "0.25rem 0.5rem",
+                          margin:"1rem",
+                          // opacity: lead_generation_enabled && !formSubmitted ? 0.6 : 1,
+                        }}
+                      >
+                          <input
+                            type="text"
+                            disabled={lead_generation_enabled && !formSubmitted &&  hasLeadFields}
+                            placeholder="Type a message..."
+                            style={{
+                              flexGrow: 1,
+                              padding: "0.5rem 0.75rem",
+                              backgroundColor: "#E8EBF0",
+                              border: "none",
+                              outline: "none",
+                              fontSize: font_size,
+                              borderRadius: border_radius || "20px",
+                              cursor:
+                                lead_generation_enabled && !formSubmitted &&  hasLeadFields ? "not-allowed" : "text",
+                            }}
+                            value={inputMessage}
+                            onChange={(e) => {
+                                      const value = e.target.value;
+                                      setInputMessage(value);
+                                    }}
+                            onKeyDown={(e) => {
+                                      if (e.key === "Enter" && inputMessage.trim() &&
+                                      !isSendDisabled &&
+                                        !isBotTyping &&  (!lead_generation_enabled || formSubmitted || !hasLeadFields )) {
+                                        sendMessage();
+                                      }
+                                    }}
+                                  />
 
-          <button
-            style={{
-              marginLeft: "0.5rem",
-              padding: "0.5rem 1rem",
-              lineHeight: "1.5rem",
-              backgroundColor: button_color || "#3b82f6",
-              color: button_text_color || "#ffffff",
-              borderRadius: border_radius || "20px",
-              cursor:
-                !inputMessage.trim() || isSendDisabled || isBotTyping
-                  ? "not-allowed"
-                  : "pointer",
-              border: "none",
-              transition: "opacity 0.2s ease",
-              opacity: !inputMessage.trim() || isSendDisabled || isBotTyping ? 0.7 : 1,
-              fontWeight: "500",
-            }}
-            onMouseOver={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                "#2563eb";
-            }}
-            onMouseOut={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                "#3b82f6";
-            }}
-            onClick={sendMessage}
-            disabled={
-              !inputMessage.trim() ||
-              isSendDisabled ||
-              isBotTyping ||
-              inputMessage.length > MAX_USER_MESSAGE_LENGTH
-            }
-          >
-            Send
-          </button>
-        </div>
+                            <button
+                              onClick={sendMessage}
+                              disabled={
+                                        !inputMessage.trim() ||
+                                        isSendDisabled ||
+                                        isBotTyping ||
+                                        inputMessage.length > MAX_USER_MESSAGE_LENGTH
+                                        ||
+                                        (lead_generation_enabled && !formSubmitted && hasLeadFields)
+                                      }
+                              style={{
+                                marginLeft: "0.5rem",
+                                border: "none",
+                                backgroundColor: "transparent",
+                                cursor:
+                                  !inputMessage.trim() ||
+                                  isSendDisabled ||
+                                  isBotTyping ||
+                                  (lead_generation_enabled && !formSubmitted && hasLeadFields)
+                                    ? "not-allowed"
+                                    : "pointer",
+                                opacity:
+                                  !inputMessage.trim() ||
+                                  isSendDisabled ||
+                                  isBotTyping ||
+                                  (lead_generation_enabled && !formSubmitted && hasLeadFields)
+                                    ? 0.75
+                                    : 1,
+                              }}
+                            >
+                            <img
+                              src={`${widgetdomain}/public/images/send-icons.png`}
+                              alt="Send"
+                              style={{ width: "20px", height: "20px", objectFit: "contain" }}
+                            />
+                          </button>
+                        </div>
+                        </div>
+
+        {/* Show warning if max length reached */}
         {inputMessage.length > MAX_USER_MESSAGE_LENGTH && (
           <div
             style={{

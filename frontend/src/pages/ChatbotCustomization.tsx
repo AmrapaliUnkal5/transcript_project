@@ -80,6 +80,8 @@ const saveBotSettings = async (
     border_radius: settings.borderRadius,
     border_color: settings.borderColor,
     chat_font_family: settings.chatFontFamily,
+    lead_generation_enabled: settings.lead_generation_enabled,
+    lead_form_fields: settings.leadFormFields,
   };
 
   try {
@@ -130,6 +132,9 @@ const updateBotSettings = async (
     border_radius: settings.borderRadius,
     border_color: settings.borderColor,
     chat_font_family: settings.chatFontFamily,
+    lead_generation_enabled: settings.lead_generation_enabled,
+    lead_form_fields: settings.leadFormFields,
+
   };
 
   try {
@@ -174,6 +179,8 @@ export interface BotSettings {
   borderColor: string;
   chatFontFamily: string;
   userTimestampColor: string;
+  lead_generation_enabled: boolean;
+  leadFormFields?: Array<"name" | "email" | "phone" | "address">;
 }
 
 export const ChatbotCustomization = () => {
@@ -238,6 +245,12 @@ export const ChatbotCustomization = () => {
     return sum + (addon?.additional_message_limit || 0);
   }, 0);
   const totalMessageLimit = baseMessageLimit + addonMessageLimit;
+  const [formSubmitted, setFormSubmitted] = useState(false);
+  const [leadName, setLeadName] = useState("");
+  const [leadEmail, setLeadEmail] = useState("");
+  const [leadPhone, setLeadPhone] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [leadAddress, setLeadAddress] = useState("");
 
   // Track usage state
   const [messageUsage, setMessageUsage] = useState({
@@ -285,6 +298,8 @@ export const ChatbotCustomization = () => {
     borderRadius: "12px",
     borderColor: "#0a0a0a",
     chatFontFamily: "Inter",
+    lead_generation_enabled: false,
+    leadFormFields: ["name", "email", "phone"],
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
@@ -320,6 +335,7 @@ const [showCustomize, setShowCustomize] = useState(false);
 
 const [customizedThemes, setCustomizedThemes] = useState<Record<string, Partial<BotSettings>>>({});
 const [selectedPredefinedIcon, setSelectedPredefinedIcon] = useState<string | null>(null);
+const hasLeadFields = (settings?.leadFormFields ?? []).length > 0;
 
 // const [sources, setSources] = useState<Array<{
 //     file_name: string;
@@ -470,6 +486,8 @@ const [selectedPredefinedIcon, setSelectedPredefinedIcon] = useState<string | nu
             borderRadius: response.border_radius || "12px",
             borderColor: response.border_color || "#E5E7EB",
             chatFontFamily: response.chat_font_family || "Inter",
+            lead_generation_enabled: response.lead_generation_enabled ?? false,
+            leadFormFields: response.lead_form_fields || [],
           });
         }
       } catch (error) {
@@ -919,11 +937,15 @@ useEffect(() => {
   const handleSaveSettings = async () => {
     try {
       if (!userId) return;
+      const updatedSettings = {
+      ...settings,
+      leadFormFields: settings.lead_generation_enabled ? settings.leadFormFields : [],
+       };
       if (isBotExisting && botId) {
         console.log("settings", settings);
-        await updateBotSettings(botId, userId, settings, setLoading);
+        await updateBotSettings(botId, userId, updatedSettings, setLoading);
       } else {
-        await saveBotSettings(settings, userId, setLoading);
+        await saveBotSettings(updatedSettings, userId, setLoading);
       }
       toast.success("Your bot settings have been saved!");
     } catch (error) {
@@ -1024,7 +1046,9 @@ const handlePredefinedIconSelect = async (iconUrl: string) => {
       }
       const formData = new FormData();
       formData.append("file", file);
+      console.log("formData",formData)
       const response = await authApi.uploadBotIcon(formData);
+      console.log("url",response.url)
       handleChange("icon", response.url);
     } catch (error) {
       console.error("Failed to upload bot icon:", error);
@@ -1563,6 +1587,53 @@ const handleThemeSelect = async (themeId: string) => {
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
             handleChange("temperature", parseFloat(e.target.value));
           },
+},
+{
+  type: "custom",
+  render: () => {
+    const options: Array<"name" | "email" | "phone" | "address"> = [
+      "name",
+      "email",
+      "phone",
+      "address",
+    ];
+
+    return (
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+        {/* Enable Lead Generation Form */}
+        <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <input
+            type="checkbox"
+            checked={settings.lead_generation_enabled}
+            onChange={(e) => handleChange("lead_generation_enabled", e.target.checked)}
+          />
+          <span>Enable Lead Generation Form</span>
+        </label>
+
+        {/* Conditionally show the additional checkboxes */}
+        {settings.lead_generation_enabled && (
+          <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "center" }}>
+            {options.map((field) => (
+              <label key={field} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <input
+                  type="checkbox"
+                  checked={settings.leadFormFields?.includes(field)}
+                  onChange={(e) => {
+                    const prev = settings.leadFormFields || [];
+                    const updated = e.target.checked
+                      ? [...prev, field]
+                      : prev.filter((f) => f !== field);
+                    handleChange("leadFormFields", updated);
+                  }}
+                />
+                <span style={{ textTransform: "capitalize" }}>{field}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 }
       ],
     },
@@ -1731,7 +1802,9 @@ const handleThemeSelect = async (themeId: string) => {
                             </option>
                           ))}
                         </select>
-                      ) : field.type === "theme-selector" ? (
+                      ) : field.type === "custom" ? (
+  field.render?.()
+) : field.type === "theme-selector" ? (
   <ThemeSelector
     themes={field.themes}
     selectedTheme={field.selectedTheme}
@@ -2007,7 +2080,7 @@ const handleThemeSelect = async (themeId: string) => {
                        ${
                          settings.appearance === "Popup"
                            ? "w-[331px] h-[517px]"
-                           : "w-screen h-screen bottom-[50px]  right-[32px] "
+                           : "fixed top-0 left-0 w-screen h-screen"
                        }`}
         >
           <div
@@ -2222,7 +2295,237 @@ const handleThemeSelect = async (themeId: string) => {
                     })}
                   </div>
                 </div>
-              )}
+              )}{settings.lead_generation_enabled && hasLeadFields && !formSubmitted && (
+                    <div
+                      style={{
+                        marginBottom: "16px",
+                        maxWidth: "80%",
+                        backgroundColor: settings.botColor || "#ffffff",
+                        color: settings.chatTextColor || "#111827",
+                        borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius || "8px",
+                        padding: "12px",
+                        fontFamily: settings.chatFontFamily,
+                        fontSize: settings.fontSize,
+                        marginLeft: "0px",
+                        marginRight: "auto",
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      <div style={{ marginBottom: "8px", fontWeight: 500 }}>
+                        Please enter your details to continue:
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                         {settings.leadFormFields?.includes("name") && (
+                        <div style={{ position: "relative", width: "100%" }}>
+                          <input
+                            type="text"
+                            placeholder="Name"
+                            value={leadName}
+                            onChange={(e) => setLeadName(e.target.value)}
+                            maxLength={50}
+                            style={{
+                              width: "100%",
+                              padding: "10px 20px 10px 10px", // Add right padding for asterisk
+                              borderRadius:
+                                settings.borderRadius === "rounded-full"
+                                  ? "20px"
+                                  : settings.borderRadius || "8px",
+                              border: `1px solid ${settings.borderColor || "#ccc"}`,
+                              fontSize: settings.fontSize,
+                              color: settings.chatTextColor || "#111827",
+                              backgroundColor: "#fff",
+                              boxSizing: "border-box",
+                            }}
+                          />
+                          <span
+                            style={{
+                              position: "absolute",
+                              right: "10px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              color: "red",
+                              fontWeight: "bold",
+                              pointerEvents: "none",
+                            }}
+                          >
+                            *
+                          </span>
+                        </div>
+                        )}
+                         {/* Phone (required) */}
+                               {settings.leadFormFields?.includes("phone") && (
+                             <div style={{ position: "relative", width: "100%" }}>
+                          <input
+                            type="tel"
+                            placeholder="Phone"
+                            value={leadPhone}
+                             onChange={(e) => {
+                              const value = e.target.value;
+                              const filteredValue = value.replace(/[^0-9+-]/g, "");
+                              setLeadPhone(filteredValue);
+                            }}
+                            maxLength={50}
+                            style={{
+                              width: "100%",
+                              padding: "10px 20px 10px 10px", // Add right padding for asterisk
+                              borderRadius:
+                                settings.borderRadius === "rounded-full"
+                                  ? "20px"
+                                  : settings.borderRadius || "8px",
+                              border: `1px solid ${settings.borderColor || "#ccc"}`,
+                              fontSize: settings.fontSize,
+                              color: settings.chatTextColor || "#111827",
+                              backgroundColor: "#fff",
+                              boxSizing: "border-box",
+                            }}
+                          />
+                          <span
+                            style={{
+                              position: "absolute",
+                              right: "10px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              color: "red",
+                              fontWeight: "bold",
+                              pointerEvents: "none",
+                            }}
+                          >
+                            *
+                          </span>
+                        </div>
+)}
+                        {/* Email (optional) */}
+
+                         {settings.leadFormFields?.includes("email") && (
+                          <div style={{ position: "relative", width: "100%" }}>
+                          <input
+                            type="email"
+                            placeholder="Email"
+                            value={leadEmail}
+                            onChange={(e) => setLeadEmail(e.target.value)}
+                            maxLength={100}
+                            style={{
+                              width: "100%",
+                              padding: "10px",
+                              borderRadius:
+                                settings.borderRadius === "rounded-full"
+                                  ? "20px"
+                                  : settings.borderRadius || "8px",
+                              border: `1px solid ${settings.borderColor || "#ccc"}`,
+                              fontSize: settings.fontSize,
+                              color: settings.chatTextColor || "#111827",
+                              backgroundColor: "#fff",
+                              boxSizing: "border-box",
+                            }}
+                          />
+                          <span
+                            style={{
+                              position: "absolute",
+                              right: "10px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              color: "red",
+                              fontWeight: "bold",
+                              pointerEvents: "none",
+                            }}
+                          >
+                            *
+                          </span>
+                        </div>
+)}
+                          {/* Address (optional) */}
+                           {settings.leadFormFields?.includes("address") && (
+                            <div style={{ position: "relative", width: "100%" }}>
+                          <input
+                            type="text"
+                            placeholder="Address"
+                            value={leadAddress}
+                            onChange={(e) => setLeadAddress(e.target.value)}
+                            maxLength={100}
+                            style={{
+                              width: "100%",
+                              padding: "10px",
+                              borderRadius:
+                                settings.borderRadius === "rounded-full"
+                                  ? "20px"
+                                  : settings.borderRadius || "8px",
+                              border: `1px solid ${settings.borderColor || "#ccc"}`,
+                              fontSize: settings.fontSize,
+                              color: settings.chatTextColor || "#111827",
+                              backgroundColor: "#fff",
+                              boxSizing: "border-box",
+                            }}
+                          />
+                          <span
+                            style={{
+                              position: "absolute",
+                              right: "10px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              color: "red",
+                              fontWeight: "bold",
+                              pointerEvents: "none",
+                            }}
+                          >
+                            *
+                          </span>
+                        </div>
+
+)}
+                        {emailError && (
+                          <div style={{ color: "red", fontSize: "13px" }}>{emailError}</div>
+                        )}
+
+                        <button
+                          onClick={async () => {
+                            const requiredFields = settings.leadFormFields || [];
+                            let errorMessage = "";
+
+                          if (requiredFields.includes("name") && !leadName.trim()) {
+                            errorMessage = "Name is required.";
+                          }
+                          if (!errorMessage && requiredFields.includes("phone") && !leadPhone.trim()) {
+                            errorMessage = "Phone is required.";
+                          }
+                          if (!errorMessage && requiredFields.includes("email")) {
+                            if (!leadEmail.trim()) {
+                              errorMessage = "Email is required.";
+                            } else {
+                              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                              if (!emailRegex.test(leadEmail.trim())) {
+                                errorMessage = "Please enter a valid email address.";
+                              }
+                            }
+                          }
+                          if (!errorMessage && requiredFields.includes("address") && !leadAddress.trim()) {
+                            errorMessage = "Address is required.";
+                          }
+
+                          if (errorMessage) {
+                            setEmailError(errorMessage); // Or your error handler
+                            return;
+                          }
+                            setFormSubmitted(true);
+                            setEmailError("");
+
+                          }}
+                          style={{
+                            padding: "10px",
+                            backgroundColor: settings.buttonColor || "#3b82f6",
+                            color: settings.buttonTextColor || "#fff",
+                            border: "none",
+                            borderRadius: settings.borderRadius === "rounded-full" ? "20px" : settings.borderRadius || "8px",
+                            fontSize: "14px",
+                            cursor: "pointer",
+                            boxSizing: "border-box",
+                          }}
+                        >
+                          Start Chat
+                        </button>
+                      </div>
+                    </div>
+                  )}
               {previewLoading && !isBotTyping && (
                 <div
                   className="mr-auto p-3 rounded-lg max-w-[80%]"
@@ -2308,7 +2611,7 @@ const handleThemeSelect = async (themeId: string) => {
                   style={{
                     // backgroundColor: settings.inputBgColor,
                     borderColor: settings.borderColor,
-                    color: settings.chatTextColor,
+                    // color: settings.chatTextColor,
                     borderRadius:
                       settings.borderRadius === "rounded-full"
                         ? "20px"
@@ -2336,7 +2639,8 @@ const handleThemeSelect = async (themeId: string) => {
                       sendMessage();
                     }
                   }}
-                  disabled={!canSendMessage()}
+                  disabled={!canSendMessage() ||
+              (settings.lead_generation_enabled && hasLeadFields && !formSubmitted)}
                 />
                 <button
                   className="ml-2 px-4 py-2 rounded-lg  disabled:cursor-not-allowed"
@@ -2355,7 +2659,8 @@ const handleThemeSelect = async (themeId: string) => {
                     waitingForBotResponse ||
                     isBotTyping ||
                     previewLoading ||
-                    inputMessage.length > MAX_USER_MESSAGE_LENGTH
+                    inputMessage.length > MAX_USER_MESSAGE_LENGTH ||
+                    (settings.lead_generation_enabled && hasLeadFields && !formSubmitted)
                   }
                 >
                   {/* Send */}

@@ -44,6 +44,7 @@ import Privacy from "./pages/Privacy/index.tsx";
 import ScrollToTop from "./components/ScrolltoTop.tsx";
 import ShippingAndExchange from "./pages/ShippingAndExchange/index.tsx";
 import Investigation from "./pages/investigation.tsx";
+import LeadsDisplay from "./pages/LeadsDisplay.tsx"
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import ReactGA from "react-ga4";
@@ -129,6 +130,7 @@ function App() {
                   <Route path="upload" element={<FileUpload />} />
                   <Route path="investigation" element={<Investigation />} />
                   <Route path="performance" element={<Performance />} />
+                  <Route path="leadsdisplay" element={<LeadsDisplay />} />
                   <Route
                     path="script-generate"
                     element={<ScriptGeneratePage />}

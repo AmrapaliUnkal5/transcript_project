@@ -9,7 +9,7 @@ import enum
 from sqlalchemy.orm import relationship
 import numpy as np
 from app.schemas import ReactionEnum
-
+from sqlalchemy.dialects.postgresql import ARRAY
 
 #Base = declarative_base()
 
@@ -117,6 +117,8 @@ class Bot(Base):
     chunk_size = Column(Integer, nullable=False, default=1000)
     chunk_overlap = Column(Integer, nullable=False, default=100)
     theme_id= Column(String, nullable=False, default="basic")
+    lead_generation_enabled = Column(Boolean, nullable=False, default=False)
+    lead_form_fields = Column(ARRAY(String), nullable=True)
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")
@@ -624,3 +626,16 @@ class BotSlug(Base):
     slug = Column(String(20), unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP, default=func.current_timestamp())
+
+
+class Lead(Base):
+    __tablename__ = "leads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=True)
+    bot_id = Column(Integer, ForeignKey("bots.bot_id", ondelete="CASCADE"), nullable=True)
+    name = Column(Text, nullable=True)
+    email = Column(Text, nullable=True)
+    phone = Column(Text, nullable=True)
+    address = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

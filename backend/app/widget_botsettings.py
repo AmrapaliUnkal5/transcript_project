@@ -11,7 +11,7 @@ from app.database import get_db
 from jose import jwt
 from jose.exceptions import JWTError
 from app import crud
-from app.models import Bot, UserAddon, ChatMessage, Addon, User, UserSubscription, SubscriptionPlan, Interaction, InteractionReaction,BotSlug
+from app.models import Bot, UserAddon, ChatMessage, Addon, User, UserSubscription, SubscriptionPlan, Interaction, InteractionReaction,BotSlug, Lead
 from urllib.parse import urlparse
 from sqlalchemy import func, or_
 from chromadb import logger
@@ -715,3 +715,34 @@ async def get_bot_initial_settings_for_widget(
         position=bot.position or "bottom-right",
         welcomeMessage=bot.welcome_message
     )
+
+
+# Function to insert leads coming from widget
+@router.post("/widget/lead")
+def insert_lead_from_widget(
+    lead: schemas.LeadCreate,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    bot_id = get_bot_id_from_auth_header(request,db)
+
+    # Fetch the bot and associated user
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+
+    # Create the lead entry
+    db_lead = Lead(
+        user_id=bot.user_id,
+        bot_id=bot_id,
+        name=lead.name,
+        email=lead.email,
+        phone= lead.phone,
+        address=lead.address
+
+    )
+    db.add(db_lead)
+    db.commit()
+    db.refresh(db_lead)
+
+    return {"success": True, "lead_id": db_lead.id}
