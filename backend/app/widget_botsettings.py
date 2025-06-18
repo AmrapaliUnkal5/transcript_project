@@ -512,7 +512,7 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
 
     return {
         "message": bot_reply_text,
-        "message_id": bot_message.message_id,
+        "message_id": messageid_data_token,
         "sources": document_sources,
         "is_greeting": is_greeting(request.message_text)
     }
