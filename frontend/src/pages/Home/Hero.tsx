@@ -84,7 +84,7 @@ export default function Hero() {
                   textFillColor: "transparent",
                 }}
               >
-                Train on your{" "}
+                Train on your
               </Typography>
 
               <Typography
@@ -95,7 +95,7 @@ export default function Hero() {
               >
                 <Typical
                   steps={[
-                    " website content",
+                    "website content",
                     2000,
                     "documents",
                     2000,
