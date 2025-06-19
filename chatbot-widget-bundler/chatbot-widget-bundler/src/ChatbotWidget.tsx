@@ -685,7 +685,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         )}
         <div style={headerStyle}>
           <img
-            src={bot_icon && bot_icon.trim() !== "" ? bot_icon : `${widgetdomain}/public/images/bot_1.png`}
+            src={bot_icon && bot_icon.trim() !== "" ? bot_icon : `${widgetdomain}/images/bot_1.png`}
             alt="Bot Icon"
             style={iconStyle}
           />
@@ -1327,7 +1327,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                               }}
                             >
                             <img
-                              src={`${widgetdomain}/public/images/send-icons.png`}
+                              src={`${widgetdomain}/images/dummy/send-icons.png`}
                               alt="Send"
                               style={{ width: "20px", height: "20px", objectFit: "contain" }}
                             />
