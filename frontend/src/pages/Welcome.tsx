@@ -791,6 +791,7 @@ const storageOptions = {
           id: Number(botId),
           name: botData.bot_name,
           status: botData.status,
+          bot_icon: botData.bot_icon,
           conversations: botData.conversation_count_today,
           satisfaction: {
             likes: botData.satisfaction?.likes || 0,
@@ -909,7 +910,7 @@ const storageOptions = {
                 <div className="relative w-[56px] h-[56px] mr-3">
                   {/* Ellipse image */}
                   <img
-                    src={bot?.bot_icon && bot.bot_icon.trim() !== "" ? bot.bot_icon : "/images/dummy/bot_icon.png"}
+                    src={bot?.bot_icon && bot.bot_icon.trim() !== "" ? bot.bot_icon : "/images/bot_1.png"}
                     alt="Bot"
                     className="w-[56px] h-[56px] rounded-full object-cover"
                   />

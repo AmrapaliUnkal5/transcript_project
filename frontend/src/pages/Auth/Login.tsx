@@ -10,6 +10,7 @@ import { AlertCircle, Facebook, Apple } from "lucide-react";
 import { authApi } from "../../services/api";
 import { AxiosError } from "axios";
 import { useAuth } from "../../context/AuthContext";
+import FacebookIcon from '@mui/icons-material/Facebook';
 //import axios from "axios";
 import {
   Box,
@@ -685,30 +686,16 @@ export const Login = () => {
                         className="w-full overflow-hidden"
                       ></div>
 
-                      <button
-                        type="button"
-                        onClick={handleFacebookLogin}
-                        style={{
-                          padding: "10px",
-                          backgroundColor: "white",
-                          color: "#1877F2",
-                          border: "none",
-                          borderRadius: "4px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "8px",
-                        }}
-                        className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-                      >
-                        <Facebook className="w-5 h-5" />
-                      </button>
+                     <button
+  type="button"
+  onClick={handleFacebookLogin}
+  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 border border-[#1877F2] rounded-md bg-white text-[#1877F2] text-xs font-medium hover:bg-blue-50"
+>
+  <FacebookIcon fontSize="small" />
+  Login with Facebook
+</button>
 
-                      {/* <button
-                        type="button"
-                        onClick={() => handleSocialLogin("apple")}
-                        className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-                      ></button> */}
+
                     </div>
                     <Box mt={3}>
                       <div className="text-center">

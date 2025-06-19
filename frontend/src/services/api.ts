@@ -166,6 +166,11 @@ export interface BotStatusUpdate {
   is_active: boolean;
 }
 
+export interface DislikedQA {
+  question: string;
+  answer: string;
+}
+
 export interface BotMetrics {
   bot_id: number;
   reactions: {
@@ -177,6 +182,7 @@ export interface BotMetrics {
     day: string;
     average_time_spent: number;
   }[];
+  disliked_qa?: DislikedQA[];
 }
 export interface ReactionData {
   interaction_id: number;

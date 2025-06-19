@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Dict
 from app.database import get_db
-from app.models import Bot, Interaction
+from app.models import Bot, Interaction, ChatMessage
 from app.schemas import UserOut
 from app.dependency import get_current_user
 from sqlalchemy import func, Date, cast
@@ -35,21 +35,22 @@ def get_weekly_conversations(
     start_date = end_date - timedelta(days=6)  # Last 7 days including today
 
     # Query to get daily interaction counts for the bot within the last 7 days
-    daily_counts = (
+    daily_user_msg_counts = (
         db.query(
-            cast(Interaction.start_time, Date).label('date'),  # Extract just the date part
-            func.count(Interaction.interaction_id).label('interaction_count')
+            cast(Interaction.start_time, Date).label('date'),
+            func.count(ChatMessage.message_id).label('user_message_count')
         )
+        .join(ChatMessage, ChatMessage.interaction_id == Interaction.interaction_id)
         .filter(Interaction.bot_id == bot_id)
         .filter(Interaction.start_time >= start_date)
         .filter(Interaction.start_time <= end_date)
+        .filter(ChatMessage.sender == "user")  # ✅ Only user messages
         .group_by(cast(Interaction.start_time, Date))
         .order_by(cast(Interaction.start_time, Date))
         .all()
     )
-
-    # Create a dictionary with dates as keys
-    date_counts = {str(record.date): record.interaction_count for record in daily_counts}
+        # Create a dictionary of results by date
+    date_counts = {str(record.date): record.user_message_count for record in daily_user_msg_counts}
 
     # Generate response for all dates in the range, including days with zero interactions
     response = {}

@@ -25,6 +25,7 @@ import { authApi } from "../services/api";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { useNavigate } from "react-router-dom";
 import ReactWordcloud from 'react-wordcloud';
+import { DislikedQA } from "../services/api";
 import { toast } from "react-toastify";
 
 
@@ -47,7 +48,7 @@ interface WordCloudData {
 const COLOR_MAP: Record<string, string> = {
   Likes: "#4CAF50",      // green
   Dislikes: "#F44336",   // red
-  Neutral: "#FFC107",    // amber
+  Neutral: "#42A5F5",    // blue
 };
 const COLORS = ["#4CAF50", "#F44336", "#2196F3", "#FFC107", "#F44336"];
 
@@ -113,7 +114,7 @@ export const Performance = () => {
   const [totalConversations, setTotalConversations] = useState(0);
   //const [wordCloudData, setWordCloudData] = useState<{value: string, count: number}[]>([]);
   const [wordCloudData, setWordCloudData] = useState<WordCloudData[]>([]);
-
+  const [dislikedQA, setDislikedQA] = useState<DislikedQA[]>([]);
 
 
 
@@ -191,16 +192,24 @@ const [activeFAQIndex, setActiveFAQIndex] = useState(null);
       setLoading(true);
       const response = await authApi.fetchBotMetrics(selectedBot.id);
       const { likes, dislikes, neutral } = response.reactions;
+      // Set disliked Q&A
+      setDislikedQA(response.disliked_qa || []);
 
-      const updatedData = [];
-      if (likes > 0) updatedData.push({ name: "Likes", value: likes });
-      if (dislikes > 0) updatedData.push({ name: "Dislikes", value: dislikes });
-      if (updatedData.length === 0) {
-        updatedData.push({ name: "Neutral", value: 100 });
-      } else if (neutral > 0) {
-        updatedData.push({ name: "Neutral", value: neutral });
+      const total = likes + dislikes + neutral;
+
+      let updatedData = [];
+
+      if (total === 0) {
+        updatedData = [{ name: "Neutral", value: 100 }];
+      } else {
+        const likePercent = Math.floor((likes / total) * 100);
+        const dislikePercent = Math.floor((dislikes / total) * 100);
+        const neutralPercent = 100 - likePercent - dislikePercent; // ensures exact 100%
+
+        if (likes > 0) updatedData.push({ name: "Likes", value: likePercent });
+        if (dislikes > 0) updatedData.push({ name: "Dislikes", value: dislikePercent });
+        if (neutral > 0 || updatedData.length < 3) updatedData.push({ name: "Neutral", value: neutralPercent });
       }
-
       setSatisfactionData(updatedData);
 
       const apiData = response.average_time_spent;
@@ -243,6 +252,113 @@ const [activeFAQIndex, setActiveFAQIndex] = useState(null);
       console.error("Error fetching bot metrics:", error);
     } finally {
       setLoading(false);
+    }
+  };
+const viewDislikedQA = (qaList: DislikedQA[]): void => {
+  // Convert Q&A to plain text
+    const textContent = qaList
+      .map((item, index) => `Q${index + 1}: ${item.question}\nA${index + 1}: ${item.answer}\n`)
+      .join('\n');
+
+    // Create a Blob URL for .txt content
+    const blob = new Blob([textContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+
+    // HTML layout with download link to the right
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Disliked Questions</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 20px;
+              background-color: #f5f5f5;
+              font-size: 12px;
+            }
+            .container {
+              max-width: 1200px;
+              margin: 0 auto;
+              background: white;
+              padding: 20px;
+              border-radius: 8px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 20px;
+              padding-bottom: 10px;
+              border-bottom: 1px solid #eee;
+            }
+            h1 {
+              color: #333;
+              margin: 0;
+            }
+            .download-btn {
+              background-color: #5348CB;
+              color: white;
+              border: none;
+              padding: 8px 16px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 14px;
+              text-decoration: none;
+            }
+            .download-btn:hover {
+              background-color: #4338ca;
+            }
+            .qa-block {
+              margin-bottom: 30px;
+            }
+            .qa-question {
+              font-weight: bold;
+              font-size: 12px;
+              color: #333;
+              margin-bottom: 5px;
+            }
+            .qa-answer {
+              margin-left: 20px;
+              background: #f9f9f9;
+              padding: 15px;
+              border-left: 4px solid #5348CB;
+              border-radius: 4px;
+              color: #555;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Disliked Questions & Answers</h1>
+              <a href="${url}" download="disliked_questions.txt" class="download-btn">Download</a>
+            </div>
+
+            ${qaList.map((item, index) => `
+              <div class="qa-block">
+                <div class="qa-question">Q${index + 1}: ${item.question}</div>
+                <div class="qa-answer">${item.answer}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <script>
+            window.addEventListener('unload', function() {
+              URL.revokeObjectURL('${url}');
+            });
+          </script>
+        </body>
+      </html>
+    `;
+
+    // Open the rendered page in a new window
+    const newWindow = window.open("", "_blank");
+    if (newWindow) {
+      newWindow.document.write(html);
+      newWindow.document.close();
     }
   };
 
@@ -348,9 +464,14 @@ const renderCustomLegend2 = (props: any) => {
               style={{ backgroundColor: entry.color }}
             />
 
-  <span
+<span
   style={{
-    color: displayName === "Positive" ? "#51B13A" : "#E35858",
+    color:
+      displayName === "Positive"
+        ? "#51B13A"
+        : displayName === "Negative"
+        ? "#E35858"
+        : "#42A5F5", // Neutral color
     fontSize: "15px",
     fontFamily: "Instrument Sans, sans-serif",
     fontWeight: 500,
@@ -691,6 +812,14 @@ useEffect(() => {
                 </PieChart>
               </ResponsiveContainer>
             </div>
+            {dislikedQA.length > 0 && (
+  <button
+    onClick={() => viewDislikedQA(dislikedQA)}
+    className="text-blue-600 hover:underline mt-2"
+  >
+    View Disliked Questions
+  </button>
+)}
           </div>
 
           {/* Detailed Metrics Table */}
