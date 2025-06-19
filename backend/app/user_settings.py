@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, desc
 from app.database import get_db
 from app.utils.create_access_token import create_access_token
-from .models import Base, User, UserAuthProvider,SubscriptionPlan,UserSubscription, Bot, Interaction, ChatMessage, TeamMember, File, YouTubeVideo, ScrapedNode, InteractionReaction, WebsiteDB, UserAddon, Notification, WordCloudData
-from app.schemas import UserOut,UserUpdate, ChangePasswordRequest
+from .models import Base, User, UserAuthProvider,SubscriptionPlan,UserSubscription, Bot, Interaction, ChatMessage, TeamMember, File, YouTubeVideo, ScrapedNode, InteractionReaction, WebsiteDB, UserAddon, Notification, WordCloudData, BotSlug, Lead
+from app.schemas import UserOut,UserUpdate, ChangePasswordRequest, LeadOut
 from app.dependency import get_current_user
 from app.utils.verify_password import verify_password
 from passlib.context import CryptContext
@@ -13,6 +13,7 @@ from app.notifications import add_notification
 from datetime import datetime, timedelta, timezone
 from fastapi.responses import JSONResponse
 from app.vector_db import delete_user_collections, delete_bot_collections
+from typing import List
 
 router = APIRouter()
 
@@ -260,6 +261,16 @@ def delete_user_account(db: Session = Depends(get_db), current_user: dict = Depe
             db.query(WordCloudData).filter(
                 WordCloudData.bot_id.in_(bot_ids)
             ).delete(synchronize_session=False)
+
+             # Delete Bot Slug for widgets
+            db.query(BotSlug).filter(
+                BotSlug.bot_id.in_(bot_ids)
+            ).delete(synchronize_session=False)
+
+             # Delete Bot Slug for widgets
+            db.query(Lead).filter(
+                BotSlug.bot_id.in_(bot_ids)
+            ).delete(synchronize_session=False)
             
             # Delete bots
             db.query(Bot).filter(
@@ -309,3 +320,7 @@ def delete_user_account(db: Session = Depends(get_db), current_user: dict = Depe
             status_code=500, 
             detail=f"Failed to delete account: {str(e)}"
         )
+
+@router.get("/leads/{bot_id}", response_model=List[LeadOut])
+def get_leads_by_bot(bot_id: int, db: Session = Depends(get_db)):
+    return db.query(Lead).filter(Lead.bot_id == bot_id).order_by(desc(Lead.created_at)).all()

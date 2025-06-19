@@ -1,28 +1,35 @@
 import React from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import {
-  LayoutDashboard,
-  MessageSquare,
-  Upload,
-  BarChart2,
-  CreditCard,
-  Settings,
-  LogOut,
-  Code,
-} from "lucide-react";
+// import {
+//   LayoutDashboard,
+//   MessageSquare,
+//   Upload,
+//   BarChart2,
+//   CreditCard,
+//   Settings,
+//   LogOut,
+//   Code,
+// } from "lucide-react";
 import { authApi } from "../../services/api";
+import { useBot } from "../../context/BotContext";
+import { useEffect, useState } from "react";
 
 const navItems = [
   { path: "upload", icon: "/images/dummy/Customize-bot-knowledge-base.png", label: "Knowledge Base" },
   { path: "chatbot", icon: "/images/dummy/Customize-bot-customize-icon.png", label: "Design" },
   { path: "performance", icon: "/images/dummy/Customize-bot-analyics.png", label: "Analytics" },
   { path: "script-generate", icon: "/images/dummy/Customize-bot-script.png", label: "Deploy" },
-  {path: "investigation", icon:"/images/dummy/investigation_icon.png", label:"Investigation"}
+  {path: "investigation", icon:"/images/dummy/investigation_icon.png", label:"Investigation"},
+
 ];
 
 export const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { selectedBot } = useBot();
+  const [leadGenEnabled, setLeadGenEnabled] = useState(false);
+  const [basenavItems, setNavItems] = useState(navItems);
+
   const hiddenRoutes = [
     "/",
     "/welcome",
@@ -33,6 +40,35 @@ export const Sidebar = () => {
     "/myaccount",
     "/account/add-ons",
   ];
+
+  useEffect(() => {
+    const fetchBotSettings = async () => {
+      if (!selectedBot?.id) return;
+
+      try {
+        const response = await authApi.getBotSettingsBotId(selectedBot.id);
+
+        if (response?.lead_generation_enabled) {
+          setLeadGenEnabled(true);
+          setNavItems([
+            ...navItems,
+            {
+              path: "leadsdisplay",
+              icon: "/images/dummy/leads_icon.png",
+              label: "Leads Display",
+            },
+          ]);
+        } else {
+          setLeadGenEnabled(false);
+          setNavItems(navItems); // Reset nav if not enabled
+        }
+      } catch (error) {
+        console.error("Error fetching bot settings:", error);
+      }
+    };
+
+    fetchBotSettings();
+  }, [selectedBot]);
 
   if (hiddenRoutes.includes(location.pathname)) {
     return null;
@@ -56,7 +92,7 @@ export const Sidebar = () => {
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white "></h1>
       </div>
       <nav className="space-y-2">
-        {navItems.map((item) => (
+        {basenavItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}

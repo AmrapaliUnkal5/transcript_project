@@ -27,7 +27,7 @@ interface Props {
 }
 
 const drawerWidth = 240;
-//const navItems = ["Home", "Our Plans", "Our Services", "Contact Us"];
+
 const navItems = [
   { label: "Home", id: 1, url: "/" },
   { label: "Our Plans", id: 2, url: "/our-plans" },
@@ -63,7 +63,7 @@ export default function HomeHeader(props: Props) {
       <ListItemButton
         component={Link}
         to={item.url}
-        onClick={handleDrawerToggle} // Closes drawer after click
+        onClick={handleDrawerToggle} 
         sx={{ textAlign: "left" }}
       >
         <ListItemText primary={item.label} />
@@ -72,15 +72,7 @@ export default function HomeHeader(props: Props) {
   ))}
 </List>
 
-      {/* <List>
-        {navItems.map((item) => (
-          <ListItem key={item.id} disablePadding>
-            <ListItemButton sx={{ textAlign: "left" }}>
-              <ListItemText primary={item.label} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List> */}
+     
     </Box>
   );
 
@@ -93,6 +85,7 @@ export default function HomeHeader(props: Props) {
     <Box sx={{ display: "flex" }}>
       <CssBaseline />
       <AppBar
+      
         component="nav"
         sx={{ backgroundColor: "#101035", color: "#fff" }}
       >
@@ -102,8 +95,8 @@ export default function HomeHeader(props: Props) {
               src="/images/logo.png"
               sx={{
                 display: { xs: "block", sm: "none" },
-                width: "134px",
-                height: "21px",
+                width: "150px",
+                height: "auto",
                 m: "22px 0 22px 0px",
               }}
             />
@@ -124,6 +117,7 @@ export default function HomeHeader(props: Props) {
                   sx={{
                     margin: "auto",
                     maxWidth: [150, 212],
+                    height: "auto",
                     display: { xs: "none", sm: "block" },
                   }}
                 />
@@ -131,20 +125,8 @@ export default function HomeHeader(props: Props) {
 
             </Box>
             <Box display={"flex"} gap={[1, 3]}>
-              <Box sx={{ display: { xs: "none", sm: "flex" } }} gap={[1, 2]}>
-                {/* {navItems.map((item) => (
-                  <Button
-                    key={item.id}
-                    sx={{
-                      color: "#CDCDCD",
-                      fontSize: "16px",
-                      textTransform: "capitalize",
-                    }}
-                    href={item.url}
-                  >
-                    {item.label}
-                  </Button>
-                ))} */}
+              <Box sx={{ display: { xs: "none", sm: "none", md: "flex" } }} gap={[1, 2]}>
+                
 
                 {navItems.map((item) => {
                   const isActive = location.pathname === item.url;
@@ -153,7 +135,7 @@ export default function HomeHeader(props: Props) {
                     <Button
                       key={item.id}
                       sx={{
-                        color: isActive ? "#BAC2FF" : "#CDCDCD", // Only change color
+                        color: isActive ? "#BAC2FF" : "#CDCDCD", 
                         fontSize: "16px",
                         textTransform: "capitalize",
                       }}
@@ -197,9 +179,8 @@ export default function HomeHeader(props: Props) {
               <IconButton
                 color="inherit"
                 aria-label="open drawer"
-                // edge="start"
                 onClick={handleDrawerToggle}
-                sx={{ mr: 1, display: { sm: "none" } }}
+                sx={{ mr: 1, display: { md: "none" } }}
               >
                 <MenuIcon />
               </IconButton>
@@ -214,10 +195,10 @@ export default function HomeHeader(props: Props) {
           open={mobileOpen}
           onClose={handleDrawerToggle}
           ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
+            keepMounted: true, 
           }}
           sx={{
-            display: { xs: "block", sm: "none" },
+            display: { sm: "block", md: "none" },
 
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
@@ -230,10 +211,7 @@ export default function HomeHeader(props: Props) {
           {drawer}
         </Drawer>
       </nav>
-      {/* <Box component="main" sx={{ p: 3 }}>
-        <Toolbar />
-        
-      </Box> */}
+      
     </Box>
   );
 }

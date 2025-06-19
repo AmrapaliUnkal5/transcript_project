@@ -5,6 +5,7 @@ import HomeHeader from '../../components/Header/Header';
 import FAQ from './FAQ';
 import ConversationForm from './ConversationForm';
 import StartBuilding from '../Home/StartBuilding';
+import Location from './Location';
 
 
 
@@ -13,7 +14,7 @@ export default function ContactUs() {
     <Box>
     <HomeHeader/>
     <ConversationForm/>
-     
+    <Location/> 
     <FAQ/>
     <StartBuilding/>
     <Footer/> 

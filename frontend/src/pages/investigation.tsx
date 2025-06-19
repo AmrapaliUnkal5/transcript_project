@@ -78,57 +78,83 @@ const Investigation = () => {
   };
 
   const viewContent = (type: "website" | "youtube" | "files", content: string, title: string) => {
+    const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  
     const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${title}</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              margin: 0;
-              padding: 20px;
-              background-color: #f5f5f5;
-            }
-            .container {
-              max-width: 1200px;
-              margin: 0 auto;
-              background: white;
-              padding: 20px;
-              border-radius: 8px;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            }
-            h1 {
-              color: #333;
-              border-bottom: 1px solid #eee;
-              padding-bottom: 10px;
-            }
-            pre {
-              white-space: pre-wrap;
-              word-wrap: break-word;
-              background: #f9f9f9;
-              padding: 15px;
-              border-radius: 4px;
-              border-left: 4px solid #5348CB;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+          }
+          .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+          }
+          h1 {
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin: 0;
+          }
+          .download-btn {
+            background-color: #5348CB;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+          }
+          .download-btn:hover {
+            background-color: #4338ca;
+          }
+          pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #5348CB;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
             <h1>Extracted Content</h1>
-            <h2>${title}</h2>
-            <pre>${content || "No content available"}</pre>
+            <a href="${url}" download="${title}.txt" class="download-btn">Download</a>
           </div>
-        </body>
-      </html>
-    `;
-    
-    const newWindow = window.open("", "_blank");
-    if (newWindow) {
-      newWindow.document.write(html);
-      newWindow.document.close();
-    }
-  };
+          <h2>${title}</h2>
+          <pre>${content || "No content available"}</pre>
+        </div>
+      </body>
+    </html>
+  `;
+  
+  const newWindow = window.open("", "_blank");
+  if (newWindow) {
+    newWindow.document.write(html);
+    newWindow.document.close();
+  }
+};
 
   if (!selectedBot) {
     return (

@@ -25,6 +25,7 @@ import { authApi } from "../services/api";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { useNavigate } from "react-router-dom";
 import ReactWordcloud from 'react-wordcloud';
+import { toast } from "react-toastify";
 
 
 interface ConversationData {
@@ -49,6 +50,7 @@ const COLOR_MAP: Record<string, string> = {
   Neutral: "#FFC107",    // amber
 };
 const COLORS = ["#4CAF50", "#F44336", "#2196F3", "#FFC107", "#F44336"];
+
 
 const UpgradeMessage = ({
   requiredPlan = "Starter",
@@ -94,6 +96,10 @@ export const Performance = () => {
   const [faqData, setFaqData] = useState<FAQData[]>([]);
   const [totalTimeSpent, setTotalTimeSpent] = useState<number>(0);
   const navigate = useNavigate();
+
+  const [allQuestions, setAllQuestions] = useState<{questions: string[], count: number} | null>(null);
+  const [questionsTabOpen, setQuestionsTabOpen] = useState(false);
+
 
   const userData = localStorage.getItem("user");
   const user = userData ? JSON.parse(userData) : null;
@@ -152,11 +158,6 @@ const [activeFAQIndex, setActiveFAQIndex] = useState(null);
   };
 
   const visibleFAQs = showAllFAQs ? faqData : faqData.slice(0, 5);
-
-
-
-
-
 
   
   const fetchConversationData = async () => {
@@ -320,27 +321,6 @@ const [activeFAQIndex, setActiveFAQIndex] = useState(null);
     }
   };
 
-
-// const renderCustomLegend2 = (props: any) => {
-//   const { payload } = props;
-
-//   return (
-//     <div className="flex justify-center gap-8 mt-4">
-//       {payload.map((entry: any, index: number) => (
-//         <div key={`item-${index}`} className="flex items-center space-x-2">
-//           <div
-//             className="w-3 h-3 rounded"
-//             style={{ backgroundColor: entry.color }}
-//           ></div>
-//           <span className="text-sm font-medium text-gray-800 dark:text-white">
-//             {entry.value} ({(entry.payload.percent * 100).toFixed(0)}%)
-//           </span>
-//         </div>
-//       ))}
-//     </div>
-//   );
-// };
-
 const renderCustomLegend2 = (props: any) => {
   const { payload } = props;
 
@@ -367,12 +347,6 @@ const renderCustomLegend2 = (props: any) => {
               className="w-3 h-3 rounded"
               style={{ backgroundColor: entry.color }}
             />
-           
-            {/* <span className="" >
-    {displayName}
-    {displayName === "Positive" && ` (${percent.toFixed(0)}%)`}
-  </span> */}
-
 
   <span
   style={{
@@ -391,7 +365,127 @@ const renderCustomLegend2 = (props: any) => {
   );
 };
 
+const fetchAllQuestions = async () => {
+  if (!selectedBot?.id) return;
 
+  try {
+    setLoading(true);
+    const response = await authApi.getBotQuestions({
+      bot_id: selectedBot.id,
+    });
+    setAllQuestions(response);
+    setQuestionsTabOpen(true);
+  } catch (error) {
+    console.error('Error fetching all questions:', error);
+    toast.error('Failed to fetch all questions');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const renderQuestionsTab = () => {
+  if (!questionsTabOpen || !allQuestions) return null;
+
+  // Prepare content for download
+  const questionsText = allQuestions.questions.map((q, i) => `${i + 1}. ${q}`).join('\n');
+  const blob = new Blob([questionsText], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>List Of All The Questions Asked By User</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+          }
+          .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            min-height: 44px;
+          }
+          h1 {
+            color: #333;
+            margin: 0;
+          }
+          .download-btn {
+            background-color: #5348CB;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+          }
+          .download-btn:hover {
+            background-color: #4338ca;
+          }
+          .question-list {
+            margin-top: 30px;
+          }
+          .question-item {
+            background: #f9f9f9;
+            padding: 5px;
+            border-radius: 1px;
+            border-bottom: 1px solid #eee;
+            border-left: 2px solid #5348CB;
+            margin-bottom: 5px;
+          }
+          .count {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #666;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>List Of All The Questions Asked By User</h1>
+            <a href="${url}" download="user_questions.txt" class="download-btn">Download</a>
+          </div>
+          
+          <div class="question-list">
+            ${allQuestions.questions.map((q, i) => `
+              <div class="question-item">
+                ${i + 1}. ${q}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+  
+  const newWindow = window.open("", "_blank");
+  if (newWindow) {
+    newWindow.document.write(html);
+    newWindow.document.close();
+  }
+};
+// Call renderQuestionsTab whenever questionsTabOpen changes
+useEffect(() => {
+  if (questionsTabOpen && allQuestions) {
+    renderQuestionsTab();
+  }
+}, [questionsTabOpen, allQuestions]);
 
  const getLast7Days = () => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -407,8 +501,6 @@ const renderCustomLegend2 = (props: any) => {
   });
 };
 
-
-  
 
   const fetchWordCloudData = async () => {
   if (!selectedBot?.id) return;
@@ -464,15 +556,8 @@ const renderCustomLegend2 = (props: any) => {
           Go to Home
         </button>
       </div>
-
-
-
-
     );
   }
-
-
-
 
   return (
     <div className="space-y-6 p-4">
@@ -491,12 +576,6 @@ const renderCustomLegend2 = (props: any) => {
   Analytics : {selectedBot.name}
 </h1>
 </div>
-
-
-
-
-
-
       <div className="relative">
         <div
           className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${
@@ -536,42 +615,6 @@ const renderCustomLegend2 = (props: any) => {
             </div>
           </div>
 
-          {/* Average Time Spent Chart */}
-          {/* <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Daily Average Chat Duration – Last 7 Days
-            </h2>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={timeSpentData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" angle={-20} textAnchor="end" />
-                  <YAxis
-                    label={{
-                      value: "Minutes",
-                      angle: -90,
-                      position: "insideLeft",
-                    }}
-                  />
-                  <Tooltip
-                    formatter={(value: number) => [
-                      `${value} min`,
-                      "Avg Time Spent",
-                    ]}
-                  />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="average_time_spent"
-                    stroke="#4CAF50"
-                    name="Avg Time Spent (s)"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div> */}
-
-
           <div  className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
   style={{
     border: '1px solid #DFDFDF',
@@ -580,41 +623,6 @@ const renderCustomLegend2 = (props: any) => {
   <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
     Daily Average Chat Duration – Last 7 Days
   </h2>
-  {/* <div className="h-80">
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={timeSpentData}>
-        <CartesianGrid stroke="#E0E0E0" strokeOpacity={0.6} strokeDasharray="3 3" />
-        <XAxis dataKey="day" angle={-20} textAnchor="end" tick={{ fill: '#1a1a1a' }} />
-        <YAxis
-          label={{
-            value: "Minutes",
-            angle: -90,
-            position: "insideLeft",
-            fontsize:10,
-            fill: '#666666', 
-            }}
-            tick={{ fill: '#1a1a1a' }}
-        />
-        <Tooltip
-          formatter={(value: number) => [
-            `${value} min`,
-            "Avg Time Spent",
-          ]}
-        />
-       
-        <Legend content={renderCustomLegend} />
-
-        <Area
-          type="monotone"
-          dataKey="average_time_spent"
-          stroke="#4CAF50"
-          fill="#81C784" 
-          name="Avg Time Spent (s)"
-        />
-      </AreaChart>
-    </ResponsiveContainer>
-  </div> */}
-
   <div className="h-80 ">
   <ResponsiveContainer width="100%" height="100%">
     <AreaChart data={timeSpentData} >
@@ -752,7 +760,7 @@ const renderCustomLegend2 = (props: any) => {
                       value: billingCycleMetrics.totalChatDuration,
                     },
                     {
-                      metric: "Unique Session IDs", // new row
+                      metric: "Unique Users Count", // new row
                      value: billingCycleMetrics.uniqueSessionIds.toLocaleString(),
                     },
                     
@@ -779,16 +787,7 @@ const renderCustomLegend2 = (props: any) => {
     }}>
                         {item.value}
                       </td>
-                      {/* <td
-                        className={`px-6 py-4 whitespace-nowrap text-sm ${
-                          item.positive
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-red-600 dark:text-red-400"
-                        }`}
-                      >
-                        {item.change}
-                      </td> */}
-                    </tr>
+                        </tr>
                   ))}
                 </tbody>
               </table>
@@ -869,7 +868,7 @@ const renderCustomLegend2 = (props: any) => {
         className="text-lg font-semibold text-gray-900 dark:text-white mb-4"
         style={{ fontFamily: "Instrument Sans", fontWeight: 600 }}
       >
-        Frequently Asked Questions by Users
+        Frequently Asked Questions by User
       </h2>
 
       <div
@@ -914,31 +913,30 @@ const renderCustomLegend2 = (props: any) => {
         ))}
 
       {faqData.length > 5 && (
-        // <div className="flex justify-center mt-6">
-        //   <button
-        //     onClick={() => setShowAllFAQs(!showAllFAQs)}
-        //     className="text-[#5348CB] font-medium underline hover:no-underline"
-        //   >
-        //     {showAllFAQs ? "View Less" : "View More"}
-        //   </button>
-        // </div>
-
-        <div className="flex justify-center mt-6">
+       <div className="relative mt-6 flex justify-center">
+  {/* Centered button */}
   <button
     onClick={() => setShowAllFAQs(!showAllFAQs)}
     className="flex items-center justify-center gap-2 border border-[#5348CB] rounded-[12px] min-w-[102px] w-[153px] h-[48px] font-semibold text-[16px] text-[#5348CB] font-['Instrument_Sans']"
   >
     <img
-      src="/images/dummy/view-more.png" // Replace with your actual image path
+      src="/images/dummy/view-more.png"
       alt="icon"
       className="w-4 h-4"
     />
     {showAllFAQs ? "View Less" : "View More"}
   </button>
+
+  {/* Right-aligned link */}
+  <span
+    onClick={fetchAllQuestions}
+    className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2 text-[#5348CB] text-[16px] font-semibold font-['Instrument_Sans'] cursor-pointer"
+  >
+    View All Questions
+  </span>
 </div>
 
-      )}
-
+)}
       {/* {!hasAdvancedAnalytics && (
         <div className="absolute top-[85%] left-[25%] transform -translate-x-1/2 -translate-y-1/2 z-10">
           <UpgradeMessage

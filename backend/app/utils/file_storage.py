@@ -190,7 +190,14 @@ def get_file_url(target_dir_env: str, filename: str, base_url: str = None) -> st
         bucket_name = path_parts[0]
         prefix = path_parts[1] if len(path_parts) > 1 else ''
         s3_key = f"{prefix}/{filename}".lstrip('/')
-        return f"s3://{bucket_name}/{s3_key}"
+        # Generate a presigned URL
+        s3_client = boto3.client('s3')
+        url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': bucket_name, 'Key': s3_key},
+            ExpiresIn=86400  # URL valid for 1 day
+        )
+        return url
     else:
         # For local storage, construct HTTP URL
         if not base_url:

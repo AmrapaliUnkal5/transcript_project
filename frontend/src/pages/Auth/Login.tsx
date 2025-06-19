@@ -483,7 +483,7 @@ export const Login = () => {
                   textAlign={"center"}
                 
 
-      sx={{
+                     sx={{
                     position: "absolute",
                     top: 0,
                     left: 0,
@@ -763,7 +763,7 @@ export const Login = () => {
                   <Typography variant="body2">
                     <Link
                       to="#"
-                      onClick={handleProtectedLinkClick("/customersupport")}
+                      onClick={handleProtectedLinkClick("/contact-us")}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium text-blue-600 hover:text-blue-500"

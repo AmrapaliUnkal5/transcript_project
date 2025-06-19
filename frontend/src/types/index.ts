@@ -97,8 +97,10 @@ export interface BotSettings {
   borderRadius: string;
   borderColor: string;
   chatFontFamily: string;
-  userTimestampColor: string,
+  userTimestampColor: string;
   theme_id?: string;
+  lead_generation_enabled?: boolean;
+  leadFormFields?: Array<"name" | "email" | "phone" | "address">;
 }
 
 export interface ApiFile {

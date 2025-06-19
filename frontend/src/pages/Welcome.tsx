@@ -115,6 +115,7 @@ export const Welcome = () => {
       name: string;
       status: string;
       conversations: number;
+      bot_icon?: string;
       satisfaction: {
         likes: number;
         dislikes: number;
@@ -244,6 +245,7 @@ export const Welcome = () => {
               id: Number(botId),
               name: botData.bot_name,
               status: botData.status,
+              bot_icon: botData.bot_icon,
               conversations: botData.conversation_count_today,
               satisfaction: {
                 likes: botData.satisfaction?.likes || 0,
@@ -907,19 +909,12 @@ const storageOptions = {
                 <div className="relative w-[56px] h-[56px] mr-3">
                   {/* Ellipse image */}
                   <img
-                    src="/images/dummy/Ellipse.png"
+                    src={bot?.bot_icon && bot.bot_icon.trim() !== "" ? bot.bot_icon : "/images/dummy/bot_icon.png"}
                     alt="Bot"
                     className="w-[56px] h-[56px] rounded-full object-cover"
                   />
 
-                  {/* Bot icon centered inside ellipse */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <img
-                      src="/images/dummy/bot_icon.png"
-                      alt="Bot Icon"
-                      className="w-[34px] h-[30px]"
-                    />
-                  </div>
+                  
                 </div>
 
                 <div>

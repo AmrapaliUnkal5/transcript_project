@@ -10,6 +10,9 @@ import {
 import React from "react";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EastOutlinedIcon from "@mui/icons-material/EastOutlined";
+import ReactGA from "react-ga4";
+import {trackGAEvent} from './Hero';
+
 
 export default function Plans() {
   return (
@@ -59,6 +62,13 @@ export default function Plans() {
               variant="contained"
               color="primary"
               href="/login"
+              onClick={() => {
+                trackGAEvent({
+                          category: "Plans",
+                          action: "Click Try Evolra with our free plan",
+                          label: "Beside Choose your Plan"
+                          });
+                  }}
               size="large"
               sx={{
                 paddingLeft: "5%",
@@ -80,7 +90,6 @@ export default function Plans() {
               <EastOutlinedIcon sx={{ marginLeft: "10px" }} />
             </Button>
           </Box>
-
           <Box>
             <Grid
               container
@@ -118,25 +127,7 @@ export default function Plans() {
                     Individuals, freelancers, and small service businesses
                   </Typography>
 
-                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3} >
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={["40px", "43px"]}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $14.99
-                    </Typography>
-                    <Typography variant="h6" fontWeight={"400"} fontSize={["16px","20px"]}>
-                      {" "}
-                      /month
-                    </Typography>
-
-                     
-                   
-                  </Box> */}
-
+                 
                   <Box
                     display="flex"
                     flexDirection="column"
@@ -231,6 +222,14 @@ export default function Plans() {
                   <Button
                     variant="text"
                     href="/signup"
+                    onClick={() => {
+                      trackGAEvent({
+                                      category: "Plans",
+                                      action: "Click Choose Plan Starter",
+                                      label: "starter",
+                                    });
+                                  }}
+                    
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -275,21 +274,6 @@ export default function Plans() {
                     Small to medium businesses and online retailers
                   </Typography>
 
-                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={["40px", "43px"]}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $24.99
-                    </Typography>
-                    <Typography variant="h6" fontWeight={"400"} fontSize={["16px","20px"]}>
-                      {" "}
-                      /month
-                    </Typography>
-                  </Box> */}
 
                   <Box
                     display="flex"
@@ -385,6 +369,13 @@ export default function Plans() {
                   <Button
                     variant="text"
                     href="/signup"
+                     onClick={() => {
+                        trackGAEvent({
+                                      category: "Plans",
+                                      action: "Click Choose Plan Growth",
+                                      label: "Growth",
+                                    });
+                                  }}
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -428,21 +419,6 @@ export default function Plans() {
                     Established companies and agencies with multiple departments
                   </Typography>
 
-                  {/* <Box display={"flex"} alignItems={"center"} gap={1} mt={3}>
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={["32px", "42px"]}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $54.99
-                    </Typography>
-                    <Typography variant="h6" fontWeight={"400"}>
-                      {" "}
-                      /month
-                    </Typography>
-                  </Box> */}
 
                   <Box
                     display="flex"
@@ -538,6 +514,13 @@ export default function Plans() {
                   <Button
                     variant="text"
                     href="/signup"
+                     onClick={() => {
+                        trackGAEvent({
+                                      category: "Plans",
+                                      action: "Click Choose Plan Professional",
+                                      label: "Professional",
+                                    });
+                                  }}
                     sx={{
                       width: "100%",
                       fontSize: "18px",
@@ -556,7 +539,16 @@ export default function Plans() {
           <Box mt={[0, 3]}>
             <Button
               variant="text"
-              href="/signup"
+
+              href="/our-plans#plans-table"
+              onClick={() => {
+                        trackGAEvent({
+                                      category: "Plans",
+                                      action: "Click Compare All Plans",
+                                      label: "Compare_All_plans_home",
+                                    });
+                                  }}
+
               sx={{
                 width: "100%",
                 fontSize: "18px",

@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models import Bot, Interaction, ChatMessage, User, WordCloudData
 from pydantic import BaseModel
 from app.vector_db import retrieve_similar_docs
-from app.chatbot import generate_response  
+from app.chatbot import generate_response, is_greeting  
 from datetime import datetime, timezone
 from app.schemas import FAQResponse, WordCloudResponse
 import threading 
@@ -315,6 +315,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
                 "metadata": doc.get("metadata", {})
             }
             doc_details.append(doc_detail)
+            print("doc_detail=>",doc_detail)
         
         ai_logger.info("Retrieved document details", extra={
             "ai_task": {
@@ -422,9 +423,34 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
             "user_message_id": user_message.message_id
         }
     )
+  
+    document_sources = []
+    
+    # Only show sources if:
+    # 1. Not a greeting
+    # 2. Not a default "no answer" response
+    # 3. We have similar docs
+    if (not is_greeting(request.message_text) and 
+       not bot_reply_dict.get("is_default_response", False) and
+       similar_docs):
+        
+        highest_score_doc = max(similar_docs, key=lambda x: x.get('score', 0))
+        metadata = highest_score_doc.get('metadata', {})
+        
+        document_sources.append({
+            'source': metadata.get('source', 'Unknown source'),
+            'file_name': metadata.get('file_name', 'Unknown source'),
+            'website_url': metadata.get('website_url', 'Unknown source'),
+            'url': metadata.get('url', 'Unknown source')
+        })
 
-    return {"message": bot_reply_text, "message_id": bot_message.message_id}
-
+    return {
+        "message": bot_reply_text,
+        "message_id": bot_message.message_id,
+        "sources": document_sources,
+        "is_greeting": is_greeting(request.message_text)
+    }
+   
 @router.get("/get_chat_messages")
 def get_chat_messages(interaction_id: int, db: Session = Depends(get_db)):
     """Fetches all messages for a given chat session."""
@@ -541,3 +567,32 @@ def get_word_cloud(bot_id: int, limit: int = 50, db: Session = Depends(get_db)):
             status_code=500,
             detail=f"Error retrieving word cloud: {str(e)}"
         )
+    
+@router.get("/bot_questions/{bot_id}")
+def get_bot_questions(bot_id: int, db: Session = Depends(get_db)):
+    """Get unique non-greeting questions asked to a bot (case-insensitive duplicates removed)"""
+    messages = db.query(ChatMessage)\
+        .join(Interaction)\
+        .filter(
+            Interaction.bot_id == bot_id,
+            ChatMessage.sender == "user"
+        )\
+        .all()
+
+    unique_questions = {}
+    
+    for msg in messages:
+        msg_text = msg.message_text.strip()
+        if msg_text:  # Only process non-empty messages
+            # Check if it's not a greeting (case-insensitive)
+            is_greet, _ = is_greeting(msg_text)
+            if not is_greet:
+                # Use lowercase as key to detect duplicates, but store original text
+                lower_text = msg_text.lower()
+                if lower_text not in unique_questions:
+                    unique_questions[lower_text] = msg_text
+    
+    return {
+        "questions": list(unique_questions.values()),
+        "count": len(unique_questions)
+    }
