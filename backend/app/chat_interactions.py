@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models import Bot, Interaction, ChatMessage, User, WordCloudData
 from pydantic import BaseModel
 from app.vector_db import retrieve_similar_docs
-from app.chatbot import generate_response  
+from app.chatbot import generate_response, is_greeting  
 from datetime import datetime, timezone
 from app.schemas import FAQResponse, WordCloudResponse
 import threading 
@@ -567,3 +567,32 @@ def get_word_cloud(bot_id: int, limit: int = 50, db: Session = Depends(get_db)):
             status_code=500,
             detail=f"Error retrieving word cloud: {str(e)}"
         )
+    
+@router.get("/bot_questions/{bot_id}")
+def get_bot_questions(bot_id: int, db: Session = Depends(get_db)):
+    """Get unique non-greeting questions asked to a bot (case-insensitive duplicates removed)"""
+    messages = db.query(ChatMessage)\
+        .join(Interaction)\
+        .filter(
+            Interaction.bot_id == bot_id,
+            ChatMessage.sender == "user"
+        )\
+        .all()
+
+    unique_questions = {}
+    
+    for msg in messages:
+        msg_text = msg.message_text.strip()
+        if msg_text:  # Only process non-empty messages
+            # Check if it's not a greeting (case-insensitive)
+            is_greet, _ = is_greeting(msg_text)
+            if not is_greet:
+                # Use lowercase as key to detect duplicates, but store original text
+                lower_text = msg_text.lower()
+                if lower_text not in unique_questions:
+                    unique_questions[lower_text] = msg_text
+    
+    return {
+        "questions": list(unique_questions.values()),
+        "count": len(unique_questions)
+    }
