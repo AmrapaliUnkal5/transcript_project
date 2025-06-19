@@ -107,6 +107,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     const [formSubmitted, setFormSubmitted] = useState(false);
     const [emailError, setEmailError] = useState("");
     const widgetdomain = import.meta.env.VITE_WIDGET_DOMAIN;
+    const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
     // At top level of your component
     const userIdRef = useRef<string | null>(null);
@@ -684,11 +685,15 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
           </div>
         )}
         <div style={headerStyle}>
-          <img
-            src={bot_icon && bot_icon.trim() !== "" ? bot_icon : `${widgetdomain}/images/bot_1.png`}
-            alt="Bot Icon"
-            style={iconStyle}
-          />
+         <img
+              src={
+                !bot_icon || bot_icon === "/images/bot_1.png"
+                  ? `${widgetdomain}/images/bot_1.png`
+                  : bot_icon
+              }
+              alt="Bot Icon"
+              style={iconStyle}
+            />
           {bot_name}
         </div>
 
@@ -770,6 +775,47 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                     >
                       <ThumbsDown size={16} />
                     </button>
+                    <button
+                onClick={() => {
+                  navigator.clipboard.writeText(msg.message);
+                  setCopiedIndex(index);
+                  setTimeout(() => setCopiedIndex(null), 1500);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#6b7280",
+                  fontSize: "12px",
+                  padding: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                {copiedIndex === index ? (
+                  "Copied!"
+                ) : (
+                  <>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+
                     
                     {/* View Sources button */}
                     {msg.sources && msg.sources.length > 0 && !msg.is_greeting && (

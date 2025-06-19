@@ -23,7 +23,7 @@ const ChatIcon: React.FC<ChatIconProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const chatbotRef = useRef<{ endSession: () => Promise<void> }>(null);
-  
+  const widgetdomain = import.meta.env.VITE_WIDGET_DOMAIN;
   const [showWelcome, setShowWelcome] = useState(true);
   const [hover, setHover] = useState(false);
   const baseDomain = basedomain;
@@ -153,7 +153,13 @@ const ChatIcon: React.FC<ChatIconProps> = ({
     }
   })(),
 };
-  
+
+
+  const finalAvatarUrl =
+  !avatarUrl || avatarUrl === "/images/bot_1.png"
+    ? `${widgetdomain}/images/bot_1.png`
+    : avatarUrl;
+
 
   return (
     <>
@@ -230,7 +236,7 @@ const ChatIcon: React.FC<ChatIconProps> = ({
           </div>
         ) : (
           <img
-            src={avatarUrl}
+            src={finalAvatarUrl}
             alt="Chatbot Icon"
             style={{
               width: "100%",

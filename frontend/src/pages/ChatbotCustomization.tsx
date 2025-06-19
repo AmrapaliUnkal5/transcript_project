@@ -251,6 +251,7 @@ export const ChatbotCustomization = () => {
   const [leadPhone, setLeadPhone] = useState("");
   const [emailError, setEmailError] = useState("");
   const [leadAddress, setLeadAddress] = useState("");
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   // Track usage state
   const [messageUsage, setMessageUsage] = useState({
@@ -2226,6 +2227,38 @@ const handleThemeSelect = async (themeId: string) => {
                         >
                           <ThumbsDown className="w-4 h-4" />
                         </button>
+                                 {/* Copy Button */}
+                        <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(msg.text);
+                          setCopiedIndex(index); // show "Copied!"
+                          setTimeout(() => setCopiedIndex(null), 1500);
+                        }}
+                        className="text-gray-500 hover:text-gray-700 text-[11px] flex items-center gap-1"
+                      >
+                        {copiedIndex === index ? (
+                          "Copied!"
+                        ) : (
+                          <>
+                            {/* Copy SVG Icon */}
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                            <span>Copy</span>
+                          </>
+                        )}
+                      </button>
                       </div>
                       {/* Add View Sources button */}
                        {msg.sources && msg.sources.length > 0 && !msg.is_greeting && (
