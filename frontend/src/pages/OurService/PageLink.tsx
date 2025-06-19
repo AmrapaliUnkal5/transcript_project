@@ -64,8 +64,12 @@ export default function BasicTabs() {
         maxWidth={"1081px"}
         sx={{
           border: "1px solid white",
-          background:
-            "linear-gradient(rgba(189, 204, 231, 0.6), rgba(71, 53, 144, 0.08))",
+          backgroundColor:"#070417",
+          // background:
+          //   "linear-gradient(rgba(189, 204, 231, 0.6), rgba(71, 53, 144, 0.08))",
+
+          background: "linear-gradient(135deg, rgba(7,4,23,0.95), rgba(61,73,213,0.1))",
+
           backdropFilter: "blur(76.15px)",
           position: "sticky",
           zIndex: 1100,
