@@ -106,8 +106,8 @@ export default function ExperienceAdvantage() {
               </Typography>
 
               <Typography variant="body1" color={"#9F9F9F"}  sx={{
-                fontSize: ['14px', '16px'], }}>
-                Cut support time by 70% with bots that work 24/7, freeing your team for empathetic and  high-impact interactions. 
+    fontSize: ['14px', '16px'], }}>
+                Cut support time by 70% with bots that provide 24/7 assistance, enabling your team to focus on high value interactions that require human expertise and care. 
               </Typography>
             </Grid>
 

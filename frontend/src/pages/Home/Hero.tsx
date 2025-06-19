@@ -95,7 +95,7 @@ import ReactGA from "react-ga4";
                   textFillColor: "transparent",
                 }}
               >
-                Train on your{" "}
+                Train on your
               </Typography>
 
               <Typography
@@ -106,7 +106,7 @@ import ReactGA from "react-ga4";
               >
                 <Typical
                   steps={[
-                    " website content",
+                    "website content",
                     2000,
                     "documents",
                     2000,
