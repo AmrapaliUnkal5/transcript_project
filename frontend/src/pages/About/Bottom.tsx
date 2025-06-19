@@ -12,11 +12,10 @@ export default function Bottom() {
         maxHeight={[443]}
         minHeight={[400,]}
         sx={{ 
-            backgroundImage: 'url(/images/home/bg-start-building.jpg)',
+            backgroundImage: 'linear-gradient(180deg, #070417 0%, #3C388B 100%)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            backgroundImage: "linear-gradient(135deg, #070417 0%, #3C388B 100%)"
-        }} 
+            }} 
         
         >
       <Typography 
