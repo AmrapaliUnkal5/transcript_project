@@ -137,7 +137,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         "/faq-page",
         "/cancellation-refund-policy",
         "/shipping-exchange-policy", 
-        "/our-services"
+        "/our-services",
+        "/about-us"
       ];
 
       const isAllowed =

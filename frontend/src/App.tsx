@@ -45,6 +45,7 @@ import ScrollToTop from "./components/ScrolltoTop.tsx";
 import ShippingAndExchange from "./pages/ShippingAndExchange/index.tsx";
 import Investigation from "./pages/investigation.tsx";
 import OurServices from "./pages/OurService/Index.tsx";
+import About from "./pages/About/index.tsx";
 
 
 
@@ -95,6 +96,7 @@ function App() {
                 <Route path="/cancellation-refund-policy" element={<CancellationRefundPolicy />} />
                 <Route path="/shipping-exchange-policy" element={<ShippingAndExchange />} />
                 <Route path="/our-services" element={<OurServices />} />
+                <Route path="/about-us" element={<About />} />
                 
 
 

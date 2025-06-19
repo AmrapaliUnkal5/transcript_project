@@ -18,7 +18,7 @@ function Footer() {
       px={4}
       pb={3}
       sx={{
-        backgroundColor: "#101035",
+        backgroundColor: "#070417",
       }}
     >
       <Box>
@@ -47,7 +47,7 @@ function Footer() {
               <Link href="#" color="#ffffff" style={{ textDecoration: "none" }}  >
                 Our services
               </Link>
-              <Link href="#" color="#ffffff"  style={{ textDecoration: "none" }}>
+              <Link href="/about-us" color="#ffffff"  style={{ textDecoration: "none" }}>
                 About us
               </Link>
               <RouterLink

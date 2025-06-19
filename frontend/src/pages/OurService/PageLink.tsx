@@ -1,10 +1,19 @@
-import * as React from 'react';
-import Box from '@mui/material/Box';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
-import Typography from '@mui/material/Typography';
+import * as React from "react";
+import Box from "@mui/material/Box";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import Typography from "@mui/material/Typography";
+import AIPage from "./AIPage";
+import PredictiveModelsPage from "./PredictiveModelsPage";
+import WorkplaceBotsPage from "./WorkplaceBotsPage";
+import ProcessAutomationPage from "./ProcessAutomationPage";
+import CustomAISolutionsPage from "./CustomAISolutionPage";
 
-function TabPanel(props: { children?: React.ReactNode; value: number; index: number }) {
+function TabPanel(props: {
+  children?: React.ReactNode;
+  value: number;
+  index: number;
+}) {
   const { children, value, index, ...other } = props;
 
   return (
@@ -16,8 +25,15 @@ function TabPanel(props: { children?: React.ReactNode; value: number; index: num
       {...other}
     >
       {value === index && (
-        <Box sx={{ p: 4, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <Typography variant="h6" align="center">
+        <Box
+          sx={{
+            p: 4,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Typography variant="h6" align="center" color="#ffffff">
             {children}
           </Typography>
         </Box>
@@ -34,48 +50,149 @@ export default function BasicTabs() {
   };
 
   return (
-    <Box sx={{ width: '100%', textAlign: 'center' }}>
-      <Tabs
-        value={value}
-        onChange={handleChange}
-        centered
-        aria-label="centered tabs example"
+    <Box
+      sx={{
+        // backgroundImage: "url(/images/title-bg.png)",",
+        backgroundSize: "contain",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundColor: "#070417",
+        fontFamily: "instrument sans,sans-serif",
+      }}
+    >
+      <Box
+        maxWidth={"1081px"}
+        sx={{
+          border: "1px solid white",
+          background:
+            "linear-gradient(rgba(189, 204, 231, 0.6), rgba(71, 53, 144, 0.08))",
+          backdropFilter: "blur(76.15px)",
+          position: "sticky",
+          zIndex: 1100,
+          top: "65px",
+          mx: "auto",
+          px: "20px",
+          width: "90%",
+          borderRadius: "52px",
+        }}
       >
-        <Tab label="Home" />
-        <Tab label="About" />
-        <Tab label="Services" />
-        <Tab label="Portfolio" />
-        <Tab label="Contact" />
-      </Tabs>
+
+        <Tabs
+          value={value}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          onChange={handleChange}
+          centered
+          aria-label="centered tabs example"
+          TabIndicatorProps={{ style: { display: "none" } }}
+          sx={{
+            maxWidth: "980px",
+            mx: "auto",
+            height: "76px",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Tab
+            label="AI Agents"
+            sx={{
+              fontFamily: "instrument sans,sans-serif",
+              fontSize: ["14px", "18px"],
+              textTransform: "none",
+              color: "#CACACA",
+              "&.Mui-selected": {
+                background:
+                  "linear-gradient(135deg, #5939C1, #9480D8, #7D63D3, #6647CA)",
+                borderRadius: "42px",
+                height: "50px",
+                width: "147px",
+                color: "#ffffff",
+              },
+            }}
+          />
+          <Tab
+            label="Predictive Models"
+            sx={{
+              fontFamily: "instrument sans,sans-serif",
+              fontSize: ["14px", "18px"],
+              textTransform: "none",
+              color: "#CACACA",
+              "&.Mui-selected": {
+                background:
+                  "linear-gradient(135deg, #5939C1, #9480D8, #7D63D3, #6647CA)",
+                borderRadius: "42px",
+                height: "50px",
+                color: "#ffffff",
+              },
+            }}
+          />
+          <Tab
+            label="Workplace Bots"
+            sx={{
+              fontFamily: "instrument sans,sans-serif",
+              fontSize: ["14px", "18px"],
+              textTransform: "none",
+              color: "#CACACA",
+              "&.Mui-selected": {
+                background:
+                  "linear-gradient(135deg, #5939C1, #9480D8, #7D63D3, #6647CA)",
+                borderRadius: "42px",
+                height: "50px",
+                color: "#ffffff",
+              },
+            }}
+          />
+          <Tab
+            label="Process Automation"
+            sx={{
+              fontFamily: "instrument sans,sans-serif",
+              fontSize: ["14px", "18px"],
+              textTransform: "none",
+              color: "#CACACA",
+              "&.Mui-selected": {
+                background:
+                  "linear-gradient(135deg, #5939C1, #9480D8, #7D63D3, #6647CA)",
+                borderRadius: "42px",
+                height: "50px",
+                color: "#ffffff",
+              },
+            }}
+          />
+          <Tab
+            label="Custom AI Solutions"
+            sx={{
+              fontFamily: "instrument sans,sans-serif",
+              fontSize: ["14px", "18px"],
+              textTransform: "none",
+              color: "#CACACA",
+              "&.Mui-selected": {
+                background:
+                  "linear-gradient(135deg, #5939C1, #9480D8, #7D63D3, #6647CA)",
+                borderRadius: "42px",
+                height: "50px",
+                color: "#ffffff",
+              },
+            }}
+          />
+        </Tabs>
+      </Box>
 
       <TabPanel value={value} index={0}>
-        Welcome to the Home page. Here is some introductory content.
+        <AIPage />
       </TabPanel>
       <TabPanel value={value} index={1}>
-        Learn more About us and what we stand for.
+        <PredictiveModelsPage />
       </TabPanel>
       <TabPanel value={value} index={2}>
-        Our Services include web design, development, and consulting.
+        <WorkplaceBotsPage />
       </TabPanel>
       <TabPanel value={value} index={3}>
-        Check out our Portfolio of previous projects and case studies.
+        <ProcessAutomationPage />
       </TabPanel>
       <TabPanel value={value} index={4}>
-        Contact us at contact@example.com or through our social channels.
+        <CustomAISolutionsPage />
       </TabPanel>
-
-      <Tabs
-        value={value}
-        onChange={handleChange}
-        centered
-        aria-label="centered tabs example"
-      >
-        <Tab label="Home" />
-        <Tab label="About" />
-        <Tab label="Services" />
-        <Tab label="Portfolio" />
-        <Tab label="Contact" />
-      </Tabs>
     </Box>
   );
 }
