@@ -659,11 +659,14 @@ export const Subscription = () => {
           </span>
           {plan.price !== null &&
             plan.price !== undefined &&
-            plan.price !== "Custom" && (
+            plan.price !== "Custom" && plan.name.toLowerCase() !== "explorer" &&(
               <span className="ml-1 text-gray-500 dark:text-gray-400">
                 /{isAnnualBilling(plan) ? "year" : "month"}
               </span>
             )}
+            {plan.name.toLowerCase() === "explorer" && (<span className="ml-1 text-gray-500 dark:text-gray-400">
+                30 days only
+              </span>)}
         </div>
 
         <ul className="mt-6 space-y-3">

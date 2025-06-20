@@ -55,7 +55,7 @@ export const Sidebar = () => {
             {
               path: "leadsdisplay",
               icon: "/images/dummy/leads_icon.png",
-              label: "Leads Display",
+              label: "Leads",
             },
           ]);
         } else {
