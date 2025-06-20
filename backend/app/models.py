@@ -184,7 +184,7 @@ class ChatMessage(Base):
     message_text = Column(Text, nullable=False)
     timestamp = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False, index=True)
     cluster_id = Column(String, nullable=True)
-
+    not_answered = Column(Boolean, default=False, nullable=False)
     # Relationships
     # interaction = relationship("Interaction", back_populates="messages")
     

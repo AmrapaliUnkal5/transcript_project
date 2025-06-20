@@ -1,3 +1,5 @@
+
+
 import React from "react";
 import { useEffect, useState } from "react";
 import {
@@ -43,6 +45,15 @@ interface FAQData {
 interface WordCloudData {
   text: string;
   value: number;
+}
+
+interface QuestionsTabContentProps {
+  questions: string[];
+  title: string;
+}
+
+interface UnansweredQuestions {
+  questions: { original_text: string }[];
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -116,9 +127,10 @@ export const Performance = () => {
   const [wordCloudData, setWordCloudData] = useState<WordCloudData[]>([]);
   const [dislikedQA, setDislikedQA] = useState<DislikedQA[]>([]);
 
-
+  const [unansweredQuestions, setUnansweredQuestions] = useState<UnansweredQuestions | null>(null);
 
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+ 
 
 const handleToggle = (index: number) => {
   setOpenIndex(openIndex === index ? null : index);
@@ -486,37 +498,70 @@ const renderCustomLegend2 = (props: any) => {
   );
 };
 
-const fetchAllQuestions = async () => {
+const fetchUnansweredQuestions = async () => {
   if (!selectedBot?.id) return;
 
   try {
     setLoading(true);
-    const response = await authApi.getBotQuestions({
+    const response = await authApi.getUnansweredQuestions({
       bot_id: selectedBot.id,
     });
-    setAllQuestions(response);
-    setQuestionsTabOpen(true);
+    setUnansweredQuestions(response);
   } catch (error) {
-    console.error('Error fetching all questions:', error);
-    toast.error('Failed to fetch all questions');
+    console.error('Error fetching unanswered questions:', error);
+    toast.error('Failed to fetch unanswered questions');
   } finally {
     setLoading(false);
   }
 };
 
-const renderQuestionsTab = () => {
-  if (!questionsTabOpen || !allQuestions) return null;
+// Modify your existing fetchAllQuestions function to also fetch unanswered questions
+const fetchAllQuestions = async () => {
+  if (!selectedBot?.id) return;
 
-  // Prepare content for download
-  const questionsText = allQuestions.questions.map((q, i) => `${i + 1}. ${q}`).join('\n');
-  const blob = new Blob([questionsText], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
+  try {
+    setLoading(true);
+    const [allQuestionsResponse, unansweredResponse] = await Promise.all([
+      authApi.getBotQuestions({
+        bot_id: selectedBot.id,
+      }),
+      authApi.getUnansweredQuestions({
+        bot_id: selectedBot.id,
+      })
+    ]);
+    setAllQuestions(allQuestionsResponse);
+    setUnansweredQuestions(unansweredResponse);
+    setQuestionsTabOpen(true);
+  } catch (error) {
+    console.error('Error fetching questions:', error);
+    toast.error('Failed to fetch questions');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const renderQuestionsTab = (allQuestions: {questions: string[], count: number} | null, unansweredQuestions: {questions: {original_text: string}[]} | null) => {
+  if (!allQuestions && !unansweredQuestions) return null;
+
+  // Helper function to render questions as HTML string
+  const renderQuestionsHTML = (questions: any[], title: string) => {
+    return `
+      <div class="question-list">
+        
+        ${questions.map((q, i) => `
+          <div class="question-item" key="${i}">
+            ${i + 1}. ${typeof q === 'string' ? q : q.original_text}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  };
 
   const html = `
     <!DOCTYPE html>
     <html>
       <head>
-        <title>List Of All The Questions Asked By User</title>
+        <title>Questions Asked By User</title>
         <style>
           body {
             font-family: Arial, sans-serif;
@@ -539,11 +584,25 @@ const renderQuestionsTab = () => {
             margin-bottom: 20px;
             border-bottom: 1px solid #eee;
             padding-bottom: 10px;
-            min-height: 44px;
           }
           h1 {
             color: #333;
             margin: 0;
+          }
+          .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+          }
+          .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+          }
+          .tab.active {
+            border-bottom: 2px solid #5348CB;
+            color: #5348CB;
+            font-weight: bold;
           }
           .download-btn {
             background-color: #5348CB;
@@ -559,38 +618,91 @@ const renderQuestionsTab = () => {
             background-color: #4338ca;
           }
           .question-list {
-            margin-top: 30px;
+            margin-top: 20px;
           }
           .question-item {
             background: #f9f9f9;
-            padding: 5px;
-            border-radius: 1px;
+            padding: 10px 15px;
+            border-radius: 4px;
             border-bottom: 1px solid #eee;
             border-left: 2px solid #5348CB;
-            margin-bottom: 5px;
+            margin-bottom: 10px;
           }
           .count {
             font-weight: bold;
             margin-bottom: 10px;
             color: #666;
           }
+          .tab-content {
+            display: none;
+          }
+          .tab-content.active {
+            display: block;
+          }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="header">
-            <h1>List Of All The Questions Asked By User</h1>
-            <a href="${url}" download="user_questions.txt" class="download-btn">Download</a>
+          <div class="tabs">
+            <div class="tab active" onclick="switchTab('all')">All Questions</div>
+            <div class="tab" onclick="switchTab('unanswered')">Unanswered Questions</div>
           </div>
           
-          <div class="question-list">
-            ${allQuestions.questions.map((q, i) => `
-              <div class="question-item">
-                ${i + 1}. ${q}
-              </div>
-            `).join('')}
+          <div class="header">
+            <h1 id="titleHeader">List Of All The Questions Asked By User</h1>
+            <a id="downloadBtn" href="#" class="download-btn">Download</a>
+          </div>
+          
+          <div id="all-questions" class="tab-content active">
+            ${allQuestions ? renderQuestionsHTML(allQuestions.questions, 'Questions') : '<p>No questions found</p>'}
+          </div>
+          
+          <div id="unanswered-questions" class="tab-content">
+            ${unansweredQuestions ? renderQuestionsHTML(unansweredQuestions.questions, 'Unanswered Questions') : '<p>No unanswered questions found</p>'}
           </div>
         </div>
+        
+        <script>
+          function switchTab(tabName) {
+            // Update tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+              tab.classList.remove('active');
+            });
+            document.querySelector(\`.tab[onclick="switchTab('\${tabName}')"]\`).classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+              content.classList.remove('active');
+            });
+            document.getElementById(\`\${tabName}-questions\`).classList.add('active');
+            
+            // Update title
+            const titleHeader = document.getElementById('titleHeader');
+            if (tabName === 'all') {
+              titleHeader.textContent = 'List Of All The Questions Asked By User';
+            } else {
+              titleHeader.textContent = 'List Of All The Unanswered Questions';
+            }
+            
+            // Update download link
+            updateDownloadLink(tabName);
+          }
+          
+          function updateDownloadLink(tabName) {
+            const questions = tabName === 'all' 
+              ? ${JSON.stringify(allQuestions?.questions || [])} 
+              : ${JSON.stringify(unansweredQuestions?.questions.map(q => q.original_text) || [])};
+              
+            const blob = new Blob([questions.map((q, i) => \`\${i + 1}. \${q}\`).join('\\n')], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const downloadBtn = document.getElementById('downloadBtn');
+            downloadBtn.href = url;
+            downloadBtn.download = \`\${tabName}_questions.txt\`;
+          }
+          
+          // Initialize download link for first tab
+          updateDownloadLink('all');
+        </script>
       </body>
     </html>
   `;
@@ -601,12 +713,12 @@ const renderQuestionsTab = () => {
     newWindow.document.close();
   }
 };
-// Call renderQuestionsTab whenever questionsTabOpen changes
 useEffect(() => {
-  if (questionsTabOpen && allQuestions) {
-    renderQuestionsTab();
+  if (questionsTabOpen && (allQuestions || unansweredQuestions)) {
+    renderQuestionsTab(allQuestions, unansweredQuestions);
   }
-}, [questionsTabOpen, allQuestions]);
+}, [questionsTabOpen, allQuestions, unansweredQuestions]);
+
 
  const getLast7Days = () => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -1041,31 +1153,36 @@ useEffect(() => {
           </div>
         ))}
 
-      {faqData.length > 5 && (
-       <div className="relative mt-6 flex justify-center">
-  {/* Centered button */}
-  <button
-    onClick={() => setShowAllFAQs(!showAllFAQs)}
-    className="flex items-center justify-center gap-2 border border-[#5348CB] rounded-[12px] min-w-[102px] w-[153px] h-[48px] font-semibold text-[16px] text-[#5348CB] font-['Instrument_Sans']"
-  >
-    <img
-      src="/images/dummy/view-more.png"
-      alt="icon"
-      className="w-4 h-4"
-    />
-    {showAllFAQs ? "View Less" : "View More"}
-  </button>
+<div className="relative mt-6 w-full">
+  {/* Centered View More/Less button (only shown if more than 5 FAQs) */}
+  {faqData.length > 5 && (
+    <div className="absolute left-1/2 transform -translate-x-1/2">
+      <button
+        onClick={() => setShowAllFAQs(!showAllFAQs)}
+        className="flex items-center justify-center gap-2 border border-[#5348CB] rounded-[12px] min-w-[102px] w-[153px] h-[48px] font-semibold text-[16px] text-[#5348CB] font-['Instrument_Sans']"
+      >
+        <img
+          src="/images/dummy/view-more.png"
+          alt="icon"
+          className="w-4 h-4"
+        />
+        {showAllFAQs ? "View Less" : "View More"}
+      </button>
+    </div>
+  )}
 
-  {/* Right-aligned link */}
-  <span
-    onClick={fetchAllQuestions}
-    className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2 text-[#5348CB] text-[16px] font-semibold font-['Instrument_Sans'] cursor-pointer"
-  >
-    View All Questions
-  </span>
+  {/* Right-aligned View All Questions (always shown if FAQs exist) */}
+  {faqData.length > 0 && (
+    <div className="flex justify-end">
+      <span
+        onClick={fetchAllQuestions}
+        className="flex items-center gap-2 text-[#5348CB] text-[16px] font-semibold font-['Instrument_Sans'] cursor-pointer"
+      >
+        View All Questions
+      </span>
+    </div>
+  )}
 </div>
-
-)}
       {/* {!hasAdvancedAnalytics && (
         <div className="absolute top-[85%] left-[25%] transform -translate-x-1/2 -translate-y-1/2 z-10">
           <UpgradeMessage

@@ -381,10 +381,18 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     bot_message = ChatMessage(
         interaction_id=request.interaction_id,
         sender="bot",
-        message_text=bot_reply_text
+        message_text=bot_reply_text,
+        not_answered=bot_reply_dict.get("not_answered", False)
     )
     db.add(bot_message)
     db.commit()
+
+     # If bot couldn't answer, update the user question as well
+    if bot_reply_dict.get("not_answered", False):
+        db.query(ChatMessage)\
+            .filter(ChatMessage.message_id == user_message.message_id)\
+            .update({"not_answered": True})
+        db.commit()
 
     # ✅ Log bot message stored
     ai_logger.info("Bot response stored", extra={
@@ -596,3 +604,51 @@ def get_bot_questions(bot_id: int, db: Session = Depends(get_db)):
         "questions": list(unique_questions.values()),
         "count": len(unique_questions)
     }
+
+
+@router.get("/bot/unanswered_questions/{bot_id}")
+def get_unanswered_questions(
+    bot_id: int, 
+    db: Session = Depends(get_db),
+):
+    """
+    Get all unique unanswered user questions for a specific bot.
+    Returns:
+    - List of unique unanswered questions (case-insensitive duplicates removed)
+    - Count of unique questions
+    """
+    skip_greetings = True
+    # Query to get all unanswered user messages for the bot
+    messages = db.query(ChatMessage)\
+        .join(Interaction, ChatMessage.interaction_id == Interaction.interaction_id)\
+        .filter(
+            Interaction.bot_id == bot_id,
+            ChatMessage.sender == "user",
+            ChatMessage.not_answered == True
+        )\
+        .all()
+
+    unique_questions = {}
+    
+    for msg in messages:
+        msg_text = msg.message_text.strip()
+        if msg_text:  # Only process non-empty messages
+            # Skip greetings if enabled
+            if skip_greetings:
+                is_greet, _ = is_greeting(msg_text)
+                if is_greet:
+                    continue
+            
+            # Use lowercase as key to detect duplicates
+            lower_text = msg_text.lower()
+            if lower_text not in unique_questions:
+                # Store original text but compare lowercase for duplicates
+                unique_questions[lower_text] = {
+                    "original_text": msg_text
+                }
+    
+    # Prepare response
+    response = {
+        "questions": list(unique_questions.values())
+    }
+    return response

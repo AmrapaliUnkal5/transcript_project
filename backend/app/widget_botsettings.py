@@ -483,10 +483,19 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
     bot_message = ChatMessage(
         interaction_id=real_interaction_id,
         sender="bot",
-        message_text=bot_reply_text
+        message_text=bot_reply_text,
+        not_answered=bot_reply_dict.get("not_answered", False)
     )
     db.add(bot_message)
     db.commit()
+
+    # If bot couldn't answer, update the user question as well
+    if bot_reply_dict.get("not_answered", False):
+        db.query(ChatMessage)\
+            .filter(ChatMessage.message_id == user_message.message_id)\
+            .update({"not_answered": True})
+        db.commit()
+        
     messageid_data_token = create_tokens(bot_message.message_id)
     print("bot_message.message_id",messageid_data_token)
 

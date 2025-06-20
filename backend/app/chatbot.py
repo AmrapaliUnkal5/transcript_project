@@ -406,7 +406,8 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
             logger.info(f"No relevant documents found and external knowledge disabled", 
                        extra={"bot_id": bot_id})
             return {"bot_reply": bot_reply,
-                "is_default_response": True }
+                "is_default_response": True,
+                 "not_answered": True }
     else:
         # Note: vector_db.py returns documents with a "content" field
         context = " ".join([doc.get("content", "") for doc in similar_docs])
@@ -448,14 +449,16 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         )
         return {
             "bot_reply": bot_reply,
-            "is_default_response": is_default_response
+            "is_default_response": is_default_response,
+            "not_answered": True
         }
     except Exception as e:
         logger.exception(f"Error generating response", 
                         extra={"bot_id": bot_id, "error": str(e)})
         return {
             "bot_reply": "I encountered an error processing your request. Please try again.",
-            "is_default_response": True
+            "is_default_response": True,
+            "not_answered": True
         }
         #raise HTTPException(status_code=500, detail=f"Chatbot error: {str(e)}")
 

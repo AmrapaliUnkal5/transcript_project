@@ -701,6 +701,16 @@ deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
       throw error;
     }
   },
+
+getUnansweredQuestions: async (params: { bot_id: number }) => {
+  try {
+    const response = await api.get(`/chat/bot/unanswered_questions/${params.bot_id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching unanswered questions:', error);
+    throw error;
+  }
+},
   getWordCloud: async (params: { bot_id: number }) => {
     try {
       const response = await api.get(`/chat/analytics/word_cloud/${params.bot_id}`);
