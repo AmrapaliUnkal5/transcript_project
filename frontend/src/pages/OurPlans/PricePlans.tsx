@@ -671,7 +671,7 @@ export default function PricePlans() {
                       fontSize={"14px"}
                       color={"#FFF"}
                     >
-                      No Evolra label
+                      Powered by Evolra label
                     </Typography>
                   </Box>
                 </Box>
