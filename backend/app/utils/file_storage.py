@@ -195,7 +195,7 @@ def get_file_url(target_dir_env: str, filename: str, base_url: str = None) -> st
         url = s3_client.generate_presigned_url(
             'get_object',
             Params={'Bucket': bucket_name, 'Key': s3_key},
-            ExpiresIn=86400  # URL valid for 1 day
+            ExpiresIn=604800  # URL valid for 7 days
         )
         return url
     else:
