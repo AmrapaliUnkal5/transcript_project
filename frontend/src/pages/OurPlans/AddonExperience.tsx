@@ -92,34 +92,19 @@ export default function AddonExperience() {
                 >
                   
                     <Box display={"flex"} alignItems={"center"} gap={1}>
-                      {/* <Typography
-                        variant="h3"
-                        fontWeight={600}
-                        fontSize={"30px"}
-                        lineHeight={1.5}
-                        mb={1}
-                      >
-                        $9.99
-                      </Typography>
-                      <Typography
-                        variant="h6"
-                        fontWeight={"400"}
-                        fontSize={"14px"}
-                      >
-                        /month
-                      </Typography> */}
+                     
 
                        <Typography
-  variant="h6"
-  fontWeight={600}
-  fontSize="20px"
-  lineHeight={1.5}
-  mb={1}
->
-  $5/ ₹450
-</Typography>
+                       variant="h6"
+                      fontWeight={600}
+                      fontSize="20px"
+                      lineHeight={1.5}
+                      mb={1}
+                         >
+                      $9.99/ ₹850
+                     </Typography>
 
-<Typography
+                  <Typography
                       variant="h6"
                       fontWeight={"400"}
                       fontSize={"14px"}
@@ -129,19 +114,20 @@ export default function AddonExperience() {
                     </Box>
 
                     <Button
-                    href="/signup"
-                      sx={{
-                        bgcolor: "#fff",
-                        color: "#2E2B9C",
-                        textTransform: "none",
-                        borderRadius: "20px",
-                        px: 3,
-                        width: "96px",
-                        height: "52px",
-                      }}
-                    >
-                      Get
-                    </Button>
+                  href="/signup"
+                    sx={{
+                     background: 'linear-gradient(180deg, #F4F4F6 0%, #7C7C7C 100%)',
+                      color: "#363637",
+                      textTransform: "none",
+                      borderRadius: "20px",
+                      fontSize: "16px",
+                      px: 3,
+                      width: "96px",
+                      height: "52px",
+                    }}
+                  >
+                    Get
+                  </Button>
                   </Box>
                 </Box>
               
@@ -199,51 +185,33 @@ export default function AddonExperience() {
                   gap={1}
                   justifyContent={"space-between"}
                 >
-                  {/* <Box display={"flex"} alignItems={"center"} gap={1}>
-                    {" "}
-                    <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={"30px"}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $5
-                    </Typography>
-                    <Typography
-                      variant="h6"
-                      fontWeight={"400"}
-                      fontSize={"14px"}
-                    >
-                      /month
-                    </Typography>
-                  </Box> */}
-
+                  
                   <Box display={"flex"} alignItems={"center"} gap={1}>
                        <Typography
-  variant="h6"
-  fontWeight={600}
-  fontSize="20px"
-  lineHeight={1.5}
-  mb={1}
->
-  $5/ ₹450
-</Typography>
+                      variant="h6"
+                      fontWeight={600}
+                      fontSize="20px"
+                      lineHeight={1.5}
+                      mb={1}
+                       >
+                     $9.99/ ₹850
+                      </Typography>
 
-<Typography
+                    <Typography
                       variant="h6"
                       fontWeight={"400"}
                       fontSize={"14px"}
                     >/month
                     </Typography>
-</Box>
+             </Box>
                   <Button
                   href="/signup"
                     sx={{
-                      bgcolor: "#fff",
-                      color: "#2E2B9C",
+                     background: 'linear-gradient(180deg, #F4F4F6 0%, #7C7C7C 100%)',
+                      color: "#363637",
                       textTransform: "none",
                       borderRadius: "20px",
+                      fontSize: "16px",
                       px: 3,
                       width: "96px",
                       height: "52px",
@@ -307,25 +275,17 @@ export default function AddonExperience() {
                   justifyContent={"space-between"}
                 >
                   <Box display={"flex"} alignItems={"center"} gap={1}>
-                    {/* <Typography
-                      variant="h3"
-                      fontWeight={600}
-                      fontSize={"30px"}
-                      lineHeight={1.5}
-                      mb={1}
-                    >
-                      $9.99 
-                    </Typography> */}
+                    
 
                     <Typography
-  variant="h6"
-  fontWeight={600}
-  fontSize="20px"
-  lineHeight={1.5}
-  mb={1}
->
-  $9.99 / ₹900
-</Typography>
+                       variant="h6"
+                       fontWeight={600}
+                      fontSize="20px"
+                       lineHeight={1.5}
+                      mb={1}
+                           >
+                      $9.99 / ₹850
+                    </Typography>
                     <Typography
                       variant="h6"
                       fontWeight={"400"}
@@ -334,14 +294,14 @@ export default function AddonExperience() {
                       /month
                     </Typography>
                   </Box>
-
-                  <Button
+                <Button
                   href="/signup"
                     sx={{
-                      bgcolor: "#fff",
-                      color: "#2E2B9C",
+                     background: 'linear-gradient(180deg, #F4F4F6 0%, #7C7C7C 100%)',
+                      color: "#363637",
                       textTransform: "none",
                       borderRadius: "20px",
+                      fontSize: "16px",
                       px: 3,
                       width: "96px",
                       height: "52px",
@@ -406,61 +366,41 @@ export default function AddonExperience() {
                   width="100%"
                 >
                   
-                    {/* <Box display={"flex"} alignItems={"center"} gap={1}>
-                      <Typography
-                        variant="h3"
-                        fontWeight={600}
-                        fontSize={"30px"}
-                        lineHeight={1.5}
-                        mb={1}
-                      >
-                        $5
-                      </Typography>
-                      <Typography
-                        variant="h6"
-                        fontWeight={"400"}
-                        fontSize={"14px"}
-                      >
-                        /month
-                      </Typography>
-                    </Box> */}
 
-<Box display={"flex"} alignItems={"center"} gap={1}>
+                <Box display={"flex"} alignItems={"center"} gap={1}>
                        <Typography
-  variant="h6"
-  fontWeight={600}
-  fontSize="20px"
-  lineHeight={1.5}
-  mb={1}
->
-  $5/ ₹450
-</Typography>
+                     variant="h6"
+                    fontWeight={600}
+                    fontSize="20px"
+                    lineHeight={1.5}
+                    mb={1}
+                    >
+                  $5/ ₹450
+                </Typography>
 
-<Typography
+               <Typography
                       variant="h6"
                       fontWeight={"400"}
                       fontSize={"14px"}>/month
                     </Typography></Box>
+                 
+                 <Button
+                  href="/signup"
+                    sx={{
+                     background: 'linear-gradient(180deg, #F4F4F6 0%, #7C7C7C 100%)',
+                      color: "#363637",
+                      textTransform: "none",
+                      borderRadius: "20px",
+                      fontSize: "16px",
+                      px: 3,
+                      width: "96px",
+                      height: "52px",
+                    }}
+                  >
+                    Get
+                  </Button>
 
-
-
-
-
-
-                    <Button
-                    href="/signup"
-                      sx={{
-                        bgcolor: "#fff",
-                        color: "#2E2B9C",
-                        textTransform: "none",
-                        borderRadius: "20px",
-                        px: 3,
-                        width: "96px",
-                        height: "52px",
-                      }}
-                    >
-                      Get
-                    </Button>
+                   
                   </Box>
                 </Box>
               
@@ -520,56 +460,40 @@ export default function AddonExperience() {
                   width="100%"
                 >
                   
-                    {/* <Box display={"flex"} alignItems={"center"} gap={1}>
-                      <Typography
-                        variant="h3"
-                        fontWeight={600}
-                        fontSize={"30px"}
-                        lineHeight={1.5}
-                        mb={1}
-                      >
-                        $5  
-                      </Typography>
-                      <Typography
-                        variant="h6"
-                        fontWeight={"400"}
-                        fontSize={"14px"}
-                      >
-                        /month
-                      </Typography>
-                    </Box> */}
+                   
 
                     <Box display={"flex"} alignItems={"center"} gap={1}>
                        <Typography
-  variant="h6"
-  fontWeight={600}
-  fontSize="20px"
-  lineHeight={1.5}
-  mb={1}
->
-  $5/ ₹450
-</Typography>
+                      variant="h6"
+                      fontWeight={600}
+                      fontSize="20px"
+                      lineHeight={1.5}
+                      mb={1}
+                       >
+                      $5/ ₹450
+                     </Typography>
 
-<Typography
+                  <Typography
                       variant="h6"
                       fontWeight={"400"}
                       fontSize={"14px"}>/month
                     </Typography></Box>
 
-                    <Button
-                    href="/signup"
-                      sx={{
-                        bgcolor: "#fff",
-                        color: "#2E2B9C",
-                        textTransform: "none",
-                        borderRadius: "20px",
-                        px: 3,
-                        width: "96px",
-                        height: "52px",
-                      }}
-                    >
-                      Get
-                    </Button>
+                   <Button
+                  href="/signup"
+                    sx={{
+                     background: 'linear-gradient(180deg, #F4F4F6 0%, #7C7C7C 100%)',
+                      color: "#363637",
+                      textTransform: "none",
+                      borderRadius: "20px",
+                      fontSize: "16px",
+                      px: 3,
+                      width: "96px",
+                      height: "52px",
+                    }}
+                  >
+                    Get
+                  </Button>
                   </Box>
                 </Box>
               

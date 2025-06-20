@@ -312,7 +312,7 @@ const WorkplaceBotsPage: React.FC = () => {
         <Button
           variant="contained"
           color="primary"
-          href="/signup"
+          href="/contact-us"
           size="large"
           sx={{
             fontSize: ["14px", "18px"],
@@ -320,12 +320,12 @@ const WorkplaceBotsPage: React.FC = () => {
             borderRadius: "40px",
             height: ["52px", "62px"],
             minWidth: ["180px", "220px"],
-            textTransform: "capitalize",
+            textTransform: "none",
             background:
               "linear-gradient(180deg,rgba(90, 108, 242, 1) 0%, rgba(75, 52, 152, 1) 100%);",
           }}
         >
-          Get started for free
+          Let's get in touch
         </Button>
       </Box>
     </Box>

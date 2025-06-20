@@ -266,7 +266,7 @@ const AIPage: React.FC = () => {
         <Button
           variant="contained"
           color="primary"
-          href="/signup"
+          href="/contact-us"
           size="large"
           sx={{
             fontSize: { xs: "14px", sm: "16px", md: "18px" },
@@ -274,12 +274,12 @@ const AIPage: React.FC = () => {
             borderRadius: "40px",
             height: ["44px", "52px", "62px"],
             minWidth: ["150px", "180px", "220px"],
-            textTransform: "capitalize",
+            textTransform: "none",
             background:
               "linear-gradient(180deg,rgba(90, 108, 242, 1) 0%, rgba(75, 52, 152, 1) 100%)",
           }}
         >
-          Get started for free
+          Let's get in touch
         </Button>
       </Box>
     </Box>

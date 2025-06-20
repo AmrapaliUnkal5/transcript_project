@@ -500,7 +500,6 @@ export const Login = () => {
                     playsInline
                     style={{
                       width: "100%",
-                      height: "100%",
                       objectFit: "cover", // if we are using cover here video is cropped and if using contain then so much space remain empty inside box 
                       
                     }}

@@ -12,17 +12,32 @@ import {
 export const CancellationRefundPolicy = () => {
   return (
     <Box  sx={{
-    background: "linear-gradient(135deg, #172041, #1D1C56)",
+    backgroundColor: "#101035", 
     color: "#ffffff",
     pt: 15,
-    pb:10
+    pb:10,
+    fontFamily: "'Instrument Sans', sans-serif",
   }}>
       <Container maxWidth="md">
-        <Typography variant="h4" gutterBottom>
-          Cancellation & Refund Policy
-        </Typography>
+        
 
-        <Typography variant="body2">
+          <Typography 
+                variant='h2' 
+                fontWeight={600} 
+                fontSize={['30px', '54px']} 
+                color='#fff'
+                textAlign={'center'}
+                mb={1}
+                sx={{
+                    background: 'linear-gradient(180deg, #FFFFFF 46.63%, #959595 100%)',
+                    backgroundClip: 'text',
+                    textFillColor: 'transparent',
+                  }}
+            >
+                Cancellation & Refund Policy
+              </Typography>
+
+        <Typography variant="body2" align="center" mb={[0,4]}>
           Effective Date: 15 Mar 2025
         </Typography>
 

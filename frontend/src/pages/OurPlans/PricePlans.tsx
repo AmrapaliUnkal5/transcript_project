@@ -100,7 +100,7 @@ export default function PricePlans() {
                     color="rgba(255, 255, 255, 0.6)"
                     mt={0.5}
                   >
-                    per month
+                    30 days only
                   </Typography>
 
                   <Box display="flex" justifyContent="center" my={3}>
@@ -304,7 +304,7 @@ export default function PricePlans() {
                       fontSize={"14px"}
                       color={"#FFF"}
                     >
-                      1500 messages per month
+                      1000 messages per month
                     </Typography>
                   </Box>
                   <Box display={"flex"} my={2}>
@@ -313,7 +313,7 @@ export default function PricePlans() {
                       fontSize={"14px"}
                       color={"#FFF"}
                     >
-                      1 GB storage
+                      500 MB storage
                     </Typography>
                   </Box>
 
@@ -622,7 +622,7 @@ export default function PricePlans() {
                       fontSize={"14px"}
                       color={"#FFF"}
                     >
-                      Crawl 5 website
+                      Crawl multiple website
                     </Typography>
                   </Box>
                   <Box display={"flex"} my={2}>

@@ -3,7 +3,7 @@ import React from 'react';
 import HomeHeader from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
 import { ShippingExchange } from './Shipingexchange';
-
+import PageBottom from '../TermsOfService/PageBottom';
 
 
 
@@ -12,6 +12,7 @@ export default function ShippingAndExchange() {
         <Box fontFamily={"'Instrument Sans', sans-serif"}>
         <HomeHeader/>
        <ShippingExchange/>
+        <PageBottom/>
         <Footer/> 
         </Box>
     );

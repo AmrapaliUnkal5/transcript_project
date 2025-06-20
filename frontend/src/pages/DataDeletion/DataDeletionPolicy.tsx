@@ -15,18 +15,31 @@ export const DataDeletionPolicy = () => {
   return (
     <Box
       sx={{
-        background: "linear-gradient(135deg, #172041, #1D1C56)",
+         backgroundColor: "#101035", 
         color: "#ffffff",
         pt: 15,
         pb: 10,
+        fontFamily: "'Instrument Sans', sans-serif",
       }}
     >
       <Container maxWidth="md">
-        <Typography variant="h4" gutterBottom>
-          Data Deletion Policy
-        </Typography>
+                 <Typography 
+                        variant='h2' 
+                        fontWeight={600} 
+                        fontSize={['30px', '54px']} 
+                        color='#fff'
+                        textAlign={'center'}
+                        mb={1}
+                        sx={{
+                            background: 'linear-gradient(180deg, #FFFFFF 46.63%, #959595 100%)',
+                            backgroundClip: 'text',
+                            textFillColor: 'transparent',
+                          }}
+                    >
+                        Data Deletion Policy
+                      </Typography>
 
-        <Typography variant="body1" gutterBottom>
+        <Typography variant="h6" mt={[2,6]} mb={[0,2]} justifyContent={"center"} gutterBottom>
           How to Delete Your User Data from Our Tool
         </Typography>
 

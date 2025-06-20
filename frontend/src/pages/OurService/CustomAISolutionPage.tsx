@@ -101,7 +101,7 @@ const CustomAISolutionsPage: React.FC = () => {
                 <Button
                   variant="contained"
                   color="primary"
-                  href="/signup"
+                  href="/contact-us"
                   size="large"
                   sx={{
                     fontSize: ["14px", "18px"],

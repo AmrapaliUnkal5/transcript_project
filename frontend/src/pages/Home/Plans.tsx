@@ -61,7 +61,7 @@ export default function Plans() {
             <Button
               variant="contained"
               color="primary"
-              href="/login"
+              href="/signup"
               onClick={() => {
                 trackGAEvent({
                           category: "Plans",
@@ -198,7 +198,7 @@ export default function Plans() {
                       color={"#FFF"}
                       fontSize={["14px", "16px"]}
                     >
-                      1500 messages per month
+                      1000 messages per month
                     </Typography>
                   </Box>
                   <Box display={"flex"} gap={1} my={2}>

@@ -13,7 +13,7 @@ export const PrivacyPolicy = () => {
   return (
     <Box
       sx={{
-        background: "linear-gradient(135deg, #172041, #1D1C56)",
+         backgroundColor: "#101035", 
         color: "#ffffff",
         pt:15,
         pb:10,
@@ -21,12 +21,23 @@ export const PrivacyPolicy = () => {
       }}
     >
       <Container maxWidth="md">
-       
-          <Typography variant="h4" gutterBottom>
-            Privacy Policy & Terms and Conditions
-          </Typography>
 
-          <Typography variant="body2" gutterBottom>
+        <Typography 
+                variant='h2' 
+                fontWeight={600} 
+                fontSize={['30px', '54px']} 
+                color='#fff'
+                textAlign={'center'}
+                sx={{
+                    background: 'linear-gradient(180deg, #FFFFFF 46.63%, #959595 100%)',
+                    backgroundClip: 'text',
+                    textFillColor: 'transparent',
+                  }}
+            >
+                 Privacy Policy & Terms and Conditions
+              </Typography>
+       
+          <Typography variant="body2" align="center" mt={1} gutterBottom>
             Last Updated: 15Mar 2025
           </Typography>
 

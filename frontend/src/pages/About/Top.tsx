@@ -13,10 +13,9 @@ export default function Top() {
         gap={3}
         maxHeight={[443]}
         sx={{ 
-            backgroundImage: 'url(/images/home/bg-start-building.jpg)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            backgroundColor: "linear-gradient(120deg, #0B0F32 0%, #3D49D5 100%)"
+            backgroundImage: 'linear-gradient(0deg, #070417 0%, #3C388B 100%)',
         }} 
         
         >

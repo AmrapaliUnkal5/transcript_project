@@ -146,6 +146,9 @@ const showError = (message) => {
                         "& .MuiInputLabel-root.Mui-focused": {
                           color: "#ffffff",
                         },
+                         "& .MuiInputLabel-root.MuiInputLabel-shrink": {
+                          color: "#ffffff", 
+                        },
                         "& .MuiOutlinedInput-notchedOutline": {
                           borderColor: "#303030",
                         },
@@ -179,6 +182,9 @@ const showError = (message) => {
                         "& .MuiInputLabel-root.Mui-focused": {
                           color: "#ffffff",
                         },
+                           "& .MuiInputLabel-root.MuiInputLabel-shrink": {
+                          color: "#ffffff", 
+                        },
                         "& .MuiOutlinedInput-notchedOutline": {
                           borderColor: "#303030",
                         },
@@ -210,6 +216,9 @@ const showError = (message) => {
                         },
                         "& .MuiInputLabel-root.Mui-focused": {
                           color: "#ffffff",
+                        },
+                         "& .MuiInputLabel-root.MuiInputLabel-shrink": {
+                          color: "#ffffff", 
                         },
                         "& .MuiOutlinedInput-notchedOutline": {
                           borderColor: "#303030",
@@ -247,6 +256,9 @@ const showError = (message) => {
                         },
                         "& .MuiInputLabel-root.Mui-focused": {
                           color: "#ffffff",
+                        },
+                         "& .MuiInputLabel-root.MuiInputLabel-shrink": {
+                          color: "#ffffff", 
                         },
                         "& .MuiInputLabel-root": {
                           color: "#888888",

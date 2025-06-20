@@ -304,7 +304,7 @@ export default function KeyBenefits() {
             <Button
               variant="contained"
               color="primary"
-              href="/login"
+              href="/signup"
               onClick={() => {
                         trackGAEvent({
                                       category: "Engagement",

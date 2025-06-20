@@ -7,6 +7,7 @@ import {
   styled,
 } from "@mui/material";
 import React from "react";
+import { trackGAEvent } from './Hero';
 
 export default function FourStage() {
   return (
@@ -243,7 +244,7 @@ export default function FourStage() {
                 fontSize={["20px", "20px"]}
                 lineHeight={1.4}
               >
-                Deploy
+                Deploy & Engage
               </Typography>
             </Box>
           </Box>
@@ -254,7 +255,14 @@ export default function FourStage() {
               variant="contained"
               color="primary"
               size="large"
-              href="/login"
+              href="/signup"
+                 onClick={() => {
+                          trackGAEvent({
+                                        category: "Engagement",
+                                        action: "Click Get Satrted For Free",
+                                        label: "GetSatrted above experience of evolra"
+                                      });
+                                    }}
               sx={{
                 fontSize: "18px",
                 fontWeight: 500,
