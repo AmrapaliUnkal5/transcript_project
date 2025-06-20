@@ -444,13 +444,14 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
                 "i don't know",
                 "i don't have information",
                 "i couldn't find",
-                "no information available"
+                "no information available",
+                "Multilingual support is not enabled for your account. Please contact the website admin to enable multilingual support."
             ]
         )
         return {
             "bot_reply": bot_reply,
             "is_default_response": is_default_response,
-            "not_answered": True
+            "not_answered": is_default_response
         }
     except Exception as e:
         logger.exception(f"Error generating response", 
