@@ -82,6 +82,7 @@ const saveBotSettings = async (
     chat_font_family: settings.chatFontFamily,
     lead_generation_enabled: settings.lead_generation_enabled,
     lead_form_fields: settings.leadFormFields,
+    show_sources: settings.showSources, 
   };
 
   try {
@@ -134,7 +135,7 @@ const updateBotSettings = async (
     chat_font_family: settings.chatFontFamily,
     lead_generation_enabled: settings.lead_generation_enabled,
     lead_form_fields: settings.leadFormFields,
-
+    show_sources: settings.showSources, 
   };
 
   try {
@@ -181,6 +182,7 @@ export interface BotSettings {
   userTimestampColor: string;
   lead_generation_enabled: boolean;
   leadFormFields?: Array<"name" | "email" | "phone" | "address">;
+  showSources: boolean; 
 }
 
 export const ChatbotCustomization = () => {
@@ -301,6 +303,7 @@ export const ChatbotCustomization = () => {
     chatFontFamily: "Inter",
     lead_generation_enabled: false,
     leadFormFields: ["name", "email", "phone"],
+    showSources: false, 
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
@@ -489,6 +492,7 @@ const hasLeadFields = (settings?.leadFormFields ?? []).length > 0;
             chatFontFamily: response.chat_font_family || "Inter",
             lead_generation_enabled: response.lead_generation_enabled ?? false,
             leadFormFields: response.lead_form_fields || [],
+            showSources: response.show_sources ?? false,
           });
         }
       } catch (error) {
@@ -1580,6 +1584,7 @@ const handleThemeSelect = async (themeId: string) => {
       </div>
     </div>
   ),
+  
   type: "slider",
   min: 0,
   max: 1,
@@ -1589,6 +1594,7 @@ const handleThemeSelect = async (themeId: string) => {
             handleChange("temperature", parseFloat(e.target.value));
           },
 },
+
 {
   type: "custom",
   render: () => {
@@ -1635,8 +1641,24 @@ const handleThemeSelect = async (themeId: string) => {
       </div>
     );
   }
-}
+},{
+            label: (
+              <span>
+              <input
+                  type="checkbox"
+                  checked={settings.showSources}
+                  onChange={(e) => handleChange("showSources", e.target.checked)}
+                  style={{ marginRight: "6px" }}
+                />
+                    View Sources
+                  </span>
+                ),
+                type: "custom", // or a type that allows JSX
+                description: "When enabled, users can view the sources of bot responses"
+      }
+
       ],
+      
     },
   ];
 
@@ -2261,7 +2283,7 @@ const handleThemeSelect = async (themeId: string) => {
                       </button>
                       </div>
                       {/* Add View Sources button */}
-                       {msg.sources && msg.sources.length > 0 && !msg.is_greeting && (
+                       {settings.showSources && msg.sources && msg.sources.length > 0 && !msg.is_greeting && (
                         <button 
                         onClick={() => toggleSources(index)}
                         className="text-xs text-blue-500 hover:text-blue-700 text-left"
@@ -2269,7 +2291,7 @@ const handleThemeSelect = async (themeId: string) => {
                       {msg.showSources ? 'Hide Sources' : 'View Sources'}
                         </button>
                           )}
-                    {msg.showSources && msg.sources && msg.sources.length > 0 && !msg.is_greeting &&  (
+                    {settings.showSources && msg.showSources && msg.sources && msg.sources.length > 0 && !msg.is_greeting && (
                     <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
                        <ul className="space-y-2">
                       {msg.sources.map((source, idx) =>(

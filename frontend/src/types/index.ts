@@ -101,6 +101,7 @@ export interface BotSettings {
   theme_id?: string;
   lead_generation_enabled?: boolean;
   leadFormFields?: Array<"name" | "email" | "phone" | "address">;
+  showSources: boolean;
 }
 
 export interface ApiFile {
