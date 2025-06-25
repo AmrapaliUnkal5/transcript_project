@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException,UploadFile, File,Request
+from fastapi import APIRouter, Depends, HTTPException,UploadFile, File,Request, Form
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import crud
@@ -16,8 +16,9 @@ from datetime import datetime, timezone
 from app.notifications import add_notification
 from app import models
 from .utils.email_helper import send_email
-from app.utils.file_storage import save_file, get_file_url, FileStorageError
+from app.utils.file_storage import save_file, get_file_url, FileStorageError,resolve_file_url
 import hashlib
+import boto3
 
 router = APIRouter(prefix="/botsettings", tags=["Bot Settings"])
 
@@ -32,6 +33,8 @@ def get_bot_settings(bot_id: int, db: Session = Depends(get_db)):
     bot = crud.get_bot_by_id(db, bot_id)
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found")
+    if bot.bot_icon:
+        bot.bot_icon = resolve_file_url(bot.bot_icon)
     return bot
 
 @router.post("/", response_model=schemas.BotResponse)
@@ -50,11 +53,11 @@ def update_bot_settings(bot_id: int, bot_data: schemas.BotUpdate, db: Session = 
 @router.get("/user/{user_id}")
 def get_bot_setting_by_user_id(user_id: int, db: Session = Depends(get_db)):
     """Fetch user details by user_id"""
-    return crud.get_bot_by_user_id(db, user_id) or []   
+    return crud.get_bot_by_user_id(db, user_id) or []
 
 
 @router.post("/upload_bot")
-async def upload_bot_icon(file: UploadFile = File(...)):
+async def upload_bot_icon(bot_id: int = Form(...),file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
         # Read file content
         file_content = await file.read()
@@ -71,6 +74,18 @@ async def upload_bot_icon(file: UploadFile = File(...)):
         
         # Generate file URL
         file_url = get_file_url(UPLOAD_DIR, new_filename, settings.SERVER_URL)
+
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        if not bot:
+            raise HTTPException(status_code=404, detail="Bot not found")
+
+        bot.bot_icon = file_url
+        db.commit()
+        db.refresh(bot)
+
+        if file_url.startswith('s3://'):
+            resolved_url = resolve_file_url(file_url)
+            return JSONResponse(content={"url": resolved_url})
         
         return JSONResponse(content={"url": file_url})
     

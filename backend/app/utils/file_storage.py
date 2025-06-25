@@ -190,14 +190,9 @@ def get_file_url(target_dir_env: str, filename: str, base_url: str = None) -> st
         bucket_name = path_parts[0]
         prefix = path_parts[1] if len(path_parts) > 1 else ''
         s3_key = f"{prefix}/{filename}".lstrip('/')
+        return f"s3://{bucket_name}/{s3_key}"
         # Generate a presigned URL
-        s3_client = boto3.client('s3')
-        url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={'Bucket': bucket_name, 'Key': s3_key},
-            ExpiresIn=604800  # URL valid for 7 days
-        )
-        return url
+
     else:
         # For local storage, construct HTTP URL
         if not base_url:
@@ -206,6 +201,35 @@ def get_file_url(target_dir_env: str, filename: str, base_url: str = None) -> st
         # Get just the directory name from the full path for URL construction
         dir_name = os.path.basename(target_path.rstrip('/'))
         return f"{base_url.rstrip('/')}/{dir_name}/{filename}"
+
+def resolve_file_url(file_url: str, expires_in: int = 86400) -> str:
+    """
+    Resolves the actual URL to be returned to frontend.
+    If it's S3, generates a presigned URL.
+    If it's local, returns as-is.
+
+    :param file_url: Stored file URL (either s3://bucket/key or local HTTP path)
+    :param expires_in: Expiry time for presigned URL (default: 1 day)
+    :return: Final usable URL
+    """
+    if file_url.startswith("s3://"):
+        path_parts = file_url[5:].split("/", 1)
+        if len(path_parts) < 2:
+            raise ValueError("Invalid S3 URI")
+
+        bucket = path_parts[0]
+        key = path_parts[1]
+        logger.info(f"Successfully got S3 location: s3://{bucket}/{key}")
+
+        s3_client = boto3.client("s3")
+        presigned_url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=expires_in
+        )
+        return presigned_url
+    else:
+        return file_url
 
 
 def delete_file(target_dir_env: str, filename: str) -> bool:

@@ -912,6 +912,10 @@ const storageOptions = {
                   <img
                     src={bot?.bot_icon && bot.bot_icon.trim() !== "" ? bot.bot_icon : "/images/bot_1.png"}
                     alt="Bot"
+                    onError={(e) => {
+                  e.currentTarget.onerror = null; // Prevent infinite loop if fallback also fails
+                  e.currentTarget.src = "/images/bot_1.png";
+                }}
                     className="w-[56px] h-[56px] rounded-full object-cover"
                   />
 

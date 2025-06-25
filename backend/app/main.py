@@ -63,6 +63,7 @@ from app.celery_tasks import process_youtube_videos, process_file_upload, proces
 from app.captcha_cleanup_thread import captcha_cleaner
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
 from app.investigation import router as investigation
+from app.utils.file_storage import resolve_file_url
 
 
 # Import our custom logging components
@@ -406,7 +407,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
             "role": db_user.role,
             "company_name": db_user.company_name,
             "user_id":subscription_user_id,
-            "avatar_url":db_user.avatar_url,
+            "avatar_url":resolve_file_url(db_user.avatar_url) if db_user.avatar_url.startswith("s3://") else db_user.avatar_url,
             "phone_no":db_user.phone_no,
             "subscription_plan_id":subscription_plan_id,
             "total_words_used":db_user.total_words_used,
@@ -452,7 +453,7 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
         UserAddon.is_active == True
     ).order_by(UserAddon.expiry_date.desc()).first()
 
-    avatar_url = db_user.avatar_url
+    avatar_url = resolve_file_url(db_user.avatar_url) if db_user.avatar_url.startswith("s3://") else db_user.avatar_url,
     
     # Generate a fresh token with updated user information
     token_data = {"sub": db_user.email,
@@ -624,6 +625,7 @@ def login_for_access_token(
     addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
 
     #avatar_url = db.avatar_url
+    avatar_url = resolve_file_url(user.avatar_url) if user.avatar_url.startswith("s3://") else user.avatar_url,
 
     access_token = create_access_token(data={
         "sub": user.email,
@@ -637,7 +639,7 @@ def login_for_access_token(
         "addon_plan_ids": addon_plan_ids,
         "subscription_status": user_subscription.status if user_subscription else "new",
         "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
-        "avatar_url": user.avatar_url,
+        "avatar_url": avatar_url,
     })
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -665,8 +667,16 @@ async def upload_avatar(file: UploadFile = File(...)):
         
         # Generate file URL
         file_url = get_file_url(settings.UPLOAD_DIR, filename, settings.SERVER_URL)
-        
-        return JSONResponse(content={"url": file_url}, status_code=200)
+         #Resolve presigned URL if it's an S3 path
+        resolved_url = resolve_file_url(file_url) if file_url.startswith("s3://") else file_url
+
+        return JSONResponse(
+            content={
+                "url": file_url,            # original raw URL
+                "resolved_url": resolved_url  # presigned or direct display URL
+            },
+            status_code=200
+        )
 
     except FileStorageError as e:
         logger.error(f"File storage error: {str(e)}")

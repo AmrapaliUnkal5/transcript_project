@@ -27,6 +27,7 @@ from typing import Optional
 from sqlalchemy.future import select       # for select()
 from sqlalchemy.ext.asyncio import AsyncSession  # for AsyncSession type hint
 import secrets
+from app.utils.file_storage import resolve_file_url
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -117,6 +118,8 @@ async def get_bot_settings_for_widget(request: Request, db: Session = Depends(ge
         bot = crud.get_bot_by_id(db, bot_id)
         if not bot:
             raise HTTPException(status_code=404, detail="Bot not found")
+        if bot.bot_icon:
+            bot.bot_icon = resolve_file_url(bot.bot_icon)
 
         #5. Validate origin (secure your API)
         # 5. Validate origin
@@ -720,7 +723,7 @@ async def get_bot_initial_settings_for_widget(
         raise HTTPException(status_code=404, detail="Bot not found")
 
     return schemas.BotWidgetInitialResponse(
-        avatarUrl=bot.bot_icon,
+        avatarUrl=resolve_file_url(bot.bot_icon),
         position=bot.position or "bottom-right",
         welcomeMessage=bot.welcome_message
     )

@@ -13,6 +13,7 @@ from sqlalchemy import text  # Add this import at the top of your file
 from sqlalchemy import case
 import logging
 from app.utils.logger import get_module_logger
+from app.utils.file_storage import resolve_file_url
 
 from app import models
 
@@ -172,7 +173,7 @@ def get_bot_by_user_id(db: Session, user_id: int):
     return [{bot.bot_id: {
         "user_id": bot.user_id,
         "bot_name": bot.bot_name,
-        "bot_icon": bot.bot_icon,
+        "bot_icon": resolve_file_url(bot.bot_icon) if bot.bot_icon else None,
         "font_style": bot.font_style,
         "font_size": bot.font_size,
         "position": bot.position,

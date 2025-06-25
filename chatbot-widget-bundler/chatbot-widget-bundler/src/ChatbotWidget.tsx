@@ -691,6 +691,10 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                   ? `${widgetdomain}/images/bot_1.png`
                   : bot_icon
               }
+              onError={(e) => {
+                                      e.currentTarget.onerror = null; // Prevent infinite loop if fallback also fails
+                                      e.currentTarget.src = `${widgetdomain}/images/bot_1.png`;
+                                    }}
               alt="Bot Icon"
               style={iconStyle}
             />
