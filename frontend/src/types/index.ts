@@ -100,7 +100,7 @@ export interface BotSettings {
   userTimestampColor: string;
   theme_id?: string;
   lead_generation_enabled?: boolean;
-  leadFormFields?: Array<"name" | "email" | "phone" | "address">;
+  lead_form_config?: Array<{field: "name" | "email" | "phone" | "address";required: boolean;}>;
 }
 
 export interface ApiFile {

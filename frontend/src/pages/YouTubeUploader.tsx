@@ -49,21 +49,6 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
     }
   }, [refreshKey]); // <-- Refresh when refreshKey updates
 
-  // /// Load video URLs from localStorage when component mounts
-  // useEffect(() => {
-  //   const savedVideoUrls = localStorage.getItem("youtube_video_urls");
-  //   console.log("savedVideoUrls", savedVideoUrls);
-  //   if (savedVideoUrls) {
-  //     try {
-  //       const parsedUrls = JSON.parse(savedVideoUrls);
-  //       if (Array.isArray(parsedUrls) && parsedUrls.length > 0) {
-  //         setVideoUrls(parsedUrls);
-  //       }
-  //     } catch (error) {
-  //       console.error("Error parsing stored video URLs:", error);
-  //     }
-  //   }
-  // }, []);
 
   // Load selected videos from localStorage when component mounts
   useEffect(() => {
@@ -315,8 +300,25 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
 
       {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
       {videoUrls.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-md font-semibold text-white">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setSelectedVideos([...videoUrls])}
+                      className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                    >
+                      Select All ({videoUrls.length})
+                    </button>
+                    <button
+                      onClick={() => setSelectedVideos([])}
+                      className="px-3 py-1 bg-gray-300 text-sm rounded hover:bg-gray-400"
+                    >
+                      Clear All
+                    </button>
+                </div>
+                <div className="text-sm text-gray-700">
+                  Selected: {selectedVideos.length}
+                </div>
+          <h3 className="text-md font-semibold text-black">
             Select Videos to Process
           </h3>
           <div className="max-h-90 overflow-y-auto border p-2 rounded-md">
@@ -342,18 +344,6 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
           <div className="flex justify-center mt-4">
             {renderPaginationButtons()}
           </div>
-          {/* <button
-          <button
-            onClick={handleProcessVideos}
-            className={`ml-2 px-4 py-2 text-white rounded-md ${
-              selectedVideos.length === 0
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-500 hover:bg-blue-600"
-            }`}
-            disabled={selectedVideos.length === 0}
-          >
-            Process Selected Videos
-          </button> */}
           {/* Show Loader when loading is true */}
           {loading && <Loader />}
 
