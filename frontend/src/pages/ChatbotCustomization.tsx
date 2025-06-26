@@ -55,7 +55,6 @@ const saveBotSettings = async (
   const data = {
     user_id: userId,
     bot_name: settings.name,
-    bot_icon: settings.icon,
     font_style: settings.fontStyle,
     font_size: parseInt(settings.fontSize),
     position: settings.position,
@@ -109,7 +108,6 @@ const updateBotSettings = async (
   const data = {
     user_id: UserId,
     bot_name: settings.name,
-    bot_icon: settings.icon,
     font_style: settings.fontStyle,
     font_size: parseInt(settings.fontSize),
     position: settings.position,
@@ -277,7 +275,7 @@ export const ChatbotCustomization = () => {
 
   const [settings, setSettings] = useState<BotSettings>({
     name: "Support Bot",
-    icon: "https://images.unsplash.com/photo-1531379410502-63bfe8cdaf6f?w=200&h=200&fit=crop&crop=faces",
+    icon: "/images/bot_1.png",
     fontSize: "12px",
     fontStyle: "Inter",
     position: "bottom-right",
@@ -1050,6 +1048,7 @@ const handlePredefinedIconSelect = async (iconUrl: string) => {
         file = await compressImage(file);
       }
       const formData = new FormData();
+      formData.append("bot_id", selectedBot.id.toString());
       formData.append("file", file);
       console.log("formData",formData)
       const response = await authApi.uploadBotIcon(formData);
@@ -1897,6 +1896,10 @@ const handleThemeSelect = async (themeId: string) => {
                                       src={settings.icon}
                                       alt="Current icon"
                                       className="w-[100px] h-[100px] rounded-full object-cover p-1 bg-white border border-[#DFDFDF]"
+                                       onError={(e) => {
+                                      e.currentTarget.onerror = null; // Prevent infinite loop if fallback also fails
+                                      e.currentTarget.src = "/images/bot_1.png";
+                                    }}
                                     />
                                   </div>
 
@@ -2083,6 +2086,10 @@ const handleThemeSelect = async (themeId: string) => {
             src={settings.icon}
             alt="Bot"
             className="w-full h-full object-cover"
+             onError={(e) => {
+                  e.currentTarget.onerror = null; // Prevent infinite loop if fallback also fails
+                  e.currentTarget.src = "/images/bot_1.png";
+                }}
           />
         ) : (
           <MessageCircle className="w-full h-full text-white p-3" />

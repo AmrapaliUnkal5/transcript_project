@@ -108,6 +108,10 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
           >
             <img
               src={user.avatar}
+              onError={(e) => {
+                  e.currentTarget.onerror = null; // Prevent infinite loop if fallback also fails
+                  e.currentTarget.src = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png";
+                }}
               alt={user?.name || "User"}
               className="w-8 h-8 rounded-full border border-gray-300 dark:border-white cursor-pointer"
             />

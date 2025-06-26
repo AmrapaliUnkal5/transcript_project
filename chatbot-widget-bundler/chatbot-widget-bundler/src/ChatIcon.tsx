@@ -244,6 +244,10 @@ const ChatIcon: React.FC<ChatIconProps> = ({
               borderRadius: "50%",
               objectFit: "cover",
             }}
+             onError={(e) => {
+                                      e.currentTarget.onerror = null; // Prevent infinite loop if fallback also fails
+                                      e.currentTarget.src = `${widgetdomain}/images/bot_1.png`;
+                                    }}
           />
         )}
       </div>
