@@ -450,7 +450,7 @@ export default function AddonExperience() {
                   }}
                   minHeight={128}
                 >
-                  Remove the "Powered by Evolra AI" branding from your widget for a completely seamless brand experience
+                 Add more Admin users to manage your Bots and knowledge base.
                 </Typography>
 
                 <Box
