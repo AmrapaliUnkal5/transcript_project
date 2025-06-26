@@ -172,14 +172,15 @@ export const Settings = () => {
       formData.append("file", file);
 
       const uploadResponse = await authApi.uploadAvatar(formData);
-      const newAvatarUrl = uploadResponse.url;
+      const newAvatarUrl = uploadResponse.resolved_url;
+      const savedPath = uploadResponse.url;
       console.log("newAvatarUrl", newAvatarUrl);
       console.log("user?.id", user?.user_id);
 
       // Update avatar in backend
       await authApi.updateAvatar({
         user_id: user?.user_id, // Use user.id from context
-        avatar_url: newAvatarUrl,
+        avatar_url: savedPath,
       });
 
       // Update localStorage and AuthContext
@@ -457,6 +458,10 @@ export const Settings = () => {
               {/* Avatar Image */}
               <img
                 src={settings.avatar_url}
+                 onError={(e) => {
+                  e.currentTarget.onerror = null; // Prevent infinite loop if fallback also fails
+                  e.currentTarget.src = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png";
+                }}
                 alt="Avatar"
                 className="object-cover w-full h-full rounded-full border-2 border-gray-300 shadow-md"
               />

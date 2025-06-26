@@ -55,7 +55,6 @@ const saveBotSettings = async (
   const data = {
     user_id: userId,
     bot_name: settings.name,
-    bot_icon: settings.icon,
     font_style: settings.fontStyle,
     font_size: parseInt(settings.fontSize),
     position: settings.position,
@@ -82,6 +81,7 @@ const saveBotSettings = async (
     chat_font_family: settings.chatFontFamily,
     lead_generation_enabled: settings.lead_generation_enabled,
     lead_form_config: settings.lead_form_config,
+    show_sources: settings.showSources, 
   };
 
   try {
@@ -108,7 +108,6 @@ const updateBotSettings = async (
   const data = {
     user_id: UserId,
     bot_name: settings.name,
-    bot_icon: settings.icon,
     font_style: settings.fontStyle,
     font_size: parseInt(settings.fontSize),
     position: settings.position,
@@ -134,7 +133,7 @@ const updateBotSettings = async (
     chat_font_family: settings.chatFontFamily,
     lead_generation_enabled: settings.lead_generation_enabled,
     lead_form_config: settings.lead_form_config,
-
+    show_sources: settings.showSources, 
   };
 
   try {
@@ -181,6 +180,7 @@ export interface BotSettings {
   userTimestampColor: string;
   lead_generation_enabled: boolean;
   lead_form_config?: Array<{field: "name" | "email" | "phone" | "address";required: boolean;}>;
+  showSources: boolean; 
 }
 
 export const ChatbotCustomization = () => {
@@ -275,7 +275,7 @@ export const ChatbotCustomization = () => {
 
   const [settings, setSettings] = useState<BotSettings>({
     name: "Support Bot",
-    icon: "https://images.unsplash.com/photo-1531379410502-63bfe8cdaf6f?w=200&h=200&fit=crop&crop=faces",
+    icon: "/images/bot_1.png",
     fontSize: "12px",
     fontStyle: "Inter",
     position: "bottom-right",
@@ -301,6 +301,7 @@ export const ChatbotCustomization = () => {
     chatFontFamily: "Inter",
     lead_generation_enabled: false,
     lead_form_config: [{ field: "name", required: false },{ field: "phone", required: false },{ field: "email", required: false },{ field: "address", required: false }]
+    showSources: false, 
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
@@ -489,6 +490,7 @@ const hasLeadFields = (settings?.lead_form_config  ?? []).length > 0;
             chatFontFamily: response.chat_font_family || "Inter",
             lead_generation_enabled: response.lead_generation_enabled ?? false,
             lead_form_config: response.lead_form_config || [],
+            showSources: response.show_sources ?? false,
           });
         }
       } catch (error) {
@@ -1046,6 +1048,7 @@ const handlePredefinedIconSelect = async (iconUrl: string) => {
         file = await compressImage(file);
       }
       const formData = new FormData();
+      formData.append("bot_id", selectedBot.id.toString());
       formData.append("file", file);
       console.log("formData",formData)
       const response = await authApi.uploadBotIcon(formData);
@@ -1580,6 +1583,7 @@ const handleThemeSelect = async (themeId: string) => {
       </div>
     </div>
   ),
+  
   type: "slider",
   min: 0,
   max: 1,
@@ -1589,6 +1593,7 @@ const handleThemeSelect = async (themeId: string) => {
             handleChange("temperature", parseFloat(e.target.value));
           },
 },
+
 {
   type: "custom",
   render: () => {
@@ -1692,8 +1697,24 @@ const handleThemeSelect = async (themeId: string) => {
       </div>
     );
   }
-}
+},{
+            label: (
+              <span>
+              <input
+                  type="checkbox"
+                  checked={settings.showSources}
+                  onChange={(e) => handleChange("showSources", e.target.checked)}
+                  style={{ marginRight: "6px" }}
+                />
+                    View Sources
+                  </span>
+                ),
+                type: "custom", // or a type that allows JSX
+                description: "When enabled, users can view the sources of bot responses"
+      }
+
       ],
+      
     },
   ];
 
@@ -1932,6 +1953,10 @@ const handleThemeSelect = async (themeId: string) => {
                                       src={settings.icon}
                                       alt="Current icon"
                                       className="w-[100px] h-[100px] rounded-full object-cover p-1 bg-white border border-[#DFDFDF]"
+                                       onError={(e) => {
+                                      e.currentTarget.onerror = null; // Prevent infinite loop if fallback also fails
+                                      e.currentTarget.src = "/images/bot_1.png";
+                                    }}
                                     />
                                   </div>
 
@@ -2118,6 +2143,10 @@ const handleThemeSelect = async (themeId: string) => {
             src={settings.icon}
             alt="Bot"
             className="w-full h-full object-cover"
+             onError={(e) => {
+                  e.currentTarget.onerror = null; // Prevent infinite loop if fallback also fails
+                  e.currentTarget.src = "/images/bot_1.png";
+                }}
           />
         ) : (
           <MessageCircle className="w-full h-full text-white p-3" />
@@ -2318,7 +2347,7 @@ const handleThemeSelect = async (themeId: string) => {
                       </button>
                       </div>
                       {/* Add View Sources button */}
-                       {msg.sources && msg.sources.length > 0 && !msg.is_greeting && (
+                       {settings.showSources && msg.sources && msg.sources.length > 0 && !msg.is_greeting && (
                         <button 
                         onClick={() => toggleSources(index)}
                         className="text-xs text-blue-500 hover:text-blue-700 text-left"
@@ -2326,7 +2355,7 @@ const handleThemeSelect = async (themeId: string) => {
                       {msg.showSources ? 'Hide Sources' : 'View Sources'}
                         </button>
                           )}
-                    {msg.showSources && msg.sources && msg.sources.length > 0 && !msg.is_greeting &&  (
+                    {settings.showSources && msg.showSources && msg.sources && msg.sources.length > 0 && !msg.is_greeting && (
                     <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
                        <ul className="space-y-2">
                       {msg.sources.map((source, idx) =>(
