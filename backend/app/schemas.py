@@ -131,6 +131,7 @@ class BotBase(BaseModel):
     chat_font_family: Optional[str] = "Inter"
     lead_generation_enabled: Optional[bool] = False
     lead_form_fields: Optional[List[str]] = Field(default_factory=list)
+    show_sources: Optional[bool] = False
 
 class BotCreate(BotBase):
     pass  
@@ -151,6 +152,7 @@ class BotRename(BaseModel):
 class BotResponse(BotBase):
     bot_id: int
     theme_id: Optional[str]
+    show_sources: Optional[bool] 
 
     class Config:
         from_attributes = True  
