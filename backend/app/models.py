@@ -9,7 +9,7 @@ import enum
 from sqlalchemy.orm import relationship
 import numpy as np
 from app.schemas import ReactionEnum
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import JSONB
 
 #Base = declarative_base()
 
@@ -118,7 +118,7 @@ class Bot(Base):
     chunk_overlap = Column(Integer, nullable=False, default=100)
     theme_id= Column(String, nullable=False, default="basic")
     lead_generation_enabled = Column(Boolean, nullable=False, default=False)
-    lead_form_fields = Column(ARRAY(String), nullable=True)
+    lead_form_config = Column(JSONB, nullable=True)
     show_sources = Column(Boolean, nullable=False, default=False)
 
     # Add relationships

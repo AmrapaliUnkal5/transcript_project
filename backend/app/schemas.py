@@ -1,6 +1,6 @@
 # app/schemas.py
 from pydantic import BaseModel,EmailStr,Field
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, Literal
 from datetime import datetime
 from enum import Enum
 from fastapi import UploadFile
@@ -95,6 +95,10 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
+class LeadFormField(BaseModel):
+    field: Literal["name", "email", "phone", "address"]
+    required: bool
+
 # #Model for Bot
 class BotBase(BaseModel):
     user_id: Optional[int] = None
@@ -130,7 +134,7 @@ class BotBase(BaseModel):
     border_color: Optional[str] = "#E5E7EB"
     chat_font_family: Optional[str] = "Inter"
     lead_generation_enabled: Optional[bool] = False
-    lead_form_fields: Optional[List[str]] = Field(default_factory=list)
+    lead_form_config: Optional[List[LeadFormField]] = []
     show_sources: Optional[bool] = False
 
 class BotCreate(BotBase):
@@ -515,7 +519,7 @@ class BotWidgetResponse(BaseModel):
     border_color: Optional[str] = "#E5E7EB"
     chat_font_family: Optional[str] = "Inter"
     lead_generation_enabled: Optional[bool] = False
-    lead_form_fields: Optional[List[str]] = Field(default_factory=list)
+    lead_form_config: Optional[List[LeadFormField]] = []
 
     class Config:
         from_attributes = True

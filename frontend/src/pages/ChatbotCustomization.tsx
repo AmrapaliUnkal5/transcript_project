@@ -80,7 +80,7 @@ const saveBotSettings = async (
     border_color: settings.borderColor,
     chat_font_family: settings.chatFontFamily,
     lead_generation_enabled: settings.lead_generation_enabled,
-    lead_form_fields: settings.leadFormFields,
+    lead_form_config: settings.lead_form_config,
     show_sources: settings.showSources, 
   };
 
@@ -132,7 +132,7 @@ const updateBotSettings = async (
     border_color: settings.borderColor,
     chat_font_family: settings.chatFontFamily,
     lead_generation_enabled: settings.lead_generation_enabled,
-    lead_form_fields: settings.leadFormFields,
+    lead_form_config: settings.lead_form_config,
     show_sources: settings.showSources, 
   };
 
@@ -179,7 +179,7 @@ export interface BotSettings {
   chatFontFamily: string;
   userTimestampColor: string;
   lead_generation_enabled: boolean;
-  leadFormFields?: Array<"name" | "email" | "phone" | "address">;
+  lead_form_config?: Array<{field: "name" | "email" | "phone" | "address";required: boolean;}>;
   showSources: boolean; 
 }
 
@@ -300,7 +300,7 @@ export const ChatbotCustomization = () => {
     borderColor: "#0a0a0a",
     chatFontFamily: "Inter",
     lead_generation_enabled: false,
-    leadFormFields: ["name", "email", "phone"],
+    lead_form_config: [{ field: "name", required: false },{ field: "phone", required: false },{ field: "email", required: false },{ field: "address", required: false }],
     showSources: false, 
   });
 
@@ -337,7 +337,7 @@ const [showCustomize, setShowCustomize] = useState(false);
 
 const [customizedThemes, setCustomizedThemes] = useState<Record<string, Partial<BotSettings>>>({});
 const [selectedPredefinedIcon, setSelectedPredefinedIcon] = useState<string | null>(null);
-const hasLeadFields = (settings?.leadFormFields ?? []).length > 0;
+const hasLeadFields = (settings?.lead_form_config  ?? []).length > 0;
 
 // const [sources, setSources] = useState<Array<{
 //     file_name: string;
@@ -489,7 +489,7 @@ const hasLeadFields = (settings?.leadFormFields ?? []).length > 0;
             borderColor: response.border_color || "#E5E7EB",
             chatFontFamily: response.chat_font_family || "Inter",
             lead_generation_enabled: response.lead_generation_enabled ?? false,
-            leadFormFields: response.lead_form_fields || [],
+            lead_form_config: response.lead_form_config || [],
             showSources: response.show_sources ?? false,
           });
         }
@@ -942,7 +942,7 @@ useEffect(() => {
       if (!userId) return;
       const updatedSettings = {
       ...settings,
-      leadFormFields: settings.lead_generation_enabled ? settings.leadFormFields : [],
+      lead_form_config: settings.lead_generation_enabled ? settings.lead_form_config : [],
        };
       if (isBotExisting && botId) {
         console.log("settings", settings);
@@ -1597,10 +1597,10 @@ const handleThemeSelect = async (themeId: string) => {
 {
   type: "custom",
   render: () => {
-    const options: Array<"name" | "email" | "phone" | "address"> = [
+     const fields: Array<"name" | "phone" | "email" | "address"> = [
       "name",
-      "email",
       "phone",
+      "email",
       "address",
     ];
 
@@ -1611,31 +1611,88 @@ const handleThemeSelect = async (themeId: string) => {
           <input
             type="checkbox"
             checked={settings.lead_generation_enabled}
-            onChange={(e) => handleChange("lead_generation_enabled", e.target.checked)}
+            onChange={(e) => {
+    const enabled = e.target.checked;
+    handleChange("lead_generation_enabled", enabled);
+
+    // ✅ If enabling, pre-select the Name field if not already present
+    if (enabled) {
+      const existing = settings.lead_form_config || [];
+      const hasName = existing.some(f => f.field === "name");
+      if (!hasName) {
+        handleChange("lead_form_config", [...existing, { field: "name", required: false }]);
+      }
+    } else {
+      // ✅ Optionally clear the config when disabling (optional)
+      handleChange("lead_form_config", []);
+    }
+  }}
           />
           <span>Enable Lead Generation Form</span>
         </label>
 
         {/* Conditionally show the additional checkboxes */}
         {settings.lead_generation_enabled && (
-          <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "center" }}>
-            {options.map((field) => (
-              <label key={field} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <input
-                  type="checkbox"
-                  checked={settings.leadFormFields?.includes(field)}
-                  onChange={(e) => {
-                    const prev = settings.leadFormFields || [];
-                    const updated = e.target.checked
-                      ? [...prev, field]
-                      : prev.filter((f) => f !== field);
-                    handleChange("leadFormFields", updated);
-                  }}
-                />
-                <span style={{ textTransform: "capitalize" }}>{field}</span>
-              </label>
-            ))}
-          </div>
+          <table style={{ width: "60%", maxWidth: "480px", fontSize: "14px", border: "1px solid #ccc" }}>
+            <thead>
+              <tr style={{ backgroundColor: "#f9f9f9" }}>
+                <th style={{ padding: "8px", textAlign: "left" }}>Field</th>
+                <th style={{ padding: "8px", textAlign: "center" }}>Required</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fields.map((field) => {
+                const config = settings.lead_form_config?.find((f) => f.field === field);
+                const isVisible = !!config;
+                const isRequired = config?.required || false;
+
+                return (
+                  <tr key={field} style={{
+                    borderTop: "1px solid #ccc",
+                    opacity: isVisible ? 1 : 0.5,
+                    pointerEvents: isVisible ? "auto" : "none"
+                  }}>
+                    <td style={{ padding: "8px", display: "flex", alignItems: "center", gap: "8px", pointerEvents: "auto" }}>
+                      <input
+                        type="checkbox"
+                        checked={isVisible}
+                        onChange={(e) => {
+                          const updated = [...(settings.lead_form_config || [])];
+                          const index = updated.findIndex((f) => f.field === field);
+
+                          if (e.target.checked && index === -1) {
+                            updated.push({ field, required: false });
+                          } else if (!e.target.checked && index !== -1) {
+                            updated.splice(index, 1);
+                          }
+                          handleChange("lead_form_config", updated);
+                          if (updated.length === 0) {
+                            handleChange("lead_generation_enabled", false);
+                          }
+                        }}
+                      />
+                      <span style={{ textTransform: "capitalize" }}>{field}</span>
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        disabled={!isVisible}
+                        checked={isRequired}
+                        onChange={(e) => {
+                          const updated = [...(settings.lead_form_config || [])];
+                          const index = updated.findIndex((f) => f.field === field);
+                          if (index !== -1) {
+                            updated[index].required = e.target.checked;
+                            handleChange("lead_form_config", updated);
+                          }
+                        }}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
     );
@@ -2357,7 +2414,7 @@ const handleThemeSelect = async (themeId: string) => {
                     })}
                   </div>
                 </div>
-              )}{settings.lead_generation_enabled && hasLeadFields && !formSubmitted && (
+              )}{settings.lead_generation_enabled && (settings.lead_form_config?.length ?? 0) > 0 && !formSubmitted &&(
                     <div
                       style={{
                         marginBottom: "16px",
@@ -2378,7 +2435,7 @@ const handleThemeSelect = async (themeId: string) => {
                       </div>
 
                       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                         {settings.leadFormFields?.includes("name") && (
+                         {settings.lead_form_config?.some(f => f.field === "name") && (
                         <div style={{ position: "relative", width: "100%" }}>
                           <input
                             type="text"
@@ -2400,6 +2457,7 @@ const handleThemeSelect = async (themeId: string) => {
                               boxSizing: "border-box",
                             }}
                           />
+                          {settings.lead_form_config?.find(f => f.field === "name")?.required && (
                           <span
                             style={{
                               position: "absolute",
@@ -2412,11 +2470,11 @@ const handleThemeSelect = async (themeId: string) => {
                             }}
                           >
                             *
-                          </span>
+                          </span>)}
                         </div>
                         )}
                          {/* Phone (required) */}
-                               {settings.leadFormFields?.includes("phone") && (
+                               {settings.lead_form_config?.some(f => f.field === "phone") && (
                              <div style={{ position: "relative", width: "100%" }}>
                           <input
                             type="tel"
@@ -2442,6 +2500,7 @@ const handleThemeSelect = async (themeId: string) => {
                               boxSizing: "border-box",
                             }}
                           />
+                          {settings.lead_form_config?.find(f => f.field === "phone")?.required && (
                           <span
                             style={{
                               position: "absolute",
@@ -2454,12 +2513,12 @@ const handleThemeSelect = async (themeId: string) => {
                             }}
                           >
                             *
-                          </span>
+                          </span>)}
                         </div>
 )}
                         {/* Email (optional) */}
 
-                         {settings.leadFormFields?.includes("email") && (
+                          {settings.lead_form_config?.some(f => f.field === "email") && (
                           <div style={{ position: "relative", width: "100%" }}>
                           <input
                             type="email"
@@ -2481,6 +2540,7 @@ const handleThemeSelect = async (themeId: string) => {
                               boxSizing: "border-box",
                             }}
                           />
+                          {settings.lead_form_config?.find(f => f.field === "email")?.required && (
                           <span
                             style={{
                               position: "absolute",
@@ -2493,11 +2553,11 @@ const handleThemeSelect = async (themeId: string) => {
                             }}
                           >
                             *
-                          </span>
+                          </span>)}
                         </div>
 )}
                           {/* Address (optional) */}
-                           {settings.leadFormFields?.includes("address") && (
+                            {settings.lead_form_config?.some(f => f.field === "address") && (
                             <div style={{ position: "relative", width: "100%" }}>
                           <input
                             type="text"
@@ -2519,6 +2579,7 @@ const handleThemeSelect = async (themeId: string) => {
                               boxSizing: "border-box",
                             }}
                           />
+                          {settings.lead_form_config?.find(f => f.field === "address")?.required && (
                           <span
                             style={{
                               position: "absolute",
@@ -2531,7 +2592,7 @@ const handleThemeSelect = async (themeId: string) => {
                             }}
                           >
                             *
-                          </span>
+                          </span>)}
                         </div>
 
 )}
@@ -2541,7 +2602,7 @@ const handleThemeSelect = async (themeId: string) => {
 
                         <button
                           onClick={async () => {
-                            const requiredFields = settings.leadFormFields || [];
+                             const requiredFields = settings.lead_form_config?.filter(f => f.required).map(f => f.field) || [];
                             let errorMessage = "";
 
                           if (requiredFields.includes("name") && !leadName.trim()) {
@@ -2550,15 +2611,15 @@ const handleThemeSelect = async (themeId: string) => {
                           if (!errorMessage && requiredFields.includes("phone") && !leadPhone.trim()) {
                             errorMessage = "Phone is required.";
                           }
-                          if (!errorMessage && requiredFields.includes("email")) {
-                            if (!leadEmail.trim()) {
-                              errorMessage = "Email is required.";
-                            } else {
-                              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                              if (!emailRegex.test(leadEmail.trim())) {
-                                errorMessage = "Please enter a valid email address.";
-                              }
-                            }
+                          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+                          const emailField = requiredFields.includes("email");
+                          const hasEmail = leadEmail.trim().length > 0;
+
+                          if (!errorMessage && emailField && !hasEmail) {
+                            errorMessage = "Email is required.";
+                          } else if (!errorMessage && hasEmail && !emailRegex.test(leadEmail.trim())) {
+                            errorMessage = "Please enter a valid email address.";
                           }
                           if (!errorMessage && requiredFields.includes("address") && !leadAddress.trim()) {
                             errorMessage = "Address is required.";

@@ -1164,7 +1164,6 @@ const storageOptions = {
                   <div className="flex flex-col items-center">
                     <div className="relative w-24 h-24">
                       <Doughnut data={data} options={options} />
-                      <div className="absolute inset-0 flex items-center justify-center"></div>
                     </div>
 
                     {/* ✅ Show used/limit below the graph */}

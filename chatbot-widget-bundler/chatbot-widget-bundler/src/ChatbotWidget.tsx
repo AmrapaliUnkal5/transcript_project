@@ -46,7 +46,7 @@ interface BotSettings {
   border_color?: string;
   chat_font_family?: string;
   lead_generation_enabled?: boolean;
-  lead_form_fields?: Array<"name" | "email" | "phone" | "address">;
+  lead_form_config?: Array<{field: "name" | "email" | "phone" | "address";required: boolean;}>;
 }
 
 interface ChatbotWidgetProps {
@@ -135,8 +135,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
               },
             }
           );
-          console.log("response", response);
-          console.log("lead_form_fields from API:", response.data.lead_form_fields);
+
           setBotSettings(response.data);
         } catch (error) {
           console.error("Error fetching bot settings:", error);
@@ -529,12 +528,12 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       border_radius,
       border_color,
       lead_generation_enabled,
-      lead_form_fields,
+      lead_form_config,
     } = botSettings;
 
     const [vertical, horizontal] = (position || "bottom-right").split("-");
     const MAX_USER_MESSAGE_LENGTH = 1000;
-    const hasLeadFields = (lead_form_fields ?? []).length > 0;
+    const hasLeadFields = (lead_form_config ?? []).length > 0;
 
     // Log the position values
     // console.log("Bot position:", position);
@@ -899,7 +898,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                       </div>
 
                       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                         {lead_form_fields?.includes("name") && (
+                         {lead_form_config?.some(f => f.field === "name") && (
                         <div style={{ position: "relative", width: "100%" }}>
                       <input
                         type="text"
@@ -915,6 +914,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                           boxSizing: "border-box",
                         }}
                       />
+                       {lead_form_config?.find(f => f.field === "name")?.required && (
                       <span
                             style={{
                               position: "absolute",
@@ -927,11 +927,11 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                             }}
                           >
                             *
-                          </span>
+                          </span>)}
                         </div>
                         )}
                          {/* Phone (required) */}
-                               {lead_form_fields?.includes("phone") && (
+                                {lead_form_config?.some(f => f.field === "phone") && (
                               <div style={{ position: "relative", width: "100%" }}>
                         <input
                           type="tel"
@@ -952,6 +952,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                             boxSizing: "border-box",
                           }}
                         />
+                        {lead_form_config?.find(f => f.field === "phone")?.required && (
                         <span
                             style={{
                               position: "absolute",
@@ -964,12 +965,12 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                             }}
                           >
                             *
-                          </span>
+                          </span>)}
                         </div>
 )}
                         {/* Email (optional) */}
 
-                         {lead_form_fields?.includes("email") && (
+                          {lead_form_config?.some(f => f.field === "email") && (
                           <div style={{ position: "relative", width: "100%" }}>
                           <input
                           type="email"
@@ -985,6 +986,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                             boxSizing: "border-box",
                           }}
                         />
+                         {lead_form_config?.find(f => f.field === "email")?.required && (
                             <span
                             style={{
                               position: "absolute",
@@ -997,11 +999,11 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                             }}
                           >
                             *
-                          </span>
+                          </span>)}
                         </div>
 )}
                           {/* Address (optional) */}
-                           {lead_form_fields?.includes("address") && (
+                            {lead_form_config?.some(f => f.field === "address") && (
                             <div style={{ position: "relative", width: "100%" }}>
                           <input
                               type="text"
@@ -1017,6 +1019,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                                 boxSizing: "border-box",
                               }}
                             />
+                             {lead_form_config?.find(f => f.field === "address")?.required && (
                           <span
                             style={{
                               position: "absolute",
@@ -1029,7 +1032,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                             }}
                           >
                             *
-                          </span>
+                          </span>)}
                         </div>
 
 )}
@@ -1041,34 +1044,35 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                           onClick={async () => {
                             // const requiredFields = lead_form_fields || [];
                             let errorMessage = "";
+                            const requiredFields = lead_form_config?.filter(f => f.required).map(f => f.field) || [];
 
-  if (lead_form_fields?.includes("name") && !userName.trim()) {
-    errorMessage = "Name is required.";
-  }
+                              if (requiredFields.includes("name") && !userName.trim()) {
+                                errorMessage = "Name is required.";
+                              }
 
-  if (!errorMessage && lead_form_fields?.includes("phone") && !userPhone.trim()) {
-    errorMessage = "Phone is required.";
-  }
+                              if (!errorMessage && requiredFields.includes("phone") && !userPhone.trim()) {
+                                errorMessage = "Phone is required.";
+                              }
 
-  if (!errorMessage && lead_form_fields?.includes("email")) {
-    if (!userEmail.trim()) {
-      errorMessage = "Email is required.";
-    } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(userEmail.trim())) {
-        errorMessage = "Please enter a valid email address.";
-      }
-    }
-  }
+                              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (!errorMessage && lead_form_fields?.includes("address") && !userAddress.trim()) {
-    errorMessage = "Address is required.";
-  }
+                              const emailField = requiredFields.includes("email");
+                              const hasEmail = userEmail.trim().length > 0;
 
-  if (errorMessage) {
-    setEmailError(errorMessage); // or any other error handling logic
-    return;
-  }
+                              if (!errorMessage && emailField && !hasEmail) {
+                                errorMessage = "Email is required.";
+                              } else if (!errorMessage && hasEmail && !emailRegex.test(userEmail.trim())) {
+                                errorMessage = "Please enter a valid email address.";
+                              }
+
+                              if (!errorMessage && requiredFields.includes("address") && !userAddress.trim()) {
+                                errorMessage = "Address is required.";
+                              }
+
+                              if (errorMessage) {
+                                setEmailError(errorMessage); // or any other error handling logic
+                                return;
+                              }
                             try {
                             await axios.post(`${baseDomain}/widget/lead`, {
                               name: userName,
