@@ -275,8 +275,8 @@ const Investigation = () => {
                     color: "black"
                   }}>
                     <th className="px-6 py-3 text-left tracking-wider">S.No</th>
-                    <th className="px-6 py-3 text-left tracking-wider">URL</th>
                     <th className="px-6 py-3 text-left tracking-wider">Title</th>
+                    <th className="px-6 py-3 text-left tracking-wider">URL</th>
                     <th className="px-6 py-3 text-left tracking-wider">Text Count</th>
                     <th className="px-6 py-3 text-left tracking-wider">Created At</th>
                     <th className="px-6 py-3 text-right tracking-wider">Actions</th>
@@ -293,6 +293,11 @@ const Investigation = () => {
                           {index + 1}
                         </span>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {node.title}
+                        </span>
+                      </td>
                       <td className="px-6 py-4">
                         <a
                           href={node.url}
@@ -302,11 +307,6 @@ const Investigation = () => {
                         >
                           {node.url}
                         </a>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-900 dark:text-white">
-                          {node.title}
-                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -443,10 +443,10 @@ const Investigation = () => {
                     color: "black"
                   }}>
                     <th className="px-6 py-3 text-left tracking-wider">S.No</th>
-                    <th className="px-6 py-3 text-left tracking-wider">Video Title</th>
-                    <th className="px-6 py-3 text-left tracking-wider">Video URL</th>
-                    <th className="px-6 py-3 text-left tracking-wider">Created At</th>
+                    <th className="px-6 py-3 text-left tracking-wider">Title</th>
+                    <th className="px-6 py-3 text-left tracking-wider">URL</th>
                     <th className="px-6 py-3 text-left tracking-wider">Text Count</th>
+                    <th className="px-6 py-3 text-left tracking-wider">Created At</th>
                     <th className="px-6 py-3 text-right tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -478,14 +478,14 @@ const Investigation = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(video.created_at).toLocaleDateString()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
                             {video.transcript_count || 0}
                         </span>
                         </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {new Date(video.created_at).toLocaleDateString()}
+                        </span>
+                      </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                         <button
                           onClick={() => viewContent("youtube", video.transcript, video.video_title)}

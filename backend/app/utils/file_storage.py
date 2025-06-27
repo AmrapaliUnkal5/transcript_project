@@ -212,6 +212,9 @@ def resolve_file_url(file_url: str, expires_in: int = 86400) -> str:
     :param expires_in: Expiry time for presigned URL (default: 1 day)
     :return: Final usable URL
     """
+    if not file_url:
+        return ""  # or a default fallback URL if needed
+
     if file_url.startswith("s3://"):
         path_parts = file_url[5:].split("/", 1)
         if len(path_parts) < 2:
