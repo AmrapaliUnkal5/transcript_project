@@ -1154,7 +1154,7 @@ const ThemeSelector: React.FC<{
         ];
       case "behavior":
         return sections.filter((s) => s.title === "Chat Interface Behavior");
-      case "unanswered":  // <-- Add this case
+      case "unanswered":
         return sections.filter((s) => s.title === "Unanswered Replies");
       default:
         return [];
