@@ -178,8 +178,7 @@ class HuggingFaceLLM:
                 prompt += f"\n\nUser: {user_message} [/INST]</s>"
             else:
                 # Standard strict context prompt
-                prompt = f"<s>[INST] You are a helpful assistant. Only answer based on the provided context. If the context doesn't have relevant information, clearly state 'I don't have information on that topic.' Do not use external knowledge under any circumstances.This is critical.\n\nContext: {context}"
-                
+                prompt = f"<s>[INST] You are a helpful assistant. Only answer based on the provided context. If the context doesn't have relevant information, respond with exactly: \"{self.unanswered_message}\". Do not use external knowledge under any circumstances. This is critical.\n\nContext: {context}"
                 # Add chat history if available
                 if chat_history:
                     prompt += f"{chat_history}"
@@ -343,9 +342,10 @@ class HuggingFaceLLM:
                         "api_duration_ms": api_duration
                     }
                 })
-                
-                return "I'm sorry, I'm experiencing some technical difficulties at the moment. Please try again later."
-                
+                return {
+                            "message": "I'm sorry, I'm experiencing some technical difficulties at the moment. Please try again later.",
+                            "not_answered": True
+                        }
         except Exception as e:
             print(f"❌ Error generating response with HuggingFace LLM: {str(e)}")
             
@@ -363,11 +363,12 @@ class HuggingFaceLLM:
                     "user_message": user_message[:100] + "..." if len(user_message) > 100 else user_message
                 }
             })
-            
-            return "I'm sorry, I'm experiencing some technical difficulties at the moment. Please try again later."
-
+            return {
+                        "message": "I'm sorry, I'm experiencing some technical difficulties at the moment. Please try again later.",
+                        "not_answered": True
+                    }
 class LLMManager:
-    def __init__(self, model_name: str = None, bot_id: int = None, user_id: int = None):
+    def __init__(self, model_name: str = None, bot_id: int = None, user_id: int = None, unanswered_message: str = None):
         """
         Initialize the LLM manager with a specific model name or by dynamically selecting a model
         based on bot and user information.
@@ -380,6 +381,7 @@ class LLMManager:
         # Store the user_id and bot_id for addon feature checking and logging
         self.user_id = user_id
         self.bot_id = bot_id
+        self.unanswered_message = unanswered_message or "I don't have information on that topic."
         
         db = SessionLocal()
         try:
@@ -636,7 +638,10 @@ class LLMManager:
                             "response": "Multilingual support required"
                         }
                     })
-                    return "Multilingual support is not enabled for your account. Please contact the website admin to enable multilingual support."
+                    return {
+                                "message": "Multilingual support is not enabled for your account. Please contact the website admin to enable multilingual support.",
+                                "not_answered": True
+                            }
             finally:
                 db.close()
         
@@ -653,7 +658,7 @@ class LLMManager:
                     system_content += "you can use your general knowledge to provide a helpful response."
                     logger.debug("External knowledge mode: Will use general knowledge if context is insufficient")
                 else:
-                    system_content += "clearly state 'I don't have information on that topic.' Do not use external knowledge under any circumstances."
+                    system_content += f"respond with exactly: \"{self.unanswered_message}\". Do not use external knowledge under any circumstances."
                     logger.debug("Strict context mode: Will only use provided context")
                 
                 # Include chat history in user message if available
@@ -863,5 +868,7 @@ class LLMManager:
                     "total_duration_ms": total_duration
                 }
             })
-            
-            return "I'm sorry, I'm experiencing some technical difficulties at the moment. Please try again later."
+            return {
+                        "message": "I'm sorry, I'm experiencing some technical difficulties at the moment. Please try again later.",
+                        "not_answered": True
+                    }
