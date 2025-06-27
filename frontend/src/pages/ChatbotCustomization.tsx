@@ -300,7 +300,7 @@ export const ChatbotCustomization = () => {
     borderColor: "#0a0a0a",
     chatFontFamily: "Inter",
     lead_generation_enabled: false,
-    lead_form_config: [{ field: "name", required: false },{ field: "phone", required: false },{ field: "email", required: false },{ field: "address", required: false }]
+    lead_form_config: [{ field: "name", required: false },{ field: "phone", required: false },{ field: "email", required: false },{ field: "address", required: false }],
     showSources: false, 
   });
 
