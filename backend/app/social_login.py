@@ -19,6 +19,7 @@ import hashlib
 import hmac
 import base64
 from pydantic import BaseModel
+from app.utils.file_storage import resolve_file_url
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -140,7 +141,7 @@ async def google_auth(request: Request, payload: TokenPayload, db: Session = Dep
                       "role":"client",
                        "user_id": user.user_id,
                        "name": user.name,
-                       "avatar_url": user.avatar_url,
+                       "avatar_url": resolve_file_url(user.avatar_url),
                         "subscription_plan_id": subscription_plan_id,
                         "addon_plan_ids": addon_plan_ids,  # Added this line
                         "total_words_used": user.total_words_used or 0,
@@ -158,7 +159,7 @@ async def google_auth(request: Request, payload: TokenPayload, db: Session = Dep
                 "email": user.email,
                 "name": user.name,
                 "user_id": user.user_id,
-                "avatar_url": user.avatar_url,
+                "avatar_url": resolve_file_url(user.avatar_url),
                 "subscription_plan_id": subscription_plan_id,  
                 "total_words_used": user.total_words_used or 0
             }
@@ -302,7 +303,7 @@ async def facebook_login(
             "addon_plan_ids": addon_plan_ids,
             "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
             "subscription_status": user_subscription.status if user_subscription else "new",
-            "avatar_url": user.avatar_url,
+            "avatar_url": resolve_file_url(user.avatar_url),
         }
 
         jwt_token = create_access_token(
@@ -319,7 +320,7 @@ async def facebook_login(
                 "role": user.role,
                 "company_name": user.company_name,
                 "user_id": subscription_user_id,
-                "avatar_url": user.avatar_url,
+                "avatar_url": resolve_file_url(user.avatar_url),
                 "phone_no": user.phone_no,
                 "subscription_plan_id": subscription_plan_id,
                 "total_words_used": user.total_words_used,
