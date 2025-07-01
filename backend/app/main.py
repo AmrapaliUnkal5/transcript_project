@@ -407,7 +407,7 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
             "role": db_user.role,
             "company_name": db_user.company_name,
             "user_id":subscription_user_id,
-            "avatar_url":resolve_file_url(db_user.avatar_url) if db_user.avatar_url.startswith("s3://") else db_user.avatar_url,
+            "avatar_url":resolve_file_url(db_user.avatar_url) ,
             "phone_no":db_user.phone_no,
             "subscription_plan_id":subscription_plan_id,
             "total_words_used":db_user.total_words_used,
@@ -453,7 +453,7 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
         UserAddon.is_active == True
     ).order_by(UserAddon.expiry_date.desc()).first()
 
-    avatar_url = resolve_file_url(db_user.avatar_url) if db_user.avatar_url.startswith("s3://") else db_user.avatar_url,
+    avatar_url = resolve_file_url(db_user.avatar_url)
     
     # Generate a fresh token with updated user information
     token_data = {"sub": db_user.email,
@@ -625,7 +625,7 @@ def login_for_access_token(
     addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
 
     #avatar_url = db.avatar_url
-    avatar_url = resolve_file_url(user.avatar_url) if user.avatar_url.startswith("s3://") else user.avatar_url,
+    avatar_url = resolve_file_url(user.avatar_url),
 
     access_token = create_access_token(data={
         "sub": user.email,
