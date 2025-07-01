@@ -82,6 +82,7 @@ const saveBotSettings = async (
     lead_generation_enabled: settings.lead_generation_enabled,
     lead_form_config: settings.lead_form_config,
     show_sources: settings.showSources, 
+    unanswered_msg: settings.unansweredMsg,
   };
 
   try {
@@ -134,6 +135,7 @@ const updateBotSettings = async (
     lead_generation_enabled: settings.lead_generation_enabled,
     lead_form_config: settings.lead_form_config,
     show_sources: settings.showSources, 
+    unanswered_msg: settings.unansweredMsg,
   };
 
   try {
@@ -181,6 +183,7 @@ export interface BotSettings {
   lead_generation_enabled: boolean;
   lead_form_config?: Array<{field: "name" | "email" | "phone" | "address";required: boolean;}>;
   showSources: boolean; 
+  unansweredMsg: string;
 }
 
 export const ChatbotCustomization = () => {
@@ -302,6 +305,7 @@ export const ChatbotCustomization = () => {
     lead_generation_enabled: false,
     lead_form_config: [{ field: "name", required: false },{ field: "phone", required: false },{ field: "email", required: false },{ field: "address", required: false }],
     showSources: false, 
+    unansweredMsg: "I don't have information on that topic.",
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
@@ -338,14 +342,6 @@ const [showCustomize, setShowCustomize] = useState(false);
 const [customizedThemes, setCustomizedThemes] = useState<Record<string, Partial<BotSettings>>>({});
 const [selectedPredefinedIcon, setSelectedPredefinedIcon] = useState<string | null>(null);
 const hasLeadFields = (settings?.lead_form_config  ?? []).length > 0;
-
-// const [sources, setSources] = useState<Array<{
-//     file_name: string;
-//     source: string;
-//     content_preview: string;
-//     website_url: string;
-//     url:string,
-// }>>([]);
 
   useEffect(() => {
     interactionIdRef.current = interactionId;
@@ -491,6 +487,7 @@ const hasLeadFields = (settings?.lead_form_config  ?? []).length > 0;
             lead_generation_enabled: response.lead_generation_enabled ?? false,
             lead_form_config: response.lead_form_config || [],
             showSources: response.show_sources ?? false,
+            unansweredMsg: response.unanswered_msg || "I don't have information on that topic.",
           });
         }
       } catch (error) {
@@ -792,23 +789,6 @@ useEffect(() => {
           [3]: (prev[3] || 0) + 1,
         }));
       }
-
-      // setMessageUsage(prev => {
-      //   const newBaseRemaining = prev.baseRemaining > 0 ? prev.baseRemaining - 1 : prev.baseRemaining;
-      //   const newAddonRemaining = prev.baseRemaining <= 0 ? prev.addonRemaining - 1 : prev.addonRemaining;
-
-      //   return {
-      //     ...prev,
-      //     totalUsed: prev.totalUsed + 1,
-      //     baseUsed: prev.baseRemaining > 0 ? prev.baseUsed + 1 : prev.baseUsed,
-      //     baseRemaining: newBaseRemaining,
-      //     addonUsed: prev.baseRemaining <= 0 ? prev.addonUsed + 1 : prev.addonUsed,
-      //     addonRemaining: newAddonRemaining,
-      //     effectiveRemaining: prev.effectiveRemaining - 1,
-      //     baseplanremaining: newBaseRemaining,
-      //     addonremaining: newAddonRemaining
-      //   };
-      // });
 
       const thinkingDelay = Math.random() * 1000 + 500;
       setTimeout(() => {
@@ -1149,6 +1129,7 @@ const ThemeSelector: React.FC<{
     { id: "colors", label: "Colors", icon: Palette },
     { id: "layout", label: "Layout", icon: Move },
     { id: "behavior", label: "Behavior", icon: Sliders },
+    { id: "unanswered", label: "Unanswered Replies", icon: MessageCircle },
   ];
 
   const getTabSections = (tabId: string) => {
@@ -1173,6 +1154,8 @@ const ThemeSelector: React.FC<{
         ];
       case "behavior":
         return sections.filter((s) => s.title === "Chat Interface Behavior");
+      case "unanswered":
+        return sections.filter((s) => s.title === "Unanswered Replies");
       default:
         return [];
     }
@@ -1454,6 +1437,7 @@ const handleThemeSelect = async (themeId: string) => {
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
             handleColorChangeWithThemeSwitch("userTextColor", e.target.value),
         }
+        
       ]
     }] : [],
   ...((selectedTheme !== 'none' || showCustomize) ? [{
@@ -1716,6 +1700,20 @@ const handleThemeSelect = async (themeId: string) => {
       ],
       
     },
+{
+    title: "Unanswered Replies",
+    icon: MessageCircle,
+    fields: [
+      {
+        label: "Default response when bot doesn't know the answer",
+        type: "textarea",
+        value: settings.unansweredMsg,
+        maxLength: 200,
+        onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => 
+          handleChange("unansweredMsg", e.target.value),
+      },
+    ],
+  },    
   ];
 
   if (!selectedBot) {
@@ -2032,6 +2030,21 @@ const handleThemeSelect = async (themeId: string) => {
                                   </div>
                                 </div>
                               </>
+                            ) : field.type === "textarea" ? (  
+                              <div className="relative">
+                                <textarea
+                                  value={field.value as string}
+                                  onChange={field.onChange as React.ChangeEventHandler<HTMLTextAreaElement>}
+                                  maxLength={(field as any).maxLength}
+                                  rows={4}
+                                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                {(field as any).maxLength && (
+                                  <div className="text-xs text-gray-500 text-right mt-1">
+                                    {field.value.length}/{(field as any).maxLength} characters
+                                  </div>
+                                )}
+                              </div>
                             ) : (
                         <div className="relative">
                           <input

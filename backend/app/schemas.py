@@ -136,6 +136,7 @@ class BotBase(BaseModel):
     lead_generation_enabled: Optional[bool] = False
     lead_form_config: Optional[List[LeadFormField]] = []
     show_sources: Optional[bool] = False
+    unanswered_msg:Optional[str] = "I don't have information on that topic."
 
 class BotCreate(BotBase):
     pass  
@@ -157,6 +158,7 @@ class BotResponse(BotBase):
     bot_id: int
     theme_id: Optional[str]
     show_sources: Optional[bool] 
+    unanswered_msg: Optional[str]
 
     class Config:
         from_attributes = True  

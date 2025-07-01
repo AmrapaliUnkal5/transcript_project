@@ -102,6 +102,7 @@ export interface BotSettings {
   lead_generation_enabled?: boolean;
   lead_form_config?: Array<{field: "name" | "email" | "phone" | "address";required: boolean;}>;
   showSources: boolean;
+  unansweredMsg: string;
 }
 
 export interface ApiFile {

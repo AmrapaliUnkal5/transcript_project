@@ -120,6 +120,7 @@ class Bot(Base):
     lead_generation_enabled = Column(Boolean, nullable=False, default=False)
     lead_form_config = Column(JSONB, nullable=True)
     show_sources = Column(Boolean, nullable=False, default=False)
+    unanswered_msg = Column(Text, nullable=True, default="I don't have information on that topic.")
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")

@@ -338,6 +338,9 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         logger.error(f"Bot not found", extra={"bot_id": bot_id})
         raise HTTPException(status_code=404, detail=f"Bot with ID {bot_id} not found")
     
+    # Get the bot's unanswered message
+    unanswered_message = bot.unanswered_msg if bot.unanswered_msg else "I don't have information on that topic."
+
     # ✅ Check if this is just a greeting message, to save tokens
     is_greeting_msg, greeting_response = is_greeting(user_message)
     if is_greeting_msg:
@@ -402,7 +405,7 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
             logger.info(f"No relevant documents found, using external knowledge", 
                        extra={"bot_id": bot_id})
         else:
-            bot_reply = "I can only answer based on uploaded documents, but I don't have information on that topic."
+            bot_reply = unanswered_message  
             logger.info(f"No relevant documents found and external knowledge disabled", 
                        extra={"bot_id": bot_id})
             return {"bot_reply": bot_reply,
@@ -417,7 +420,11 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         logger.debug(f"Generating response with LLM", 
                     extra={"bot_id": bot_id, "external_knowledge": use_external_knowledge})
         
-        llm = LLMManager(bot_id=bot_id, user_id=user_id)
+        llm = LLMManager(bot_id=bot_id, user_id=user_id,unanswered_message=unanswered_message)
+
+        # Modify the context to include the unanswered message instruction
+        if not use_external_knowledge:
+            context += f"\n\nIf you cannot answer the question based on the context above, respond with exactly: \"{unanswered_message}\""
         # Pass the formatted history to the LLM
         bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, 
                                temperature=temperature, chat_history=formatted_history)
@@ -438,16 +445,9 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         logger.debug(f"Stored conversation in database", 
                     extra={"bot_id": bot_id, "interaction_id": interaction.interaction_id})
 
-        is_default_response = any(
-            phrase.lower() in bot_reply.lower() 
-            for phrase in [
-                "i don't know",
-                "i don't have information",
-                "i couldn't find",
-                "no information available",
-                "Multilingual support is not enabled for your account. Please contact the website admin to enable multilingual support."
-            ]
-        )
+        # when it can't answer, making this detection more reliable
+        is_default_response = unanswered_message.lower() in bot_reply.lower()
+
         return {
             "bot_reply": bot_reply,
             "is_default_response": is_default_response,
@@ -457,7 +457,7 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         logger.exception(f"Error generating response", 
                         extra={"bot_id": bot_id, "error": str(e)})
         return {
-            "bot_reply": "I encountered an error processing your request. Please try again.",
+            "bot_reply": unanswered_message,
             "is_default_response": True,
             "not_answered": True
         }
