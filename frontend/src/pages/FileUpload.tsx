@@ -40,6 +40,8 @@ const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
         <div className="flex justify-center">
           <a
             href="/dashboard/subscription"
+            target="_blank"
+            rel="noopener noreferrer"
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
           >
             Upgrade Plan
