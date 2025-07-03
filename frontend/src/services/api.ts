@@ -319,6 +319,13 @@ export const authApi = {
     return response.data;
   },
 
+  sitemapDeepScan: async (websiteUrl: string) => {
+  const response = await api.get("/sitemap-nodes", {
+    params: { website_url: websiteUrl }
+  });
+  return response.data;
+  },
+
   scrapeNodes: async (selectedNodes: string[], botId: number) => {
     const response = await api.post(`/scrape`, {
       selected_nodes: selectedNodes,  // ✅ Change from array to object
