@@ -2212,11 +2212,16 @@ const handleThemeSelect = async (themeId: string) => {
                       borderRadius: "50%",
                       objectFit: "cover",
                     }}
+                      onError={(e) => {
+                      e.currentTarget.onerror = null; // Prevent infinite loop if fallback also fails
+                      e.currentTarget.src = "/images/bot_1.png";
+                    }}
                   />
                 )}
                 <h2
-                  className="text-lg font-semibold flex items-center" 
+                  className="text-lg font-semibold truncate max-w-[150px] whitespace-nowrap overflow-hidden"
                   style={{fontFamily: "Instrument Sans, sans-serif", color: settings.headerTextColor }}
+                  title={settings.name} // Tooltip to show full name on hover
                 >
                   {settings.name}{" "}
                   {/* <span className="text-xs ml-2 opacity-70">(preview)</span> */}
