@@ -52,7 +52,7 @@ const WebScrapingTab: React.FC = () => {
   }, [isCreateBotFlow]);
 
   const [scrapedUrls, setScrapedUrls] = useState<
-  { id: number; url: string; title: string; wordCount?: number }[]
+  { id: number; url: string; title: string; wordCount?: number;upload_date?:string }[]
 >([]);
 
   // ✅ Move fetchScrapedUrls outside of useEffect so it can be reused
@@ -72,7 +72,8 @@ const WebScrapingTab: React.FC = () => {
           id: index + 1,
           url: item.url,
           title: item.title || "No Title",
-          wordCount: item.Word_Counts // Add word count from response
+          wordCount: item.Word_Counts, // Add word count from response
+          upload_date:item.upload_date,
         }));
 
         console.log("Formatted URLs:", formattedUrls);
@@ -494,17 +495,65 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-700">
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Page Title
+                  <tr style={{ backgroundColor: '#EFF0FF' }}>
+                    <th
+                      className="px-6 py-3 text-left uppercase tracking-wider "
+                      style={{
+                        fontFamily: 'Instrument Sans, sans-serif',
+                        fontSize: '16px',
+                        fontWeight: 600,
+                        color: '#333333',
+                        textTransform:'none'
+                      }}
+                    >
+                      S.No.
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th
+                      className="px-6 py-3 text-left uppercase tracking-wider"
+                      style={{
+                        fontFamily: 'Instrument Sans, sans-serif',
+                        fontSize: '16px',
+                        fontWeight: 600,
+                        color: '#333333',
+                        textTransform:'none'
+                      }}
+                    >
+                      Name
+                    </th>
+                    <th
+                      className="px-6 py-3 text-left uppercase tracking-wider"
+                      style={{
+                        fontFamily: 'Instrument Sans, sans-serif',
+                        fontSize: '16px',
+                        fontWeight: 600,
+                        color: '#333333',
+                        textTransform:'none'
+                      }}
+                    >
                       URL
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Word Count
-                  </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th
+                      className="px-6 py-3 text-left uppercase tracking-wider"
+                      style={{
+                        fontFamily: 'Instrument Sans, sans-serif',
+                        fontSize: '16px',
+                        fontWeight: 600,
+                        color: '#333333',
+                        textTransform:'none'
+                      }}
+                    >
+                                    Upload Date
+                    </th>
+                    <th
+                      className="px-6 py-3 text-right uppercase tracking-wider"
+                      style={{
+                        fontFamily: 'Instrument Sans, sans-serif',
+                        fontSize: '16px',
+                        fontWeight: 600,
+                        color: '#333333',
+                        textTransform:'none'
+                      }}
+                    >
                       Actions
                     </th>
                   </tr>
@@ -515,10 +564,21 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                       key={item.id}
                       className="text-gray-700 dark:text-gray-300"
                     >
-                      <td className="border border-gray-300 px-4 py-2 text-gray-900 dark:text-gray-200">
+                      <td className=" px-4 py-2 text-center">
+                      {index + 1}
+                    </td>
+                      <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
+                    style={{ fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '14px',
+                       color: '#333333',
+                     }}>
                         {item.title || "No Title"}
                       </td>
-                      <td className="border border-gray-300 px-4 py-2">
+                      <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
+                    style={{ fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '14px',
+                       color: '#333333',
+                     }}>
                         <a
                           href={item.url}
                           target="_blank"
@@ -528,11 +588,17 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                           {item.url}
                         </a>
                       </td>
-                      <td className="border border-gray-300 px-4 py-2 text-center">
-        {item.wordCount?.toLocaleString() || "N/A"}
-      </td>
+                        <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
+                    style={{ fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '14px',
+                       color: '#333333',
+                     }}>
+                        {item.upload_date
+                          ? new Date(item.upload_date).toLocaleDateString()
+                          : "N/A"}
+                      </td>
 
-                      <td className="border border-gray-300 px-4 py-2 text-center">
+                      <td className=" px-4 py-2 text-center">
                         <button
                           onClick={() => handleDeleteClick(item.url, item.wordCount || 0)}
                           className="text-red-600 hover:text-red-900 dark:hover:text-red-400"

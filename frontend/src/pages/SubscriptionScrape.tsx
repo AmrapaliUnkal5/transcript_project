@@ -31,7 +31,7 @@ const SubscriptionScrape: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [scrapedUrls, setScrapedUrls] = useState<
-    { id: number; url: string; title: string }[]
+    { id: number; url: string; title: string;upload_date?: string }[]
   >([]);
 
   const handleScrapingSuccess = (scrapedUrl: string) => {
@@ -83,6 +83,7 @@ const SubscriptionScrape: React.FC = () => {
           id: index + 1,
           url: item.url,
           title: item.title || "No Title",
+          upload_date: item.upload_date,
         }));
 
         console.log("Formatted URLs:", formattedUrls);
@@ -673,6 +674,18 @@ const SubscriptionScrape: React.FC = () => {
       URL
     </th>
     <th
+      className="px-6 py-3 text-left uppercase tracking-wider"
+      style={{
+        fontFamily: 'Instrument Sans, sans-serif',
+        fontSize: '16px',
+        fontWeight: 600,
+        color: '#333333',
+        textTransform:'none'
+      }}
+    >
+                    Upload Date
+    </th>
+    <th
       className="px-6 py-3 text-right uppercase tracking-wider"
       style={{
         fontFamily: 'Instrument Sans, sans-serif',
@@ -719,6 +732,15 @@ const SubscriptionScrape: React.FC = () => {
                         {item.url}
                       </a>
                     </td>
+                    <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
+                    style={{ fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '14px',
+                       color: '#333333',
+                     }}>
+                        {item.upload_date
+                          ? new Date(item.upload_date).toLocaleDateString()
+                          : "N/A"}
+                      </td>
                     <td className=" px-4 py-2 text-center">
                       <button
                         onClick={() => handleDeleteClick(item.url)}

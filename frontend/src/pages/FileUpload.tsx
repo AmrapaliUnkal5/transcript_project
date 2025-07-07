@@ -67,6 +67,7 @@ export const FileUpload = () => {
       video_title: string;
       video_id: string;
       transcript_count?: number;
+      upload_date?: string;
     }[]
   >([]);
   const { loading, setLoading } = useLoader();
@@ -1616,16 +1617,64 @@ export const FileUpload = () => {
                   <thead>
                    
                     <tr style={{ backgroundColor: '#EFF0FF',height: '57px',fontFamily: 'Instrument Sans, sans-serif',fontSize: '16px',fontWeight: '600',color:"black" }}>
-                      <th className="px-6 py-3 text-left  tracking-wider ">
-                        #
+                       <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
+                            textTransform:'none'
+                          }}
+                        >
+                        S.No
                       </th>
-                      <th className="px-6 py-3 text-left  tracking-wider">
+                      <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
+                            textTransform:'none'
+                          }}
+                        >
                         Title
                       </th>
-                      <th className="px-6 py-3 text-left  tracking-wider">
+                      <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
+                            textTransform:'none'
+                          }}
+                        >
                         Video URL
                       </th>
-                      <th className="px-6 py-3 text-right  tracking-wider">
+                      <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
+                            textTransform:'none'
+                          }}
+                        >
+                        Upload Date
+                      </th>
+                      <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
+                            textTransform:'none'
+                          }}
+                        >
                         Actions
                       </th>
                     </tr>
@@ -1655,6 +1704,13 @@ export const FileUpload = () => {
                           >
                             {videoUrl.video_url}
                           </a>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {videoUrl.upload_date
+                            ? new Date(videoUrl.upload_date).toLocaleDateString()
+                            : "N/A"}
+                        </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <button
