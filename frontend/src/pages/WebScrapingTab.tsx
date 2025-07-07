@@ -33,6 +33,7 @@ const WebScrapingTab: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   
   const location = useLocation();
+  const [searchTerm, setSearchTerm] = useState("");
   
   // Check if we're in create bot flow
   const isCreateBotFlow = location.pathname.includes('/dashboard/create-bot');
@@ -131,6 +132,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
   };
 
   const handleFetchNodes = async () => {
+    setSearchTerm('');
     if (!websiteUrl) return;
 
     // Restrict changing the website once scraping has started
@@ -146,6 +148,9 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
       console.log("Fetched Nodes Response:", response); // Debugging log
 
       if (response && Array.isArray(response.nodes)) {
+        if (response.nodes.length === 0) {
+                  toast.error("No valid pages found for this website.");
+                   }
         setNodes(response.nodes); // Correctly setting the extracted array
       } else {
         console.error(
@@ -258,10 +263,41 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
+
+    const handleDeepScan = async () => {
+    if (!websiteUrl) {
+      toast.error("Please enter a website URL to perform deep scanning.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const deepLinks = await authApi.sitemapDeepScan(websiteUrl);
+      console.log("Deep Scanning links:", deepLinks);
+      if (Array.isArray(deepLinks) && deepLinks.length > 0) {
+        setNodes(deepLinks);
+        toast.success(`Deep Scan complete! Found ${deepLinks.length} pages.`);
+      } else {
+        toast.info("No new pages were identified during the Deep Scan.");
+      }
+    } catch (error) {
+      console.error("Deep scan failed:", error);
+      toast.error("Deep Scanning failed. Please try again shortly.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getFilteredNodes = () => {
+  return nodes.filter((node) =>
+    node.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  };
+
   const getPaginatedNodes = () => {
+    const filtered = getFilteredNodes();
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return nodes.slice(startIndex, endIndex);
+    return filtered.slice(startIndex, endIndex);
   };
 
   const totalPages = Math.ceil(nodes.length / itemsPerPage);
@@ -341,30 +377,17 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
 
         {nodes.length > 0 && !isProcessing && (
           <div className="mt-4">
-            <div className="flex justify-between mb-2">
+             <div className="flex justify-between mb-2 items-center flex-wrap gap-2">
               <div className="flex space-x-2">
-                {/* <button
-                  onClick={() => {
-                    // Select all nodes on the current page
-                    const currentPageNodes = getPaginatedNodes();
-                    setSelectedNodes(prev => [
-                      ...new Set([...prev, ...currentPageNodes])
-                    ]);
-                  }}
-                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-                  disabled={loading || isProcessing}
-                >
-                  Select Page
-                </button> */}
                 <button
                   onClick={() => {
-                    // Select all nodes across all pages
-                    setSelectedNodes(nodes);
-                  }}
-                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-                  disabled={loading || isProcessing}
-                >
-                  Select All ({nodes.length})
+                const filtered = getFilteredNodes();
+                setSelectedNodes(filtered);
+              }}
+              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+              disabled={loading || isProcessing}
+            >
+              Select All ({getFilteredNodes().length})
                 </button>
                 <button
                   onClick={() => setSelectedNodes([])}
@@ -373,9 +396,49 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                 >
                   Clear All
                 </button>
+                <button
+                  onClick={handleDeepScan}
+                  className="flex items-center justify-center disabled:opacity-80 disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: "#5348CB",
+                fontFamily: 'Instrument Sans, sans-serif',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'white',
+                minWidth: '102px',
+                width: '140px',
+                textAlign: 'center',
+                borderRadius: '0.375rem', // rounded-md
+              }}
+                  disabled={loading || isProcessing}
+                >
+                  Deep Scanning
+                </button>
+                <div className="relative group inline-block">
+                <span className="text-gray-500 hover:text-blue-500 cursor-pointer ml-1">
+                  ℹ️
+                </span>
+                <div className="absolute left-0 top-6 w-72 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg z-10 pointer-events-none">
+                  Deep Scanning may include broken or outdated pages.<br />
+                  Since SiteMaps can sometimes contain old or missing links (like 404 errors), you might see some failed pages. We don’t validate them ahead of time to keep things fast — please review and choose nodes wisely.
+                </div>
+            </div>
               </div>
-              <div className="text-sm text-gray-600">
-                Selected: {selectedNodes.length}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  placeholder="Search Pages"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1); // reset to page 1 on new search
+                  }}
+                  className="px-2 py-1 border border-gray-300 rounded-md text-sm"
+                  style={{ fontFamily: 'Instrument Sans, sans-serif', width: "160px" }}
+                />
+                <div className="text-sm text-gray-600">
+                  Selected: {selectedNodes.length}
+                </div>
               </div>
             </div>
 
