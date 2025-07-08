@@ -556,12 +556,12 @@ def save_scraped_nodes(url_list, bot_id, db: Session):
         db.close()  # Close the session
 
 def get_scraped_urls_func(bot_id, db: Session):
-    scraped_nodes = db.query(ScrapedNode.url, ScrapedNode.title, ScrapedNode.nodes_text_count).filter(
+    scraped_nodes = db.query(ScrapedNode.url, ScrapedNode.title, ScrapedNode.nodes_text_count,ScrapedNode.created_at).filter(
         ScrapedNode.bot_id == bot_id,
         ScrapedNode.is_deleted == False
     ).all()
     print("Scrapped Node=>",scraped_nodes)
-    return [{"url": node[0], "title": node[1], "Word_Counts": node[2]} for node in scraped_nodes]  # Extract URL & Title
+    return [{"url": node[0], "title": node[1], "Word_Counts": node[2], "upload_date": node[3] } for node in scraped_nodes]  # Extract URL & Title
 
 def extract_page_title(html_content):
     """Extracts the title from HTML content."""
