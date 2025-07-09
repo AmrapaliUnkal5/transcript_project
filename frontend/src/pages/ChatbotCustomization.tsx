@@ -1046,6 +1046,21 @@ const handlePredefinedIconSelect = async (iconUrl: string) => {
     field: K,
     value: BotSettings[K]
   ) => {
+    // Add welcome message validation here
+  if (field === "welcomeMessage" && typeof value === "string") {
+    const isValidWelcomeMessage = (message: string) => {
+      const maxWordLength = 20;
+
+      if (/(.)\1{6,}/.test(message)) return false;
+      if (message.split(" ").some((word) => word.length > maxWordLength)) return false;
+      return true;
+    };
+
+    if (!isValidWelcomeMessage(value)) {
+      console.warn("Invalid welcome message");
+      return; // Don't update if invalid
+    }
+  }
     setSettings((prev) => {
       const newSettings = { ...prev, [field]: value };
 

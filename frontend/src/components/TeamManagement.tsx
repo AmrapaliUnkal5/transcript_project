@@ -223,7 +223,9 @@ const TeamManagement: React.FC = () => {
               setIsInviteModalOpen(true);
             }
           }}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center"
+          // className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center"
+          className="px-4 py-2 bg-[#5348CB] text-white rounded-md hover:bg-[#3f39a6] transition-colors flex items-center"
+
           disabled={isLoading}
         >
           <UserPlus className="mr-2 h-4 w-4" />

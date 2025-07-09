@@ -924,7 +924,8 @@ const storageOptions = {
 
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">
-                    {bot.name}
+                    {/* {bot.name} */}
+                    {bot.name.length > 25 ? `${bot.name.slice(0, 25)}...` : bot.name}
                   </h3>
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">
                     {bot.status}

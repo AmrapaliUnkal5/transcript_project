@@ -270,7 +270,27 @@ export const Settings = () => {
     } else if (name === "communication_email") {
       setSettings((prev) => ({ ...prev, [name]: value }));
       setErrors((prev) => ({ ...prev, [name]: "" })); // Clear error on typing
+    } else if (name === "name") {
+    const words = value.trim().split(/\s+/);
+
+    // Check if any word is longer than 15 characters or has 5+ repeated characters
+    const hasInvalidWord = words.some(
+      (word) =>
+        word.length > 15 || /(.)\1{5,}/.test(word) // 5 or more repeated characters
+    );
+
+    if (hasInvalidWord) {
+      setErrors((prev) => ({
+        ...prev,
+        [name]:
+          "Each word must be under 15 characters and not contain excessive repeated letters.",
+      }));
     } else {
+      setSettings((prev) => ({ ...prev, [name]: value }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  } 
+    else {
       setSettings((prev) => ({ ...prev, [name]: value }));
     }
   };
@@ -604,9 +624,9 @@ export const Settings = () => {
                 className={`px-4 py-2 rounded-md transition-colors ${
                   saving
                     ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-500 hover:bg-blue-600 text-white"
+                    : "bg-[#5348CB] hover:bg-[#433aa8] text-white"
                 }`}
-              >
+               >
                 {saving ? "Saving..." : "Save Changes"}
               </button>
             </div>

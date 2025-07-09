@@ -304,7 +304,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setSelectedVideos([...videoUrls])}
-                      className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                      className="px-3 py-1 bg-[#5348CB] text-white text-sm rounded hover:bg-[#433aa8]"
                     >
                       Select All ({videoUrls.length})
                     </button>
