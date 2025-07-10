@@ -19,6 +19,12 @@ import time
 from typing import List, Optional
 from concurrent.futures import ThreadPoolExecutor
 
+NON_HTML_EXTENSIONS = (
+    ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg",
+    ".webp", ".ico", ".tiff", ".tif", ".mp4", ".mp3", ".zip", ".rar", ".exe",
+    ".css", ".js", ".woff", ".woff2", ".ttf", ".eot", ".otf", ".avi", ".mov"
+)
+
 # Function to detect if JavaScript is needed
 def is_js_heavy(url):
     """
@@ -125,7 +131,12 @@ def scrape_selected_nodes(url_list, bot_id, db: Session):
             else:
                 logger.info(f"Static HTML detected - Using BeautifulSoup", extra={"bot_id": bot_id, "url": url})
                 result = scrape_static_page(url)
-                
+                # If result is None or text is empty, fallback to dynamic
+                if not result or not result.get("text"):
+                    logger.warning(f"Static scraping failed or returned empty text. Falling back to dynamic scraping.",
+                                extra={"bot_id": bot_id, "url": url})
+                    result = scrape_dynamic_page(url)
+
             if result:
                 logger.info(f"Successfully scraped URL", 
                           extra={"bot_id": bot_id, "url": url, "title": result.get("title", "No Title")})
@@ -325,7 +336,8 @@ def get_website_nodes(base_url):
                 full_url = urljoin(base_url, link["href"])
                 if urlparse(full_url).netloc == urlparse(base_url).netloc:
                     normalized = normalize_url(full_url)
-                    links.add(normalized)
+                    if not normalized.lower().endswith(NON_HTML_EXTENSIONS):
+                        links.add(normalized)
             return list(links)
         except Exception as e:
             print(f"[STATIC ERROR] {base_url} - {e}")
@@ -358,7 +370,8 @@ def get_website_nodes(base_url):
                         # clean_url, _ = urldefrag(link)
                         # internal_links.add(clean_url)
                         normalized = normalize_url(link)
-                        internal_links.add(normalized)
+                        if not normalized.lower().endswith(NON_HTML_EXTENSIONS):
+                            internal_links.add(normalized)
 
                 browser.close()
                 print(f"[INFO] Total internal nodes found Dynamic: {len(internal_links)}")
