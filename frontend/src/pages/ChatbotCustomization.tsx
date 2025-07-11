@@ -1061,6 +1061,22 @@ const handlePredefinedIconSelect = async (iconUrl: string) => {
       return; // Don't update if invalid
     }
   }
+
+        // Add Bot Name  validation here
+  if (field === "name"  && typeof value === "string") {
+    const isValidWelcomeMessage = (message: string) => {
+      const maxWordLength = 15;
+
+      if (/(.)\1{4,}/.test(message)) return false;
+      if (message.split(" ").some((word) => word.length > maxWordLength)) return false;
+      return true;
+    };
+
+    if (!isValidWelcomeMessage(value)) {
+      console.warn("Invalid Boat name");
+      return; // Don't update if invalid
+    }
+  }
     setSettings((prev) => {
       const newSettings = { ...prev, [field]: value };
 
