@@ -131,8 +131,8 @@ if not zoho_product_id:
     logger.warning("ZOHO_DEFAULT_PRODUCT_ID environment variable is not set! This is required for addon synchronization with Zoho.")
 
 # Initialize Zoho sync scheduler
-logger.info("Initializing Zoho sync scheduler")
-initialize_scheduler()
+# logger.info("Initializing Zoho sync scheduler")
+# initialize_scheduler()
 
 # Add the logging middleware
 #app.add_middleware(LoggingMiddleware)
