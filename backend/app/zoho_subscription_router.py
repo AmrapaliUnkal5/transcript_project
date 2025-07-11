@@ -12,9 +12,11 @@ import os
 from app.schemas import ZohoCheckoutRequest, ZohoCheckoutResponse
 from app.utils.create_access_token import create_access_token
 from fastapi.responses import JSONResponse
+from app.utils.logger import get_module_logger, get_webhook_logger
 
 router = APIRouter(prefix="/zoho", tags=["Zoho Subscriptions"])
-logger = logging.getLogger(__name__)
+logger = get_module_logger(__name__)
+webhook_logger = get_webhook_logger()
 
 # Create a Zoho Billing Service instance
 zoho_service = ZohoBillingService()
@@ -289,19 +291,41 @@ async def zoho_webhook_handler(request: Request, db: Session = Depends(get_db)):
         print(f"Raw Payload: {payload}")
         print(f"{'='*60}\n")
         
-        # Also log to a file for persistence
-        try:
-            import json
-            with open("webhook_logs.txt", "a") as f:
-                log_entry = {
-                    "timestamp": timestamp,
-                    "event_type": event_type,
-                    "headers": dict(request.headers),
-                    "payload": payload
-                }
-                f.write(f"{json.dumps(log_entry, indent=2)}\n\n")
-        except Exception as log_error:
-            print(f"Error writing to log file: {log_error}")
+        # Log webhook to structured logging system
+        webhook_logger.info(
+            "Zoho webhook received",
+            extra={
+                "event_type": event_type,
+                "webhook_url": str(request.url),
+                "method": request.method,
+                "headers": dict(request.headers),
+                "payload": payload,
+                "user_agent": request.headers.get("user-agent"),
+                "content_length": request.headers.get("content-length"),
+                "source_ip": request.headers.get("x-forwarded-for") or request.client.host if request.client else "unknown"
+            }
+        )
+        
+        # If event_type is null, try to determine from payload structure
+        if event_type is None:
+            print("Event type is null, attempting to determine from payload structure...")
+            
+            # Check if this is a payment-related webhook
+            if "payment" in payload and payload["payment"].get("status") == "success":
+                event_type = "payment_success"
+                print(f"Detected payment success event from payload structure")
+            elif "payment" in payload and payload["payment"].get("status") == "failed":
+                event_type = "payment_failed"
+                print(f"Detected payment failed event from payload structure")
+            elif "subscription" in payload:
+                # Check subscription status to determine event type
+                sub_status = payload.get("subscription", {}).get("status", "").lower()
+                if sub_status == "live" or sub_status == "active":
+                    event_type = "subscription_created"
+                    print(f"Detected subscription created event from payload structure")
+                elif sub_status == "cancelled":
+                    event_type = "subscription_cancelled"  
+                    print(f"Detected subscription cancelled event from payload structure")
         
         # Handle different event types
         if event_type == "subscription_created":
@@ -321,8 +345,19 @@ async def zoho_webhook_handler(request: Request, db: Session = Depends(get_db)):
             print(f"Payment success handler result: {result}")
         else:
             print(f"Unhandled webhook event type: {event_type}")
+            # Return success even for unhandled events to avoid webhook retries
         
         print(f"Webhook processing completed successfully for event: {event_type}")
+        
+        # Log successful webhook processing
+        webhook_logger.info(
+            "Webhook processed successfully",
+            extra={
+                "event_type": event_type,
+                "processing_result": "success"
+            }
+        )
+        
         return {"success": True, "message": f"Processed {event_type}"}
     
     except Exception as e:
@@ -330,12 +365,15 @@ async def zoho_webhook_handler(request: Request, db: Session = Depends(get_db)):
         logger.error(error_msg)
         print(f"ERROR: {error_msg}")
         
-        # Log error to file as well
-        try:
-            with open("webhook_errors.txt", "a") as f:
-                f.write(f"{datetime.now().isoformat()}: {error_msg}\n")
-        except:
-            pass
+        # Log webhook processing error
+        webhook_logger.error(
+            "Webhook processing failed",
+            extra={
+                "event_type": event_type,
+                "error_message": error_msg,
+                "processing_result": "error"
+            }
+        )
             
         return {"success": False, "error": str(e)}
 
@@ -728,33 +766,56 @@ async def handle_payment_failed(payload: Dict[str, Any], db: Session):
 async def handle_payment_success(payload: Dict[str, Any], db: Session):
     """Handle successful payment events from Zoho"""
     try:
-        # Extract data from payload
-        customer_data = payload.get("customer", {})
+        # Extract data from payload - fix structure to match actual Zoho payload
         payment_data = payload.get("payment", {})
-        invoice_data = payload.get("invoice", {})
         
-        # Get critical IDs for lookup
-        customer_id = customer_data.get("customer_id")
-        subscription_id = invoice_data.get("subscription_id") if invoice_data else None
-        invoice_id = invoice_data.get("invoice_id") if invoice_data else None
+        if not payment_data:
+            logger.error("No payment data found in webhook payload")
+            print("ERROR: No payment data found in webhook payload")
+            return
         
-        if not customer_id or not subscription_id:
-            logger.error(f"Missing required fields in payment success payload. Customer ID: {customer_id}, Subscription ID: {subscription_id}")
+        # Get critical IDs for lookup from the correct structure
+        customer_id = payment_data.get("customer_id")
+        email = payment_data.get("email")
+        
+        # Extract subscription ID from invoices array
+        invoices = payment_data.get("invoices", [])
+        subscription_id = None
+        invoice_id = None
+        
+        if invoices and len(invoices) > 0:
+            first_invoice = invoices[0]
+            invoice_id = first_invoice.get("invoice_id")
+            subscription_ids = first_invoice.get("subscription_ids", [])
+            if subscription_ids and len(subscription_ids) > 0:
+                subscription_id = subscription_ids[0]
+        
+        print(f"Extracted payment data:")
+        print(f"  Customer ID: {customer_id}")
+        print(f"  Email: {email}")
+        print(f"  Subscription ID: {subscription_id}")
+        print(f"  Invoice ID: {invoice_id}")
+        print(f"  Payment Status: {payment_data.get('status')}")
+        
+        if not customer_id:
+            logger.error("Missing customer ID in payment success payload")
+            print("ERROR: Missing customer ID in payment success payload")
             return
             
-        # Extract the email from customer data to identify our user
-        email = customer_data.get("email")
         if not email:
-            logger.error(f"Customer email not found in webhook payload")
+            logger.error("Customer email not found in webhook payload")
+            print("ERROR: Customer email not found in webhook payload")
             return
             
         # Find the user by email
         user = db.query(User).filter(User.email == email).first()
         if not user:
             logger.error(f"User with email {email} not found in database")
+            print(f"ERROR: User with email {email} not found in database")
             return
             
         user_id = user.user_id
+        print(f"Found user ID: {user_id} for email: {email}")
             
         # Find any pending subscription
         pending_subscription = db.query(UserSubscription).filter(
@@ -762,10 +823,15 @@ async def handle_payment_success(payload: Dict[str, Any], db: Session):
             UserSubscription.status == "pending"
         ).order_by(UserSubscription.created_at.desc()).first()
         
-        # Find the subscription in our database by Zoho ID
-        existing_subscription = db.query(UserSubscription).filter(
-            UserSubscription.zoho_subscription_id == subscription_id
-        ).first()
+        # Find the subscription in our database by Zoho ID (if we have one)
+        existing_subscription = None
+        if subscription_id:
+            existing_subscription = db.query(UserSubscription).filter(
+                UserSubscription.zoho_subscription_id == subscription_id
+            ).first()
+        
+        print(f"Found pending subscription: {pending_subscription is not None}")
+        print(f"Found existing subscription: {existing_subscription is not None}")
         
         if existing_subscription:
             # Update existing subscription
@@ -779,27 +845,45 @@ async def handle_payment_success(payload: Dict[str, Any], db: Session):
             create_fresh_user_token(db, user_id)
             
             db.commit()
+            print(f"SUCCESS: Updated existing subscription for user {user_id} to active status")
             logger.info(f"Updated existing subscription for user {user_id} to active status")
+            
         elif pending_subscription:
             # Update the pending subscription
             pending_subscription.status = "active"
-            pending_subscription.zoho_subscription_id = subscription_id
-            pending_subscription.zoho_invoice_id = invoice_id
+            if subscription_id:
+                pending_subscription.zoho_subscription_id = subscription_id
+            if invoice_id:
+                pending_subscription.zoho_invoice_id = invoice_id
+            if customer_id:
+                pending_subscription.zoho_customer_id = customer_id
             pending_subscription.payment_date = datetime.now()
             pending_subscription.updated_at = datetime.now()
+            pending_subscription.notes = "Payment successful"
             
             # Create a fresh token with the updated subscription info
             create_fresh_user_token(db, user_id)
             
             db.commit()
+            print(f"SUCCESS: Updated pending subscription for user {user_id} to active status")
             logger.info(f"Updated pending subscription for user {user_id} to active status")
+            
         else:
             logger.error(f"No matching subscription found for payment success event. User: {user_id}, Zoho Subscription: {subscription_id}")
+            print(f"ERROR: No matching subscription found for payment success event. User: {user_id}, Zoho Subscription: {subscription_id}")
+            
+            # Log all subscriptions for this user for debugging
+            all_subs = db.query(UserSubscription).filter(UserSubscription.user_id == user_id).all()
+            print(f"All subscriptions for user {user_id}:")
+            for sub in all_subs:
+                print(f"  ID: {sub.id}, Status: {sub.status}, Zoho ID: {sub.zoho_subscription_id}, Created: {sub.created_at}")
             
     except Exception as e:
         db.rollback()
         logger.error(f"Error handling payment_success event: {str(e)}")
         print(f"ERROR handling payment success: {str(e)}")
+        import traceback
+        print(f"Full traceback: {traceback.format_exc()}")
 
 # Add a new endpoint to get subscription status for a user
 @router.get("/status/{user_id}", response_model=dict)

@@ -73,4 +73,23 @@ class RequestContextLogger:
     
     def exception(self, msg: str, *args, **kwargs):
         """Log exception with request context"""
-        self.logger.exception(msg, *args, **kwargs) 
+        self.logger.exception(msg, *args, **kwargs)
+
+
+def get_webhook_logger():
+    """
+    Get the webhook logger for logging webhook events.
+    
+    Returns:
+        A configured webhook logger that writes to webhook.log with rotation
+    
+    Example:
+        ```python
+        from app.utils.logger import get_webhook_logger
+        
+        webhook_logger = get_webhook_logger()
+        webhook_logger.info("Webhook received", extra={"event_type": "payment_success"})
+        ```
+    """
+    import logging
+    return logging.getLogger("webhook") 
