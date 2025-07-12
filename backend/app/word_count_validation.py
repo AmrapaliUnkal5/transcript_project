@@ -257,11 +257,13 @@ async def extract_text(file: UploadFile) -> str:
     if file_ext == "pdf":
         text = await extract_text_from_pdf(file)
         await file.seek(0)
-        return text + " " + await extract_text_from_pdf_images(file)
+        # return text + " " + await extract_text_from_pdf_images(file)
+        return text
     elif file_ext == "docx":
         text = await extract_text_from_docx(file)
         await file.seek(0)
-        return text + " " + await extract_text_from_docx_images(file)
+        # return text + " " + await extract_text_from_docx_images(file)
+        return text
     elif file_ext == "txt":
         return await extract_text_from_txt(file)
     elif file_ext == "csv":
