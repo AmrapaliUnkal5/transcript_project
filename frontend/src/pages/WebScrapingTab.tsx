@@ -421,7 +421,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                 </span>
                 <div className="absolute left-0 top-6 w-72 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg z-10 pointer-events-none">
                   Deep Scanning may include broken or outdated pages.<br />
-                  Since SiteMaps can sometimes contain old or missing links (like 404 errors), you might see some failed pages. We don’t validate them ahead of time to keep things fast — please review and choose nodes wisely.
+                  Please review and choose nodes wisely.
                 </div>
             </div>
               </div>
