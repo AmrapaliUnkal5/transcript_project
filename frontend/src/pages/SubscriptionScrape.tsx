@@ -492,14 +492,14 @@ const SubscriptionScrape: React.FC = () => {
       </div>
       {nodes.length > 0 && !isProcessing && (
         <div className="mt-4">
-          <div className="flex justify-between mb-2 items-center flex-wrap gap-2">
+          <div className="flex flex-wrap md:flex-nowrap justify-between items-center mb-2 gap-y-2">
               <div className="flex space-x-2">
                 <button
                   onClick={() => {
                 const filtered = getFilteredNodes();
                 setSelectedNodes(filtered);
               }}
-              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300  min-w-[120px] transition-all"
               disabled={loading || isProcessing}
             >
               Select All ({getFilteredNodes().length})
@@ -549,7 +549,7 @@ const SubscriptionScrape: React.FC = () => {
                     setCurrentPage(1); // reset to page 1 on new search
                   }}
                   className="px-2 py-1 border border-gray-300 rounded-md text-sm"
-                  style={{ fontFamily: 'Instrument Sans, sans-serif', width: "160px" }}
+                  style={{ fontFamily: 'Instrument Sans, sans-serif', width: "140px" }}
                 />
                 <div className="text-sm text-gray-600">
                   Selected: {selectedNodes.length}

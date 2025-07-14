@@ -378,14 +378,14 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
 
         {nodes.length > 0 && !isProcessing && (
           <div className="mt-4">
-             <div className="flex justify-between mb-2 items-center flex-wrap gap-2">
+             <div className="flex flex-wrap md:flex-nowrap justify-between items-center mb-2 gap-y-2">
               <div className="flex space-x-2">
                 <button
                   onClick={() => {
                 const filtered = getFilteredNodes();
                 setSelectedNodes(filtered);
               }}
-              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300 min-w-[120px] transition-all"
               disabled={loading || isProcessing}
             >
               Select All ({getFilteredNodes().length})
@@ -435,7 +435,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                     setCurrentPage(1); // reset to page 1 on new search
                   }}
                   className="px-2 py-1 border border-gray-300 rounded-md text-sm"
-                  style={{ fontFamily: 'Instrument Sans, sans-serif', width: "160px" }}
+                  style={{ fontFamily: 'Instrument Sans, sans-serif', width: "140px" }}
                 />
                 <div className="text-sm text-gray-600">
                   Selected: {selectedNodes.length}
@@ -446,7 +446,9 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
             <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Select Pages to Scrape:
             </h4>
-            <div className="space-y-2 max-h-96 overflow-y-auto border border-gray-200 rounded-md p-4">
+            <div  className="space-y-2 overflow-y-auto border border-gray-200 rounded-md p-4"
+                style={{ minHeight: '280px', maxHeight: '384px' }} // max-h-96 = 384px
+              >
               {getPaginatedNodes().map((node, index) => (
                 <label key={index} className="flex items-center space-x-2">
                   <input
