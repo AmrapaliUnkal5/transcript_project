@@ -378,9 +378,8 @@ def add_document_to_qdrant(bot_id: int, text: str, metadata: dict, force_model: 
         # Normalize embedding
         normalized_vector = normalize_embedding(vector)
         
-        # Collection naming (same as ChromaDB)
-        sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
-        collection_name = f"bot_{bot_id}_{sanitized_model_name}"
+        # Use unified collection name for consistency
+        collection_name = "unified_vector_store"
         
         logger.info(f"[QDRANT] Using collection: {collection_name}")
         
@@ -504,35 +503,52 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
                                "error": str(e)})
             raise ValueError(error_msg)
         
-        # Sanitize model name for collection name
-        logger.info(f"Sanitizing model name for collection", 
-                   extra={"bot_id": bot_id, "model_name": model_name})
-        sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
+        # Get user_id from bot_id for metadata filtering
+        logger.info(f"Getting user_id for bot", 
+                   extra={"bot_id": bot_id})
+        db = SessionLocal()
+        try:
+            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+            if not bot:
+                logger.error(f"Bot not found in database", extra={"bot_id": bot_id})
+                raise ValueError(f"Bot {bot_id} not found")
+            current_user_id = bot.user_id
+            logger.info(f"Found user_id for bot", 
+                       extra={"bot_id": bot_id, "user_id": current_user_id})
+        finally:
+            db.close()
         
-        # IMPORTANT: Always use a consistent collection name format based ONLY on bot_id and model
-        # This ensures all data sources (YouTube, files, websites) share the same collection
-        base_collection_name = f"bot_{bot_id}_{sanitized_model_name}"
-        logger.info(f"Using collection name", 
-                   extra={"bot_id": bot_id, "collection": base_collection_name})
+        # Use unified collection name instead of bot-specific collections
+        unified_collection_name = "unified_vector_store"
+        logger.info(f"Using unified collection name", 
+                   extra={"bot_id": bot_id, "collection": unified_collection_name})
 
+        # Add isolation metadata for proper filtering
+        enhanced_metadata = metadata.copy()
+        enhanced_metadata.update({
+            "user_id": current_user_id,
+            "bot_id": bot_id,
+            "embedding_model": model_name
+        })
+        
         # Log collection name with source type for debugging purposes
         source_type = metadata.get('source', 'unknown')
-        logger.info(f"*** COLLECTION: {base_collection_name} - SOURCE TYPE: {source_type} ***", 
-                   extra={"bot_id": bot_id, "collection": base_collection_name, "source": source_type})
+        logger.info(f"*** COLLECTION: {unified_collection_name} - SOURCE TYPE: {source_type} ***", 
+                   extra={"bot_id": bot_id, "collection": unified_collection_name, "source": source_type})
         
         # FOR ALL DOCUMENT TYPES: Try Qdrant first, then fallback to ChromaDB
         logger.info(f"*** ROUTING ALL DOCUMENTS TO QDRANT - SOURCE TYPE: {source_type} ***", 
                    extra={"bot_id": bot_id, "source": source_type})
         
         # Use Qdrant for all document types (files, YouTube, websites)
-        success = add_document_to_qdrant(bot_id, text, metadata, force_model, user_id)
+        success = add_document_to_qdrant(bot_id, text, enhanced_metadata, force_model, user_id)
         if success:
             logger.info(f"Document successfully added to Qdrant", 
-                       extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown')})
+                       extra={"bot_id": bot_id, "document_id": enhanced_metadata.get('id', 'unknown')})
             return  # Successfully added to Qdrant, exit early
         else:
             logger.warning(f"Failed to add document to Qdrant, falling back to ChromaDB",
-                          extra={"bot_id": bot_id, "document_id": metadata.get('id', 'unknown')})
+                          extra={"bot_id": bot_id, "document_id": enhanced_metadata.get('id', 'unknown')})
             # Continue with ChromaDB as fallback
         
         # FALLBACK TO CHROMADB if Qdrant fails
@@ -540,16 +556,16 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
                    extra={"bot_id": bot_id, "source": source_type})
         
         # Check if this is a re-embedding process by looking at metadata
-        is_reembedding = metadata.get("source") == "re-embed"
+        is_reembedding = enhanced_metadata.get("source") == "re-embed"
         
         # For re-embedding, use the temp_collection name if provided
-        if is_reembedding and metadata.get("temp_collection"):
-            collection_name = metadata.get("temp_collection")
+        if is_reembedding and enhanced_metadata.get("temp_collection"):
+            collection_name = enhanced_metadata.get("temp_collection")
             logger.info(f"Using temporary collection for re-embedding", 
                        extra={"bot_id": bot_id, "collection": collection_name})
         else:
-            # Standard case for all document types - use the consistent base collection name
-            collection_name = base_collection_name
+            # Standard case for all document types - use the unified collection name
+            collection_name = unified_collection_name
             
         logger.info(f"Getting or creating ChromaDB collection", 
                     extra={"bot_id": bot_id, "collection": collection_name})
@@ -646,12 +662,12 @@ def add_document(bot_id: int, text: str, metadata: dict, force_model: str = None
 
         logger.info(f"Adding document to ChromaDB collection", 
                     extra={"bot_id": bot_id, "collection": collection_name, 
-                          "id": metadata["id"]})
+                          "id": enhanced_metadata["id"]})
         try:
             add_result = bot_collection.add(
-                ids=[metadata["id"]],
+                ids=[enhanced_metadata["id"]],
                 embeddings=[vector],
-                metadatas=[metadata],
+                metadatas=[enhanced_metadata],
                 documents=[text]
             )
             logger.info(f"Add result: {add_result}", 
@@ -729,9 +745,19 @@ def retrieve_similar_docs_from_qdrant(bot_id: int, query_text: str, top_k=5, use
         query_embedding = embedder.embed_query(query_text)
         normalized_query_embedding = normalize_embedding(query_embedding)
 
-        # Collection naming (same as ChromaDB)
-        sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
-        collection_name = f"bot_{bot_id}_{sanitized_model_name}"
+        # Get user_id from bot_id for metadata filtering
+        db = SessionLocal()
+        try:
+            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+            if not bot:
+                logger.warning(f"[QDRANT] Bot not found in database", extra={"bot_id": bot_id})
+                return []
+            current_user_id = bot.user_id
+        finally:
+            db.close()
+        
+        # Use unified collection name for consistency
+        collection_name = "unified_vector_store"
         
         logger.info(f"[QDRANT] Searching in collection: {collection_name}")
         
@@ -748,11 +774,25 @@ def retrieve_similar_docs_from_qdrant(bot_id: int, query_text: str, top_k=5, use
             logger.warning(f"[QDRANT] Collection not found: {collection_name}")
             return []
         
-        # Perform search
+        # Create metadata filter for isolation
+        metadata_filter = Filter(
+            must=[
+                FieldCondition(key="user_id", match=MatchValue(value=current_user_id)),
+                FieldCondition(key="bot_id", match=MatchValue(value=bot_id)),
+                FieldCondition(key="embedding_model", match=MatchValue(value=model_name))
+            ]
+        )
+        
+        logger.info(f"[QDRANT] Applying metadata filter for isolation", 
+                   extra={"bot_id": bot_id, "user_id": current_user_id, 
+                         "model_name": model_name})
+        
+        # Perform search with mandatory filtering
         results = qdrant_client.search(
             collection_name=collection_name,
             query_vector=normalized_query_embedding,
-            limit=min(top_k, doc_count)
+            limit=min(top_k, doc_count),
+            query_filter=metadata_filter
         )
         
         logger.info(f"[QDRANT] Found {len(results)} results")
@@ -947,12 +987,24 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
         logger.debug(f"Query embedding dimension", 
                     extra={"bot_id": bot_id, "dimension": embedding_dimension})
         
-        # Sanitize model name for ChromaDB collection naming requirements
-        sanitized_model_name = model_name.replace("/", "_").replace(".", "_").replace("-", "_")
+        # Get user_id from bot_id for metadata filtering
+        logger.info(f"Getting user_id for bot", 
+                   extra={"bot_id": bot_id})
+        db = SessionLocal()
+        try:
+            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+            if not bot:
+                logger.error(f"Bot not found in database", extra={"bot_id": bot_id})
+                return []
+            current_user_id = bot.user_id
+            logger.info(f"Found user_id for bot", 
+                       extra={"bot_id": bot_id, "user_id": current_user_id})
+        finally:
+            db.close()
         
-        # IMPORTANT: Use the same consistent collection naming as in add_document
-        collection_name = f"bot_{bot_id}_{sanitized_model_name}"
-        logger.info(f"Using consistent collection name", 
+        # Use unified collection name instead of bot-specific collections
+        collection_name = "unified_vector_store"
+        logger.info(f"Using unified collection name", 
                    extra={"bot_id": bot_id, "collection": collection_name})
         
         # ✅ Log collection name determination
@@ -963,7 +1015,7 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                 "user_id": user_id,
                 "collection_name": collection_name,
                 "model_name": model_name,
-                "sanitized_model_name": sanitized_model_name
+                "unified_collection": True
             }
         })
         
@@ -1053,11 +1105,22 @@ def retrieve_similar_docs(bot_id: int, query_text: str, top_k=5, user_id: int = 
                 }
             })
             
-            # Run the query
+            # Run the query with mandatory metadata filtering for isolation
+            metadata_filter = {
+                "user_id": {"$eq": current_user_id},
+                "bot_id": {"$eq": bot_id},
+                "embedding_model": {"$eq": model_name}
+            }
+            
+            logger.info(f"Applying metadata filter for isolation", 
+                       extra={"bot_id": bot_id, "user_id": current_user_id, 
+                             "filter": metadata_filter})
+            
             results = bot_collection.query(
                 query_embeddings=[query_embedding],
                 n_results=min(top_k, doc_count),
-                include=["documents", "metadatas", "distances"]
+                include=["documents", "metadatas", "distances"],
+                where=metadata_filter
             )
             
             # ✅ Log query execution success
@@ -1501,117 +1564,65 @@ def get_bot_config(bot_id: int) -> str:
 
 
 def delete_document_from_chroma(bot_id: int, file_id: str):
-    """Deletes documents related to a specific file from ChromaDB."""
+    """Deletes documents related to a specific file from unified ChromaDB collection."""
     logger.info(f"Starting document deletion process for bot {bot_id}, file_id {file_id}")
     
     try:
+        # Get user_id from bot_id for metadata filtering
+        db = SessionLocal()
+        try:
+            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+            if not bot:
+                logger.error(f"Bot not found in database", extra={"bot_id": bot_id})
+                return
+            current_user_id = bot.user_id
+        finally:
+            db.close()
+        
         # Create new client instance for this operation
         chroma_client = get_chroma_client()
         
-        # List all collections
-        collections = chroma_client.list_collections()
+        # Use unified collection name
+        collection_name = "unified_vector_store"
         
-        # Safely determine if we're using new or old API
         try:
-            # First, assume we're using the new API (v0.6.0+)
-            # If all items in collections are strings, we're using the new API
-            is_new_api = all(isinstance(item, str) for item in collections) if collections else True
+            logger.info(f"Checking unified collection: {collection_name}")
+            collection = chroma_client.get_collection(name=collection_name)
             
-            if not is_new_api:
-                # Try to get collection names using old API style
-                try:
-                    if collections and len(collections) > 0:
-                        test_name = collections[0].name
-                        logger.debug("Using old ChromaDB API style (pre-0.6.0)")
-                        bot_collections = [collection.name for collection in collections if f"bot_{bot_id}_" in collection.name]
-                    else:
-                        bot_collections = []
-                except Exception as e:
-                    logger.debug(f"Error checking collection type: {str(e)}")
-                    logger.debug("Defaulting to new ChromaDB API style (0.6.0+)")
-                    bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
+            if collection.count() == 0:
+                logger.warning(f"Unified collection {collection_name} is empty, skipping")
+                return
+            
+            file_id_str = str(file_id)
+            
+            # Create metadata filter for bot and user isolation plus file_id
+            metadata_filter = {
+                "$and": [
+                    {"user_id": {"$eq": current_user_id}},
+                    {"bot_id": {"$eq": bot_id}},
+                    {"$or": [
+                        {"id": {"$eq": file_id_str}},
+                        {"file_id": {"$eq": file_id_str}}
+                    ]}
+                ]
+            }
+            
+            results = collection.get(
+                where=metadata_filter,
+                include=["metadatas", "documents"]
+            )
+            
+            if results["ids"] and len(results["ids"]) > 0:
+                logger.info(f"Found {len(results['ids'])} documents to delete from unified collection")
+                
+                # Delete the documents
+                collection.delete(ids=results["ids"])
+                logger.info(f"Successfully deleted {len(results['ids'])} documents from unified collection")
             else:
-                logger.debug("Using new ChromaDB API style (0.6.0+)")
-                bot_collections = [name for name in collections if f"bot_{bot_id}_" in name]
-        except Exception as e:
-            logger.warning(f"Error determining ChromaDB API version: {str(e)}")
-            bot_collections = [name for name in collections if f"bot_{bot_id}_" in name] if isinstance(collections, list) else []
-        
-        if not bot_collections:
-            logger.warning(f"No collections found for bot {bot_id}")
-            return
-            
-        logger.info(f"Found collections for bot {bot_id}: {bot_collections}")
-        
-        file_id_str = str(file_id)
-        
-        # Try each collection and delete documents with matching file_id or id
-        for collection_name in bot_collections:
-            try:
-                logger.info(f"Checking collection: {collection_name}")
-                collection = chroma_client.get_collection(name=collection_name)
+                logger.info(f"No documents matching file_id {file_id} found for bot {bot_id}")
                 
-                if collection.count() == 0:
-                    logger.warning(f"Collection {collection_name} is empty, skipping")
-                    continue
-                
-                # Query to find document IDs with the given file ID in metadata
-                # Note: We need to check multiple fields since the metadata structure
-                # has been inconsistent across sources
-                try:
-                    # Try with 'id' field first (our new standardized approach)
-                    results = collection.get(
-                        where={"id": file_id_str},
-                        include=["metadatas", "documents"]
-                    )
-                    
-                    # If no results, try with 'file_id' field (older inconsistent approach)
-                    if not results["ids"] or len(results["ids"]) == 0:
-                        logger.debug(f"No documents found with id={file_id_str}, trying file_id field")
-                        try:
-                            results = collection.get(
-                                where={"file_id": file_id_str},
-                                include=["metadatas", "documents"]
-                            )
-                        except Exception as where_err:
-                            logger.warning(f"Error querying with file_id: {str(where_err)}")
-                            # If where query fails, fall back to getting all and filtering
-                            try:
-                                all_results = collection.get(include=["metadatas", "documents"])
-                                # Filter manually
-                                matching_indices = []
-                                for i, metadata in enumerate(all_results["metadatas"]):
-                                    if metadata.get("id") == file_id_str or metadata.get("file_id") == file_id_str:
-                                        matching_indices.append(i)
-                                
-                                if matching_indices:
-                                    results = {
-                                        "ids": [all_results["ids"][i] for i in matching_indices],
-                                        "metadatas": [all_results["metadatas"][i] for i in matching_indices],
-                                        "documents": [all_results["documents"][i] for i in matching_indices]
-                                    }
-                                else:
-                                    results = {"ids": [], "metadatas": [], "documents": []}
-                            except Exception as fallback_err:
-                                logger.error(f"Fallback filtering failed: {str(fallback_err)}")
-                                results = {"ids": [], "metadatas": [], "documents": []}
-                    
-                    if results["ids"] and len(results["ids"]) > 0:
-                        logger.info(f"Found {len(results['ids'])} documents to delete in {collection_name}")
-                        
-                        # Delete the documents
-                        collection.delete(ids=results["ids"])
-                        logger.info(f"Successfully deleted {len(results['ids'])} documents from {collection_name}")
-                    else:
-                        logger.info(f"No documents matching file_id {file_id} found in {collection_name}")
-                        
-                except Exception as query_err:
-                    logger.error(f"Error querying collection: {str(query_err)}")
-                    continue
-                
-            except Exception as collection_err:
-                logger.error(f"Error with collection {collection_name}: {str(collection_err)}")
-                continue
+        except Exception as collection_err:
+            logger.error(f"Error with unified collection: {str(collection_err)}")
                 
         logger.info(f"Document deletion process completed for file_id {file_id}")
         
