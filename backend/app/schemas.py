@@ -136,7 +136,7 @@ class BotBase(BaseModel):
     lead_generation_enabled: Optional[bool] = False
     lead_form_config: Optional[List[LeadFormField]] = []
     show_sources: Optional[bool] = False
-    unanswered_msg:Optional[str] = "I don't have information on that topic."
+    unanswered_msg:Optional[str] = "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?"
 
 class BotCreate(BotBase):
     pass  

@@ -175,7 +175,7 @@ const Investigation = () => {
   return (
     <div className="space-y-6">
       <ToastContainer />
-      {loading && <Loader />}
+      {/* {loading && <Loader />} */}
 
       <div
         className="flex justify-between items-center mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm"

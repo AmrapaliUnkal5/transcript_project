@@ -361,9 +361,13 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                     // Select all nodes across all pages
                     setSelectedNodes(nodes);
                   }}
-                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                  className="px-3 py-1 text-white rounded hover:bg-[#5348CB] font-instrument"
                   disabled={loading || isProcessing}
-                >
+                  style={{
+                   backgroundColor:
+                    selectedNodes.length > 0 ? '#5348CB' : '#d1d5db', 
+                        }}
+>
                   Select All ({nodes.length})
                 </button>
                 <button

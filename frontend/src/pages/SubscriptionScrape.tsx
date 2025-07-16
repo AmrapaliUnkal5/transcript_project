@@ -474,10 +474,10 @@ const SubscriptionScrape: React.FC = () => {
                   // Select all nodes across all pages
                   setSelectedNodes(nodes);
                 }}
-                className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-#5348CB-300"
                 disabled={loading || isProcessing}
               >
-                Select All ({nodes.length})
+                Select All({nodes.length})
               </button>
               <button
                 onClick={() => setSelectedNodes([])}

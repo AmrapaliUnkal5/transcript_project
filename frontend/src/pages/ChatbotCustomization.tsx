@@ -21,6 +21,7 @@ import Loader from "../components/Loader";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { Theme , THEMES } from '../types/index'; 
+import { Info } from "lucide-react";
 
 
 interface MessageUsage {
@@ -305,7 +306,7 @@ export const ChatbotCustomization = () => {
     lead_generation_enabled: false,
     lead_form_config: [{ field: "name", required: false },{ field: "phone", required: false },{ field: "email", required: false },{ field: "address", required: false }],
     showSources: false, 
-    unansweredMsg: "I don't have information on that topic.",
+    unansweredMsg: "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?",
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
@@ -487,7 +488,7 @@ const hasLeadFields = (settings?.lead_form_config  ?? []).length > 0;
             lead_generation_enabled: response.lead_generation_enabled ?? false,
             lead_form_config: response.lead_form_config || [],
             showSources: response.show_sources ?? false,
-            unansweredMsg: response.unanswered_msg || "I don't have information on that topic.",
+            unansweredMsg: response.unanswered_msg || "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?",
           });
         }
       } catch (error) {
@@ -1155,42 +1156,14 @@ const ThemeSelector: React.FC<{
   );
 };
   const tabOptions = [
-    { id: "identity", label: "Bot Identity", icon: MessageSquare },
-    { id: "typography", label: "Typography", icon: Type },
-    { id: "colors", label: "Colors", icon: Palette },
-    { id: "layout", label: "Layout", icon: Move },
-    { id: "behavior", label: "Behavior", icon: Sliders },
-    { id: "unanswered", label: "Unanswered Replies", icon: MessageCircle },
+    { id: "identity", label: "General", icon: MessageSquare },
+    // { id: "typography", label: "Typography", icon: Type },
+    { id: "colors", label: "Customize", icon: Palette },
+    // { id: "layout", label: "Layout", icon: Move },
+    // { id: "behavior", label: "Behavior", icon: Sliders },
+    // { id: "unanswered", label: "Unanswered Replies", icon: MessageCircle },
+    {id:"control" ,label:"Advance", icon:MessageCircle}
   ];
-
-  const getTabSections = (tabId: string) => {
-    switch (tabId) {
-      case "identity":
-        return sections.filter((s) => s.title === "Bot Identity");
-      case "typography":
-        return [
-          ...sections.filter((s) => s.title === "Typography"),
-          ...sections.filter((s) => s.title === "Typography Advanced"),
-        ];
-      case "colors":
-        return sections.filter(s => 
-        s.title === "Theme Selection" || 
-        s.title === "Message Colors" || 
-        s.title === "Interface Colors"
-      );
-      case "layout":
-        return [
-          ...sections.filter((s) => s.title === "Window Appearance"),
-          ...sections.filter((s) => s.title === "Layout & Borders"),
-        ];
-      case "behavior":
-        return sections.filter((s) => s.title === "Chat Interface Behavior");
-      case "unanswered":
-        return sections.filter((s) => s.title === "Unanswered Replies");
-      default:
-        return [];
-    }
-  };
 
 
   const getContrastColor = (bgColor: string) => {
@@ -1381,43 +1354,6 @@ const handleThemeSelect = async (themeId: string) => {
             handleChange("name", e.target.value),
         },
 
-        {
-          label: "Welcome Message",
-          type: "text",
-          value: settings.welcomeMessage,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("welcomeMessage", e.target.value),
-        },
-      ],
-    },
-    {
-      title: "Typography",
-      icon: Type,
-      fields: [
-        {
-          label: "Message Font",
-          type: "select",
-          value: settings.chatFontFamily,
-          options: [
-            "Geist",
-            "Roboto",
-            "Open Sans",
-            "Lato",
-            "Sora",
-          ],
-          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-            handleChange("chatFontFamily", e.target.value),
-        },
-
-    
-        {
-          label: "Font Size",
-          type: "select",
-          value: settings.fontSize,
-          options: ["12px", "14px", "16px", "18px", "20px"],
-          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-            handleChange("fontSize", e.target.value),
-        },
       ],
     },
     {
@@ -1434,6 +1370,36 @@ const handleThemeSelect = async (themeId: string) => {
         }
       ]
     },
+    //   {
+    //   title: "Typography",
+    //   icon: Type,
+    //   fields: [
+    //     {
+    //       label: "Message Font",
+    //       type: "select",
+    //       value: settings.chatFontFamily,
+    //       options: [
+    //         "Geist",
+    //         "Roboto",
+    //         "Open Sans",
+    //         "Lato",
+    //         "Sora",
+    //       ],
+    //       onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
+    //         handleChange("chatFontFamily", e.target.value),
+    //     },
+
+    
+    //     {
+    //       label: "Font Size",
+    //       type: "select",
+    //       value: settings.fontSize,
+    //       options: ["12px", "14px", "16px", "18px", "20px"],
+    //       onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
+    //         handleChange("fontSize", e.target.value),
+    //     },
+    //   ],
+    // },
    ...(selectedTheme !== 'none' || showCustomize) ? [
     {
       title: "Message Colors",
@@ -1630,7 +1596,7 @@ const handleThemeSelect = async (themeId: string) => {
     const enabled = e.target.checked;
     handleChange("lead_generation_enabled", enabled);
 
-    // ✅ If enabling, pre-select the Name field if not already present
+    //  If enabling, pre-select the Name field if not already present
     if (enabled) {
       const existing = settings.lead_form_config || [];
       const hasName = existing.some(f => f.field === "name");
@@ -1638,7 +1604,7 @@ const handleThemeSelect = async (themeId: string) => {
         handleChange("lead_form_config", [...existing, { field: "name", required: false }]);
       }
     } else {
-      // ✅ Optionally clear the config when disabling (optional)
+      //  Optionally clear the config when disabling (optional)
       handleChange("lead_form_config", []);
     }
   }}
@@ -1744,8 +1710,154 @@ const handleThemeSelect = async (themeId: string) => {
           handleChange("unansweredMsg", e.target.value),
       },
     ],
-  },    
+  },  
+  {
+    title: "Control",
+    icon: MessageCircle,
+    fields: [
+      {
+            label: (
+              <span>
+              <input
+                  type="checkbox"
+                  checked={settings.showSources}
+                  onChange={(e) => handleChange("showSources", e.target.checked)}
+                  style={{ marginRight: "6px" }}
+                />
+                    View Sources
+                  </span>
+                ),
+                type: "custom", 
+                description: "When enabled, users can view the sources of bot responses"
+                 },{
+                type: "custom",
+        render: () => {
+     const fields: Array<"name" | "phone" | "email" | "address"> = [
+      "name",
+      "phone",
+      "email",
+      "address",
+    ];
+
+    return (
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+        {/* Enable Lead Generation Form */}
+        <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <input
+            type="checkbox"
+            checked={settings.lead_generation_enabled}
+            onChange={(e) => {
+    const enabled = e.target.checked;
+    handleChange("lead_generation_enabled", enabled);
+
+    //  If enabling, pre-select the Name field if not already present
+    if (enabled) {
+      const existing = settings.lead_form_config || [];
+      const hasName = existing.some(f => f.field === "name");
+      if (!hasName) {
+        handleChange("lead_form_config", [...existing, { field: "name", required: false }]);
+      }
+    } else {
+      handleChange("lead_form_config", []);
+    }
+  }}
+          />
+          <span>Enable Lead Generation Form</span>
+        </label>
+
+        {/* Conditionally show the additional checkboxes */}
+        {settings.lead_generation_enabled && (
+          <table style={{ width: "60%", maxWidth: "480px", fontSize: "14px", border: "1px solid #ccc" }}>
+            <thead>
+              <tr style={{ backgroundColor: "#f9f9f9" }}>
+                <th style={{ padding: "8px", textAlign: "left" }}>Field</th>
+                <th style={{ padding: "8px", textAlign: "center" }}>Required</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fields.map((field) => {
+                const config = settings.lead_form_config?.find((f) => f.field === field);
+                const isVisible = !!config;
+                const isRequired = config?.required || false;
+
+                return (
+                  <tr key={field} style={{
+                    borderTop: "1px solid #ccc",
+                    opacity: isVisible ? 1 : 0.5,
+                    pointerEvents: isVisible ? "auto" : "none"
+                  }}>
+                    <td style={{ padding: "8px", display: "flex", alignItems: "center", gap: "8px", pointerEvents: "auto" }}>
+                      <input
+                        type="checkbox"
+                        checked={isVisible}
+                        onChange={(e) => {
+                          const updated = [...(settings.lead_form_config || [])];
+                          const index = updated.findIndex((f) => f.field === field);
+
+                          if (e.target.checked && index === -1) {
+                            updated.push({ field, required: false });
+                          } else if (!e.target.checked && index !== -1) {
+                            updated.splice(index, 1);
+                          }
+                          handleChange("lead_form_config", updated);
+                          if (updated.length === 0) {
+                            handleChange("lead_generation_enabled", false);
+                          }
+                        }}
+                      />
+                      <span style={{ textTransform: "capitalize" }}>{field}</span>
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        disabled={!isVisible}
+                        checked={isRequired}
+                        onChange={(e) => {
+                          const updated = [...(settings.lead_form_config || [])];
+                          const index = updated.findIndex((f) => f.field === field);
+                          if (index !== -1) {
+                            updated[index].required = e.target.checked;
+                            handleChange("lead_form_config", updated);
+                          }
+                        }}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  }
+}
+      
+    ],
+  },   
   ];
+
+
+  // Using this in control tab
+
+  const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
+  <label className="inline-flex items-center cursor-pointer">
+    <input type="checkbox" className="sr-only" checked={checked} onChange={onChange} />
+    <div
+      className={`w-11 h-6 rounded-full p-1 transition`}
+      style={{
+        backgroundColor: checked ? '#5348CB' : '#D1D5DB', // Fallback gray
+      }}
+    >
+      <div
+        className={`w-4 h-4 bg-white rounded-full shadow-md transform transition ${
+          checked ? 'translate-x-5' : ''
+        }`}
+      ></div>
+    </div>
+  </label>
+);
+
 
   if (!selectedBot) {
     return (
@@ -1772,32 +1884,8 @@ const handleThemeSelect = async (themeId: string) => {
           {/* <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[#DFDFDF] "> */}
           <div >
 
-            {/* <div className="mb-2 md:mb-0">
-    <button
-      onClick={() => setShowPreview(!showPreview)}
-      className="flex items-center gap-2 px-6 py-3 rounded-lg shadow-md border transition-colors duration-200 hover:bg-[#5348CB] hover:text-white"
-      style={{
-        backgroundColor: "white",
-        borderColor: "#5348CB",
-        color: "#5348CB",
-        fontFamily: "Instrument Sans, sans-serif",
-        fontSize: "16px",
-        fontWeight: 600,
-      }}
-    >
-      <img
-        src="/images/dummy/eye-icons.png"
-        alt="Message Icon"
-        className="w-5 h-5"
-      />
-      {showPreview ? "Hide Preview" : "Preview bot"}
-    </button>
-  </div> */}
-
-            {/* <h1 className="text-2xl font-bold text-gray-900 dark:text-white border border-yellow-600 p-2 ">
-              Customizing: {selectedBot.name}
-            </h1> */}
-           
+         
+          
 
 
 <nav
@@ -1846,299 +1934,929 @@ const handleThemeSelect = async (themeId: string) => {
 </nav>
           </div>
 
+{/* Control TAb Section  */}
           
+{activeTab === "control" && (
+  <div className="border border-[#DFDFDF] rounded-[20px] mt-2 p-5">
+    <h2
+      className="mb-5 text-gray-800 dark:text-white"
+      style={{
+        fontFamily: "Instrument Sans, sans-serif",
+        fontSize: "20px",
+        fontWeight: 600,
+      }}
+    >
+      Control Settings
+    </h2>
 
-          {/* Settings Sections */}
-          <div className="border-[1px] border-[#DFDFDF] rounded-[20px] mt-2 p-5">
-          <div className="space-y-6">
-            {getTabSections(activeTab).map((section) => (
-              <div
-                key={section.title}
-                className="bg-white " style={{ fontFamily: "Instrument Sans, sans-serif", color:"#333333",fontWeight:400 ,fontSize:"16px"}}
-              >
-                <div className="flex items-center space-x-2 mb-6 pb-3  ">
-                  {/* <section.icon className="w-5 h-5 text-blue-500" /> */}
-                  <h2   className="text-[20px]  "
-  style={{ fontFamily: "Instrument Sans, sans-serif", fontSize:"20px",color:"#333333",fontWeight:600}}>
-                    {section.title}
-                  </h2>
-                  {section.title === "Chat Interface Behavior" && (
-                    <div className="relative group"></div>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 ">
-                  {section.fields.map((field) => (
-                    <div
-                      key={field.label}
-                      className="space-y-2 "
-                    >
-                      {field.label === "Maximum User Message Length" ? (
-                        <label className="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 ">
-                          <span>Maximum User Message Length</span>
-                          <span className="text-xs italic text-gray-500">
-                            Max limit 1000
-                          </span>
-                        </label>
-                      ) : (
-                        <label
-                          className={`block text-sm font-medium text-gray-700 dark:text-gray-300  ${
-                            field.type === "slider" ? "mb-5" : "mb-1"
-                          }`}
-                        >
-                          {field.label}
-                          {field.tooltip && field.tooltip}
-                        </label>
-                      )}
+    <div className="space-y-6">
+      {/* View Sources Toggle */}
+      <div className="flex items-center justify-between">
+        <div>
+          <label className="block font-semibold">View Sources</label>
+          <p className="text-sm text-gray-500">Let users view source links in bot responses</p>
+        </div>
+        <Toggle
+          checked={settings.showSources}
+          onChange={() => handleChange("showSources", !settings.showSources)}
+        />
+      </div>
 
-                      {field.type === "select" ? (
-                        <select
-                          value={field.value as string}
-                          onChange={
-                            field.onChange as React.ChangeEventHandler<HTMLSelectElement>
+      {/* Lead Generation Toggle */}
+      <div className="flex items-center justify-between">
+        <div>
+          <label className="block font-semibold">Enable Lead Generation</label>
+          <p className="text-sm text-gray-500">Collect user details before starting the chat</p>
+        </div>
+        <Toggle
+          checked={settings.lead_generation_enabled}
+          onChange={() => {
+            const enabled = !settings.lead_generation_enabled;
+            handleChange("lead_generation_enabled", enabled);
+            if (enabled) {
+              const existing = settings.lead_form_config || [];
+              const hasName = existing.some((f) => f.field === "name");
+              if (!hasName) {
+                handleChange("lead_form_config", [...existing, { field: "name", required: false }]);
+              }
+            } else {
+              handleChange("lead_form_config", []);
+            }
+          }}
+        />
+      </div>
+
+      {/* Lead Form Fields */}
+      {settings.lead_generation_enabled && (
+        <div className="mt-2">
+          <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+            <thead className="bg-gray-100 text-gray-600 font-semibold">
+              <tr>
+                <th className="text-left px-4 py-2">Field</th>
+                <th className="text-center px-4 py-2">Required</th>
+              </tr>
+            </thead>
+            <tbody>
+              {["name", "phone", "email", "address"].map((field) => {
+                const config = settings.lead_form_config?.find((f) => f.field === field);
+                const isVisible = !!config;
+                const isRequired = config?.required || false;
+
+                return (
+                  <tr key={field} className={`border-t ${!isVisible ? "opacity-60" : ""}`}>
+                    <td className="flex items-center gap-3 px-4 py-2">
+                      <input
+                        type="checkbox"
+                        className="w-5 h-5"
+                        checked={isVisible}
+                        onChange={(e) => {
+                          const updated = [...(settings.lead_form_config || [])];
+                          const index = updated.findIndex((f) => f.field === field);
+
+                          if (e.target.checked && index === -1) {
+                            updated.push({ field, required: false });
+                          } else if (!e.target.checked && index !== -1) {
+                            updated.splice(index, 1);
                           }
-                          disabled={field.disabled} // Add this
-                          className={`w-full rounded-lg border  dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            field.disabled
-                              ? "opacity-50 cursor-not-allowed"
-                              : ""
-                          }`}
-                          style={field.disabled ? field.disabledStyle : {}}
-                        >
-                          {(field as any).options?.map((option: string) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      ) : field.type === "custom" ? (
-  field.render?.()
-) : field.type === "theme-selector" ? (
-  <ThemeSelector
-    themes={field.themes}
-    selectedTheme={field.selectedTheme}
-    onSelect={field.onSelect}
-    showCustomize={field.showCustomize}
-    setShowCustomize={field.setShowCustomize}
-    onReset={resetThemeToDefault}
-  />
-) : 
-                      field.type === "color" ? (
-                        <div className="flex items-center space-x-3 ">
-                          <input
-                            type="color"
-                            value={field.value as string}
-                            onChange={
-                              field.onChange as React.ChangeEventHandler<HTMLInputElement>
-                            }
-                            className="w-10 h-10 rounded "
-                          />
-                          <input
-                            type="text"
-                            value={field.value as string}
-                            onChange={
-                              field.onChange as React.ChangeEventHandler<HTMLInputElement>
-                            }
-                            className="flex-1 rounded-lg border  dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 "
-                          />
-                        </div>
-                      ) : field.type === "slider" ? (
-                        <div className="relative w-full pt-6">
-                          
-                          <input
-                            type="range"
-                            min={(field as any).min}
-                            max={(field as any).max}
-                            step={(field as any).step}
-                            value={field.value as number}
-                            onChange={
-                              field.onChange as React.ChangeEventHandler<HTMLInputElement>
-                            }
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-                          />
-                          <span
-                            style={{
-                              position: "absolute",
-                              top: "-5px",
-                              left: `calc(${
-                                (((field.value as number) -
-                                  (field as any).min) /
-                                  ((field as any).max - (field as any).min)) *
-                                100
-                              }% - 12px)`,
-                              transform: "translateX(-50%)",
-                            }}
-                            className="inline-block px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded"
-                          >
-                            {field.value}
-                          </span>
-                        </div>
-                      ) : field.type === "file" ? (
-                              <>
-                                {/* Row 1: Icon preview and upload section */}
-                                <div className="flex flex-row space-x-4 items-start">
-                                  {/* Uploaded Icon Preview */}
-                                  <div className="relative w-[100px] h-[100px]">
-                                    <img
-                                      src={settings.icon}
-                                      alt="Current icon"
-                                      className="w-[100px] h-[100px] rounded-full object-cover p-1 bg-white border border-[#DFDFDF]"
-                                       onError={(e) => {
-                                      e.currentTarget.onerror = null; // Prevent infinite loop if fallback also fails
-                                      e.currentTarget.src = "/images/bot_1.png";
-                                    }}
-                                    />
-                                  </div>
+                          handleChange("lead_form_config", updated);
+                          if (updated.length === 0) {
+                            handleChange("lead_generation_enabled", false);
+                          }
+                        }}
+                      />
+                      <span className="capitalize">{field}</span>
+                    </td>
+                    <td className="text-center px-4 py-2">
+                      <input
+                        type="checkbox"
+                        className="w-5 h-5"
+                        disabled={!isVisible}
+                        checked={isRequired}
+                        onChange={(e) => {
+                          const updated = [...(settings.lead_form_config || [])];
+                          const index = updated.findIndex((f) => f.field === field);
+                          if (index !== -1) {
+                            updated[index].required = e.target.checked;
+                            handleChange("lead_form_config", updated);
+                          }
+                        }}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
-                                  {/* Upload icon and instruction text */}
-                                  <div className="flex flex-col self-center px-4">
-                                    {/* Upload Button */}
-                                    <label>
-                                      <div className="flex items-center justify-center space-x-1 border rounded-[10px] border-[#5348CB] p-2 w-[134px] h-[39px]">
-                                        <img
-                                          src="/images/dummy/upload-icons.png"
-                                          alt="Upload Icon"
-                                          className="w-[14px] h-[18px]"
-                                        />
-                                        <span
-                                          className="text-[14px] font-semibold text-[#5348CB]"
-                                          style={{
-                                            fontFamily: "Instrument Sans, sans-serif",
-                                          }}
-                                        >
-                                          Upload Icon
-                                        </span>
-                                      </div>
-                                      <input
-                                        type="file"
-                                        accept={(field as any).accept}
-                                        onChange={
-                                          field.onChange as React.ChangeEventHandler<HTMLInputElement>
-                                        }
-                                        className="hidden"
-                                      />
-                                    </label>
+{/* Identity Section */}
+        
+{activeTab === "identity" && (
+  <div className="border border-[#DFDFDF] rounded-[20px] mt-2 p-5">
+    <h2
+      className="mb-5 text-gray-800 dark:text-white"
+      style={{
+        fontFamily: "Instrument Sans, sans-serif",
+        fontSize: "20px",
+        fontWeight: 600,
+      }}
+    >
+      Bot Identity
+    </h2>
 
-                                    {/* Upload info text */}
-                                    <p
-                                      className="mt-2 text-start text-gray-500"
-                                      style={{
-                                        fontSize: "14px",
-                                        fontWeight: 400,
-                                        fontFamily: "Instrument Sans, sans-serif",
-                                        whiteSpace: "nowrap",
-                                      }}
-                                    >
-                                      Upload only SVG, PNG, JPG (Max 800 x 800px)
-                                    </p>
-                                  </div>
-                                </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Row 1: Avatar */}
+      <div>
+        <div className="flex flex-row space-x-4 items-start">
+          <div className="relative w-[100px] h-[100px]">
+            <img
+              src={settings.icon || "/images/bot_1.png"}
+              alt="Current icon"
+              className="w-[100px] h-[100px] rounded-full object-cover p-1 bg-white border border-[#DFDFDF]"
+              onError={(e) => {
+                e.currentTarget.onerror = null; // Prevent infinite loop if fallback also fails
+                e.currentTarget.src = "/images/bot_1.png";
+              }}
+            />
+          </div>
 
-                                {/* Row 2: Predefined Icons */}
-                                <div className="mt-4">
-
-                                  <div className="flex space-x-4 pb-5 pt-5">
-                                    {[
-                                      "/images/bot_1.png",
-                                      "/images/bot_2.png",
-                                      "/images/bot_3.png",
-                                      "/images/bot_4.png",
-                                      "/images/bot_5.png",
-                                    ].map((icon, idx) => (
-                                      <div
-                                        key={idx}
-                                        className={`w-[50px] h-[50px] rounded-full border-2 cursor-pointer ${
-                                          selectedPredefinedIcon === icon  ? "border-[#000080]" : "border-gray-300"
-                                        } p-1 bg-white`}
-                                        onClick={() => handlePredefinedIconSelect(icon)}
-                                      >
-                                        <img
-                                          src={icon}
-                                          alt={`Bot Icon ${idx + 1}`}
-                                          className="object-cover w-full h-full rounded-full"
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </>
-                            ) : field.type === "textarea" ? (  
-                              <div className="relative">
-                                <textarea
-                                  value={field.value as string}
-                                  onChange={field.onChange as React.ChangeEventHandler<HTMLTextAreaElement>}
-                                  maxLength={(field as any).maxLength}
-                                  rows={4}
-                                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
-                                {(field as any).maxLength && (
-                                  <div className="text-xs text-gray-500 text-right mt-1">
-                                    {field.value.length}/{(field as any).maxLength} characters
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                        <div className="relative">
-                          <input
-                            type={field.type}
-                            value={field.value as string}
-                            min={(field as any).min}
-                            max={(field as any).max}
-                            accept={(field as any).accept}
-                            onChange={
-                              field.onChange as React.ChangeEventHandler<HTMLInputElement>
-                            }
-                            onBlur={() => {
-                              if (
-                                field.label === "Maximum User Message Length" &&
-                                !field.value
-                              ) {
-                                setSettings((prev) => ({
-                                  ...prev,
-                                  maxMessageLength: 200,
-                                }));
-                                setErrors((prev) => ({
-                                  ...prev,
-                                  maxMessageLength:
-                                    "Maximum User Message Length is required. Defaulting to 200.",
-                                }));
-                              }
-                            }}
-                           className="w-full rounded-lg border border-#DEDEDE-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          />
-                          {errors?.maxMessageLength &&
-                            field.label === "Maximum User Message Length" && (
-                              <p className="text-red-500 text-sm mt-1">
-                                {errors.maxMessageLength}
-                              </p>
-                            )}
-                        </div>
-                      )}
-                    </div>
-
-                  ))}
-
-                </div>
+         {/* Upload icon and instruction text */}
+          <div className="flex flex-col self-center px-4">
+             {/* Upload Button */}
+            <label>
+              <div className="flex items-center justify-center space-x-1 border rounded-[10px] border-[#5348CB] p-2 w-[134px] h-[39px] cursor-pointer">
+                <img
+                  src="/images/dummy/upload-icons.png"
+                  alt="Upload Icon"
+                  className="w-[14px] h-[18px]"
+                />
+                <span
+                  className="text-[14px] font-semibold text-[#5348CB]"
+                  style={{ fontFamily: "Instrument Sans, sans-serif" }}                >
+                  Upload Icon
+                </span>
               </div>
-            ))}
+              <input
+                type="file"
+                accept=".svg,.png,.jpg,image/svg+xml,image/png,image/jpeg"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+            <p
+              className="mt-2 text-start text-gray-500"
+              style={{
+                fontSize: "14px",
+                fontWeight: 400,
+                fontFamily: "Instrument Sans, sans-serif",
+              }}
+            >
+              Upload only SVG, PNG, JPG (Max 800 × 800px)
+            </p>
+          </div>
+        </div>
 
-            {/* <div className="flex justify-start mt-8 ml-5">
+     
+        <div className="mt-4 flex space-x-4 pb-5 pt-5">
+          {[
+            "/images/bot_1.png",
+            "/images/bot_2.png",
+            "/images/bot_3.png",
+            "/images/bot_4.png",
+            "/images/bot_5.png",
+          ].map((icon, idx) => (
+            <div
+              key={idx}
+              className={`w-[50px] h-[50px] rounded-full border-2 cursor-pointer ${
+                selectedPredefinedIcon === icon ? "border-[#000080]" : "border-gray-300"
+              } p-1 bg-white`}
+              onClick={() => handlePredefinedIconSelect(icon)}
+            >
+              <img
+                src={icon}
+                alt={`Bot Icon ${idx + 1}`}
+                className="object-cover w-full h-full rounded-full"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col justify-start">
+        <label className="block text-sm mb-1" style={{ fontFamily: "Instrument Sans, sans-serif",color: "#666666" }}>
+          Bot Name
+        </label>
+        <input
+          type="text"
+          value={settings.name}
+          onChange={(e) => handleChange("name", e.target.value)}
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2"
+        />
+      </div>
+
+      <div className="flex flex-col justify-start">
+        <label className="block text-sm mb-1.5" style={{ fontFamily: "Instrument Sans, sans-serif" ,color: "#666666"}}>
+          Welcome Message
+        </label>
+        <input
+          type="text"
+          value={settings.welcomeMessage}
+          onChange={(e) => handleChange("welcomeMessage", e.target.value)}
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2"
+          style={{ color: "#333333"}}
+        />
+      </div>
+      <div></div>
+      <div className="flex flex-col justify-start">
+        <label className="block text-sm mb-1.5" style={{ fontFamily: "Instrument Sans, sans-serif" ,color: "#666666"}}>
+          Default response when bot doesn't know the answer
+        </label>
+        <textarea
+          value={settings.unansweredMsg}
+          onChange={(e) => handleChange("unansweredMsg", e.target.value)}
+          maxLength={200}
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2"
+          style={{ minHeight: "60px", resize: "vertical",color: "#333333" }}
+        />
+        <div className="text-xs text-gray-500 text-right mt-1">
+          {settings.unansweredMsg.length}/200 characters
+        </div>
+      </div>
+      <div></div>
+    </div>
+  </div>
+)}
+  
+  {activeTab === "identity" && (
+  <div className="border border-[#DFDFDF] rounded-[20px] mt-6 p-5">
+    <h2
+      className="mb-5 text-gray-800 dark:text-white"
+      style={{
+        fontFamily: "Instrument Sans, sans-serif",
+        fontSize: "20px",
+        fontWeight: 600,
+      }}
+    >
+      Level of Creativity
+    </h2>
+
+    <div className="md:w-1/2">
+      {/* Label with tooltip */}
+      <label className="flex items-center gap-2  mb-3" style={{ fontFamily: "Instrument Sans, sans-serif" ,color: "#333333",fontSize: "16px", }}>
+        Choose between creative or precise responses
+        <div className="relative group inline-block">
+            <Info size={20} color="white" className="bg-[#5348CB] p-1 rounded-full" />
+
+          <div className="absolute left-0 top-7 w-64 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg z-10 pointer-events-none">
+            Controls response creativity:
+            <ul className="mt-1 list-disc pl-4">
+              <li><strong>0</strong>: Precise, deterministic answers</li>
+              <li><strong>0.5</strong>: Balanced mix of accuracy and creativity</li>
+              <li><strong>1</strong>: Maximum creativity and randomness</li>
+            </ul>
+            <p className="mt-2">
+              Higher values produce more detailed, varied responses, while lower values give more specific, focused answers.
+            </p>
+          </div>
+        </div>
+      </label>
+
+      {/* Slider */}
+      <div className="relative w-full pt-4">
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={settings.temperature}
+          onChange={(e) => handleChange("temperature", parseFloat(e.target.value))}
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+          style={{
+    accentColor: '#5348CB', 
+  }}
+        />
+        <span
+          className="absolute inline-block px-2 py-1 text-xs font-semibold text-white rounded"
+          style={{
+            backgroundColor: "#5348CB",
+            top: "-10px",
+            left: `calc(${settings.temperature * 100}% - 12px)`,
+            transform: "translateX(-50%)",
+          }}
+        >
+          {settings.temperature}
+        </span>
+      </div>
+    </div>
+  </div>
+)}
+{/* Color Tab that is now Customize Tab  Section */}
+
+{/* Theme Section */}
+
+{activeTab === "colors" && (
+  <>
+    {/* Theme Selection Box */}
+    <div className=" rounded-[20px] mt-6 p-5 w-full">
+      <h2
+        className="mb-5 text-gray-800 dark:text-white"
+        style={{
+          fontFamily: "Instrument Sans, sans-serif",
+          fontSize: "20px",
+          fontWeight: 600,
+        }}
+      >
+        Apply a theme or customize on your own
+      </h2>
+
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-4">
+          {THEMES.map((theme) => (
+            <div
+              key={theme.id}
+              onClick={() => handleThemeSelect(theme.id)}
+              className={`cursor-pointer p-2 border-2 rounded-lg transition-all ${
+                selectedTheme === theme.id
+                  ? "border-blue-500 ring-2 ring-blue-200"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+              style={{ width: "120px" }}
+            >
+              <div className="flex flex-col items-center">
+                <div
+                  className="w-full h-16 rounded mb-2"
+                  style={{
+                    background: `linear-gradient(135deg, ${theme.botColor} 50%, ${theme.userColor} 50%)`,
+                  }}
+                ></div>
+                <span
+                    className="text-center"
+                    style={{
+                    fontSize: "14px",
+                    fontFamily: "Instrument Sans, sans-serif",
+                    fontWeight: 400,
+                    color: "#333333",
+                     }}>{theme.name}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {selectedTheme !== "none" && (
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-gray-500">
+              Using{" "}
+              <span className="font-medium">
+                {selectedTheme === "custom"
+                  ? "Custom"
+                  : THEMES.find((t) => t.id === selectedTheme)?.name}
+              </span>{" "}
+              theme
+            </div>
+
+            {/* Uncomment to allow reset */}
+            {/* {selectedTheme !== "custom" && (
               <button
-                onClick={handleSaveSettings}
-                disabled={loading}
-                className={`px-4 py-2 rounded-lg transition-colors font-medium ${
-                  loading
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-[#5348CB] hover:bg-[#4239A4] text-white"
-                } w-[102px] h-[48px]`}
-                style={{
-                  fontFamily: "Instrument Sans, sans-serif",
-                  fontSize: "16px",
-                  color: "#FFFFFF",
-                }}
+                onClick={resetThemeToDefault}
+                className="px-2 py-1 text-sm border border-blue-500 text-blue-500 rounded hover:bg-blue-50"
               >
-                {loading ? "Saving..." : "  Save "}
+                Reset The Changes
               </button>
-            </div> */}
+            )} */}
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* The rest of your color customization UI can continue below */}
+  </>
+)}
+
+{activeTab === "colors" && (
+  <div className="border border-[#DFDFDF] rounded-[20px] mt-6 p-5">
+    <h2
+      className="mb-5 text-gray-800 dark:text-white"
+      style={{
+        fontFamily: "Instrument Sans, sans-serif",
+        fontSize: "20px",
+        fontWeight: 600,
+      }}
+    >
+      Style
+    </h2>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Typography Section */}
+      <div>
+          <label
+  className="block mb-1 "
+  style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "14px",
+    fontWeight: 400,
+    color: "#333333",
+    
+  }}
+>
+  Chat Messages font
+</label>
+        <select
+          value={settings.chatFontFamily}
+          onChange={(e) => handleChange("chatFontFamily", e.target.value)}
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2"
+           style={{ color: "#333333"}}
+        >
+          <option value="Geist">Geist</option>
+          <option value="Roboto">Roboto</option>
+          <option value="Open Sans">Open Sans</option>
+          <option value="Lato">Lato</option>
+          <option value="Sora">Sora</option>
+        </select>
+      </div>
+
+      <div>
+          <label
+  className="block mb-1 "
+  style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "14px",
+    fontWeight: 400,
+    color: "#333333",
+    
+  }}
+>
+  Font size
+</label>
+        <select
+          value={settings.fontSize}
+          onChange={(e) => handleChange("fontSize", e.target.value)}
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2"
+           style={{ color: "#333333" }}
+        >
+          <option value="12px">12px</option>
+          <option value="14px">14px</option>
+          <option value="16px">16px</option>
+          <option value="18px">18px</option>
+          <option value="20px">20px</option>
+        </select>
+      </div>
+
+      {/* Message Colors Section */}
+      <div>
+      <label
+  className="block mb-1 ml-12 pl-2"
+  style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "14px",
+    fontWeight: 400,
+    color: "#333333",
+  }}
+>
+  Bot Message Background
+</label>
+        <div className="flex items-center space-x-2">
+          <input
+            type="color"
+            value={settings.botColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("botColor", e.target.value)}
+            className="w-12 h-12 rounded border"
+          />
+          <input
+            type="text"
+            value={settings.botColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("botColor", e.target.value)}
+            placeholder="#FFFFFF"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+             style={{ color: "#333333" }}
+          />
+        </div>
+      </div>
+
+      
+
+      <div>
+         <label
+  className="block mb-1 ml-12 pl-2"
+  style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "14px",
+    fontWeight: 400,
+    color: "#333333",
+  }}
+>
+  User Message Background
+</label>
+        <div className="flex items-center space-x-2">
+          <input
+            type="color"
+            value={settings.userColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("userColor", e.target.value)}
+            className="w-12 h-12 rounded border"
+          />
+          <input
+            type="text"
+            value={settings.userColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("userColor", e.target.value)}
+            placeholder="#FFFFFF"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+             style={{ color: "#333333" }}
+          />
+        </div>
+      </div>
+
+      <div>
+         <label
+  className="block mb-1 ml-12 pl-2"
+  style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "14px",
+    fontWeight: 400,
+    color: "#333333",
+  }}
+>
+  Bot Message Text
+</label>
+        <div className="flex items-center space-x-2">
+          <input
+            type="color"
+            value={settings.chatTextColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("chatTextColor", e.target.value)}
+            className="w-12 h-12 rounded border"
+          />
+          <input
+            type="text"
+            value={settings.chatTextColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("chatTextColor", e.target.value)}
+            placeholder="#000000"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+             style={{ color: "#333333" }}
+          />
+        </div>
+      </div>
+
+      <div>
+         <label
+             className="block mb-1 ml-12 pl-2"
+          style={{
+                fontFamily: "Instrument Sans, sans-serif",
+              fontSize: "14px",
+              fontWeight: 400,
+              color: "#333333",
+              }}
+           >
+             User Message Text
+               </label>
+        <div className="flex items-center space-x-2">
+          <input
+            type="color"
+            value={settings.userTextColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("userTextColor", e.target.value)}
+            className="w-12 h-12 rounded border"
+          />
+          <input
+            type="text"
+            value={settings.userTextColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("userTextColor", e.target.value)}
+            placeholder="#000000"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+             style={{ color: "#333333" }}
+          />
+        </div>
+      </div>
+
+      {/* Interface Colors Section */}
+      <div>
+         <label
+            className="block mb-1 ml-12 pl-2"
+            style={{
+         fontFamily: "Instrument Sans, sans-serif",
+          fontSize: "14px",
+          fontWeight: 400,
+          color: "#333333",
+        }}
+           >
+            Window Background
+           </label>
+        <div className="flex items-center space-x-2">
+          <input
+            type="color"
+            value={settings.windowBgColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("windowBgColor", e.target.value)}
+            className="w-12 h-12 rounded border"
+          />
+          <input
+            type="text"
+            value={settings.windowBgColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("windowBgColor", e.target.value)}
+            placeholder="#FFFFFF"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+             style={{ color: "#333333" }}
+          />
+        </div>
+      </div>
+
+      <div>
+         <label
+  className="block mb-1 ml-12 pl-2"
+  style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "14px",
+    fontWeight: 400,
+    color: "#333333",
+  }}
+>
+  Input Background
+</label>
+        <div className="flex items-center space-x-2">
+          <input
+            type="color"
+            value={settings.inputBgColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("inputBgColor", e.target.value)}
+            className="w-12 h-12 rounded border"
+          />
+          <input
+            type="text"
+            value={settings.inputBgColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("inputBgColor", e.target.value)}
+            placeholder="#FFFFFF"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+             style={{ color: "#333333" }}
+          />
+        </div>
+      </div>
+
+      <div>
+         <label
+  className="block mb-1 ml-12 pl-2"
+  style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "14px",
+    fontWeight: 400,
+    color: "#333333",
+  }}
+>
+  Header Background
+</label>
+        <div className="flex items-center space-x-2">
+          <input
+            type="color"
+            value={settings.headerBgColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("headerBgColor", e.target.value)}
+            className="w-12 h-12 rounded border"
+          />
+          <input
+            type="text"
+            value={settings.headerBgColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("headerBgColor", e.target.value)}
+            placeholder="#FFFFFF"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+             style={{ color: "#333333" }}
+          />
+        </div>
+      </div>
+
+      <div>
+        {/* <label className="block text-sm font-medium text-gray-800 mb-1">Header Text Color</label> */}
+         <label
+         className="block mb-1 ml-12 pl-2"
+         style={{
+         fontFamily: "Instrument Sans, sans-serif",
+        fontSize: "14px",
+         fontWeight: 400,
+         color: "#333333",
+          }}
+          >
+            Header Text Color
+        </label>
+        <div className="flex items-center space-x-2">
+          <input
+            type="color"
+            value={settings.headerTextColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("headerTextColor", e.target.value)}
+            className="w-12 h-12 rounded border"
+          />
+          <input
+            type="text"
+            value={settings.headerTextColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("headerTextColor", e.target.value)}
+            placeholder="#000000"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+             style={{ color: "#333333" }}
+          />
+        </div>
+      </div>
+
+      <div>
+         <label
+      className="block mb-1 ml-12 pl-2"
+       style={{
+            fontFamily: "Instrument Sans, sans-serif",
+            fontSize: "14px",
+            fontWeight: 400,
+            color: "#333333",
+              }}
+          >
+        Button Color
+       </label>
+        <div className="flex items-center space-x-2">
+          <input
+            type="color"
+            value={settings.buttonColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("buttonColor", e.target.value)}
+            className="w-12 h-12 rounded border"
+          />
+          <input
+            type="text"
+            value={settings.buttonColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("buttonColor", e.target.value)}
+            placeholder="#0000FF"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+             style={{ color: "#333333" }}
+          />
+        </div>
+      </div>
+
+      <div>
+         <label
+          className="block mb-1 ml-12 pl-2"
+          style={{
+              fontFamily: "Instrument Sans, sans-serif",
+              fontSize: "14px",
+              fontWeight: 400,
+              color: "#333333",
+            }}
+            >
+             Button Text Color
+           </label>
+        <div className="flex items-center space-x-2">
+          <input
+            type="color"
+            value={settings.buttonTextColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value)}
+            className="w-12 h-12 rounded border"
+          />
+          <input
+            type="text"
+            value={settings.buttonTextColor}
+            onChange={(e) => handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value)}
+            placeholder="#FFFFFF"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+             style={{ color: "#333333" }}
+          />
+        </div>
+      </div>
+
+    </div>
+  </div>
+)}
+
+
+{activeTab === "colors" && (
+  <div className="border border-[#DFDFDF] rounded-[20px] mt-6 p-5">
+    <h2
+      className="mb-5 text-gray-800 dark:text-white"
+      style={{
+        fontFamily: "Instrument Sans, sans-serif",
+        fontSize: "20px",
+        fontWeight: 600,
+      }}
+    >
+      Appearance
+    </h2>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Border Radius */}
+      <div>
+         <label
+           className="block mb-1 "
+          style={{
+            fontFamily: "Instrument Sans, sans-serif",
+            fontSize: "14px",
+            fontWeight: 400,
+            color: "#333333",
+            }}
+           >
+         Border Radius
+            </label>
+        <select
+          value={settings.borderRadius}
+          onChange={(e) => handleChange("borderRadius", e.target.value)}
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2"
+           style={{ color: "#333333" }}
+        >
+          <option value="0px">0px</option>
+          <option value="4px">4px</option>
+          <option value="8px">8px</option>
+          <option value="12px">12px</option>
+          <option value="16px">16px</option>
+          <option value="20px">20px</option>
+        </select>
+      </div>
+
+      {/* Border Color */}
+      <div>
+         <label
+          className="block mb-1 ml-12 pl-2"
+           style={{
+           fontFamily: "Instrument Sans, sans-serif",
+           fontSize: "14px",
+           fontWeight: 400,
+           color: "#333333",
+              }}
+                 >
+            Border Color
+            </label>
+        <div className="flex items-center space-x-2">
+          <input
+            type="color"
+            value={settings.borderColor}
+            onChange={(e) =>
+              handleColorChangeWithThemeSwitch("borderColor", e.target.value)
+            }
+            className="w-12 h-12 border rounded"
+          />
+          <input
+            type="text"
+            value={settings.borderColor}
+            onChange={(e) =>
+              handleColorChangeWithThemeSwitch("borderColor", e.target.value)
+            }
+            placeholder="#C8E6C9"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+             style={{ color: "#333333" }}
+          />
+        </div>
+      </div>
+
+      {/* Chatbot Position */}
+      <div>
+        
+          <label
+            className="block mb-1 "
+             style={{
+              fontFamily: "Instrument Sans, sans-serif",
+              fontSize: "14px",
+              fontWeight: 400,
+              color: "#333333",
+                 }}
+               >
+               Chatbot Position
+               </label>
+        <select
+          value={settings.position}
+          onChange={(e) => handleChange("position", e.target.value)}
+          disabled={settings.appearance === "Full Screen"}
+           style={{
+          opacity: settings.appearance === "Full Screen" ? 0.3 : 1,
+           color: "#333333",
+           }}
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 pr-20"
+           
+          
+          
+        >
+          <option value="bottom-left">Bottom Left</option>
+          <option value="bottom-right">Bottom Right</option>
+          <option value="top-right">Top Right</option>
+        </select>
+      </div>
+
+      {/* Appearance */}
+      <div>
+          <label
+  className="block mb-1 "
+  style={{
+    fontFamily: "Instrument Sans, sans-serif",
+    fontSize: "14px",
+    fontWeight: 400,
+    color: "#333333",
+  }}
+>
+  Appearance
+</label>
+        <select
+          value={settings.appearance}
+          onChange={(e) => handleChange("appearance", e.target.value)}
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2"
+           style={{ color: "#333333" }}
+        >
+          <option value="Popup">Popup</option>
+          <option value="Full Screen">Full Screen</option>
+        </select>
+      </div>
+    </div>
+  </div>
+)}
+          {/* Settings Sections */}
+          <div className="rounded-[20px] mt-2 p-5">
+          <div className="space-y-6">
+              
+              {/* we were using different approach  before but now we need more customization in our page's that's why we are moving toward direct tab call  */}
+
           </div>
           <div className="flex justify-start mt-8 ml-0">
               <button
@@ -2272,10 +2990,10 @@ const handleThemeSelect = async (themeId: string) => {
                 >
                   {/* <X className="w-5 h-5" /> */}
                   <img
-  src="/images/dummy/close-icons.png"
-  alt="Close"
-  className="w-5 h-5 object-contain mr-2"
-/>
+                       src="/images/dummy/close-icons.png"
+                       alt="Close"
+                       className="w-5 h-5 object-contain mr-2"
+                      />
                 </button>
               </div>
             </div>
@@ -2296,7 +3014,7 @@ const handleThemeSelect = async (themeId: string) => {
                   <div key={index} className="mb-4">
                     {/* Message Bubble */}
                     <div
-                      className={`p-3 rounded-lg max-w-[80%]   ${
+                      className={`p-3 rounded-lg max-w-[80%] w-fit break-words whitespace-pre-wrap min-w-0 ${
                         msg.sender === "user" ? "ml-auto" : "mr-auto"
                       }`}
                       style={{

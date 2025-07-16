@@ -89,7 +89,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
        
         <button
           onClick={() => navigate("/")}
-          className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
+          className="p-2 rounded-lg hover:bg-blue-950 dark:hover:bg-blue-800 text-white"
           title="Home"
           style={{ fontFamily: "Instrument Sans, sans-serif", fontSize: "16px" }}
         >
@@ -100,7 +100,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
 
        <button
          onClick={() => window.open("/report-issue", "_blank")}
-          className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
+          className="p-2 rounded-lg hover:bg-blue-950 dark:hover:bg-blue-800 text-white"
           style={{fontFamily: "Instrument Sans, sans-serif",
               fontSize: "16px",
              
@@ -126,7 +126,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
               alt={user?.name || "User"}
               className="w-8 h-8 rounded-full border border-gray-300 dark:border-white cursor-pointer"
             />
-            <span className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white font-instrument sans ">
+            <span className="p-2 rounded-lg hover:bg-blue-950 dark:hover:bg-blue-950 text-white font-instrument sans ">
               {/* {user?.name || "User"} */}
               {formatHeaderName(user?.name) || "User"}
             </span>
