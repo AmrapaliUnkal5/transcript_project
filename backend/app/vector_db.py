@@ -392,9 +392,10 @@ def add_document_to_qdrant(bot_id: int, text: str, metadata: dict, force_model: 
             embedding_dimension = len(normalized_vector)
             qdrant_client.create_collection(
                 collection_name=collection_name,
-                vectors_config=VectorParams(size=embedding_dimension, distance=Distance.COSINE)
+                vectors_config=VectorParams(size=embedding_dimension, distance=Distance.COSINE),
+                shard_number=4  # Enable sharding with 4 shards for horizontal scaling
             )
-            logger.info(f"[QDRANT] Created new collection: {collection_name}")
+            logger.info(f"[QDRANT] Created new collection: {collection_name} with sharding enabled")
         
         # Add document
         # Convert string ID to valid Qdrant point ID (UUID)
