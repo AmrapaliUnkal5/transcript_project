@@ -29,7 +29,7 @@ export const ScriptGeneratePage = () => {
     appearance: "Popup",
     temperature: 0,
     windowBgColor: "#F9FAFB",
-    welcomeMessage: "Hi there! How can I help you today?",
+    welcomeMessage: "Hello! How can I help you?",
     inputBgColor: "#FFFFFF",
     headerBgColor: "#3B82F6",
     headerTextColor: "#FFFFFF",
@@ -89,7 +89,7 @@ export const ScriptGeneratePage = () => {
             temperature: response.temperature,
             windowBgColor: response.window_bg_color || "#F9FAFB",
             welcomeMessage:
-              response.welcome_message || "Hi there! How can I help you today?",
+              response.welcome_message || "Hello! How can I help you?",
             inputBgColor: response.input_bg_color || "#FFFFFF",
 
                     // ✅ Add these new fields

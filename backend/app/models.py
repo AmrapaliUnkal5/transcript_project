@@ -99,7 +99,7 @@ class Bot(Base):
     llm_model_id = Column(Integer, ForeignKey("llm_models.id"), nullable=True)
     message_count = Column(Integer, default=0)
     window_bg_color = Column(String, nullable=True, default="#F9FAFB")
-    welcome_message = Column(Text, nullable=True, default="Hi there! How can I help you today?")
+    welcome_message = Column(Text, nullable=True, default="Hello! How can I help you?")
     input_bg_color = Column(String, nullable=True, default="#FFFFFF")
     file_size = Column(BigInteger, default=0)
     # New customization fields

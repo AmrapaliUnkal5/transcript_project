@@ -120,7 +120,7 @@ class BotBase(BaseModel):
     last_message_reset: Optional[datetime] = None
     file_size: Optional[int] = 0
     window_bg_color: Optional[str] = "#F9FAFB"
-    welcome_message: Optional[str] = "Hi there! How can I help you today?"
+    welcome_message: Optional[str] = "Hello! How can I help you?"
     input_bg_color: Optional[str] = "#FFFFFF"
     # New customization fields
     header_bg_color: Optional[str] = "#3B82F6"
@@ -510,7 +510,7 @@ class BotWidgetResponse(BaseModel):
     last_message_reset: Optional[datetime] = None
     file_size: Optional[int] = 0
     window_bg_color: Optional[str] = "#F9FAFB"
-    welcome_message: Optional[str] = "Hi there! How can I help you today?"
+    welcome_message: Optional[str] = "Hello! How can I help you?"
     input_bg_color: Optional[str] = "#FFFFFF"
     header_bg_color: Optional[str] = "#3B82F6"
     header_text_color: Optional[str] = "#FFFFFF"

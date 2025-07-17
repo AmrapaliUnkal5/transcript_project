@@ -155,7 +155,7 @@ def is_greeting(message: str) -> tuple[bool, str]:
     # Dictionary of greetings and their responses
     greetings = {
         # Basic greetings
-        "hi": "Hi there! How can I help you today?",
+        "hi": "Hello! How can I help you?",
         "hello": "Hello! How can I assist you?",
         "hey": "Hey! What can I help you with?",
         "greetings": "Greetings! How may I assist you today?",

@@ -289,7 +289,7 @@ export const ChatbotCustomization = () => {
     appearance: "Popup",
     temperature: 0,
     windowBgColor: "#F9FAFB",
-    welcomeMessage: "Hi there! How can I help you today?",
+    welcomeMessage: "Hello! How can I help you?",
     inputBgColor: "#FFFFFF",
     // New customization defaults
     headerBgColor: "#292929",
@@ -471,7 +471,7 @@ const hasLeadFields = (settings?.lead_form_config  ?? []).length > 0;
             temperature: response.temperature || settings.temperature,
             windowBgColor: response.window_bg_color || "#F9FAFB",
             welcomeMessage:
-              response.welcome_message || "Hi there! How can I help you today?",
+              response.welcome_message || "Hello! How can I help you?",
             inputBgColor: response.input_bg_color || "#FFFFFF",
             // Load the new customization fields
             headerBgColor: response.header_bg_color || "#3B82F6",
