@@ -388,18 +388,19 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
               className="px-3 py-1 text-black  rounded hover:bg-[#5348CB] font-instrument min-w-[120px] transition-all"
               disabled={loading || isProcessing}
               style={{
-                   backgroundColor:
-                    selectedNodes.length > 0 ? '#5348CB' : '#e5e7eb', 
-                    color: selectedNodes.length > 0 ? '#ffffff' : '#000000',
-                        }}
+                         backgroundColor: selectedNodes.length === nodes.length ? '#e5e7eb' : '#5348CB',
+                         color: selectedNodes.length === nodes.length ? '#000000' : '#ffffff',
+                          }}
             >
               Select All ({getFilteredNodes().length})
                 </button>
                 <button
                   onClick={() => setSelectedNodes([])}
-                   className={`px-3 py-1 text-sm rounded transition-all ${
-                    selectedNodes.length === 0 ? 'text-white bg-[#5348CB]' : 'text-black bg-gray-200 hover:bg-[#5348CB] font instrument'
-                      }`}
+                   className={`px-3 py-1 text-sm rounded transition-all font-instrument ${
+                  selectedNodes.length > 0
+                        ? 'bg-[#5348CB] text-white'
+                        : 'bg-gray-200 text-black '
+                       }`}
                   disabled={loading || isProcessing}
                 >
                   Clear All
