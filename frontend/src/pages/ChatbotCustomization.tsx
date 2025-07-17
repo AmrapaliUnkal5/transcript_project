@@ -1335,511 +1335,7 @@ const handleThemeSelect = async (themeId: string) => {
 };
 
 
-  const sections = [
-    {
-      title: "Bot Identity",
-      icon: MessageSquare,
-      fields: [
-        {
-          // label: "Bot Avatar",
-          type: "file",
-          accept: "image/*",
-          onChange: handleFileChange,
-        },
-        {
-          label: "Bot Name",
-          type: "text",
-          value: settings.name,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("name", e.target.value),
-        },
-
-      ],
-    },
-    {
-      title: "Theme Selection",
-      icon: Palette,
-      fields: [
-        {
-          type: "theme-selector",
-          themes: THEMES,
-          selectedTheme: selectedTheme,
-          onSelect: handleThemeSelect,
-          onReset: resetThemeToDefault,
-          onCustomize: () => setShowCustomize(true)
-        }
-      ]
-    },
-    //   {
-    //   title: "Typography",
-    //   icon: Type,
-    //   fields: [
-    //     {
-    //       label: "Message Font",
-    //       type: "select",
-    //       value: settings.chatFontFamily,
-    //       options: [
-    //         "Geist",
-    //         "Roboto",
-    //         "Open Sans",
-    //         "Lato",
-    //         "Sora",
-    //       ],
-    //       onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-    //         handleChange("chatFontFamily", e.target.value),
-    //     },
-
-    
-    //     {
-    //       label: "Font Size",
-    //       type: "select",
-    //       value: settings.fontSize,
-    //       options: ["12px", "14px", "16px", "18px", "20px"],
-    //       onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-    //         handleChange("fontSize", e.target.value),
-    //     },
-    //   ],
-    // },
-   ...(selectedTheme !== 'none' || showCustomize) ? [
-    {
-      title: "Message Colors",
-      icon: Palette,
-      fields: [
-        {
-          label: "Bot Message Background",
-          type: "color",
-          value: settings.botColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleColorChangeWithThemeSwitch("botColor", e.target.value),
-          
-        },
-        {
-          label: "User Message Background",
-          type: "color",
-          value: settings.userColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleColorChangeWithThemeSwitch("userColor", e.target.value),
-        },
-{
-          label: "Bot Message Text",
-          type: "color",
-          value: settings.chatTextColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleColorChangeWithThemeSwitch("chatTextColor", e.target.value),
-        },
-        {
-          label: "User Message Text",
-          type: "color",
-          value: settings.userTextColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleColorChangeWithThemeSwitch("userTextColor", e.target.value),
-        }
-        
-      ]
-    }] : [],
-  ...((selectedTheme !== 'none' || showCustomize) ? [{
-      title: "Interface Colors",
-      icon: Palette,
-      fields: [
-        {
-          label: "Window Background",
-          type: "color",
-          value: settings.windowBgColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleColorChangeWithThemeSwitch("windowBgColor", e.target.value),
-        },
-        {
-          label: "Input Box Background",
-          type: "color",
-          value: settings.inputBgColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleColorChangeWithThemeSwitch("inputBgColor", e.target.value),
-        },
-        {
-          label: "Header Background",
-          type: "color",
-          value: settings.headerBgColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleColorChangeWithThemeSwitch("headerBgColor", e.target.value),
-        },
-        {
-          label: "Header Text Color",
-          type: "color",
-          value: settings.headerTextColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleColorChangeWithThemeSwitch("headerTextColor", e.target.value),
-        },
-        {
-          label: "Button Color",
-          type: "color",
-          value: settings.buttonColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleColorChangeWithThemeSwitch("buttonColor", e.target.value),
-        },
-        {
-          label: "Button Text Color",
-          type: "color",
-          value: settings.buttonTextColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value),
-        },
-        {
-          label: "Border Color",
-          type: "color",
-          value: settings.borderColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleColorChangeWithThemeSwitch("borderColor", e.target.value),
-        }
-      ]
-    }] : []),
-    {
-      title: "Layout & Borders",
-      icon: Move,
-      fields: [
-        {
-          label: "Border Radius",
-          type: "select",
-          value: settings.borderRadius,
-          options: [
-            "0px",
-            "4px",
-            "8px",
-            "12px",
-            "16px",
-            "20px",
-            "24px",
-          ],
-          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-            handleChange("borderRadius", e.target.value),
-        },
-        {
-          label: "Border Color",
-          type: "color",
-          value: settings.borderColor,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            handleColorChangeWithThemeSwitch("borderColor", e.target.value),
-        },
-      ],
-    },
-    {
-      title: "Chat Interface Behavior",
-      icon: Sliders,
-      fields: [
-        {
-          label: "Chatbot Position",
-          type: "select",
-          value: settings.position,
-          options: ["bottom-left", "bottom-right", "top-right"],
-          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-            handleChange("position", e.target.value),
-          disabled: settings.appearance === "Full Screen",
-          disabledStyle: { opacity: 0.3 },
-        },
-        {
-          label: "Appearance",
-          type: "select",
-          value: settings.appearance,
-          options: ["Popup", "Full Screen"],
-          onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-            handleChange("appearance", e.target.value),
-        },
-      
-      {
-  label: (
-    <div className="flex items-center">
-      <span>Model Temperature</span>
-      <div className="relative group inline-block ml-2">
-        <span className="text-gray-500 hover:text-blue-500 cursor-pointer">
-          ℹ️
-        </span>
-        <div className="absolute left-0 top-7 w-64 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg z-10 pointer-events-none">
-          Controls response creativity:
-          <ul className="mt-1 list-disc pl-4">
-            <li><strong>0</strong>: Precise, deterministic answers</li>
-            <li><strong>0.5</strong>: Balanced mix of accuracy and creativity</li>
-            <li><strong>1</strong>: Maximum creativity and randomness</li>
-          </ul>
-          Higher values produce more detailed, varied responses, while lower values give more specific, focused answers.
-        </div>
-      </div>
-    </div>
-  ),
-  
-  type: "slider",
-  min: 0,
-  max: 1,
-  step: "0.01",
-  value: settings.temperature,
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-            handleChange("temperature", parseFloat(e.target.value));
-          },
-},
-
-{
-  type: "custom",
-  render: () => {
-     const fields: Array<"name" | "phone" | "email" | "address"> = [
-      "name",
-      "phone",
-      "email",
-      "address",
-    ];
-
-    return (
-      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
-        {/* Enable Lead Generation Form */}
-        <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <input
-            type="checkbox"
-            checked={settings.lead_generation_enabled}
-            onChange={(e) => {
-    const enabled = e.target.checked;
-    handleChange("lead_generation_enabled", enabled);
-
-    //  If enabling, pre-select the Name field if not already present
-    if (enabled) {
-      const existing = settings.lead_form_config || [];
-      const hasName = existing.some(f => f.field === "name");
-      if (!hasName) {
-        handleChange("lead_form_config", [...existing, { field: "name", required: false }]);
-      }
-    } else {
-      //  Optionally clear the config when disabling (optional)
-      handleChange("lead_form_config", []);
-    }
-  }}
-          />
-          <span>Enable Lead Generation Form</span>
-        </label>
-
-        {/* Conditionally show the additional checkboxes */}
-        {settings.lead_generation_enabled && (
-          <table style={{ width: "60%", maxWidth: "480px", fontSize: "14px", border: "1px solid #ccc" }}>
-            <thead>
-              <tr style={{ backgroundColor: "#f9f9f9" }}>
-                <th style={{ padding: "8px", textAlign: "left" }}>Field</th>
-                <th style={{ padding: "8px", textAlign: "center" }}>Required</th>
-              </tr>
-            </thead>
-            <tbody>
-              {fields.map((field) => {
-                const config = settings.lead_form_config?.find((f) => f.field === field);
-                const isVisible = !!config;
-                const isRequired = config?.required || false;
-
-                return (
-                  <tr key={field} style={{
-                    borderTop: "1px solid #ccc",
-                    opacity: isVisible ? 1 : 0.5,
-                    pointerEvents: isVisible ? "auto" : "none"
-                  }}>
-                    <td style={{ padding: "8px", display: "flex", alignItems: "center", gap: "8px", pointerEvents: "auto" }}>
-                      <input
-                        type="checkbox"
-                        checked={isVisible}
-                        onChange={(e) => {
-                          const updated = [...(settings.lead_form_config || [])];
-                          const index = updated.findIndex((f) => f.field === field);
-
-                          if (e.target.checked && index === -1) {
-                            updated.push({ field, required: false });
-                          } else if (!e.target.checked && index !== -1) {
-                            updated.splice(index, 1);
-                          }
-                          handleChange("lead_form_config", updated);
-                          if (updated.length === 0) {
-                            handleChange("lead_generation_enabled", false);
-                          }
-                        }}
-                      />
-                      <span style={{ textTransform: "capitalize" }}>{field}</span>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <input
-                        type="checkbox"
-                        disabled={!isVisible}
-                        checked={isRequired}
-                        onChange={(e) => {
-                          const updated = [...(settings.lead_form_config || [])];
-                          const index = updated.findIndex((f) => f.field === field);
-                          if (index !== -1) {
-                            updated[index].required = e.target.checked;
-                            handleChange("lead_form_config", updated);
-                          }
-                        }}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
-    );
-  }
-},{
-            label: (
-              <span>
-              <input
-                  type="checkbox"
-                  checked={settings.showSources}
-                  onChange={(e) => handleChange("showSources", e.target.checked)}
-                  style={{ marginRight: "6px" }}
-                />
-                    View Sources
-                  </span>
-                ),
-                type: "custom", // or a type that allows JSX
-                description: "When enabled, users can view the sources of bot responses"
-      }
-
-      ],
-      
-    },
-{
-    title: "Unanswered Replies",
-    icon: MessageCircle,
-    fields: [
-      {
-        label: "Default response when bot doesn't know the answer",
-        type: "textarea",
-        value: settings.unansweredMsg,
-        maxLength: 200,
-        onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => 
-          handleChange("unansweredMsg", e.target.value),
-      },
-    ],
-  },  
-  {
-    title: "Control",
-    icon: MessageCircle,
-    fields: [
-      {
-            label: (
-              <span>
-              <input
-                  type="checkbox"
-                  checked={settings.showSources}
-                  onChange={(e) => handleChange("showSources", e.target.checked)}
-                  style={{ marginRight: "6px" }}
-                />
-                    View Sources
-                  </span>
-                ),
-                type: "custom", 
-                description: "When enabled, users can view the sources of bot responses"
-                 },{
-                type: "custom",
-        render: () => {
-     const fields: Array<"name" | "phone" | "email" | "address"> = [
-      "name",
-      "phone",
-      "email",
-      "address",
-    ];
-
-    return (
-      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
-        {/* Enable Lead Generation Form */}
-        <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <input
-            type="checkbox"
-            checked={settings.lead_generation_enabled}
-            onChange={(e) => {
-    const enabled = e.target.checked;
-    handleChange("lead_generation_enabled", enabled);
-
-    //  If enabling, pre-select the Name field if not already present
-    if (enabled) {
-      const existing = settings.lead_form_config || [];
-      const hasName = existing.some(f => f.field === "name");
-      if (!hasName) {
-        handleChange("lead_form_config", [...existing, { field: "name", required: false }]);
-      }
-    } else {
-      handleChange("lead_form_config", []);
-    }
-  }}
-          />
-          <span>Enable Lead Generation Form</span>
-        </label>
-
-        {/* Conditionally show the additional checkboxes */}
-        {settings.lead_generation_enabled && (
-          <table style={{ width: "60%", maxWidth: "480px", fontSize: "14px", border: "1px solid #ccc" }}>
-            <thead>
-              <tr style={{ backgroundColor: "#f9f9f9" }}>
-                <th style={{ padding: "8px", textAlign: "left" }}>Field</th>
-                <th style={{ padding: "8px", textAlign: "center" }}>Required</th>
-              </tr>
-            </thead>
-            <tbody>
-              {fields.map((field) => {
-                const config = settings.lead_form_config?.find((f) => f.field === field);
-                const isVisible = !!config;
-                const isRequired = config?.required || false;
-
-                return (
-                  <tr key={field} style={{
-                    borderTop: "1px solid #ccc",
-                    opacity: isVisible ? 1 : 0.5,
-                    pointerEvents: isVisible ? "auto" : "none"
-                  }}>
-                    <td style={{ padding: "8px", display: "flex", alignItems: "center", gap: "8px", pointerEvents: "auto" }}>
-                      <input
-                        type="checkbox"
-                        checked={isVisible}
-                        onChange={(e) => {
-                          const updated = [...(settings.lead_form_config || [])];
-                          const index = updated.findIndex((f) => f.field === field);
-
-                          if (e.target.checked && index === -1) {
-                            updated.push({ field, required: false });
-                          } else if (!e.target.checked && index !== -1) {
-                            updated.splice(index, 1);
-                          }
-                          handleChange("lead_form_config", updated);
-                          if (updated.length === 0) {
-                            handleChange("lead_generation_enabled", false);
-                          }
-                        }}
-                      />
-                      <span style={{ textTransform: "capitalize" }}>{field}</span>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <input
-                        type="checkbox"
-                        disabled={!isVisible}
-                        checked={isRequired}
-                        onChange={(e) => {
-                          const updated = [...(settings.lead_form_config || [])];
-                          const index = updated.findIndex((f) => f.field === field);
-                          if (index !== -1) {
-                            updated[index].required = e.target.checked;
-                            handleChange("lead_form_config", updated);
-                          }
-                        }}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
-    );
-  }
-}
-      
-    ],
-  },   
-  ];
-
-
   // Using this in control tab
-
   const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
   <label className="inline-flex items-center cursor-pointer">
     <input type="checkbox" className="sr-only" checked={checked} onChange={onChange} />
@@ -1883,10 +1379,6 @@ const handleThemeSelect = async (themeId: string) => {
           <div >
           {/* <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[#DFDFDF] "> */}
           <div >
-
-         
-          
-
 
 <nav
   className="flex justify-between items-center border-b border-[#DFDFDF] overflow-x-auto w-full"
@@ -2053,7 +1545,7 @@ const handleThemeSelect = async (themeId: string) => {
   </div>
 )}
 
-{/* Identity Section */}
+{/* Identity and General Section Section */}
         
 {activeTab === "identity" && (
   <div className="border border-[#DFDFDF] rounded-[20px] mt-2 p-5">
@@ -2189,8 +1681,7 @@ const handleThemeSelect = async (themeId: string) => {
       <div></div>
     </div>
   </div>
-)}
-  
+)} 
   {activeTab === "identity" && (
   <div className="border border-[#DFDFDF] rounded-[20px] mt-6 p-5">
     <h2
@@ -2335,7 +1826,6 @@ const handleThemeSelect = async (themeId: string) => {
     {/* The rest of your color customization UI can continue below */}
   </>
 )}
-
 {activeTab === "colors" && (
   <div className="border border-[#DFDFDF] rounded-[20px] mt-6 p-5">
     <h2
@@ -2557,37 +2047,7 @@ const handleThemeSelect = async (themeId: string) => {
              style={{ color: "#333333" }}
           />
         </div>
-      </div>
-
-      <div>
-         <label
-  className="block mb-1 ml-12 pl-2"
-  style={{
-    fontFamily: "Instrument Sans, sans-serif",
-    fontSize: "14px",
-    fontWeight: 400,
-    color: "#333333",
-  }}
->
-  Input Background
-</label>
-        <div className="flex items-center space-x-2">
-          <input
-            type="color"
-            value={settings.inputBgColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("inputBgColor", e.target.value)}
-            className="w-12 h-12 rounded border"
-          />
-          <input
-            type="text"
-            value={settings.inputBgColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("inputBgColor", e.target.value)}
-            placeholder="#FFFFFF"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-             style={{ color: "#333333" }}
-          />
-        </div>
-      </div>
+      </div> 
 
       <div>
          <label
@@ -2713,8 +2173,6 @@ const handleThemeSelect = async (themeId: string) => {
     </div>
   </div>
 )}
-
-
 {activeTab === "colors" && (
   <div className="border border-[#DFDFDF] rounded-[20px] mt-6 p-5">
     <h2
@@ -2851,6 +2309,8 @@ const handleThemeSelect = async (themeId: string) => {
     </div>
   </div>
 )}
+
+
           {/* Settings Sections */}
           <div className="rounded-[20px] mt-2 p-5">
           <div className="space-y-6">
