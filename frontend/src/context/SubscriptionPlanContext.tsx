@@ -175,3 +175,11 @@ export const useSubscriptionPlans = ():SubscriptionPlanContextType  => {
   }
   return context;
 };
+
+export const useAddonPlans = () => {
+  const context = useContext(SubscriptionPlanContext);
+  if (!context) {
+    throw new Error("useAddonPlans must be used within a SubscriptionPlanProvider");
+  }
+  return context; 
+};

@@ -1,4 +1,5 @@
 import hashlib
+import re
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
@@ -13,6 +14,16 @@ from app.vector_db import add_document
 from app.notifications import add_notification
 from app.utils.logger import get_module_logger
 from app.utils.upload_knowledge_utils import chunk_text
+from urllib.parse import urlparse, urlunparse, urljoin, urldefrag, parse_qsl, urlencode
+import time
+from typing import List, Optional
+from concurrent.futures import ThreadPoolExecutor
+
+NON_HTML_EXTENSIONS = (
+    ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg",
+    ".webp", ".ico", ".tiff", ".tif", ".mp4", ".mp3", ".zip", ".rar", ".exe",
+    ".css", ".js", ".woff", ".woff2", ".ttf", ".eot", ".otf", ".avi", ".mov"
+)
 
 # Function to detect if JavaScript is needed
 def is_js_heavy(url):
@@ -120,7 +131,12 @@ def scrape_selected_nodes(url_list, bot_id, db: Session):
             else:
                 logger.info(f"Static HTML detected - Using BeautifulSoup", extra={"bot_id": bot_id, "url": url})
                 result = scrape_static_page(url)
-                
+                # If result is None or text is empty, fallback to dynamic
+                if not result or not result.get("text"):
+                    logger.warning(f"Static scraping failed or returned empty text. Falling back to dynamic scraping.",
+                                extra={"bot_id": bot_id, "url": url})
+                    result = scrape_dynamic_page(url)
+
             if result:
                 logger.info(f"Successfully scraped URL", 
                           extra={"bot_id": bot_id, "url": url, "title": result.get("title", "No Title")})
@@ -210,6 +226,8 @@ def scrape_selected_nodes(url_list, bot_id, db: Session):
             else:
                 logger.warning(f"No content was scraped", extra={"bot_id": bot_id, "url": url})
                 failed_urls.append(url)
+                send_web_scraping_failure_notification(db=db,bot_id=bot_id,reason=f"URL '{url}' failed. No content was scraped.")
+
         except Exception as e:
             logger.error(f"Unexpected error processing URL", 
                        extra={"bot_id": bot_id, "url": url, "error": str(e)})
@@ -218,6 +236,7 @@ def scrape_selected_nodes(url_list, bot_id, db: Session):
                        extra={"bot_id": bot_id, "url": url, 
                              "traceback": traceback.format_exc()})
             failed_urls.append(url)
+            send_web_scraping_failure_notification(db=db,bot_id=bot_id,reason=f"URL '{url}' failed with error: {str(e)}")
     
     logger.info(f"Scraping completed", 
               extra={"bot_id": bot_id, "successful": len(crawled_data), 
@@ -252,29 +271,217 @@ def scrape_selected_nodes(url_list, bot_id, db: Session):
 
     return crawled_data
 
+def validate_links(links: List[str]) -> List[str]:
+    valid_links = []
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/114.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Referer": "https://google.com"  # Helps fool some strict filters
+    }
+
+    for url in links:
+        try:
+            response = requests.get(url, headers=headers, timeout=7, allow_redirects=True)
+            if response.status_code < 400:
+                valid_links.append(url)
+            else:
+                print(f"[SKIP] {url} returned {response.status_code}")
+        except Exception as e:
+            print(f"[ERROR] Failed to check {url} - {e}")
+    return valid_links
+
+def normalize_url(url):
+    """Normalize a URL by removing fragments, sorting query params, and stripping trailing slashes."""
+    url, _ = urldefrag(url)  # Remove fragment
+    parsed = urlparse(url)
+
+    # Normalize query params
+    query = urlencode(sorted(parse_qsl(parsed.query)))
+
+    # Remove trailing slash from path (optional, depends on your use-case)
+    path = parsed.path.rstrip('/')
+
+    normalized = urlunparse((
+        parsed.scheme,
+        parsed.netloc,
+        path,
+        parsed.params,
+        query,
+        ''  # fragment removed
+    ))
+    return normalized
+
 
 def get_website_nodes(base_url):
     """
-    Extracts all unique internal links (nodes) from a given website.
+    Extracts internal links (nodes) from the homepage only.
+    Uses static scraping first, then Playwright for JS-heavy sites.
+    Returns: {"nodes": [...]} or {"error": "..."}
     """
+    base_url = normalize_url(base_url)
+
+    def static_scrape():
+        try:
+            response = requests.get(base_url, timeout=5, headers={"User-Agent": "Mozilla/5.0"})
+            if response.status_code != 200:
+                return []
+            soup = BeautifulSoup(response.text, "html.parser")
+            links = set()
+            for link in soup.find_all("a", href=True):
+                full_url = urljoin(base_url, link["href"])
+                if urlparse(full_url).netloc == urlparse(base_url).netloc:
+                    normalized = normalize_url(full_url)
+                    if not normalized.lower().endswith(NON_HTML_EXTENSIONS):
+                        links.add(normalized)
+            return list(links)
+        except Exception as e:
+            print(f"[STATIC ERROR] {base_url} - {e}")
+            return []
+
+    def dynamic_scrape():
+
+        try:
+            print("DynamicScrape:", base_url)
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                page = context.new_page()
+                page.goto(base_url, timeout=30000)
+                page.wait_for_load_state("networkidle")
+
+                # Get all href values from <a> tags
+                all_links = page.eval_on_selector_all("a[href]", "els => els.map(el => el.href)")
+                print(f"[DEBUG] Found {len(all_links)} raw links on {base_url}")
+
+                internal_links = set()
+                base_domain = urlparse(base_url).netloc
+
+                for link in all_links:
+                    parsed = urlparse(link)
+
+                    # Keep only http/https links from the same domain
+                    if parsed.scheme in ("http", "https") and parsed.netloc == base_domain:
+                        # Remove fragments (e.g., #section) for consistency
+                        # clean_url, _ = urldefrag(link)
+                        # internal_links.add(clean_url)
+                        normalized = normalize_url(link)
+                        if not normalized.lower().endswith(NON_HTML_EXTENSIONS):
+                            internal_links.add(normalized)
+
+                browser.close()
+                print(f"[INFO] Total internal nodes found Dynamic: {len(internal_links)}")
+                return list(internal_links)
+
+        except Exception as e:
+            print(f"[PLAYWRIGHT ERROR] {base_url} - {e}")
+            return []
+
     try:
-        response = requests.get(base_url, timeout=5)
-        if response.status_code != 200:
-            return {"error": "Failed to access website"}
 
-        soup = BeautifulSoup(response.text, "html.parser")
-        links = set()
+        links = dynamic_scrape()
 
-        for link in soup.find_all("a", href=True):
-            full_url = urljoin(base_url, link["href"])
-            if full_url.startswith(base_url):
-                links.add(full_url)
+        if not links:
+            print(f"[INFO] No links found from Dynamic Scraping .Trying with Static Scraping.")
+            links = static_scrape()
 
+        if not links:
+            print(f"[INFO] No links found. Treating as standalone.")
+            return {"nodes": [base_url]}
+
+        links = set(links)
+
+        print(f"[INFO] Total internal nodes found: {len(links)}")
         return {"nodes": list(links)}
 
     except Exception as e:
+        print(f"[FATAL ERROR] {e}")
         return {"error": str(e)}
-    
+
+def get_links_from_sitemap(base_url: str, timeout: int = 10, max_retries: int = 2) -> List[str]:
+    base_url = normalize_url(base_url)
+    session = requests.Session()
+    session.headers.update({"User-Agent": "Mozilla/5.0"})
+
+    def fetch_with_retry(url: str, retries: int = max_retries) -> Optional[requests.Response]:
+        for attempt in range(retries):
+            try:
+                resp = session.get(url, timeout=timeout)
+                if resp.status_code == 200:
+                    return resp
+                elif resp.status_code == 404:
+                    return None
+            except (requests.RequestException, ConnectionError) as e:
+                print(f"[RETRY {attempt + 1}] Failed to fetch {url}: {e}")
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)
+        return None
+
+    def parse_sitemap(content: str) -> List[str]:
+        soup = BeautifulSoup(content, "xml")
+        urls = []
+        nested_sitemaps = []
+
+        if soup.find("urlset"):
+            for url_tag in soup.find_all("url"):
+                loc = url_tag.find("loc")
+                if loc and loc.text.strip():
+                    urls.append(loc.text.strip())
+        elif soup.find("sitemapindex"):
+            for sitemap_tag in soup.find_all("sitemap"):
+                loc = sitemap_tag.find("loc")
+                if loc and loc.text.strip():
+                    nested_sitemaps.append(loc.text.strip())
+
+            # 🔄 Parallel fetching of nested sitemaps
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                results = list(executor.map(fetch_and_parse_sitemap, nested_sitemaps))
+                for r in results:
+                    urls.extend(r or [])
+
+        return urls
+
+    def fetch_and_parse_sitemap(sitemap_url: str) -> List[str]:
+        resp = fetch_with_retry(sitemap_url)
+        if not resp:
+            return []
+        return parse_sitemap(resp.content)
+
+    sitemap_candidates = [
+        urljoin(base_url, "sitemap.xml"),
+        urljoin(base_url, "sitemap_index.xml"),
+        urljoin(base_url, "wp-sitemap.xml"),
+        urljoin(base_url, "sitemap1.xml"),
+        urljoin(base_url, "sitemap-index.xml"),
+        urljoin(base_url, "sitemap.txt"),
+        urljoin(base_url, "sitemap.json"),
+    ]
+
+    robots_url = urljoin(base_url, "robots.txt")
+    robots_resp = fetch_with_retry(robots_url)
+    if robots_resp:
+        for line in robots_resp.text.splitlines():
+            if line.lower().startswith("sitemap:"):
+                sitemap_url = line.split(":", 1)[1].strip()
+                sitemap_candidates.insert(0, sitemap_url)
+
+    all_urls = []
+    for sitemap_url in sitemap_candidates:
+        print(f"[INFO] Checking sitemap: {sitemap_url}")
+        urls = fetch_and_parse_sitemap(sitemap_url)
+        if urls:
+            print(f"[SUCCESS] Found {len(urls)} URLs in {sitemap_url}")
+            all_urls.extend(urls)
+
+    return list(set(
+    url for url in all_urls
+    if not re.search(r"\.(pdf|jpg|jpeg|png|gif|webp|svg|bmp|ico|xml|txt|json|csv)(\?|$)", url, re.IGNORECASE)
+))
+
 def save_scraped_nodes(url_list, bot_id, db: Session):
     """Save scraped URLs and titles to the database with the associated bot_id."""
     print("save_scraped_nodes")
@@ -362,12 +569,12 @@ def save_scraped_nodes(url_list, bot_id, db: Session):
         db.close()  # Close the session
 
 def get_scraped_urls_func(bot_id, db: Session):
-    scraped_nodes = db.query(ScrapedNode.url, ScrapedNode.title, ScrapedNode.nodes_text_count).filter(
+    scraped_nodes = db.query(ScrapedNode.url, ScrapedNode.title, ScrapedNode.nodes_text_count,ScrapedNode.created_at).filter(
         ScrapedNode.bot_id == bot_id,
         ScrapedNode.is_deleted == False
     ).all()
     print("Scrapped Node=>",scraped_nodes)
-    return [{"url": node[0], "title": node[1], "Word_Counts": node[2]} for node in scraped_nodes]  # Extract URL & Title
+    return [{"url": node[0], "title": node[1], "Word_Counts": node[2], "upload_date": node[3] } for node in scraped_nodes]  # Extract URL & Title
 
 def extract_page_title(html_content):
     """Extracts the title from HTML content."""

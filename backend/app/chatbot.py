@@ -544,7 +544,8 @@ def get_bot_videos(request: Request, bot_id: int, db: Session = Depends(get_db))
                 video_id=video.video_id,
                 video_title=video.video_title,
                 video_url=video.video_url,
-                transcript_count=video.transcript_count or 0
+                transcript_count=video.transcript_count or 0,
+                upload_date=video.created_at
             )
             for video in videos
         ]

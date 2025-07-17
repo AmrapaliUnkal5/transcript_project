@@ -31,7 +31,7 @@ const SubscriptionScrape: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [scrapedUrls, setScrapedUrls] = useState<
-    { id: number; url: string; title: string }[]
+    { id: number; url: string; title: string;upload_date?: string }[]
   >([]);
 
   const handleScrapingSuccess = (scrapedUrl: string) => {
@@ -43,6 +43,7 @@ const SubscriptionScrape: React.FC = () => {
     setIsSaved(true); // Allow messages to show after saving
   };
   const { getPlanById } = useSubscriptionPlans();
+  const [searchTerm, setSearchTerm] = useState("");
 
   // const getWebsiteLimit = (planId: number): number => {
   //   if (planId === 4) return Infinity; // Unlimited
@@ -82,6 +83,7 @@ const SubscriptionScrape: React.FC = () => {
           id: index + 1,
           url: item.url,
           title: item.title || "No Title",
+          upload_date: item.upload_date,
         }));
 
         console.log("Formatted URLs:", formattedUrls);
@@ -138,6 +140,7 @@ const SubscriptionScrape: React.FC = () => {
   };
 
   const handleFetchNodes = async () => {
+    setSearchTerm('');
     console.log(
       "getWebsiteLimit(user.subscription_plan_id)",
       getWebsiteLimit(user.subscription_plan_id)
@@ -174,6 +177,9 @@ const SubscriptionScrape: React.FC = () => {
       console.log("Fetched Nodes Response:", response); // Debugging log
 
       if (response && Array.isArray(response.nodes)) {
+        if (response.nodes.length === 0) {
+          toast.error("No valid pages found for this website.");
+           }
         setNodes(response.nodes); // Correctly setting the extracted array
       } else {
         console.error(
@@ -304,10 +310,42 @@ const SubscriptionScrape: React.FC = () => {
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
+
+  const handleDeepScan = async () => {
+  if (!websiteUrl) {
+    toast.error("Please enter a website URL to perform deep scanning.");
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const deepLinks = await authApi.sitemapDeepScan(websiteUrl);
+    console.log("Deep Scanning links:", deepLinks);
+    if (Array.isArray(deepLinks) && deepLinks.length > 0) {
+      setNodes(deepLinks);
+      toast.success(`Deep Scan complete! Found ${deepLinks.length} pages.`);
+    } else {
+      toast.info("No new pages were identified during the Deep Scan.");
+    }
+  } catch (error) {
+    console.error("Deep scan failed:", error);
+    toast.error("Deep Scanning failed. Please try again shortly.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const getFilteredNodes = () => {
+  return nodes.filter((node) =>
+    node.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  };
+
   const getPaginatedNodes = () => {
+    const filtered = getFilteredNodes();
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return nodes.slice(startIndex, endIndex);
+    return filtered.slice(startIndex, endIndex);
   };
 
   const totalPages = Math.ceil(nodes.length / itemsPerPage);
@@ -454,43 +492,70 @@ const SubscriptionScrape: React.FC = () => {
       </div>
       {nodes.length > 0 && !isProcessing && (
         <div className="mt-4">
-          <div className="flex justify-between mb-2">
-            <div className="flex space-x-2">
-              {/* <button
-                onClick={() => {
-                  // Select all nodes on the current page
-                  const currentPageNodes = getPaginatedNodes();
-                  setSelectedNodes((prev) => [
-                    ...new Set([...prev, ...currentPageNodes]),
-                  ]);
-                }}
-                className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-                disabled={loading || isProcessing}
-              >
-                Select Page
-              </button> */}
-              <button
-                onClick={() => {
-                  // Select all nodes across all pages
-                  setSelectedNodes(nodes);
-                }}
-                className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-#5348CB-300"
-                disabled={loading || isProcessing}
-              >
-                Select All({nodes.length})
-              </button>
-              <button
-                onClick={() => setSelectedNodes([])}
-                className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-                disabled={loading || isProcessing}
-              >
-                Clear All
-              </button>
+          <div className="flex flex-wrap md:flex-nowrap justify-between items-center mb-2 gap-y-2">
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => {
+                const filtered = getFilteredNodes();
+                setSelectedNodes(filtered);
+              }}
+              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-#5348CB-300 min-w-[120px] transition-all"
+              disabled={loading || isProcessing}
+            >
+              Select All ({getFilteredNodes().length})
+                </button>
+                <button
+                  onClick={() => setSelectedNodes([])}
+                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                  disabled={loading || isProcessing}
+                >
+                  Clear All
+                </button>
+                <button
+                  onClick={handleDeepScan}
+                  className="flex items-center justify-center disabled:opacity-80 bg-gray-200 hover:bg-[#5348CB] disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: "#5348CB",
+                fontFamily: 'Instrument Sans, sans-serif',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'white',
+                minWidth: '102px',
+                width: '140px',
+                textAlign: 'center',
+                borderRadius: '0.375rem', // rounded-md
+              }}
+                  disabled={loading || isProcessing}
+                >
+                  Deep Scanning
+                </button>
+              <div className="relative group inline-block">
+                <span className="text-gray-500 hover:text-blue-500 cursor-pointer ml-1">
+                  ℹ️
+                </span>
+                <div className="absolute left-0 top-6 w-72 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg z-10 pointer-events-none">
+                  Deep Scanning may include broken or outdated pages.<br />
+                  Please review and choose nodes wisely.
+                </div>
             </div>
-            <div className="text-sm text-gray-600">
-              Selected: {selectedNodes.length}
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  placeholder="Search Pages"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1); // reset to page 1 on new search
+                  }}
+                  className="px-2 py-1 border border-gray-300 rounded-md text-sm"
+                  style={{ fontFamily: 'Instrument Sans, sans-serif', width: "140px" }}
+                />
+                <div className="text-sm text-gray-600">
+                  Selected: {selectedNodes.length}
+                </div>
+              </div>
             </div>
-          </div>
 
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Select Pages to Scrape:
@@ -609,6 +674,18 @@ const SubscriptionScrape: React.FC = () => {
       URL
     </th>
     <th
+      className="px-6 py-3 text-left uppercase tracking-wider"
+      style={{
+        fontFamily: 'Instrument Sans, sans-serif',
+        fontSize: '16px',
+        fontWeight: 600,
+        color: '#333333',
+        textTransform:'none'
+      }}
+    >
+                    Upload Date
+    </th>
+    <th
       className="px-6 py-3 text-right uppercase tracking-wider"
       style={{
         fontFamily: 'Instrument Sans, sans-serif',
@@ -655,6 +732,15 @@ const SubscriptionScrape: React.FC = () => {
                         {item.url}
                       </a>
                     </td>
+                    <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
+                    style={{ fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '14px',
+                       color: '#333333',
+                     }}>
+                        {item.upload_date
+                          ? new Date(item.upload_date).toLocaleDateString()
+                          : "N/A"}
+                      </td>
                     <td className=" px-4 py-2 text-center">
                       <button
                         onClick={() => handleDeleteClick(item.url)}

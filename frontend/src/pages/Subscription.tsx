@@ -813,7 +813,7 @@ export const Subscription = () => {
           disabled={(isCurrent && !isExpiredPlan) || processingPlanId !== null}
           onClick={() => {
                 if (plan.name.toLowerCase() === "enterprise") {
-            navigate("/customersupport"); // Redirect to Customer Support
+            window.open("/customersupport", "_blank"); // Redirect to Customer Support
           } else if (plan.name.toLowerCase() === "explorer" && !effectivePlanId) {
             navigate("/dashboard/create-bot");
           } else {

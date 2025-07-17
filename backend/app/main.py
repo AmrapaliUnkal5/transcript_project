@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, Upl
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .models import Base, Captcha, User, UserSubscription, Bot, TeamMember, UserAddon, UserAuthProvider
+from .models import Base, Captcha, User, UserSubscription, Bot, TeamMember, UserAddon, UserAuthProvider, SubscriptionPlan
 from .schemas import *
 from .crud import create_user,get_user_by_email, update_user_password,update_avatar
 from fastapi.security import OAuth2PasswordBearer
@@ -32,7 +32,7 @@ from app.dashboard_consumables import router as bot_conversations_router
 import os
 import uuid
 from fastapi.staticfiles import StaticFiles
-from app.scraper import scrape_selected_nodes, get_website_nodes, get_scraped_urls_func
+from app.scraper import scrape_selected_nodes, get_website_nodes, get_scraped_urls_func, get_links_from_sitemap
 from app.file_size_validations import router as file_size_validations_router
 from app.bot_creation import router as bot_creation
 from typing import List
@@ -131,8 +131,8 @@ if not zoho_product_id:
     logger.warning("ZOHO_DEFAULT_PRODUCT_ID environment variable is not set! This is required for addon synchronization with Zoho.")
 
 # Initialize Zoho sync scheduler
-logger.info("Initializing Zoho sync scheduler")
-initialize_scheduler()
+# logger.info("Initializing Zoho sync scheduler")
+# initialize_scheduler()
 
 # Add the logging middleware
 #app.add_middleware(LoggingMiddleware)
@@ -493,6 +493,58 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
         }
     }
 
+
+# Add endpoint to get current plan for a user (for frontend compatibility)
+@app.get("/subscription/user/{user_id}/current")
+def get_current_plan(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Get current subscription plan for a user (frontend compatibility endpoint)"""
+    try:
+        # Verify that the requested user_id matches the current user or is admin
+        requester_id = current_user.get("user_id")
+        is_admin = current_user.get("role") == "admin"
+            
+        if requester_id != user_id and not is_admin:
+            raise HTTPException(status_code=403, detail="Not authorized to view this user's subscription")
+            
+        # Get the latest active subscription for the user
+        subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "active"
+        ).order_by(UserSubscription.payment_date.desc()).first()
+        
+        if not subscription:
+            return {"plan": None, "zoho_subscription_id": None}
+            
+        # Get the associated plan
+        plan = db.query(SubscriptionPlan).filter(
+            SubscriptionPlan.id == subscription.subscription_plan_id
+        ).first()
+        
+        plan_data = None
+        if plan:
+            plan_data = {
+                "id": plan.id,
+                "name": plan.name,
+                "price": plan.price,
+                "billing_period": plan.billing_period
+            }
+            
+        return {
+            "plan": plan_data,
+            "zoho_subscription_id": subscription.zoho_subscription_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting current plan: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting current plan: {str(e)}")
+
+
 # Route for password reset
 @app.post("/forgot-password/")
 async def forgot_password(request: ForgotpasswordRequest,db: Session = Depends(get_db)):
@@ -712,6 +764,23 @@ def get_nodes(website_url: str = Query(..., title="Website URL")):
     API to get a list of all available pages (nodes) from a website.
     """
     return get_website_nodes(website_url)
+
+@app.get("/sitemap-nodes", response_model=List[str])
+async def fetch_sitemap_nodes(website_url: str = Query(..., alias="website_url")):
+    try:
+        homepage_nodes_result = get_website_nodes(website_url)
+        homepage_nodes = homepage_nodes_result.get("nodes", [])
+
+        sitemap_nodes = get_links_from_sitemap(website_url)
+
+        all_links = set(homepage_nodes + sitemap_nodes)
+        print(f"[INFO] Combined Total Before Validation: {len(all_links)}")
+
+        return all_links
+
+    except Exception as e:
+        print(f"[ERROR] Deep scan failed for {website_url} - {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/scraped-urls/{bot_id}", response_model=List[PageData])

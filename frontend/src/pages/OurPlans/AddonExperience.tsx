@@ -7,8 +7,25 @@ import {
   styled,
 } from "@mui/material";
 import React from "react";
+import { useAddonPlans } from "../../context/SubscriptionPlanContext";
 
 export default function AddonExperience() {
+  const { addons } = useAddonPlans();
+
+  const Multilingual_support = addons.find(addon => addon.name === "Multilingual Support");
+  const White_Labeling = addons.find(addon => addon.name === "White-Labeling");
+  const Additional_messages = addons.find(addon => addon.name === "Additional Messages");
+  const Additional_word_capacity=addons.find(addon => addon.name === "Additional Word Capacity");
+  const Additional_Ai_admin_users=addons.find(addon => addon.name === "Additional AI Admin Users");
+
+
+  // Format price helper
+  const formatPrice = (price: number | string | null | undefined) => {
+    if (price === null || price === undefined) return "0";
+    if (typeof price === "string" && price.toLowerCase() === "custom") return "Custom";
+    return Number(price).toFixed(2);
+  };
+
   return (
     <Box
       display={"flex"}
@@ -101,7 +118,7 @@ export default function AddonExperience() {
                       lineHeight={1.5}
                       mb={1}
                          >
-                      $9.99/ ₹850
+                       ${formatPrice(Multilingual_support?.price)} / ₹850
                      </Typography>
 
                   <Typography
@@ -194,7 +211,7 @@ export default function AddonExperience() {
                       lineHeight={1.5}
                       mb={1}
                        >
-                     $9.99/ ₹850
+                      ${formatPrice(White_Labeling?.price)} / ₹850
                       </Typography>
 
                     <Typography
@@ -284,7 +301,8 @@ export default function AddonExperience() {
                        lineHeight={1.5}
                       mb={1}
                            >
-                      $9.99 / ₹850
+                      {/* $9.99 / ₹850 */}
+                       ${formatPrice(Additional_messages?.price)} / ₹850
                     </Typography>
                     <Typography
                       variant="h6"
@@ -375,7 +393,8 @@ export default function AddonExperience() {
                     lineHeight={1.5}
                     mb={1}
                     >
-                  $5/ ₹450
+                  {/* $5/ ₹450 */}
+                  ${formatPrice(Additional_word_capacity?.price)} / ₹450
                 </Typography>
 
                <Typography
@@ -470,7 +489,7 @@ export default function AddonExperience() {
                       lineHeight={1.5}
                       mb={1}
                        >
-                      $5/ ₹450
+                      ${formatPrice(Additional_Ai_admin_users?.price)} / ₹450
                      </Typography>
 
                   <Typography
