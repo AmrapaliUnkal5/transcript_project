@@ -100,6 +100,33 @@ export interface SignUpData {
   password: string;
 }
 
+export interface BotTrainingStatus {
+  overall_status: 'error' | 'training' | 'active'|'reconfiguring'|'Pending'|'Retraining';
+  progress: {
+    files: {
+      total: number;
+      completed: number;
+      failed: number;
+      pending: number;
+      status: 'error' | 'training' | 'complete'|'reconfiguring'|'Pending'|'Retraining';
+    };
+    websites: {
+      total: number;
+      completed: number;
+      failed: number;
+      pending: number;
+      status: 'error' | 'training' | 'complete'|'reconfiguring'|'Pending'|'Retraining';
+    };
+    youtube: {
+      total: number;
+      completed: number;
+      failed: number;
+      pending: number;
+      status: 'error' | 'training' | 'complete'|'reconfiguring'|'Pending'|'Retraining';
+    };
+  };
+  is_trained?: boolean;
+}
 export interface LoginData {
   email: string;
   password: string;
@@ -422,6 +449,11 @@ fetchCaptcha: async () => {
     const response = await api.get(`/investigation/youtube-videos/${botId}`);
     return response.data;
   },
+
+  getBotProgressData: async (botId: number) => {
+  const response = await api.get(`/progress/bot/${botId}`);
+  return response.data;
+},
   getUploadedFiles: async (botId: number) => {
     const response = await api.get(`/investigation/uploaded-files/${botId}`);
     return response.data;
@@ -444,6 +476,20 @@ fetchCaptcha: async () => {
     return response.data;
   },
 
+  updateBotFields: async (botId: number, fields: { status?: string; is_active?: boolean, is_trained?: boolean }) => {
+  const response = await api.patch(`/update-bot-fields/${botId}`, fields);
+  return response.data;
+},
+
+update_processed_with_training: async (botId: number) => {
+  const response = await api.post(`/mark_processed_with_training/${botId}`);
+  return response.data;
+},
+
+cancel_training: async (botId: number) => {
+  const response = await api.post(`/cancel_training/${botId}`);
+  return response.data;
+},
 
   updateBotStatus: async (botId: number, statusData: { status?: string; is_active?: boolean }) => {
     const response = await api.patch(`/bots/${botId}`, statusData);
@@ -518,6 +564,11 @@ fetchCaptcha: async () => {
   },
   updateBotStatusActive: async (botId: number, data: BotStatusUpdate) => {
     const response = await api.put(`/botsettings/bots/${botId}`, data);  // API endpoint to update bot settings
+    return response.data;
+  },
+
+  getBotTrainingStatus: async (botId: number): Promise<BotTrainingStatus> => {
+    const response = await api.get(`/progress/checkstatus/${botId}`);
     return response.data;
   },
   fetchBotMetrics: async (botId: number): Promise<BotMetrics> => {

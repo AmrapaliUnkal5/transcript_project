@@ -718,7 +718,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                                             else:
                                                 # For other files, use the extraction utility
                                                 from app.utils.upload_knowledge_utils import extract_text_from_file
-                                                import asyncio
+                                                #import asyncio
                                                 
                                                 loop = asyncio.new_event_loop()
                                                 asyncio.set_event_loop(loop)
@@ -831,7 +831,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                     if file_content_text is None:
                         # Import the existing text extraction function
                         from app.utils.upload_knowledge_utils import extract_text_from_file
-                        import asyncio
+                        #import asyncio
                         
                         # Use the same text extraction that's working in the rest of the system
                         logger.info(f"Starting text extraction for file: {original_filename}")

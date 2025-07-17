@@ -10,7 +10,14 @@ import { Trash2, Info } from "lucide-react";
 import { toast } from "react-toastify";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 
-const SubscriptionScrape: React.FC = () => {
+interface SubscriptionScrapeProps {
+  isReconfiguring: boolean;
+  // Add other props if you have them
+}
+
+const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
+  isReconfiguring,
+}) => {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [nodes, setNodes] = useState<string[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
@@ -149,6 +156,10 @@ const SubscriptionScrape: React.FC = () => {
 
     if (!websiteUrl) {
       toast.error("Please enter a website URL.");
+      return;
+    }
+     if (!isReconfiguring) {
+      toast.error("Please click Reconfigure first before adding website URLs");
       return;
     }
 
@@ -351,6 +362,10 @@ const SubscriptionScrape: React.FC = () => {
   const totalPages = Math.ceil(nodes.length / itemsPerPage);
 
   const handleCheckboxChange = (url: string) => {
+    if (!isReconfiguring) {
+      toast.error("Please click Reconfigure first before selecting pages");
+      return;
+    }
     if (selectedNodes.includes(url)) {
       setSelectedNodes((prev) => prev.filter((node) => node !== url));
     } else {

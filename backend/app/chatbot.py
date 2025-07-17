@@ -317,7 +317,13 @@ def is_farewell(message: str) -> tuple[bool, str]:
     # Not a recognized farewell
     return False, ""
 
-
+def extract_video_id(video_url: str) -> str:
+    """Extracts YouTube video ID from URL"""
+    if "youtu.be/" in video_url:
+        return video_url.split("youtu.be/")[-1].split("?")[0]
+    elif "v=" in video_url:
+        return video_url.split("v=")[-1].split("&")[0]
+    return None
 
 def generate_response(bot_id: int, user_id: int, user_message: str, db: Session = Depends(get_db)):
     """Generate response using the bot's assigned LLM model."""
@@ -502,6 +508,38 @@ async def process_selected_videos(
                      "video_count": len(video_request.video_urls) if video_request.video_urls else 0})
     
     try:
+        # Phase 1: Save minimal video records immediately
+        new_videos = []
+        for video_url in video_request.video_urls:
+            
+            # Extract video ID from URL
+            video_id = extract_video_id(video_url)
+            if not video_id:
+                continue
+                            
+            # Check if video already exists for this bot
+            existing_video = db.query(YouTubeVideo).filter(
+                YouTubeVideo.video_id == video_id,
+                YouTubeVideo.bot_id == video_request.bot_id,
+                YouTubeVideo.is_deleted == False
+            ).first()
+            
+            if not existing_video:
+                # Create minimal record
+                new_video = YouTubeVideo(
+                    video_id=video_id,
+                    video_url=video_url,
+                    bot_id=video_request.bot_id,
+                    video_title="YouTube Video",
+                    embedding_status="pending"
+                )
+                db.add(new_video)
+                new_videos.append(video_url)
+        
+        db.commit()
+        logger.info(f"Saved {len(new_videos)} new video records", 
+                   extra={"request_id": request_id, "bot_id": video_request.bot_id})
+        
         # Launch Celery task
         task = process_youtube_videos.delay(
             video_request.bot_id,

@@ -163,6 +163,14 @@ class BotResponse(BotBase):
     class Config:
         from_attributes = True  
 
+class BotUpdateFields(BaseModel):
+    status: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_trained: Optional[bool] = None  
+
+    class Config:
+        extra = "forbid"
+
 #added for Forgotpassword
 class ForgotpasswordRequest(BaseModel):
     email: EmailStr
@@ -553,3 +561,10 @@ class LeadOut(BaseModel):
     phone: Optional[str]
     address: Optional[str]
     created_at: datetime
+
+class MarkProcessedResponse(BaseModel):
+    success: bool
+    message: str
+    scraped_nodes_updated: int
+    youtube_videos_updated: int
+    files_updated: int

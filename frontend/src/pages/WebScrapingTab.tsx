@@ -16,10 +16,40 @@ type Timeout = ReturnType<typeof setTimeout>;
 // Add a flag to track if we've shown the notification for this session
 let hasShownCreateBotInfoToast = false;
 
-const WebScrapingTab: React.FC = () => {
+interface WebScrapingTabProps {
+  selectedNodes: string[];
+  setSelectedNodes: React.Dispatch<React.SetStateAction<string[]>>;
+  nodes: string[];
+  setNodes: React.Dispatch<React.SetStateAction<string[]>>;
+  onChangesMade?: () => void;
+  onSaveComplete?: () => void;
+  websiteUrl?: string;
+  setWebsiteUrl?: (url: string) => void;
+  isReconfiguring?: boolean; 
+  disableActions?: boolean; 
+ isCreateBotFlow?:boolean;
+ disableActions2?:boolean;
+}
+
+const WebScrapingTab: React.FC<WebScrapingTabProps> = ({ 
+  // selectedNodes, 
+  // setSelectedNodes ,
+  // nodes,
+  // setNodes,
+  // onChangesMade,
+  selectedNodes = [], 
+  setSelectedNodes = () => {},
+  nodes = [],
+  setNodes = () => {},
+  onChangesMade,
+  isReconfiguring = false, 
+  disableActions = false,
+  disableActions2 = false,
+}) => {
+  
   const [websiteUrl, setWebsiteUrl] = useState("");
-  const [nodes, setNodes] = useState<string[]>([]);
-  const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
+  //const [nodes, setNodes] = useState<string[]>([]);
+  //const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const { loading, setLoading } = useLoader();
   //const { selectedBot, setSelectedBot } = useBot(); // Use BotContext
   const [currentPage, setCurrentPage] = useState(1);
@@ -31,6 +61,7 @@ const WebScrapingTab: React.FC = () => {
     null
   );
   const [isProcessing, setIsProcessing] = useState(false);
+  
   
   const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
@@ -136,6 +167,10 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
     setSearchTerm('');
     if (!websiteUrl) return;
 
+    if (!disableActions && !isReconfiguring) {
+    toast.error("Please click Reconfigure first before adding website URLs");
+    return;
+  }
     // Restrict changing the website once scraping has started
     if (scrapedWebsiteUrl && new URL(websiteUrl).origin !== scrapedWebsiteUrl) {
       toast.error(
@@ -304,7 +339,12 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
   const totalPages = Math.ceil(nodes.length / itemsPerPage);
 
   const handleCheckboxChange = (url: string) => {
+    if (!disableActions && !isReconfiguring) {
+      toast.error("Please click Reconfigure first before selecting pages");
+      return;
+    }
     if (selectedNodes.includes(url)) {
+    //const newSelectedNodes = selectedNodes.filter((node) => node !== url);
       setSelectedNodes((prev) => prev.filter((node) => node !== url));
     } else {
       if (selectedNodes.length >= 10) {
@@ -313,8 +353,10 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
         // );
         // return;
       }
+      //const newSelectedNodes = [...selectedNodes, url];
       setSelectedNodes((prev) => [...prev, url]);
     }
+    if (onChangesMade) onChangesMade();
   };
 
   return (
@@ -334,18 +376,22 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
               placeholder="  Website URL"
               value={websiteUrl}
               onChange={(e) => setWebsiteUrl(e.target.value)}
-               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              required
-              disabled={loading || isProcessing}
+              className={`block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
+            (isCreateBotFlow && disableActions2) ? 'bg-gray-100 cursor-not-allowed' : ''
+          }`}
+               required
+              disabled={(isCreateBotFlow && disableActions2) || loading || isProcessing}
             />
             <button
               onClick={handleFetchNodes}
-              disabled={!websiteUrl || loading || isProcessing}
+              disabled={(isCreateBotFlow && disableActions2) ||!websiteUrl || loading || isProcessing}
                style={{
     backgroundColor: '#5348CB',
     borderColor: '#5348CB',
   }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500  disabled:cursor-not-allowed flex-shrink-0"
+            className={`px-4 py-2 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:cursor-not-allowed flex-shrink-0 ${
+            (isCreateBotFlow && disableActions2) ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600'
+          }`}
               >
               Fetch Pages
             </button>
@@ -485,15 +531,6 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                 <div className="flex">{renderPaginationButtons()}</div>
               </div>
             )}
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={handleScrape}
-                disabled={selectedNodes.length === 0 || loading || isProcessing}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Start Scraping
-              </button>
-            </div>
           </div>
         )}
 

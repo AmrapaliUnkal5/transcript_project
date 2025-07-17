@@ -1,9 +1,10 @@
+import asyncio
 import threading
-from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, UploadFile, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, UploadFile, HTTPException, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .models import Base, Captcha, User, UserSubscription, Bot, TeamMember, UserAddon, UserAuthProvider, SubscriptionPlan
+from .models import Base, Captcha, ScrapedNode, User, UserSubscription, Bot, TeamMember, UserAddon, UserAuthProvider, SubscriptionPlan
 from .schemas import *
 from .crud import create_user,get_user_by_email, update_user_password,update_avatar
 from fastapi.security import OAuth2PasswordBearer
@@ -64,6 +65,7 @@ from app.captcha_cleanup_thread import captcha_cleaner
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
 from app.investigation import router as investigation
 from app.utils.file_storage import resolve_file_url
+from app.progress import router as progress
 
 
 # Import our custom logging components
@@ -174,6 +176,7 @@ app.include_router(billing_metrics_router)
 app.include_router(addon_router)
 app.include_router(features_router)
 app.include_router(investigation)
+app.include_router(progress)
 
 # Start the add-on expiry scheduler
 start_addon_scheduler()
@@ -269,6 +272,17 @@ async def extend_token_expiration(request: Request, call_next):
 
 # For OAuth2 Password Bearer (for login)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+@app.websocket("/ws/bot-status/{bot_id}")
+async def websocket_endpoint(websocket: WebSocket, bot_id: int):
+    await websocket.accept()
+    try:
+        while True:
+            # simulate backend pushing status
+            await websocket.send_text(f"Bot {bot_id} is {Bot.status}")
+            await asyncio.sleep(3)
+    except WebSocketDisconnect:
+        print(f"Client disconnected from bot {bot_id}")
 
 # Register API
 @app.post("/register", response_model=RegisterResponse)
@@ -913,6 +927,29 @@ def scrape_async_endpoint(request: WebScrapingRequest, db: Session = Depends(get
             raise HTTPException(status_code=404, detail=f"Bot with ID {request.bot_id} not found")
         
         logger.info(f"[SCRAPE-ASYNC] Bot found, user_id={bot.user_id}")
+
+        # PHASE 1: Save URLs immediately
+        new_urls = []
+        for url in request.selected_nodes:
+            # Check if URL already exists for this bot
+            existing_node = db.query(ScrapedNode).filter(
+                ScrapedNode.url == url,
+                ScrapedNode.bot_id == request.bot_id,
+                ScrapedNode.is_deleted == False
+            ).first()
+            
+            if not existing_node:
+                # Create minimal record
+                new_node = ScrapedNode(
+                    url=url,
+                    bot_id=request.bot_id,
+                    embedding_status="pending"  # Initial status
+                )
+                db.add(new_node)
+                new_urls.append(url)
+        
+        db.commit()
+        logger.info(f"[SCRAPE-ASYNC] Saved {len(new_urls)} new URLs to database")
         
         # Start Celery task
         logger.info(f"[SCRAPE-ASYNC] Attempting to start Celery task with {len(request.selected_nodes)} URLs")

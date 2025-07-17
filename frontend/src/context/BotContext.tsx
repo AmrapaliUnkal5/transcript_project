@@ -7,6 +7,9 @@ export interface Bot {
   conversations: number;
   satisfaction: number;
   external_knowledge?: boolean;
+  is_active?: boolean;
+  is_trained?: boolean; 
+  bot_icon?:string;
 }
 
 interface BotContextType {

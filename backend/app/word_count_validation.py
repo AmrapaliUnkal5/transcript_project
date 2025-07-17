@@ -361,14 +361,14 @@ async def get_user_usage(
         total_used = db.query(func.sum(Bot.word_count)).filter(
             Bot.user_id == current_user["user_id"],
             Bot.status != "Deleted",  
-            Bot.is_active == True
+            #Bot.is_active == True
         ).scalar() or 0
 
         # Also get from user table for verification
         user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
         user_total = user.total_words_used if user else 0
 
-         # If there's a discrepancy, update the user record
+        # If there's a discrepancy, update the user record
         if user and total_used != user_total:
             user.total_words_used = total_used
             db.commit()
@@ -377,7 +377,7 @@ async def get_user_usage(
         total_storage = db.query(func.sum(Bot.file_size)).filter(
             Bot.user_id == current_user["user_id"],
             Bot.status != "Deleted",  
-            Bot.is_active == True
+            #Bot.is_active == True
         ).scalar() or 0
 
         # Also get from user table for verification

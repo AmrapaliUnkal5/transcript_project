@@ -2,11 +2,14 @@ from fastapi import FastAPI, Depends, HTTPException, APIRouter, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Bot, UserSubscription, SubscriptionPlan
-from app.schemas import BotCreation, UserOut, BotRename
+from app.models import Bot, ScrapedNode, UserSubscription, SubscriptionPlan, YouTubeVideo, File
+from app.schemas import BotCreation, BotUpdateFields, UserOut, BotRename
 from app.dependency import get_current_user
 from app.utils.logger import get_module_logger
 from datetime import datetime, timedelta
+from app.push_trigger import push_update_loop
+from app.websocket_manager import manager
+import asyncio
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -284,3 +287,201 @@ def update_bot_external_knowledge(
         logger.exception(f"Error toggling external knowledge", 
                         extra={"bot_id": bot_id, "user_id": user_id, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Error toggling external knowledge: {str(e)}")
+    
+@router.patch("/update-bot-fields/{bot_id}")
+def update_bot_fields(
+    request: Request,
+    bot_id: int,
+    bot_update: BotUpdateFields,
+    db: Session = Depends(get_db),
+    current_user: UserOut = Depends(get_current_user)
+):
+    request_id = getattr(request.state, "request_id", "unknown")
+
+    # Safely extract user_id
+    if isinstance(current_user, dict):
+        user_id = current_user.get("user_id")
+    else:
+        user_id = getattr(current_user, "user_id", None)
+
+    logger.info(f"Updating bot fields", 
+               extra={"request_id": request_id, "bot_id": bot_id, 
+                     "update_fields": bot_update.dict(exclude_unset=True)})
+
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User not authenticated")
+
+    # Get the bot record
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id, Bot.user_id == user_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+
+    # Apply updates only to provided fields
+    if bot_update.status is not None:
+        bot.status = bot_update.status
+    if bot_update.is_active is not None:
+        bot.is_active = bot_update.is_active
+    if bot_update.is_trained is not None: 
+        bot.is_trained = bot_update.is_trained
+
+    db.commit()
+    db.refresh(bot)
+
+    logger.info(f"Bot fields updated successfully", 
+               extra={"request_id": request_id, "bot_id": bot_id})
+
+    return {
+        "success": True,
+        "bot_id": bot.bot_id,
+        "updated_fields": bot_update.dict(exclude_unset=True),
+        "message": "Bot updated successfully"
+    }
+
+@router.post("/mark_processed_with_training/{bot_id}")
+def mark_bot_data_processed(
+    request: Request,
+    bot_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserOut = Depends(get_current_user)
+):
+    request_id = getattr(request.state, "request_id", "unknown")
+    
+    # Safely extract user_id
+    if isinstance(current_user, dict):
+        user_id = current_user.get("user_id")
+    else:
+        user_id = getattr(current_user, "user_id", None)
+
+    logger.info(f"Marking bot data as processed for training",
+               extra={"request_id": request_id, "bot_id": bot_id, "user_id": user_id})
+
+    if not user_id:
+        logger.warning(f"User not authenticated",
+                      extra={"request_id": request_id})
+        raise HTTPException(status_code=401, detail="User not authenticated")
+
+    try:
+        # Verify the bot belongs to the user
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id, Bot.user_id == user_id).first()
+        if not bot:
+            logger.warning(f"Bot not found or not owned by user",
+                          extra={"request_id": request_id, "bot_id": bot_id, "user_id": user_id})
+            raise HTTPException(status_code=404, detail="Bot not found")
+
+        # Update scraped_nodes table
+        scraped_nodes_updated = db.query(ScrapedNode).filter(
+            ScrapedNode.bot_id == bot_id,
+            ScrapedNode.is_deleted == False
+        ).update({"processed_with_training": True})
+        
+        # Update youtube_videos table
+        youtube_videos_updated = db.query(YouTubeVideo).filter(
+            YouTubeVideo.bot_id == bot_id,
+            YouTubeVideo.is_deleted == False
+        ).update({"processed_with_training": True})
+        
+        # Update files table (no is_deleted check)
+        files_updated = db.query(File).filter(
+            File.bot_id == bot_id
+        ).update({"processed_with_training": True})
+        
+        db.commit()
+        
+        logger.info(f"Successfully marked bot data as processed",
+                   extra={
+                       "request_id": request_id,
+                       "bot_id": bot_id,
+                       "scraped_nodes_updated": scraped_nodes_updated,
+                       "youtube_videos_updated": youtube_videos_updated,
+                       "files_updated": files_updated
+                   })
+
+        return {
+            "success": True,
+            "message": "Data marked as processed for training successfully",
+            "scraped_nodes_updated": scraped_nodes_updated,
+            "youtube_videos_updated": youtube_videos_updated,
+            "files_updated": files_updated
+        }
+
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error marking bot data as processed",
+                        extra={"request_id": request_id, "bot_id": bot_id, "error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Error marking data as processed: {str(e)}")
+    
+
+@router.post("/cancel_training/{bot_id}")
+def cancel_bot_training_data(
+    request: Request,
+    bot_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserOut = Depends(get_current_user)
+):
+    request_id = getattr(request.state, "request_id", "unknown")
+    
+    # Extract user_id safely
+    if isinstance(current_user, dict):
+        user_id = current_user.get("user_id")
+    else:
+        user_id = getattr(current_user, "user_id", None)
+
+    logger.info(f"Cancel training and clean unprocessed data",
+               extra={"request_id": request_id, "bot_id": bot_id, "user_id": user_id})
+
+    if not user_id:
+        logger.warning(f"User not authenticated", extra={"request_id": request_id})
+        raise HTTPException(status_code=401, detail="User not authenticated")
+
+    try:
+        # Validate bot ownership
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id, Bot.user_id == user_id).first()
+        if not bot:
+            logger.warning(f"Bot not found or not owned by user",
+                          extra={"request_id": request_id})
+            raise HTTPException(status_code=404, detail="Bot not found")
+
+        # Soft delete scraped_nodes with processed_with_training = false
+        scraped_nodes_updated = db.query(ScrapedNode).filter(
+            ScrapedNode.bot_id == bot_id,
+            ScrapedNode.processed_with_training == False,
+            ScrapedNode.is_deleted == False
+        ).update({"is_deleted": True})
+
+        # Soft delete YouTube videos
+        youtube_videos_updated = db.query(YouTubeVideo).filter(
+            YouTubeVideo.bot_id == bot_id,
+            YouTubeVideo.processed_with_training == False,
+            YouTubeVideo.is_deleted == False
+        ).update({"is_deleted": True})
+
+        # Hard delete files that are not processed
+        files_deleted = db.query(File).filter(
+            File.bot_id == bot_id,
+            File.processed_with_training == False
+        ).delete(synchronize_session=False)
+
+        db.commit()
+
+        logger.info(f"Successfully cancelled unprocessed data",
+                   extra={
+                       "request_id": request_id,
+                       "bot_id": bot_id,
+                       "scraped_nodes_deleted": scraped_nodes_updated,
+                       "youtube_videos_deleted": youtube_videos_updated,
+                       "files_deleted": files_deleted
+                   })
+
+        return {
+            "success": True,
+            "message": "Unprocessed data removed successfully",
+            "scraped_nodes_deleted": scraped_nodes_updated,
+            "youtube_videos_deleted": youtube_videos_updated,
+            "files_deleted": files_deleted
+        }
+
+    except Exception as e:
+        db.rollback()
+        logger.exception("Error cancelling unprocessed training data",
+                        extra={"request_id": request_id, "bot_id": bot_id, "error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Error cancelling training: {str(e)}")

@@ -121,6 +121,7 @@ class Bot(Base):
     lead_form_config = Column(JSONB, nullable=True)
     show_sources = Column(Boolean, nullable=False, default=False)
     unanswered_msg = Column(Text, nullable=True, default="I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?")
+    is_trained = Column(Boolean, nullable=False, default=False)
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")
@@ -149,7 +150,8 @@ class File(Base):
     last_embedded = Column(TIMESTAMP, nullable=True)
     original_file_size = Column(String(50), nullable=True)  # Human-readable size
     original_file_size_bytes = Column(BigInteger, nullable=True)  # Size in bytes
-
+    processed_with_training  = Column(Boolean, nullable=False, default=False)
+    
     # Relationships
     bot = relationship("Bot", back_populates="files")
     embedding_model = relationship("EmbeddingModel", back_populates="files")
@@ -309,6 +311,7 @@ class YouTubeVideo(Base):
     embedding_status = Column(String(50), default="pending", nullable=True)  # pending, completed, failed
     last_embedded = Column(TIMESTAMP, nullable=True)
     transcript = Column(Text, nullable=True)
+    processed_with_training  = Column(Boolean, nullable=False, default=False)
     
     def __str__(self):
         deleted_status = " (deleted)" if self.is_deleted else ""
@@ -356,6 +359,7 @@ class ScrapedNode(Base):
     embedding_status = Column(String(50), default="pending", nullable=True)  # pending, completed, failed
     last_embedded = Column(TIMESTAMP, nullable=True)
     nodes_text = Column(Text, nullable=True)  # Store the scraped text content
+    processed_with_training  = Column(Boolean, nullable=False, default=False)
 
     #website = relationship("Website", back_populates="scraped_nodes")  #
     
