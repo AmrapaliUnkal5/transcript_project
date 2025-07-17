@@ -499,7 +499,7 @@ const SubscriptionScrape: React.FC = () => {
                 const filtered = getFilteredNodes();
                 setSelectedNodes(filtered);
               }}
-              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300  min-w-[120px] transition-all"
+              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-#5348CB-300 min-w-[120px] transition-all"
               disabled={loading || isProcessing}
             >
               Select All ({getFilteredNodes().length})
@@ -513,7 +513,7 @@ const SubscriptionScrape: React.FC = () => {
                 </button>
                 <button
                   onClick={handleDeepScan}
-                  className="flex items-center justify-center disabled:opacity-80 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center disabled:opacity-80 bg-gray-200 hover:bg-[#5348CB] disabled:cursor-not-allowed"
               style={{
                 backgroundColor: "#5348CB",
                 fontFamily: 'Instrument Sans, sans-serif',

@@ -339,7 +339,7 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         raise HTTPException(status_code=404, detail=f"Bot with ID {bot_id} not found")
     
     # Get the bot's unanswered message
-    unanswered_message = bot.unanswered_msg if bot.unanswered_msg else "I don't have information on that topic."
+    unanswered_message = bot.unanswered_msg if bot.unanswered_msg else "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?"
 
     # ✅ Check if this is just a greeting message, to save tokens
     is_greeting_msg, greeting_response = is_greeting(user_message)

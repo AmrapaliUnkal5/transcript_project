@@ -94,7 +94,7 @@ export const NotificationDropdown = () => {
 
 
 <button
-  className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 text-white"
+  className="p-2 rounded-lg hover:bg-blue-950 dark:hover:bg-blue-950 text-white"
   onClick={() => setOpen((prev) => !prev)}
   title="Notifications"
 >
