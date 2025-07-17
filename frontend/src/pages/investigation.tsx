@@ -293,7 +293,7 @@ const Investigation = () => {
                           {index + 1}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 ">
                         <span className="text-sm text-gray-900 dark:text-white">
                           {node.title}
                         </span>
