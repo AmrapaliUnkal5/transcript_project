@@ -271,7 +271,7 @@ def determine_overall_status(file_status: Dict, website_status: Dict, youtube_st
     )
     
     if all_failed:
-        return "error"
+        return "Error"
     
     # Check if any knowledge source is still training
     any_training = (
@@ -281,7 +281,7 @@ def determine_overall_status(file_status: Dict, website_status: Dict, youtube_st
     )
     
     if any_training:
-        return "training"
+        return "Training"
     
     # Otherwise, bot is active (has at least one completed knowledge source)
-    return "active"
+    return "Active"

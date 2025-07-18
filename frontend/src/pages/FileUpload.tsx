@@ -652,16 +652,16 @@ export const FileUpload = () => {
         // Update local state
         setSelectedBot({
           ...selectedBot,
-          status: "Recalculating",
+          status: "Pending",
           is_active: false,
         });
 
       } else {
-        toast.error("Failed to start Recalculating");
+        toast.error("Failed to Cancel");
       }
     } catch (error) {
       console.error("Error updating bot status:", error);
-      toast.error("Failed to start Recalculating");
+      toast.error("Failed to Cancel");
     } finally {
       setIsReconfiguring(false);
     }
