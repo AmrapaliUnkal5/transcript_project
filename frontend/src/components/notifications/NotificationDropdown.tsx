@@ -134,7 +134,11 @@ export const NotificationDropdown = () => {
                   className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-200 flex justify-between items-start hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   <div>
-                    <p>{notif.event_data}</p>
+                    
+                    {/* <p className="break-words whitespace-normal overflow-hidden text-ellipsis">{notif.event_data}</p> */}
+                      <p className="break-all whitespace-normal overflow-hidden">
+                          {notif.event_data}
+                            </p>
                     <p className="text-xs text-gray-400 mt-1">
                       {new Date(notif.created_at).toLocaleDateString("en-GB", {
                         day: "2-digit",

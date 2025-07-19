@@ -1334,6 +1334,45 @@ const handleThemeSelect = async (themeId: string) => {
   }
 };
 
+ // we will use this for external knowledge
+
+ const [externalKnowledge, setExternalKnowledge] = useState<boolean>(
+  selectedBot?.external_knowledge || false
+);
+
+
+useEffect(() => {
+  const fetchExternalKnowledgeStatus = async () => {
+    if (selectedBot?.id) {
+      try {
+        const response = await authApi.getBotExternalKnowledge(selectedBot.id);
+
+        if (response?.success) {
+          setExternalKnowledge(response.external_knowledge);
+
+          if (selectedBot.external_knowledge !== response.external_knowledge) {
+            setSelectedBot((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    external_knowledge: response.external_knowledge,
+                  }
+                : null
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching external knowledge status:", error);
+      }
+    }
+  };
+
+  fetchExternalKnowledgeStatus();
+}, [selectedBot?.id]);
+
+
+
+  
 
   // Using this in control tab
   const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
@@ -1477,6 +1516,63 @@ const handleThemeSelect = async (themeId: string) => {
           }}
         />
       </div>
+
+
+           {/* External Knowledge Toggle */}
+
+     
+              <div className="flex items-center justify-between">
+     <div>
+    <label className="block font-semibold">Knowledge Source</label>
+    <p className="text-sm text-gray-500">
+     When enabled, external knowledge helps answer questions beyond your provided content.
+    </p>
+  </div>
+  <Toggle
+    checked={externalKnowledge}
+    onChange={async () => {
+      if (!selectedBot?.id) {
+        toast.error("No bot selected");
+        return;
+      }
+
+      const newValue = !externalKnowledge;
+
+      try {
+        setLoading(true);
+        const response = await authApi.updateBotExternalKnowledge(
+          selectedBot.id,
+          newValue
+        );
+
+        if (response?.success) {
+          setExternalKnowledge(response.external_knowledge);
+          setSelectedBot((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  external_knowledge: response.external_knowledge,
+                }
+              : null
+          );
+          toast.success(
+            `Knowledge source ${
+              response.external_knowledge ? "enabled" : "disabled"
+            }`
+          );
+        } else {
+          throw new Error("Failed to update setting");
+        }
+      } catch (error) {
+        console.error("Error updating external knowledge:", error);
+        toast.error("Failed to update knowledge source setting");
+      } finally {
+        setLoading(false);
+      }
+    }}
+  />
+</div>
+
 
       {/* Lead Form Fields */}
       {settings.lead_generation_enabled && (
