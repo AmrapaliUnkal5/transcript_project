@@ -3,7 +3,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, get_db
 from app import schemas
-from app.models import Bot, File, ScrapedNode, YouTubeVideo
+from app.models import Bot, File, ScrapedNode, User, YouTubeVideo
 from typing import Dict, List
 from fastapi.routing import APIRouter
 import asyncio
@@ -12,10 +12,11 @@ from app.websocket_manager import manager
 from app.schemas import StartTrainingRequest
 from app.utils.logger import get_module_logger
 from app.utils.vectorization_utils import trigger_vectorization_if_needed
-
+from app.botsettings import send_bot_activation_email
 
 # Initialize logger
 logger = get_module_logger(__name__)
+
 
 router = APIRouter(prefix="/progress", tags=["Bot Progress Tracking"])
 
@@ -109,6 +110,16 @@ async def compute_status(bot_id: int, db: Session):
     bot.is_trained = (overall_status == "active")
     bot.is_active = (overall_status == "active")
     bot.status = overall_status
+    # Send activation email if bot just became active
+    if overall_status == "Active" and not bot.active_mail_sent:
+        user = db.query(User).filter(User.user_id == bot.user_id).first()
+        if user:
+            
+            send_bot_activation_email(db=db, 
+                                     user_name=user.name, 
+                                     user_email=user.email, 
+                                     bot_name=bot.bot_name, 
+                                     bot_id=bot_id)
     db.commit()
 
     return {
