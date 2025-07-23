@@ -1162,7 +1162,7 @@ const ThemeSelector: React.FC<{
     // { id: "layout", label: "Layout", icon: Move },
     // { id: "behavior", label: "Behavior", icon: Sliders },
     // { id: "unanswered", label: "Unanswered Replies", icon: MessageCircle },
-    {id:"control" ,label:"Advance", icon:MessageCircle}
+    {id:"control" ,label:"Advanced Settings", icon:MessageCircle}
   ];
 
 

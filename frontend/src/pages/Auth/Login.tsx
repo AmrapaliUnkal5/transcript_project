@@ -740,7 +740,7 @@ export const Login = () => {
               >
                 <Box>
                   <Typography variant="body1">Contact us </Typography>
-                  <Typography variant="body2">support@evolra.ai</Typography>
+                  <Typography variant="body2">hello@evolra.ai</Typography>
                   {/* <Typography variant="body2">0123-456789 </Typography> */}
                  <Typography variant="body2">&nbsp;</Typography>
                   {/* using above line  for space only so that our symmetry will remin consistent */}
