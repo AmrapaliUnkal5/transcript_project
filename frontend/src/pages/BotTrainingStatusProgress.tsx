@@ -64,13 +64,14 @@ export const BotTrainingStatusProgress: React.FC<BotTrainingStatusProgressProps>
       case 'reconfiguring': return 'Reconfiguring...';
       case 'pending': return 'Pending...';
       case 'retraining': return 'Retraining...';
+      case 'training': return 'Training...';
       default: return status.charAt(0).toUpperCase() + status.slice(1);
     }
   };
 
   const getProgressColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'error': return '#22c55e';
+      case 'Error': return '#e41515ff';
       case 'training': return '#8b5cf6';
       case 'reconfiguring': return '#8b5cf6';
       case 'pending': return '#3b82f6';
@@ -129,11 +130,11 @@ export const BotTrainingStatusProgress: React.FC<BotTrainingStatusProgressProps>
             
             <span className={`
             text-xs font-semibold px-3 py-1 rounded-full shadow-sm border 
-            ${status.overall_status === 'error' ? 'bg-red-100 text-red-700 border-red-300' :
-                status.overall_status === 'training' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+            ${status.overall_status === 'Error' ? 'bg-red-100 text-red-700 border-red-300' :
+                status.overall_status === 'Training' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
                 status.overall_status === 'reconfiguring' ? 'bg-purple-100 text-purple-700 border-purple-300' :
                 status.overall_status === 'Pending' ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                status.overall_status === 'Retraining' ? 'bg-indigo-100 text-indigo-700 border-indigo-300' :
+                status.overall_status === 'Retraining' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
                 'bg-green-100 text-green-700 border-green-300'}
             `}>
             {getStatusText(status.overall_status)}

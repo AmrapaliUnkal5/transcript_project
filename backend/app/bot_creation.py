@@ -323,6 +323,8 @@ def update_bot_fields(
         bot.is_active = bot_update.is_active
     if bot_update.is_trained is not None: 
         bot.is_trained = bot_update.is_trained
+    if bot_update.is_retrained is not None: 
+        bot.is_retrained = bot_update.is_retrained
 
     db.commit()
     db.refresh(bot)

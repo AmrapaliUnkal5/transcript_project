@@ -123,6 +123,7 @@ class Bot(Base):
     unanswered_msg = Column(Text, nullable=True, default="I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?")
     is_trained = Column(Boolean, nullable=False, default=False)
     active_mail_sent= Column(Boolean,nullable=False,default=False)
+    is_retrained = Column(Boolean, nullable=False, default=False)
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")

@@ -487,7 +487,7 @@ fetchCaptcha: async () => {
     return response.data;
   },
 
-  updateBotFields: async (botId: number, fields: { status?: string; is_active?: boolean, is_trained?: boolean }) => {
+  updateBotFields: async (botId: number, fields: { status?: string; is_active?: boolean, is_trained?: boolean, is_retrained?: boolean }) => {
   const response = await api.patch(`/update-bot-fields/${botId}`, fields);
   return response.data;
 },

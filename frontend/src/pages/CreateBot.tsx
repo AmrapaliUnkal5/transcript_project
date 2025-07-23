@@ -27,6 +27,7 @@ import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import  handleScrape  from "./WebScrapingTab.tsx";
 import { TrainingDataTab } from "./TrainingDataTab";
 import { ChevronDown } from 'lucide-react';
+import { useSearchParams,useLocation } from "react-router-dom";
 
 
 interface Step {
@@ -105,7 +106,7 @@ const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
 export const CreateBot = () => {
   const { selectedBot, setSelectedBot } = useBot();
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(0);
+  //const [currentStep, setCurrentStep] = useState(0);
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [files, setFiles] = useState<FileWithCounts[]>([]);
   const [botName, setBotName] = useState("");
@@ -128,6 +129,17 @@ export const CreateBot = () => {
   const [isLoadingSaveWeb, setIsLoadingSaveWeb] = useState(false);
   const [isLoadingSaveFiles, setIsLoadingSaveFiles] = useState(false);
   const [isLoadingSaveYouTube, setIsLoadingSaveYouTube] = useState(false);
+  const [searchParams] = useSearchParams();
+  const urlBotId = searchParams.get('botId');
+  const urlStep = searchParams.get('step');
+  const [hasAnyExistingContent, setHasAnyExistingContent] = useState(false);
+  const [userBotCount, setUserBotCount] = useState(0);
+  const [maxBotsAllowed, setMaxBotsAllowed] = useState(0);
+  const location = useLocation();
+
+// Initialize currentStep based on URL
+  const [currentStep, setCurrentStep] = useState(urlStep ? parseInt(urlStep) : 0);
+  const [bots, setBots] = useState<Bot[]>([]);
 
   const [processingMessage, setProcessingMessage] = useState(
     "Getting things ready for you..."
@@ -189,6 +201,82 @@ const [hasWebsiteContent, setHasWebsiteContent] = useState(false);
 const [hasYouTubeContent, setHasYouTubeContent] = useState(false);
 const isCreateBotFlow = location.pathname.includes('/dashboard/create-bot');
 const [hasScraped, setHasScraped] = useState(false);
+
+useEffect(() => {
+  const fetchBotLimits = async () => {
+    try {
+      // Get user's current bot count
+      const botResponse = await authApi.getBotSettingsByUserId(user?.user_id);
+      const botCount = botResponse.length;
+      setUserBotCount(botCount);
+      
+      // Get user's plan limits
+      const userPlan = getPlanById(user?.subscription_plan_id);
+      setMaxBotsAllowed(userPlan?.chatbot_limit || 0);
+    } catch (error) {
+      console.error("Error fetching bot limits:", error);
+    }
+  };
+  
+  fetchBotLimits();
+}, [user?.user_id, user?.subscription_plan_id, getPlanById]);
+
+useEffect(() => {
+  const checkForExistingContent = async () => {
+    if (!selectedBot?.id) return;
+    
+    try {
+      // Check all content types in parallel
+      const [files, youtubeVideos, scrapedUrls] = await Promise.all([
+        authApi.getFiles(selectedBot.id),
+        authApi.fetchVideosForBot(selectedBot.id),
+        authApi.getScrapedUrls(selectedBot.id)
+      ]);
+      
+      setHasAnyExistingContent(
+        files.length > 0 || 
+        youtubeVideos.length > 0 || 
+        scrapedUrls.length > 0
+      );
+    } catch (error) {
+      console.error("Error checking existing content:", error);
+    }
+  };
+  
+  checkForExistingContent();
+}, [selectedBot?.id]);
+
+// Load bot data if URL has botId
+useEffect(() => {
+  // First check location state for bot data
+  if (location.state?.botId) {
+    setBotId(location.state.botId);
+    if (location.state.botName) {
+      setBotName(location.state.botName);
+    }
+    // If coming from draft, we already have the bot
+    if (location.state.fromDraft) {
+      setSelectedBot({
+        id: location.state.botId,
+        name: location.state.botName,
+        status: "Draft",
+        conversations: 0,
+        satisfaction: 0
+      });
+      
+      // If coming from draft and URL has step=1, stay on step 1
+      if (urlStep === '1') {
+        setCurrentStep(1);
+      }
+    }
+  }
+
+  // Then check URL params if no state
+  else if (urlBotId) {
+    setBotId(parseInt(urlBotId));
+  }
+}, [location.state, urlBotId, urlStep]);
+
 
  useEffect(() => {
   if (selectedBot?.id) {
@@ -662,6 +750,12 @@ const handleDelete = async (id: string) => {
 
   const handleNext = async () => {
     if (currentStep === 0) {
+    if (!botId && userBotCount >= maxBotsAllowed) {
+      toast.error(
+        `You already have ${userBotCount} bots. Your plan allows only ${maxBotsAllowed} bot(s). Upgrade to create more.`
+      );
+      return;
+    }
       if (!botName.trim()) {
         toast.error("Please enter a bot name.");
         return;
@@ -736,7 +830,10 @@ const handleDelete = async (id: string) => {
     return;
   }
     if (currentStep === 0) {
-      navigate("/");
+      navigate("/",{ state: { botName,
+        botId,
+        fromDraft: !!location.state?.fromDraft
+       } });
     } else if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
@@ -1792,33 +1889,27 @@ const renderStepContent = () => {
                   Previous
                 </button>
                 <button
-                  onClick={handleNext}
-                  disabled={isLoadingNext}
-                  className={`flex items-center justify-center px-6 py-2 rounded-lg text-white font-medium min-w-[100px]
-                    ${isLoadingNext ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                    transition-colors duration-200
-                  `}
-                  style={{
-                    fontFamily: "Instrument Sans, sans-serif",
-                    fontSize: "16px",
-                    backgroundColor: botName.trim() ? "#5348CB" : "#AAAAAA",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (botName.trim())
-                      e.currentTarget.style.backgroundColor = "#4034B1";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (botName.trim())
-                      e.currentTarget.style.backgroundColor = "#5348CB";
-                  }}
-                >
-                  {isLoadingNext ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
-                      Processing...
-                    </>
-                  ) : "Next"}
-                </button>
+                onClick={handleNext}
+                disabled={
+                  isLoadingNext || 
+                  (currentStep === 0 && !botName.trim()) ||
+                  (currentStep === 1 && !hasAnyExistingContent && files.length === 0 && !hasYouTubeContent && !hasWebsiteContent)
+                }
+                className={`flex items-center justify-center px-6 py-2 rounded-lg text-white font-medium min-w-[100px]
+                  ${(isLoadingNext || 
+                    (currentStep === 0 && !botName.trim()) ||
+                    (currentStep === 1 && !hasAnyExistingContent && files.length === 0 && !hasYouTubeContent && !hasWebsiteContent)) 
+                    ? "cursor-not-allowed bg-gray-400" : "cursor-pointer bg-blue-600 hover:bg-blue-700"}
+                  transition-colors duration-200
+                `}
+              >
+                {isLoadingNext ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                    Processing...
+                  </>
+                ) : "Next"}
+              </button>
               </div>
             )}
           </div>

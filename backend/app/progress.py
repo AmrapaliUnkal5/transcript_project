@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException,WebSocket, WebSocketDisconnect
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -83,11 +84,51 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+@router.websocket("/ws/user-bots-status")
+async def user_bots_status_websocket(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        # Step 1: Wait for user_id from client
+        user_id_msg = await websocket.receive_text()
+        user_id = int(user_id_msg)
+        while True:
+            db = SessionLocal()
+            data_status= await bot_status_compute(user_id,db)
+            await websocket.send_text(json.dumps(data_status))
+            db.close()
+            await asyncio.sleep(3)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        
+async def bot_status_compute(user_id: int, db: Session):
+    bots = db.query(Bot).filter(Bot.user_id == user_id, Bot.status != 'Deleted').all()
+    status_list = []
+    for bot in bots:
+        if bot.status != "Draft":
+            # Only compute status if not in Draft
+            await compute_status(bot.bot_id, db)
+        
+        status_list.append({
+            "bot_id": bot.bot_id,
+            "status": bot.status,
+        })
+    return status_list
+
 
 async def compute_status(bot_id: int, db: Session):
     bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found")
+    
+    if bot.status == "Draft":
+        return {
+            "overall_status": "draft",
+            "progress": {
+                "files": {"status": "not_started", "completed": 0, "failed": 0, "pending": 0, "total": 0},
+                "websites": {"status": "not_started", "completed": 0, "failed": 0, "pending": 0, "total": 0},
+                "youtube": {"status": "not_started", "completed": 0, "failed": 0, "pending": 0, "total": 0}
+            },
+        }
     
     # If bot is manually set to Reconfiguring, keep that status
     if bot.status == "Reconfiguring":
@@ -99,17 +140,20 @@ async def compute_status(bot_id: int, db: Session):
                 "youtube": {"status": "paused", "completed": 0, "failed": 0, "pending": 0, "total": 0}
             }
         }
+     
 
     file_status = await get_file_status(bot_id, db)
     website_status = await get_website_status(bot_id, db)
     youtube_status = await get_youtube_status(bot_id, db)
 
-    overall_status = determine_overall_status(file_status, website_status, youtube_status)
+    overall_status = determine_overall_status(file_status, website_status, youtube_status, bot)
 
     # update bot status
     bot.is_trained = (overall_status == "active")
     bot.is_active = (overall_status == "active")
     bot.status = overall_status
+    bot.updated_at = datetime.utcnow()
+
     # Send activation email if bot just became active
     if overall_status == "Active" and not bot.active_mail_sent:
         user = db.query(User).filter(User.user_id == bot.user_id).first()
@@ -305,7 +349,7 @@ async def get_youtube_status(bot_id: int, db: Session) -> Dict:
         "status": status
     }
 
-def determine_overall_status(file_status: Dict, website_status: Dict, youtube_status: Dict) -> str:
+def determine_overall_status(file_status: Dict, website_status: Dict, youtube_status: Dict, bot: Bot = None) -> str:
     """
     Determine overall bot status based on individual knowledge source statuses.
     
@@ -314,15 +358,23 @@ def determine_overall_status(file_status: Dict, website_status: Dict, youtube_st
     - If ANY knowledge source is still training (training status), return "training"
     - Otherwise (all complete or mix of complete and some failed), return "active"
     """
-    # Check if all knowledge sources failed
     all_failed = (
-        (file_status["status"] == "error" or file_status["total"] == 0) and
-        (website_status["status"] == "error" or website_status["total"] == 0) and
-        (youtube_status["status"] == "error" or youtube_status["total"] == 0)
+        (file_status["status"] == "error") and
+        (website_status["status"] == "error") and
+        (youtube_status["status"] == "error")
     )
     
     if all_failed:
         return "Error"
+    
+    no_content=(
+        (file_status["total"] == 0) and 
+        (website_status["total"] == 0) and 
+        (youtube_status["total"] == 0)
+    )
+
+    if no_content:
+        return "Draft"
     
     # Check if any knowledge source is still training
     any_training = (
@@ -332,6 +384,8 @@ def determine_overall_status(file_status: Dict, website_status: Dict, youtube_st
     )
     
     if any_training:
+        if bot.is_retrained:
+            return "Retraining"
         return "Training"
     
     # Otherwise, bot is active (has at least one completed knowledge source)

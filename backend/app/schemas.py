@@ -167,6 +167,7 @@ class BotUpdateFields(BaseModel):
     status: Optional[str] = None
     is_active: Optional[bool] = None
     is_trained: Optional[bool] = None  
+    is_retrained: Optional[bool] = None 
 
     class Config:
         extra = "forbid"

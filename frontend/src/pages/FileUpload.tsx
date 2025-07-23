@@ -692,6 +692,7 @@ export const FileUpload = () => {
       const response = await authApi.updateBotFields(selectedBot.id, {
         status: "Retraining",
         is_active: false,
+        is_retrained: true
       });
 
       // 1b. Call your training API
