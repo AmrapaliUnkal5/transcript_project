@@ -32,7 +32,7 @@ from app.dashboard_consumables import router as bot_conversations_router
 import os
 import uuid
 from fastapi.staticfiles import StaticFiles
-from app.scraper import scrape_selected_nodes, get_website_nodes, get_scraped_urls_func
+from app.scraper import scrape_selected_nodes, get_website_nodes, get_scraped_urls_func, get_links_from_sitemap
 from app.file_size_validations import router as file_size_validations_router
 from app.bot_creation import router as bot_creation
 from typing import List
@@ -764,6 +764,23 @@ def get_nodes(website_url: str = Query(..., title="Website URL")):
     API to get a list of all available pages (nodes) from a website.
     """
     return get_website_nodes(website_url)
+
+@app.get("/sitemap-nodes", response_model=List[str])
+async def fetch_sitemap_nodes(website_url: str = Query(..., alias="website_url")):
+    try:
+        homepage_nodes_result = get_website_nodes(website_url)
+        homepage_nodes = homepage_nodes_result.get("nodes", [])
+
+        sitemap_nodes = get_links_from_sitemap(website_url)
+
+        all_links = set(homepage_nodes + sitemap_nodes)
+        print(f"[INFO] Combined Total Before Validation: {len(all_links)}")
+
+        return all_links
+
+    except Exception as e:
+        print(f"[ERROR] Deep scan failed for {website_url} - {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/scraped-urls/{bot_id}", response_model=List[PageData])

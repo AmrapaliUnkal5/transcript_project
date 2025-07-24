@@ -99,7 +99,7 @@ class Bot(Base):
     llm_model_id = Column(Integer, ForeignKey("llm_models.id"), nullable=True)
     message_count = Column(Integer, default=0)
     window_bg_color = Column(String, nullable=True, default="#F9FAFB")
-    welcome_message = Column(Text, nullable=True, default="Hi there! How can I help you today?")
+    welcome_message = Column(Text, nullable=True, default="Hello! How can I help you?")
     input_bg_color = Column(String, nullable=True, default="#FFFFFF")
     file_size = Column(BigInteger, default=0)
     # New customization fields
@@ -120,7 +120,7 @@ class Bot(Base):
     lead_generation_enabled = Column(Boolean, nullable=False, default=False)
     lead_form_config = Column(JSONB, nullable=True)
     show_sources = Column(Boolean, nullable=False, default=False)
-    unanswered_msg = Column(Text, nullable=True, default="I don't have information on that topic.")
+    unanswered_msg = Column(Text, nullable=True, default="I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?")
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")

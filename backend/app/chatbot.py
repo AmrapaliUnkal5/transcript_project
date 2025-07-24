@@ -155,7 +155,7 @@ def is_greeting(message: str) -> tuple[bool, str]:
     # Dictionary of greetings and their responses
     greetings = {
         # Basic greetings
-        "hi": "Hi there! How can I help you today?",
+        "hi": "Hello! How can I help you?",
         "hello": "Hello! How can I assist you?",
         "hey": "Hey! What can I help you with?",
         "greetings": "Greetings! How may I assist you today?",
@@ -339,7 +339,7 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         raise HTTPException(status_code=404, detail=f"Bot with ID {bot_id} not found")
     
     # Get the bot's unanswered message
-    unanswered_message = bot.unanswered_msg if bot.unanswered_msg else "I don't have information on that topic."
+    unanswered_message = bot.unanswered_msg if bot.unanswered_msg else "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?"
 
     # ✅ Check if this is just a greeting message, to save tokens
     is_greeting_msg, greeting_response = is_greeting(user_message)
@@ -544,7 +544,8 @@ def get_bot_videos(request: Request, bot_id: int, db: Session = Depends(get_db))
                 video_id=video.video_id,
                 video_title=video.video_title,
                 video_url=video.video_url,
-                transcript_count=video.transcript_count or 0
+                transcript_count=video.transcript_count or 0,
+                upload_date=video.created_at
             )
             for video in videos
         ]

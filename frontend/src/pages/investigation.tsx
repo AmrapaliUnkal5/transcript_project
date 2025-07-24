@@ -175,7 +175,7 @@ const Investigation = () => {
   return (
     <div className="space-y-6">
       <ToastContainer />
-      {loading && <Loader />}
+      {/* {loading && <Loader />} */}
 
       <div
         className="flex justify-between items-center mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm"
@@ -293,7 +293,7 @@ const Investigation = () => {
                           {index + 1}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 ">
                         <span className="text-sm text-gray-900 dark:text-white">
                           {node.title}
                         </span>

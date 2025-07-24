@@ -12,9 +12,24 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EastOutlinedIcon from "@mui/icons-material/EastOutlined";
 import ReactGA from "react-ga4";
 import {trackGAEvent} from './Hero';
+import { useSubscriptionPlans } from "../../context/SubscriptionPlanContext";
 
 
 export default function Plans() {
+  const { plans } = useSubscriptionPlans();
+  
+  // Get plans by name for dynamic pricing
+  const starterPlan = plans.find(plan => plan.name === "Starter");
+  const growthPlan = plans.find(plan => plan.name === "Growth");
+  const professionalPlan = plans.find(plan => plan.name === "Professional");
+  
+  // Format price helper
+  const formatPrice = (price: number | string | null | undefined) => {
+    if (price === null || price === undefined) return "0";
+    if (typeof price === "string" && price.toLowerCase() === "custom") return "Custom";
+    return Number(price).toFixed(2);
+  };
+
   return (
     <>
       <Box
@@ -140,7 +155,7 @@ export default function Plans() {
                       fontSize={["32px", "36px"]}
                       color="white"
                     >
-                      $14.99 <span style={{ opacity: 0.7 }}>/ ₹1,300</span>
+                      ${formatPrice(starterPlan?.price)} <span style={{ opacity: 0.7 }}>/ ₹1,300</span>
                     </Typography>
 
                     <Typography
@@ -287,7 +302,7 @@ export default function Plans() {
                       fontSize={["32px", "36px"]}
                       color="white"
                     >
-                      $24.99 <span style={{ opacity: 0.7 }}>/ ₹2,150</span>
+                      ${formatPrice(growthPlan?.price)} <span style={{ opacity: 0.7 }}>/ ₹2,150</span>
                     </Typography>
 
                     <Typography
@@ -432,7 +447,7 @@ export default function Plans() {
                       fontSize={["32px", "36px"]}
                       color="white"
                     >
-                      $54.99 <span style={{ opacity: 0.7 }}>/ ₹4,750</span>
+                      ${formatPrice(professionalPlan?.price)} <span style={{ opacity: 0.7 }}>/ ₹4,750</span>
                     </Typography>
 
                     <Typography

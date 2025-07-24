@@ -3,6 +3,7 @@ import { Box, Button, Typography } from "@mui/material";
 import Typical from "react-typical";
 import Divider from "@mui/material/Divider";
 import { useEffect } from "react";
+import { useSubscriptionPlans } from "../../context/SubscriptionPlanContext";
 
 import { styled } from "@mui/material/styles";
 import {
@@ -15,6 +16,19 @@ import {
   Paper,
 } from "@mui/material";
 export const OurplanTable = () => {
+  const { plans } = useSubscriptionPlans();
+  
+  // Get plans by name for dynamic pricing
+  const starterPlan = plans.find(plan => plan.name === "Starter");
+  const growthPlan = plans.find(plan => plan.name === "Growth");
+  const professionalPlan = plans.find(plan => plan.name === "Professional");
+  
+  // Format price helper
+  const formatPrice = (price: number | string | null | undefined) => {
+    if (price === null || price === undefined) return "0";
+    if (typeof price === "string" && price.toLowerCase() === "custom") return "Custom";
+    return Number(price).toFixed(2);
+  };
 
   useEffect(() => {    //Using this use effect so that the page direct scrolls there once user clicks required button
   const hash = window.location.hash;
@@ -519,12 +533,12 @@ export const OurplanTable = () => {
                     <TableCell
                       sx={{ fontSize: "14px", fontWeight: 400, color: "white" }}
                     >
-                      $14.99
+                      ${formatPrice(starterPlan?.price)}
                     </TableCell>
                     <TableCell
                       sx={{ fontSize: "14px", fontWeight: 400, color: "white" }}
                     >
-                      $24.99
+                      ${formatPrice(growthPlan?.price)}
                     </TableCell>
                   </TableRow>
                 </TableBody>
@@ -562,7 +576,7 @@ export const OurplanTable = () => {
                     <TableCell
                       sx={{ fontSize: "14px", fontWeight: 400, color: "white" }}
                     >
-                      $54.99
+                      ${formatPrice(professionalPlan?.price)}
                     </TableCell>
                     <TableCell
                       sx={{ fontSize: "14px", fontWeight: 400, color: "white" }}

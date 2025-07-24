@@ -120,7 +120,7 @@ class BotBase(BaseModel):
     last_message_reset: Optional[datetime] = None
     file_size: Optional[int] = 0
     window_bg_color: Optional[str] = "#F9FAFB"
-    welcome_message: Optional[str] = "Hi there! How can I help you today?"
+    welcome_message: Optional[str] = "Hello! How can I help you?"
     input_bg_color: Optional[str] = "#FFFFFF"
     # New customization fields
     header_bg_color: Optional[str] = "#3B82F6"
@@ -136,7 +136,7 @@ class BotBase(BaseModel):
     lead_generation_enabled: Optional[bool] = False
     lead_form_config: Optional[List[LeadFormField]] = []
     show_sources: Optional[bool] = False
-    unanswered_msg:Optional[str] = "I don't have information on that topic."
+    unanswered_msg:Optional[str] = "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?"
 
 class BotCreate(BotBase):
     pass  
@@ -279,6 +279,7 @@ class PageData(BaseModel):
     url: str
     title: str | None  # Allowing None if the title is missing
     Word_Counts: int
+    upload_date:Optional[datetime] = None
 
 class EmbeddingModelBase(BaseModel):
     name: str
@@ -480,6 +481,7 @@ class YouTubeVideoResponse(BaseModel):
     video_title: str
     video_url: str
     transcript_count: Optional[int] = 0
+    upload_date: Optional[datetime] = None
 
 class WordCloudResponse(BaseModel):
     words: List[Dict[str, Union[str, int]]]
@@ -508,7 +510,7 @@ class BotWidgetResponse(BaseModel):
     last_message_reset: Optional[datetime] = None
     file_size: Optional[int] = 0
     window_bg_color: Optional[str] = "#F9FAFB"
-    welcome_message: Optional[str] = "Hi there! How can I help you today?"
+    welcome_message: Optional[str] = "Hello! How can I help you?"
     input_bg_color: Optional[str] = "#FFFFFF"
     header_bg_color: Optional[str] = "#3B82F6"
     header_text_color: Optional[str] = "#FFFFFF"

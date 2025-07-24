@@ -209,25 +209,65 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
     setCurrentPage(page);
   };
 
-  const renderPaginationButtons = () => {
-    const buttons = [];
+  const renderButton = (pageNumber: number) => (
+  <button
+    key={pageNumber}
+    onClick={() => handlePageChange(pageNumber)}
+    className={`px-4 py-2 mx-1 rounded-md ${
+      currentPage === pageNumber
+        ? "bg-blue-500 text-white"
+        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+    }`}
+  >
+    {pageNumber}
+  </button>
+);
+
+const renderPaginationButtons = () => {
+  const buttons = [];
+  const maxPagesToShow = 5;
+
+  if (totalPages <= maxPagesToShow + 2) {
+    // Show all pages if count is small
     for (let i = 1; i <= totalPages; i++) {
+      buttons.push(renderButton(i));
+    }
+  } else {
+    // Always show first page
+    buttons.push(renderButton(1));
+
+    // Show starting ellipsis
+    if (currentPage > 3) {
       buttons.push(
-        <button
-          key={i}
-          onClick={() => handlePageChange(i)}
-          className={`px-4 py-2 mx-1 rounded-md ${
-            currentPage === i
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          {i}
-        </button>
+        <span key="start-ellipsis" className="px-2 text-gray-500">
+          ...
+        </span>
       );
     }
-    return buttons;
-  };
+
+    // Middle page buttons
+    const startPage = Math.max(2, currentPage - 1);
+    const endPage = Math.min(totalPages - 1, currentPage + 1);
+
+    for (let i = startPage; i <= endPage; i++) {
+      buttons.push(renderButton(i));
+    }
+
+    // Show ending ellipsis
+    if (currentPage < totalPages - 2) {
+      buttons.push(
+        <span key="end-ellipsis" className="px-2 text-gray-500">
+          ...
+        </span>
+      );
+    }
+
+    // Always show last page
+    buttons.push(renderButton(totalPages));
+  }
+
+  return buttons;
+};
 
   return (
     <div className="space-y-4  ">
@@ -304,7 +344,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setSelectedVideos([...videoUrls])}
-                      className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                      className="px-3 py-1 bg-[#5348CB] text-white text-sm rounded hover:bg-[#433aa8]"
                     >
                       Select All ({videoUrls.length})
                     </button>

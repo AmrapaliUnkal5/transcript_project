@@ -40,6 +40,8 @@ const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
         <div className="flex justify-center">
           <a
             href="/dashboard/subscription"
+            target="_blank"
+            rel="noopener noreferrer"
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
           >
             Upgrade Plan
@@ -65,6 +67,7 @@ export const FileUpload = () => {
       video_title: string;
       video_id: string;
       transcript_count?: number;
+      upload_date?: string;
     }[]
   >([]);
   const { loading, setLoading } = useLoader();
@@ -977,7 +980,7 @@ export const FileUpload = () => {
   return (
     <div className="space-y-6">
       <ToastContainer />
-      {loading && <Loader />}
+      {/* {loading && <Loader />} */}
 
       <div
         className="flex justify-between items-center mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm"
@@ -999,7 +1002,7 @@ export const FileUpload = () => {
           </h2>
         </div>
 
-        <div className="flex items-center space-x-4 ">
+        {/* <div className="flex items-center space-x-4 ">
           <span
             className="text-sm font-medium text-gray-700 dark:text-gray-300"
             style={{
@@ -1064,7 +1067,7 @@ export const FileUpload = () => {
             />
             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
           </label>
-        </div>
+        </div> */}
       </div>
 
 
@@ -1614,16 +1617,64 @@ export const FileUpload = () => {
                   <thead>
                    
                     <tr style={{ backgroundColor: '#EFF0FF',height: '57px',fontFamily: 'Instrument Sans, sans-serif',fontSize: '16px',fontWeight: '600',color:"black" }}>
-                      <th className="px-6 py-3 text-left  tracking-wider ">
-                        #
+                       <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
+                            textTransform:'none'
+                          }}
+                        >
+                        S.No
                       </th>
-                      <th className="px-6 py-3 text-left  tracking-wider">
+                      <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
+                            textTransform:'none'
+                          }}
+                        >
                         Title
                       </th>
-                      <th className="px-6 py-3 text-left  tracking-wider">
+                      <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
+                            textTransform:'none'
+                          }}
+                        >
                         Video URL
                       </th>
-                      <th className="px-6 py-3 text-right  tracking-wider">
+                      <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
+                            textTransform:'none'
+                          }}
+                        >
+                        Upload Date
+                      </th>
+                      <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
+                            textTransform:'none'
+                          }}
+                        >
                         Actions
                       </th>
                     </tr>
@@ -1653,6 +1704,13 @@ export const FileUpload = () => {
                           >
                             {videoUrl.video_url}
                           </a>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {videoUrl.upload_date
+                            ? new Date(videoUrl.upload_date).toLocaleDateString()
+                            : "N/A"}
+                        </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <button

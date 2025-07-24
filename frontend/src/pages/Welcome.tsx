@@ -923,9 +923,20 @@ const storageOptions = {
                 </div>
 
                 <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
-                    {bot.name}
-                  </h3>
+                  {/* <h3 className="font-semibold text-gray-900 dark:text-white">
+                    
+                    {bot.name.length > 25 ? `${bot.name.slice(0, 25)}...` : bot.name}
+                  </h3> */}
+
+                  <div className="relative group w-fit">
+                       <h3 className="font-semibold text-gray-900 dark:text-white">
+                            {bot.name.length > 25 ? `${bot.name.slice(0, 25)}...` : bot.name}
+                            </h3>
+  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-max max-w-xs rounded bg-[#EDF9FE] text-black text-sm px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+    {bot.name}
+  </div>
+</div>
+
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">
                     {bot.status}
                   </span>
