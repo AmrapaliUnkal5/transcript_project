@@ -88,7 +88,7 @@ const showError = (message) => {
                     sx={{ width: 28, height: 28, color: "#BAB8FF", mr: 2 }}
                   />
                   <Typography variant="body1" fontSize={16} color={"#cacaca"}>
-                    support@evolra.ai
+                    hello@evolra.ai
                   </Typography>
                 </Box>
               </Grid>
