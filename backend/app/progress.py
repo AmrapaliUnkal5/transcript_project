@@ -36,14 +36,19 @@ def get_bot_progress_data(bot_id: int, db: Session = Depends(get_db)):
         files_data = [{"file_name": file.file_name} for file in files]
         
         # Get scraped nodes data
-        scraped_nodes = db.query(ScrapedNode).filter(ScrapedNode.bot_id == bot_id).all()
-        scraped_data = [{"url": node.url, "title": node.title} for node in scraped_nodes]
+        scraped_nodes = db.query(ScrapedNode).filter(ScrapedNode.bot_id == bot_id, ScrapedNode.is_deleted == False).all()
+        scraped_data = [{
+            "url": node.url,
+            "title": node.title,
+            "nodes_text_count": node.nodes_text_count or 0
+        } for node in scraped_nodes]
         
         # Get YouTube videos data
-        youtube_videos = db.query(YouTubeVideo).filter(YouTubeVideo.bot_id == bot_id).all()
+        youtube_videos = db.query(YouTubeVideo).filter(YouTubeVideo.bot_id == bot_id,YouTubeVideo.is_deleted == False).all()
         youtube_data = [{
             "video_title": video.video_title,
-            "video_url": video.video_url
+            "video_url": video.video_url,
+            "transcript_count": video.transcript_count or 0
         } for video in youtube_videos]
         
         return {

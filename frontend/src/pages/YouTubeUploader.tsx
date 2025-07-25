@@ -385,7 +385,11 @@ const renderPaginationButtons = () => {
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => setSelectedVideos([...videoUrls])}
+                      onClick={() => {
+                        setSelectedVideos([...videoUrls]);
+                        setIsVideoSelected(videoUrls.length > 0);
+                        if (onChangesMade) onChangesMade();
+                      }}
                       className="px-3 py-1 bg-[#5348CB] text-white text-sm rounded hover:bg-[#433aa8]"
                     >
                       Select All ({videoUrls.length})

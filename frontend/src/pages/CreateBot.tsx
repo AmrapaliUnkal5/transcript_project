@@ -244,7 +244,7 @@ useEffect(() => {
   };
   
   checkForExistingContent();
-}, [selectedBot?.id]);
+}, [selectedBot?.id,currentStep]);
 
 // Load bot data if URL has botId
 useEffect(() => {
@@ -283,7 +283,7 @@ useEffect(() => {
     fetchFiles();
     //fetchYouTubeVideos(); // For YouTube videos
   }
-}, [selectedBot?.id]);
+}, [selectedBot?.id, currentStep]);
 
   // Fetch user usage on component mount
   useEffect(() => {
