@@ -1,3 +1,4 @@
+import hashlib
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -17,13 +18,14 @@ from app.llm_manager import LLMManager
 from app.models import Bot
 from app.notifications import add_notification
 from app.utils.logger import get_module_logger
-from app.celery_tasks import process_youtube_videos
+from app.celery_tasks import process_youtube_videos_part1
 from app.dependency import get_current_user
 from app.schemas import UserOut, YouTubeVideoResponse
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import HumanMessage, AIMessage
 from datetime import datetime, timezone
 from app.utils.ai_logger import log_chat_completion
+
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -497,68 +499,86 @@ async def fetch_videos(request: Request, video_request: YouTubeRequest):
 @router.post("/process-videos")
 async def process_selected_videos(
     request: Request,
-    video_request: VideoProcessingRequest, 
+    video_request: VideoProcessingRequest,
     db: Session = Depends(get_db)
 ):
-    """API to process selected YouTube video transcripts and store them in ChromaDB using Celery."""
     request_id = getattr(request.state, "request_id", "unknown")
     
     logger.info(f"Processing selected videos", 
                extra={"request_id": request_id, "bot_id": video_request.bot_id, 
                      "video_count": len(video_request.video_urls) if video_request.video_urls else 0})
     
-    try:
-        # Phase 1: Save minimal video records immediately
-        new_videos = []
-        for video_url in video_request.video_urls:
-            
-            # Extract video ID from URL
-            video_id = extract_video_id(video_url)
-            if not video_id:
-                continue
-                            
-            # Check if video already exists for this bot
-            existing_video = db.query(YouTubeVideo).filter(
-                YouTubeVideo.video_id == video_id,
-                YouTubeVideo.bot_id == video_request.bot_id,
-                YouTubeVideo.is_deleted == False
-            ).first()
-            
-            if not existing_video:
-                # Create minimal record
-                new_video = YouTubeVideo(
-                    video_id=video_id,
-                    video_url=video_url,
-                    bot_id=video_request.bot_id,
-                    video_title="YouTube Video",
-                    embedding_status="pending"
-                )
-                db.add(new_video)
-                new_videos.append(video_url)
-        
-        db.commit()
-        logger.info(f"Saved {len(new_videos)} new video records", 
-                   extra={"request_id": request_id, "bot_id": video_request.bot_id})
-        
-        # Launch Celery task
-        task = process_youtube_videos.delay(
-            video_request.bot_id,
-            video_request.video_urls
+
+    bot = db.query(Bot).filter(Bot.bot_id == video_request.bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+
+    user_id = bot.user_id
+    print("user_id")
+    inserted = 0
+    skipped = 0
+    new_video_urls = []
+
+    for url in video_request.video_urls:
+        # Generate fallback video_id from URL (same logic used elsewhere)
+        if "youtu.be/" in url:
+            video_id = url.split("youtu.be/")[-1].split("?")[0]
+        elif "v=" in url:
+            video_id = url.split("v=")[-1].split("&")[0]
+        else:
+            video_id = hashlib.md5(url.encode()).hexdigest()
+
+        existing = db.query(YouTubeVideo).filter(
+            YouTubeVideo.video_id == video_id,
+            YouTubeVideo.bot_id == video_request.bot_id,
+            YouTubeVideo.is_deleted == False
+        ).first()
+
+        if existing:
+            skipped += 1
+            continue
+
+        # Insert basic video record
+        basic_video = YouTubeVideo(
+            video_id=video_id,
+            video_url=url,
+            bot_id=video_request.bot_id,
+            video_title="YouTube Video",
+            transcript_count=0,
+            status="Extracting",
+            created_by=user_id,
+            updated_by=user_id,
         )
-        
-        logger.info(f"Video processing started with Celery task ID: {task.id}", 
-                   extra={"request_id": request_id, "bot_id": video_request.bot_id, "task_id": task.id})
-                   
-        # Return immediately with a message that processing has started
+        db.add(basic_video)
+        inserted += 1
+        new_video_urls.append(url)
+
+    db.commit()
+
+    print(f"✅ Inserted {inserted} new videos, skipped {skipped} existing ones")
+
+    if new_video_urls:
+        try:
+            task = process_youtube_videos_part1.delay(
+                video_request.bot_id,
+                new_video_urls
+            )
+            return {
+                "message": f"Video processing started for {inserted} new videos, skipping {skipped} existing ones in the background.",
+                "task_id": task.id if inserted > 0 else None,
+                "inserted": inserted,
+                "skipped": skipped
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    else:
         return {
-            "message": "Video processing started in the background",
-            "task_id": task.id
+            "message": "All provided videos already exist. Nothing to process.",
+            "task_id": None,
+            "inserted": inserted,
+            "skipped": skipped
         }
-    except Exception as e:
-        logger.exception(f"Error starting video processing", 
-                        extra={"request_id": request_id, "bot_id": video_request.bot_id, 
-                              "error": str(e)})
-        raise HTTPException(status_code=500, detail=f"Error starting video processing: {str(e)}")
+
 
 @router.get("/bot/{bot_id}/videos", response_model=List[YouTubeVideoResponse])
 def get_bot_videos(request: Request, bot_id: int, db: Session = Depends(get_db)):
@@ -583,7 +603,8 @@ def get_bot_videos(request: Request, bot_id: int, db: Session = Depends(get_db))
                 video_title=video.video_title,
                 video_url=video.video_url,
                 transcript_count=video.transcript_count or 0,
-                upload_date=video.created_at
+                upload_date=video.created_at,
+                status=video.status
             )
             for video in videos
         ]
@@ -618,22 +639,23 @@ def soft_delete_video(request: Request, bot_id: int, video_id: str = Query(...),
             logger.warning(f"Video not found for deletion", 
                           extra={"request_id": request_id, "bot_id": bot_id, "video_id": video_id})
             raise HTTPException(status_code=404, detail="Video not found")
-        
-        # Get the transcript count from the video if word_count parameter wasn't provided
-        transcript_count = word_count if word_count > 0 else (video.transcript_count or 0)
-        
+
         # Soft delete the video in the database
         video.is_deleted = True
-        
-        # Update bot and user word counts
-        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
-        if bot:
-            bot.word_count = max(0, (bot.word_count or 0) - transcript_count)
-        
-        user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
-        if user:
-            user.total_words_used = max(0, (user.total_words_used or 0) - transcript_count)
-        
+         # Get the transcript count from the video if word_count parameter wasn't provided
+        transcript_count = word_count if word_count > 0 else (video.transcript_count or 0)
+
+        if video.status == "Success":
+
+            # Update bot and user word counts
+            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+            if bot:
+                bot.word_count = max(0, (bot.word_count or 0) - transcript_count)
+
+            user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
+            if user:
+                user.total_words_used = max(0, (user.total_words_used or 0) - transcript_count)
+
         db.commit()
         
         # Delete from ChromaDB
@@ -642,7 +664,7 @@ def soft_delete_video(request: Request, bot_id: int, video_id: str = Query(...),
         print("user_youtube", user_youtube)
         
         # Add notification
-        notification_text = f"Video '{video.video_title}' was removed from bot {bot_id}'s knowledge base. {transcript_count} words removed."
+        notification_text = f"Video '{video.video_title}' was removed from bot {bot_id}'s knowledge base. "
         add_notification(db, "Video Removed", notification_text, bot_id, user_youtube)
         
         logger.info(f"Video deleted successfully", 
@@ -687,6 +709,7 @@ def soft_delete_scraped_url(
             ScrapedNode.url == decoded_url,
             ScrapedNode.is_deleted == False
         ).first()
+        word_count = scraped_node.nodes_text_count
         
         if not scraped_node:
             logger.warning(f"Scraped URL not found for deletion", 
@@ -695,16 +718,40 @@ def soft_delete_scraped_url(
         
         # Soft delete the scraped node in the database
         scraped_node.is_deleted = True
+        # Check if all nodes for this website are deleted
+        print("scraped_node.website_id",scraped_node.website_id)
+        if scraped_node.website_id:
+            remaining_nodes = db.query(ScrapedNode).filter(
+                ScrapedNode.website_id == scraped_node.website_id,
+                ScrapedNode.is_deleted == False
+            ).count()
 
-        # Update bot and user word counts
-        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
-        if bot:
-            bot.word_count = max(0, (bot.word_count or 0) - word_count)
-        
-        user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
-        if user:
-            user.total_words_used = max(0, (user.total_words_used or 0) - word_count)
-        
+            if remaining_nodes == 0:
+                print("I am here 2")
+                website = db.query(WebsiteDB).filter(
+                    WebsiteDB.id == scraped_node.website_id
+                ).first()
+                if website and not website.is_deleted:
+                    website.is_deleted = True
+                    logger.info(f"Website ID {scraped_node.website_id} marked as deleted (all nodes removed)",
+                                extra={"request_id": request_id, "bot_id": bot_id})
+        print("scraped_node.status",scraped_node.status)
+        if scraped_node.status == "Success":
+            # Update bot and user word counts
+            print("enteed")
+            print("word count",word_count)
+            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+            if bot:
+                bot.word_count = max(0, (bot.word_count or 0) - word_count)
+                print("Bot word count after:", bot.word_count)
+
+            user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
+            if user:
+                user.total_words_used = max(0, (user.total_words_used or 0) - word_count)
+                print("User word count after:", user.total_words_used)
+        else:
+            word_count = 0  # So response and logs are accurate
+        print("commiting")
         db.commit()
         
         # Delete from ChromaDB
@@ -737,18 +784,8 @@ def scrape_youtube_endpoint(request: Request, youtube_request: YouTubeScrapingRe
                      "video_urls": youtube_request.video_urls})
     
     try:
-        # Launch Celery task for processing YouTube videos
-        task = process_youtube_videos.delay(
-            youtube_request.bot_id,
-            youtube_request.video_urls
-        )
-        
-        logger.info(f"YouTube scraping started with Celery task ID: {task.id}", 
-                   extra={"request_id": request_id, "bot_id": youtube_request.bot_id, "task_id": task.id})
-        
         return {
             "message": "YouTube content processing started",
-            "task_id": task.id
         }
     except Exception as e:
         logger.exception(f"Error scraping YouTube content", 

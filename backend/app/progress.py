@@ -9,6 +9,13 @@ from fastapi.routing import APIRouter
 import asyncio
 import json
 from app.websocket_manager import manager
+from app.schemas import StartTrainingRequest
+from app.utils.logger import get_module_logger
+from app.utils.vectorization_utils import trigger_vectorization_if_needed
+
+
+# Initialize logger
+logger = get_module_logger(__name__)
 
 router = APIRouter(prefix="/progress", tags=["Bot Progress Tracking"])
 
@@ -59,6 +66,16 @@ async def websocket_endpoint(websocket: WebSocket):
             db = SessionLocal()  # create session manually if not using Depends
             status_data = await compute_status(bot_id, db)
             await websocket.send_text(json.dumps(status_data))
+            # # --- Check if vectorization is needed ---
+            any_extracted = (
+                status_data["progress"]["files"].get("extracted", 0) > 0 or
+                status_data["progress"]["youtube"].get("extracted", 0) > 0 or
+                status_data["progress"]["websites"].get("extracted", 0) > 0
+            )
+            if any_extracted and status_data["overall_status"].lower() in ["training", "retraining"]:
+                    logger.info(f"Triggering vectorization for bot {bot_id} via websocket polling")
+                    await trigger_vectorization_if_needed(bot_id, db)
+            
             db.close()
             await asyncio.sleep(3)
 
@@ -126,13 +143,13 @@ async def get_file_status(bot_id: int, db: Session) -> Dict:
     """Get training status for files"""
     # Count files by status
     status_counts = db.query(
-        File.embedding_status,
+        File.status,
         func.count(File.file_id)  
     ).filter(  
         File.bot_id == bot_id, 
         
     ).group_by(
-        File.embedding_status
+        File.status
     ).all()
     
     # Initialize counts
@@ -140,18 +157,27 @@ async def get_file_status(bot_id: int, db: Session) -> Dict:
         "completed": 0,
         "failed": 0,
         "pending": 0,
-        "total": 0
+        "total": 0,
+        "extracting":0,
+        "extracted":0,
     }
     
     # Populate counts
     for status, count in status_counts:
-        if status == "completed":
+        if status == "Success":
             counts["completed"] = count
-        elif status == "failed":
+        elif status == "Failed":
             counts["failed"] = count
         else:  # pending or any other status
             counts["pending"] += count
+            #Adding counts for extracting and extracted, no change done to count of pending            
+            if status == "Extracting":
+                counts["extracting"] += count  # ✅ lowercase key
+            if status == "Extracted":
+                counts["extracted"] += count  # ✅ lowercase key
         counts["total"] += count
+    print("extracted count ",counts["extracted"])
+    print("extracting count ",counts["extracting"])
     
     # Determine status for this knowledge type
     if counts["failed"] == counts["total"] and counts["total"] > 0:
@@ -170,13 +196,13 @@ async def get_website_status(bot_id: int, db: Session) -> Dict:
     """Get training status for scraped websites"""
     # Count websites by status
     status_counts = db.query(
-        ScrapedNode.embedding_status,
+        ScrapedNode.status,
         func.count(ScrapedNode.id)
         ).filter(
             ScrapedNode.bot_id == bot_id, 
             ScrapedNode.is_deleted == False
         ).group_by(
-            ScrapedNode.embedding_status
+            ScrapedNode.status
         ).all()
     
     # Initialize counts
@@ -184,17 +210,24 @@ async def get_website_status(bot_id: int, db: Session) -> Dict:
         "completed": 0,
         "failed": 0,
         "pending": 0,
-        "total": 0
+        "total": 0,
+        "extracting":0,
+        "extracted":0,
     }
     
     # Populate counts
     for status, count in status_counts:
-        if status == "completed":
+        if status == "Success":
             counts["completed"] = count
-        elif status == "failed":
+        elif status == "Failed":
             counts["failed"] = count
         else:  # pending or any other status
             counts["pending"] += count
+             #Adding counts for extracting and extracted, no change done to count of pending            
+            if status == "Extracting":
+                counts["extracting"] += count  # ✅ lowercase key
+            if status == "Extracted":
+                counts["extracted"] += count  # ✅ lowercase key
         counts["total"] += count
     
     # Determine status for this knowledge type
@@ -214,13 +247,13 @@ async def get_youtube_status(bot_id: int, db: Session) -> Dict:
     """Get training status for YouTube videos"""
     # Count videos by status
     status_counts = db.query(
-        YouTubeVideo.embedding_status,
+        YouTubeVideo.status,
         func.count(YouTubeVideo.id)
     ).filter(
         YouTubeVideo.bot_id == bot_id, 
         YouTubeVideo.is_deleted == False
     ).group_by(
-        YouTubeVideo.embedding_status
+        YouTubeVideo.status
     ).all()
     
     # Initialize counts
@@ -228,17 +261,24 @@ async def get_youtube_status(bot_id: int, db: Session) -> Dict:
         "completed": 0,
         "failed": 0,
         "pending": 0,
-        "total": 0
+        "total": 0,
+        "extracting":0,
+        "extracted":0,
     }
     
     # Populate counts
     for status, count in status_counts:
-        if status == "completed":
+        if status == "Success":
             counts["completed"] = count
-        elif status == "failed":
+        elif status == "Failed":
             counts["failed"] = count
         else:  # pending or any other status
             counts["pending"] += count
+             #Adding counts for extracting and extracted, no change done to count of pending            
+            if status == "Extracting":
+                counts["extracting"] += count  # ✅ lowercase key
+            if status == "Extracted":
+                counts["extracted"] += count  # ✅ lowercase key
         counts["total"] += count
     
     # Determine status for this knowledge type

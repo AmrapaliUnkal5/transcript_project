@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect, useMemo } from "react";
+import React, { useCallback, useState, useEffect, useMemo,useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import {
   Upload,
@@ -25,6 +25,7 @@ import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { useNavigate } from "react-router-dom";
 import { useBotStatusWebSocket } from '../services/useBotStatusWebSocket';
 import { BotTrainingStatusProgress } from "./BotTrainingStatusProgress";
+import { useGridRefreshWebSocket } from "../services/useGridRefreshWebSocket";
 
 const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
   return (
@@ -74,6 +75,7 @@ export const FileUpload = () => {
       video_id: string;
       transcript_count?: number;
       upload_date?: string;
+      status?: string
     }[]
   >([]);
   const { loading, setLoading } = useLoader();
@@ -133,6 +135,10 @@ export const FileUpload = () => {
 
   const MAX_FILE_SIZE = (userPlan?.per_file_size_limit ?? 20) * 1024 * 1024;
   const MAX_WORD_COUNT = userPlan?.word_count_limit;
+  const lastProgressRef = useRef<any>(null); //Track last progress snapshot
+  const [refetchScrapedUrls, setRefetchScrapedUrls] = useState<() => void>();
+  const { gridStatus, isConnected: isGridWsConnected } = useGridRefreshWebSocket();
+  const prevWebsiteStatusRef = useRef<Record<string, any> | null>(null);
 
   // Calculate usage metrics
   const totalWordsUsed =
@@ -359,7 +365,7 @@ export const FileUpload = () => {
               responseyoutube.status === "processing")
           ) {
             toast.info(
-              "Your YouTube videos are being processed. We'll notify you when they're ready."
+              ` Your YouTube videos are being processed. Inserted ${responseyoutube.inserted}, skipped ${responseyoutube.skipped} as already existing.`
             );
 
             // Clear selected videos since they're being processed
@@ -372,8 +378,15 @@ export const FileUpload = () => {
                 is_active: true,
               });
             }
+             fetchYouTubeVideos();
+          // ✅ Refresh YouTubeUploader component
+          setRefreshKey((prev) => prev + 1);
 
             return; // Exit early since videos are being processed in background
+          } else{
+            toast.info(
+              `  ${responseyoutube.message}`
+            );
           }
 
           // Handle traditional synchronous response (for backward compatibility)
@@ -530,9 +543,9 @@ export const FileUpload = () => {
       );
       console.log("Delete API response:", response);
 
-      if (response?.data?.words_removed) {
+      if (response?.data?.message) {
         toast.success(
-          `Video deleted successfully. ${response.data.words_removed} words removed.`
+          `Video deleted successfully.`
         );
 
         // Update the user usage statistics if possible
@@ -566,7 +579,7 @@ export const FileUpload = () => {
       } else {
         console.warn("Unexpected API response format:", response);
         toast.warning(
-          "Video was deleted, but word count may not have been updated correctly."
+          "Video was deleted successfully"
         );
       }
     } catch (error: any) {
@@ -681,6 +694,13 @@ export const FileUpload = () => {
         is_active: false,
       });
 
+      // 1b. Call your training API
+        const trainingResponse = await authApi.startTraining(selectedBot.id);
+
+        if (!trainingResponse.success) {
+          throw new Error("Failed to start training");
+        }
+
       // 2. Manually set status to "Training" for immediate UI feedback
       setStatus({
         ...status,
@@ -741,7 +761,7 @@ export const FileUpload = () => {
   };
 
   // Fetch files when the component mounts or when selectedBot changes
-  const fetchFiles = async () => {
+  const fetchFiles = useCallback(async () => {
     if (!selectedBot?.id) {
       console.error("Bot ID is missing.");
       return;
@@ -762,6 +782,7 @@ export const FileUpload = () => {
           url: file.file_path,
           wordCount: file.word_count,
           charCount: file.character_count,
+          status: file.status
         };
       });
 
@@ -776,7 +797,62 @@ export const FileUpload = () => {
     } catch (error) {
       console.error("Failed to fetch files:", error);
     }
+  }, [selectedBot?.id]);
+
+  // Place the websocket hook here:
+
+const debounceTimeout = useRef<number | null>(null);
+const prevStatus = useRef<any>(null);
+
+useEffect(() => {
+  if (!selectedBot?.id || !gridStatus) return;
+
+  // Check if there are any changes in the relevant counts compared to previous status
+  const shouldFetchFiles = prevStatus.current?.files &&
+    (gridStatus.files.extracting !== prevStatus.current.files.extracting ||
+     gridStatus.files.extracted !== prevStatus.current.files.extracted ||
+     gridStatus.files.embedding !== prevStatus.current.files.embedding ||
+     gridStatus.files.success !== prevStatus.current.files.success ||
+     gridStatus.files.failed !== prevStatus.current.files.failed);
+
+  const shouldFetchYouTube = prevStatus.current?.youtube &&
+    (gridStatus.youtube.extracting !== prevStatus.current.youtube.extracting ||
+     gridStatus.youtube.extracted !== prevStatus.current.youtube.extracted ||
+     gridStatus.youtube.embedding !== prevStatus.current.youtube.embedding ||
+     gridStatus.youtube.success !== prevStatus.current.youtube.success ||
+     gridStatus.youtube.failed !== prevStatus.current.youtube.failed);
+
+  const shouldFetchWebsites = prevStatus.current?.websites &&
+    (gridStatus.websites.extracting !== prevStatus.current.websites.extracting ||
+     gridStatus.websites.extracted !== prevStatus.current.websites.extracted ||
+     gridStatus.websites.embedding !== prevStatus.current.websites.embedding ||
+     gridStatus.websites.success !== prevStatus.current.websites.success ||
+     gridStatus.websites.failed !== prevStatus.current.websites.failed);
+
+  // Update previous status
+  prevStatus.current = gridStatus;
+
+  // Only proceed if there are actual changes
+  if (!shouldFetchFiles && !shouldFetchYouTube && !shouldFetchWebsites) {
+    return;
+  }
+
+  if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+
+  debounceTimeout.current = setTimeout(() => {
+    if (shouldFetchFiles) fetchFiles();
+    if (shouldFetchYouTube) fetchYouTubeVideos();
+    if (shouldFetchWebsites && refetchScrapedUrls) refetchScrapedUrls();
+  }, 1000);
+
+  return () => {
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
   };
+}, [gridStatus, selectedBot?.id]);
+
+useEffect(() => {
+  console.log("Grid WebSocket connected:", isGridWsConnected);
+}, [isGridWsConnected]);
 
   useEffect(() => {
     fetchFiles();
@@ -987,12 +1063,7 @@ export const FileUpload = () => {
         await authApi.deleteFile(id);
         setExistingFiles((prev) => prev.filter((file) => file.id !== id));
 
-        // Update bot word count in backend
-        await authApi.updateBotWordCount({
-          bot_id: selectedBot.id,
-          word_count: -fileToDelete.wordCount,
-          file_size: -fileToDelete.size,
-        });
+
 
         // Update global words used
         const apiUsage: UserUsageResponse = await authApi.getUserUsage();
@@ -1374,7 +1445,7 @@ export const FileUpload = () => {
                 Website Scraping
               </h1>
               <WebScrapingTab isReconfiguring={isReconfiguring}
-                isCreateBotFlow={false} />
+                isCreateBotFlow={false} setRefetchScrapedUrls={setRefetchScrapedUrls}  />
             </div>
           )}
 
@@ -1385,7 +1456,7 @@ export const FileUpload = () => {
               {/* <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3 border-b border-pink-500">
               Enter the Website URL
             </h1> */}
-              <SubscriptionScrape isReconfiguring={isReconfiguring} />
+              <SubscriptionScrape isReconfiguring={isReconfiguring} setRefetchScrapedUrls={setRefetchScrapedUrls} />
             </div>
           )}
         {/* Files Tab Content */}
@@ -1608,10 +1679,10 @@ export const FileUpload = () => {
                         Type
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Words
+                        Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Chars
+                        Words
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Size
@@ -1644,13 +1715,13 @@ export const FileUpload = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {file.wordCount?.toLocaleString() || "N/A"}
-                          </span>
-                        </td>
+                         <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {file.status || "Pending"}
+                         </span>
+                       </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {file.charCount?.toLocaleString() || "N/A"}
+                            {file.wordCount?.toLocaleString() || "N/A"}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1774,10 +1845,34 @@ export const FileUpload = () => {
                             fontSize: '16px',
                             fontWeight: 600,
                             color: '#333333',
+                           textTransform:'none'
+                          }}
+                        >
+                        Status
+                       </th>
+                      <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
                             textTransform:'none'
                           }}
                         >
                         Video URL
+                      </th>
+                       <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
+                            textTransform:'none'
+                          }}
+                        >
+                        Words
                       </th>
                       <th
                           className="px-6 py-3 text-left uppercase tracking-wider"
@@ -1822,6 +1917,9 @@ export const FileUpload = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                        {videoUrl.status}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <a
                             href={videoUrl.video_url}
                             target="_blank"
@@ -1830,6 +1928,11 @@ export const FileUpload = () => {
                           >
                             {videoUrl.video_url}
                           </a>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-900 dark:text-white">
+                          {videoUrl.transcript_count}
+                        </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="text-sm text-gray-500 dark:text-gray-400">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 //import { Button } from "@/components/ui/button";
 //import { Input } from "@/components/ui/input";
 import { authApi } from "../services/api";
@@ -29,6 +29,8 @@ interface WebScrapingTabProps {
   disableActions?: boolean; 
  isCreateBotFlow?:boolean;
  disableActions2?:boolean;
+ setRefetchScrapedUrls?: React.Dispatch<React.SetStateAction<(() => void) | undefined>>;
+
 }
 
 const WebScrapingTab: React.FC<WebScrapingTabProps> = ({ 
@@ -45,6 +47,7 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
   isReconfiguring = false, 
   disableActions = false,
   disableActions2 = false,
+  setRefetchScrapedUrls,
 }) => {
   
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -69,7 +72,6 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
   // Check if we're in create bot flow
   const isCreateBotFlow = location.pathname.includes('/dashboard/create-bot');
   
-  
   // Reset toast flag when component unmounts or when not in create bot flow
   useEffect(() => {
     if (!isCreateBotFlow) {
@@ -83,11 +85,11 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
   }, [isCreateBotFlow]);
 
   const [scrapedUrls, setScrapedUrls] = useState<
-  { id: number; url: string; title: string; wordCount?: number;upload_date?:string }[]
+  { id: number; url: string; title: string; wordCount?: number;upload_date?:string;status?: string  }[]
 >([]);
 
   // ✅ Move fetchScrapedUrls outside of useEffect so it can be reused
-  const fetchScrapedUrls = async () => {
+  const fetchScrapedUrls = useCallback(async () => {
     try {
       setLoading(true);
       if (!selectedBot?.id) {
@@ -105,6 +107,7 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
           title: item.title || "No Title",
           wordCount: item.Word_Counts, // Add word count from response
           upload_date:item.upload_date,
+          status: item.status
         }));
 
         console.log("Formatted URLs:", formattedUrls);
@@ -124,7 +127,7 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedBot?.id]);
 
   // ✅ Call fetchScrapedUrls only when selectedBot changes
   useEffect(() => {
@@ -132,6 +135,12 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
       fetchScrapedUrls();
     }
   }, [selectedBot?.id]);
+  
+  useEffect(() => {
+  if (setRefetchScrapedUrls) {
+    setRefetchScrapedUrls(() => fetchScrapedUrls);
+  }
+}, [fetchScrapedUrls, setRefetchScrapedUrls]);
 
   const handleDeleteClick = (url: string, wordCount: number) => {
   setUrlToDelete(url);
@@ -461,7 +470,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                 fontWeight: 600,
                 color: 'white',
                 minWidth: '102px',
-                width: '140px',
+                width: '110px',
                 textAlign: 'center',
                 borderRadius: '0.375rem', // rounded-md
               }}
@@ -568,6 +577,18 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                       Name
                     </th>
                     <th
+                    className="px-6 py-3 text-left uppercase tracking-wider"
+                    style={{
+                      fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '16px',
+                      fontWeight: 600,
+                      color: '#333333',
+                      textTransform:'none'
+                    }}
+                  >
+                    Status
+                  </th>
+                    <th
                       className="px-6 py-3 text-left uppercase tracking-wider"
                       style={{
                         fontFamily: 'Instrument Sans, sans-serif',
@@ -578,6 +599,18 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                       }}
                     >
                       URL
+                    </th>
+                    <th
+                      className="px-6 py-3 text-left uppercase tracking-wider"
+                      style={{
+                        fontFamily: 'Instrument Sans, sans-serif',
+                        fontSize: '16px',
+                        fontWeight: 600,
+                        color: '#333333',
+                        textTransform:'none'
+                      }}
+                    >
+                      Words
                     </th>
                     <th
                       className="px-6 py-3 text-left uppercase tracking-wider"
@@ -626,6 +659,13 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                       fontSize: '14px',
                        color: '#333333',
                      }}>
+                      {item.status}
+                    </td>
+                      <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
+                    style={{ fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '14px',
+                       color: '#333333',
+                     }}>
                         <a
                           href={item.url}
                           target="_blank"
@@ -635,6 +675,13 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                           {item.url}
                         </a>
                       </td>
+                        <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
+                    style={{ fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '14px',
+                       color: '#333333',
+                     }}>
+                      {item.wordCount}
+                    </td>
                         <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
                     style={{ fontFamily: 'Instrument Sans, sans-serif',
                       fontSize: '14px',

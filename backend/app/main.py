@@ -1,10 +1,11 @@
 import asyncio
 import threading
+from urllib.parse import urlparse
 from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, UploadFile, HTTPException, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .models import Base, Captcha, ScrapedNode, User, UserSubscription, Bot, TeamMember, UserAddon, UserAuthProvider, SubscriptionPlan
+from .models import Base, Captcha, User, UserSubscription, Bot, TeamMember, UserAddon, UserAuthProvider, SubscriptionPlan, ScrapedNode,WebsiteDB
 from .schemas import *
 from .crud import create_user,get_user_by_email, update_user_password,update_avatar
 from fastapi.security import OAuth2PasswordBearer
@@ -60,13 +61,13 @@ from app.admin_routes import router as admin_routes_router
 from app.widget_botsettings import router as widget_botsettings_router
 from app.current_billing_metrics import router as billing_metrics_router
 from app.celery_app import celery_app
-from app.celery_tasks import process_youtube_videos, process_file_upload, process_web_scraping
+from app.celery_tasks import process_web_scraping_part1
 from app.captcha_cleanup_thread import captcha_cleaner
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
 from app.investigation import router as investigation
 from app.utils.file_storage import resolve_file_url
 from app.progress import router as progress
-
+from app.grid_refresh_ws import router as grid_refresh_router
 
 # Import our custom logging components
 from app.utils.logging_config import setup_logging
@@ -117,7 +118,7 @@ class ForceHTTPSMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         return response
 
-app.add_middleware(ForceHTTPSMiddleware)
+# app.add_middleware(ForceHTTPSMiddleware)
 
 # Initialize the scheduler
 scheduler = init_scheduler()
@@ -137,7 +138,7 @@ if not zoho_product_id:
 # initialize_scheduler()
 
 # Add the logging middleware
-#app.add_middleware(LoggingMiddleware)
+app.add_middleware(LoggingMiddleware)
 
 # Mount static files directory only if it's not an S3 path
 if not settings.UPLOAD_BOT_DIR.startswith("s3://"):
@@ -177,6 +178,7 @@ app.include_router(addon_router)
 app.include_router(features_router)
 app.include_router(investigation)
 app.include_router(progress)
+app.include_router(grid_refresh_router)
 
 # Start the add-on expiry scheduler
 start_addon_scheduler()
@@ -929,36 +931,69 @@ def scrape_async_endpoint(request: WebScrapingRequest, db: Session = Depends(get
         logger.info(f"[SCRAPE-ASYNC] Bot found, user_id={bot.user_id}")
 
         # PHASE 1: Save URLs immediately
+        inserted = 0
+        skipped = 0
         new_urls = []
+        new_domains = set()  # Track new domains to insert into WebsiteDB
         for url in request.selected_nodes:
-            # Check if URL already exists for this bot
             existing_node = db.query(ScrapedNode).filter(
                 ScrapedNode.url == url,
                 ScrapedNode.bot_id == request.bot_id,
                 ScrapedNode.is_deleted == False
             ).first()
             
-            if not existing_node:
-                # Create minimal record
-                new_node = ScrapedNode(
-                    url=url,
-                    bot_id=request.bot_id,
-                    embedding_status="pending"  # Initial status
+            if existing_node:
+                skipped += 1
+                continue
+
+            # --- Extract domain from URL ---
+            parsed_url = urlparse(url)
+            domain = parsed_url.netloc.lower()
+
+            # --- Check if domain already exists in WebsiteDB ---
+            website = db.query(WebsiteDB).filter_by(
+                domain=domain,
+                bot_id=request.bot_id,
+                is_deleted=False
+            ).first()
+
+            if not website:
+                website = WebsiteDB(
+                    domain=domain,
+                    bot_id=request.bot_id
                 )
-                db.add(new_node)
-                new_urls.append(url)
-        
+                db.add(website)
+                db.flush()  # Get ID without committing
+                logger.info(f"[SCRAPE-ASYNC] Added new website domain: {domain}")
+                new_domains.add(domain)
+
+            node = ScrapedNode(
+                url=url,
+                bot_id=request.bot_id,
+                status="Extracting",
+                created_by=bot.user_id,
+                updated_by=bot.user_id,
+                website_id=website.id,
+            )
+            db.add(node)
+            inserted += 1
+            new_urls.append(url)
+
         db.commit()
-        logger.info(f"[SCRAPE-ASYNC] Saved {len(new_urls)} new URLs to database")
+        logger.info(f"[SCRAPE-ASYNC] Inserted {inserted} new nodes, skipped {skipped} existing ones")
         
         # Start Celery task
         logger.info(f"[SCRAPE-ASYNC] Attempting to start Celery task with {len(request.selected_nodes)} URLs")
-        try:
-            task = process_web_scraping.delay(request.bot_id, request.selected_nodes)
-            logger.info(f"[SCRAPE-ASYNC] Celery task started successfully with task_id={task.id}")
-        except Exception as celery_err:
-            logger.exception(f"[SCRAPE-ASYNC] Failed to start Celery task: {str(celery_err)}")
-            raise HTTPException(status_code=500, detail=f"Failed to start Celery task: {str(celery_err)}")
+        if new_urls:
+            try:
+                task = process_web_scraping_part1.delay(request.bot_id, request.selected_nodes)
+                logger.info(f"[SCRAPE-ASYNC] Celery task started successfully with task_id={task.id}")
+            except Exception as celery_err:
+                logger.exception(f"[SCRAPE-ASYNC] Failed to start Celery task: {str(celery_err)}")
+                raise HTTPException(status_code=500, detail=f"Failed to start Celery task: {str(celery_err)}")
+            
+        else:
+            logger.info(f"[SCRAPE-ASYNC] No new URLs to send to Celery.")            
         
         # Create initial notification
         logger.info(f"[SCRAPE-ASYNC] Creating notification for bot_id={request.bot_id}, user_id={bot.user_id}")
@@ -981,7 +1016,9 @@ def scrape_async_endpoint(request: WebScrapingRequest, db: Session = Depends(get
         return {
             "message": "Web scraping started in the background. You will be notified when complete.",
             "status": "processing",
-            "task_id": task.id
+            "task_id": task.id if inserted > 0 else None,
+            "inserted": inserted,
+            "skipped": skipped,
         }
         
     except HTTPException as he:

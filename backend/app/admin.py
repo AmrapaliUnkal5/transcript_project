@@ -517,11 +517,11 @@ class ScrapedNodeAdmin(BaseModelView, model=ScrapedNode):
         ScrapedNode.website_id,
         ScrapedNode.is_deleted,
         ScrapedNode.nodes_text_count,
-        ScrapedNode.embedding_status,
+        ScrapedNode.status,
         ScrapedNode.last_embedded
     ]
     column_searchable_list = [ScrapedNode.url, ScrapedNode.title]
-    column_filters = ["bot_id", "website_id", "is_deleted", "created_at", "embedding_status"]
+    column_filters = ["bot_id", "website_id", "is_deleted", "created_at", "status"]
     
     # Add form columns to include all fields
     form_columns = [
@@ -533,7 +533,7 @@ class ScrapedNodeAdmin(BaseModelView, model=ScrapedNode):
         ScrapedNode.is_deleted,
         ScrapedNode.website_id,
         ScrapedNode.nodes_text_count,
-        ScrapedNode.embedding_status,
+        ScrapedNode.status,
         ScrapedNode.last_embedded,
         ScrapedNode.nodes_text
     ]
@@ -568,11 +568,11 @@ class YouTubeVideoAdmin(BaseModelView, model=YouTubeVideo):
         YouTubeVideo.bot_id,
         YouTubeVideo.is_deleted,
         YouTubeVideo.created_at,
-        YouTubeVideo.embedding_status,
+        YouTubeVideo.status,
         YouTubeVideo.last_embedded
     ]
     column_searchable_list = [YouTubeVideo.video_title, YouTubeVideo.channel_name, YouTubeVideo.video_id]
-    column_filters = ["bot_id", "is_deleted", "is_playlist", "created_at", "embedding_status"]
+    column_filters = ["bot_id", "is_deleted", "is_playlist", "created_at", "status"]
     
     # Add form columns to include all fields
     form_columns = [
@@ -596,7 +596,7 @@ class YouTubeVideoAdmin(BaseModelView, model=YouTubeVideo):
         YouTubeVideo.transcript_count,
         YouTubeVideo.created_at,
         YouTubeVideo.is_deleted,
-        YouTubeVideo.embedding_status,
+        YouTubeVideo.status,
         YouTubeVideo.last_embedded,
         YouTubeVideo.transcript
     ]

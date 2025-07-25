@@ -57,6 +57,7 @@ export interface FileUploadInterface {
   file?: File;
   wordCount: number;
   charCount: number;
+  status?:string;
 }
 
 export interface CreateBotInterface {
@@ -117,6 +118,13 @@ export interface ApiFile {
   file_type: string;
   upload_date: string;
   unique_file_name: string;
+  status:string;
+}
+
+export interface BotStatusMessage {
+  id: number;         // Unique ID of the file/video/node
+  type: "file" | "youtube" | "scraped";  // What kind of source
+  status: string;     // Status like "Extracting", "Embedding", "Success", "Failed"
 }
 
 export interface IssueRequestData {

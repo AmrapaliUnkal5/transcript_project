@@ -425,6 +425,17 @@ fetchCaptcha: async () => {
     return response.data;
   },
 
+  startTraining: async (botId: number) => {
+  const response = await api.post("/start-training", {
+    bot_id: botId
+  }, {
+    headers: {
+      "Content-Type": "application/json"
+    }
+  });
+  return response.data;
+},
+
   startChat: async (botId: number, userId: number) => {
     const response = await api.post("/chat/start_chat", { bot_id: botId, user_id: userId });
     return response.data;

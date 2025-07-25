@@ -40,6 +40,9 @@ interface FileWithCounts
   wordCount?: number;
   charCount?: number;
   loadingCounts?: boolean;
+  error?: string;
+  file: File;
+  status?: string;
 }
 
 interface UploadFilesResponse {
@@ -248,7 +251,7 @@ const [hasScraped, setHasScraped] = useState(false);
     }
   };
 
-  const fetchFiles = async () => {
+  const fetchFiles = useCallback(async () => {
   if (!selectedBot?.id) return;
 
   try {
@@ -262,12 +265,14 @@ const [hasScraped, setHasScraped] = useState(false);
       url: file.file_path,
       wordCount: file.word_count,
       charCount: file.character_count,
+      status:file.status
     }));
     setFiles(formattedFiles);
   } catch (error) {
     console.error("Failed to fetch files:", error);
   }
-};
+}, [selectedBot?.id]);
+
 
   const parseFileSizeToBytes = (size: string): number => {
     const sizeRegex = /^(\d+(\.\d+)?)\s*(B|KB|MB|GB)$/i;
@@ -989,8 +994,14 @@ const handleSaveYouTube = async () => {
           JSON.stringify(filesToUpload.map((f) => f.charCount))
         );
         formData.append("bot_id", botId!.toString());
+        if (selectedBot?.id) {
+        console.log(
+          "Updating bot word count with:",
+          userUsage.currentSessionWords
+        );
 
-        const response = await authApi.uploadFilesWithCounts(formData);
+        //const response = await authApi.uploadFilesWithCounts(formData);
+        const response = await authApi.startTraining(selectedBot.id);
         console.log("Backend response:", response);
 
         if (response.success) {
@@ -999,7 +1010,7 @@ const handleSaveYouTube = async () => {
         } else {
           toast.error("Failed to upload files.");
         }
-      }
+      }}
 
       const savedSelectedVideos = localStorage.getItem("selected_videos");
       const parsedSelectedVideos = savedSelectedVideos
@@ -1141,6 +1152,16 @@ const handleTrainBot = async () => {
       });
 
       const processResponse  = await authApi.update_processed_with_training (selectedBot.id);
+
+      // Step 3: Training via Celery
+      // Step 3: Start training via Celery
+      const celeryStartResponse = await authApi.startTraining(selectedBot.id);
+
+      if (!celeryStartResponse.success) {
+        setIsLoading(false);
+        toast.error("Failed to trigger training");
+        return;
+      }
 
       if (processResponse.success) {
       // Show loader for 3 seconds before redirecting
@@ -1522,11 +1543,11 @@ const renderStepContent = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Type
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Words
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Chars
+                        Words
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Size
@@ -1560,18 +1581,10 @@ const renderStepContent = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            {file.loadingCounts ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                            ) : file.error ? (
-                              <span className="text-xs text-red-500">
-                                Error
-                              </span>
-                            ) : (
-                              <span className="text-sm text-gray-500 dark:text-gray-400">
-                                {file.wordCount?.toLocaleString() || "0"}
-                              </span>
-                            )}
-                          </td>
+                         <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {file.status || "Pending"}
+                         </span>
+                       </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {file.loadingCounts ? (
                               <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
@@ -1581,7 +1594,7 @@ const renderStepContent = () => {
                               </span>
                             ) : (
                               <span className="text-sm text-gray-500 dark:text-gray-400">
-                                {file.charCount?.toLocaleString() || "0"}
+                                {file.wordCount?.toLocaleString() || "0"}
                               </span>
                             )}
                           </td>

@@ -146,12 +146,20 @@ class File(Base):
     word_count = Column(Integer) 
     character_count = Column(Integer)
     embedding_model_id = Column(Integer, ForeignKey("embedding_models.id"), nullable=True)
-    embedding_status = Column(String(50), default="pending", nullable=True)  # pending, completed, failed
     last_embedded = Column(TIMESTAMP, nullable=True)
     original_file_size = Column(String(50), nullable=True)  # Human-readable size
     original_file_size_bytes = Column(BigInteger, nullable=True)  # Size in bytes
     processed_with_training  = Column(Boolean, nullable=False, default=False)
+    status = Column(String(50), default="pending", nullable=True)
     
+    # Audit fields
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+    updated_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+
+    error_code = Column(Text, nullable=True)
+
     # Relationships
     bot = relationship("Bot", back_populates="files")
     embedding_model = relationship("EmbeddingModel", back_populates="files")
@@ -308,10 +316,16 @@ class YouTubeVideo(Base):
     # New column to indicate soft deletion
     is_deleted = Column(Boolean, nullable=False, server_default="false")
     # Add embedding status tracking fields
-    embedding_status = Column(String(50), default="pending", nullable=True)  # pending, completed, failed
     last_embedded = Column(TIMESTAMP, nullable=True)
     transcript = Column(Text, nullable=True)
     processed_with_training  = Column(Boolean, nullable=False, default=False)
+    status = Column(String(50), default="pending", nullable=True)  # pending, completed, failed
+
+     # ✅ New audit fields
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+    updated_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+    error_code = Column(Text, nullable=True)
     
     def __str__(self):
         deleted_status = " (deleted)" if self.is_deleted else ""
@@ -356,10 +370,14 @@ class ScrapedNode(Base):
     website_id = Column(Integer, ForeignKey("websites.id", ondelete="CASCADE"), nullable=True)  # New column
     nodes_text_count = Column(Integer, nullable=True, server_default="0")
     # Add embedding status tracking fields
-    embedding_status = Column(String(50), default="pending", nullable=True)  # pending, completed, failed
     last_embedded = Column(TIMESTAMP, nullable=True)
     nodes_text = Column(Text, nullable=True)  # Store the scraped text content
     processed_with_training  = Column(Boolean, nullable=False, default=False)
+    error_code = Column(Text, nullable=True)
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("users.user_id"))
+    updated_by = Column(Integer, ForeignKey("users.user_id"))
+    status = Column(String(50), default="pending", nullable=True)  # pending, completed, failed
 
     #website = relationship("Website", back_populates="scraped_nodes")  #
     
