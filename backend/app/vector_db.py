@@ -1,6 +1,6 @@
 import chromadb
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue, ScalarQuantization, ScalarQuantizationConfig, ScalarType
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 import os
@@ -89,6 +89,51 @@ def get_qdrant_client():
     except Exception as e:
         logger.error(f"Failed to create Qdrant client: {str(e)}")
         return None
+
+
+def enable_quantization_for_existing_collection(collection_name: str = "unified_vector_store"):
+    """
+    Enable scalar quantization for an existing Qdrant collection.
+    This will improve memory usage by 4x and search speed by up to 2x.
+    
+    Args:
+        collection_name: Name of the collection to update
+    
+    Returns:
+        bool: True if quantization was enabled successfully, False otherwise
+    """
+    try:
+        qdrant_client = get_qdrant_client()
+        if not qdrant_client:
+            logger.warning("[QDRANT] Qdrant client not available, cannot enable quantization")
+            return False
+        
+        # Check if collection exists
+        try:
+            collection_info = qdrant_client.get_collection(collection_name)
+            logger.info(f"[QDRANT] Collection {collection_name} exists, enabling quantization")
+        except Exception:
+            logger.error(f"[QDRANT] Collection {collection_name} does not exist")
+            return False
+        
+        # Update collection to enable quantization
+        qdrant_client.update_collection(
+            collection_name=collection_name,
+            quantization_config=ScalarQuantization(
+                scalar=ScalarQuantizationConfig(
+                    type=ScalarType.INT8,
+                    quantile=0.99,
+                    always_ram=True,
+                ),
+            ),
+        )
+        
+        logger.info(f"[QDRANT] Successfully enabled scalar quantization for collection: {collection_name}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"[QDRANT] Failed to enable quantization for collection {collection_name}: {str(e)}")
+        return False
 
 
 # Remove global chroma_client initialization - we'll create it per operation instead
@@ -388,14 +433,21 @@ def add_document_to_qdrant(bot_id: int, text: str, metadata: dict, force_model: 
             qdrant_client.get_collection(collection_name)
             logger.info(f"[QDRANT] Collection exists: {collection_name}")
         except Exception:
-            # Create collection
+            # Create collection with quantization enabled
             embedding_dimension = len(normalized_vector)
             qdrant_client.create_collection(
                 collection_name=collection_name,
                 vectors_config=VectorParams(size=embedding_dimension, distance=Distance.COSINE),
-                shard_number=4  # Enable sharding with 4 shards for horizontal scaling
+                shard_number=4,  # Enable sharding with 4 shards for horizontal scaling
+                quantization_config=ScalarQuantization(
+                    scalar=ScalarQuantizationConfig(
+                        type=ScalarType.INT8,
+                        quantile=0.99,
+                        always_ram=True,
+                    ),
+                ),
             )
-            logger.info(f"[QDRANT] Created new collection: {collection_name} with sharding enabled")
+            logger.info(f"[QDRANT] Created new collection: {collection_name} with sharding and scalar quantization enabled")
         
         # Add document
         # Convert string ID to valid Qdrant point ID (UUID)
