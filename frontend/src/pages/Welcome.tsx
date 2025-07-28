@@ -278,7 +278,7 @@ export const Welcome = () => {
       setBots((prevBots) =>
         prevBots.map((bot) => {
           const found = (allBotsStatus as { bot_id: number; status: string }[]).find((s) => s.bot_id === bot.id);
-          if (found) {
+          if (found && found.status !== bot.status) {
             return { ...bot, status: found.status };
           }
           return bot;

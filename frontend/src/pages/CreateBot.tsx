@@ -238,6 +238,11 @@ useEffect(() => {
         youtubeVideos.length > 0 || 
         scrapedUrls.length > 0
       );
+      console.log("status of all=>",files.length > 0 || 
+        youtubeVideos.length > 0 || 
+        scrapedUrls.length > 0)
+      setHasYouTubeContent(true)
+      setHasWebsiteContent(true)
     } catch (error) {
       console.error("Error checking existing content:", error);
     }
@@ -284,6 +289,19 @@ useEffect(() => {
     //fetchYouTubeVideos(); // For YouTube videos
   }
 }, [selectedBot?.id, currentStep]);
+
+
+useEffect(() => {
+  // When CreateBot is freshly loaded, and we are on step 1 (YouTube step),
+  // clear any previous YouTube selections
+  if (urlStep === "1") {
+    localStorage.removeItem("selected_videos");
+    localStorage.removeItem("youtube_video_urls");
+    setHasYouTubeVideos(false);
+    setHasYouTubeChanges(false);
+    window.dispatchEvent(new Event("resetYouTubeUploader"));
+  }
+}, []); 
 
   // Fetch user usage on component mount
   useEffect(() => {
@@ -652,12 +670,7 @@ const handleDelete = async (id: string) => {
     if (isSavedFile) {
       // For saved files: delete from server and update backend counts
       await authApi.deleteFile(id);
-      await authApi.updateBotWordCount({
-        bot_id: selectedBot.id,
-        word_count: -deletedWordCount,
-        file_size: -fileToDelete.size,
-      });
-
+  
       // Update local state to reflect the deletion
       setUserUsage(prev => ({
         ...prev,
@@ -921,15 +934,7 @@ const handleSaveFiles = async () => {
       totalWords = files.reduce((sum, file) => sum + (file.wordCount || 0), 0);
       totalSize = files.reduce((sum, file) => sum + file.size, 0);
     }
-
-    // Then update word count with the API
-    const updateResponse = await authApi.updateBotWordCount({
-      bot_id: selectedBot.id,
-      word_count: totalWords,
-      file_size: totalSize,
-    });
-
-    if (updateResponse.success) {
+    // if (updateResponse.success) {
       setHasFileChanges(false);
       toast.success("Files saved successfully");
       
@@ -955,9 +960,7 @@ const handleSaveFiles = async () => {
         charCount: file.character_count,
       }));
       setFiles(formattedFiles);
-    } else {
-      throw new Error("Word count update failed");
-    }
+    
   } catch (error) {
     console.error("Error saving files:", error);
     toast.error(

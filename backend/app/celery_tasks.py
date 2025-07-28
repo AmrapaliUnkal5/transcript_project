@@ -1385,7 +1385,7 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
             if file_id:
                 try:
                     update_file_metadata_status_only(db, {
-                        "file_id_db": file_id,
+                        "file_id_db": file_data.get("file_id_db"),
                         "status": "Failed",
                         "error_message": f"EXTRACTION_FAILED: {str(e)}",
                         "updated_by": bot.user_id if bot else None
@@ -1393,6 +1393,7 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                     db.commit()
                     logger.info(f"✅ File ID {file_id} marked as 'failed' in DB after final retry failure.")
                 except Exception as update_error:
+                    db.rollback()
                     logger.exception(f"❌ Failed to mark file {file_id} as failed in DB: {str(update_error)}")
             add_notification(
                 db=db,

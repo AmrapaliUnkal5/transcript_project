@@ -125,11 +125,11 @@ export const TrainingDataTab = ({ botId, onTrain, isLoading, onCancel }: Trainin
       }
       await authApi.deleteFile(fileId);
       // Update bot word count and file size
-      await authApi.updateBotWordCount({
-        bot_id: botId,
-        word_count: -wc,
-        file_size: -fs,
-      });
+      // await authApi.updateBotWordCount({
+      //   bot_id: botId,
+      //   word_count: -wc,
+      //   file_size: -fs,
+      // });
       toast.success("File deleted");
       if (isModal) {
         await loadModalData();

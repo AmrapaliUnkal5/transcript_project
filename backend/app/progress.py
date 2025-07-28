@@ -93,14 +93,17 @@ async def websocket_endpoint(websocket: WebSocket):
 async def user_bots_status_websocket(websocket: WebSocket):
     await manager.connect(websocket)
     try:
-        # Step 1: Wait for user_id from client
         user_id_msg = await websocket.receive_text()
         user_id = int(user_id_msg)
+        last_statuses = None
         while True:
             db = SessionLocal()
-            data_status= await bot_status_compute(user_id,db)
-            await websocket.send_text(json.dumps(data_status))
+            data_status = await bot_status_compute(user_id, db)
             db.close()
+            # Only send if status changed
+            if last_statuses is None or data_status != last_statuses:
+                await websocket.send_text(json.dumps(data_status))
+                last_statuses = data_status
             await asyncio.sleep(3)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -236,9 +239,7 @@ async def get_file_status(bot_id: int, db: Session) -> Dict:
             if status == "Extracted":
                 counts["extracted"] += count  # ✅ lowercase key
         counts["total"] += count
-    print("extracted count ",counts["extracted"])
-    print("extracting count ",counts["extracting"])
-    
+        
     # Determine status for this knowledge type
     if counts["failed"] == counts["total"] and counts["total"] > 0:
         status = "error"
