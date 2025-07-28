@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect, useMemo } from "react";
+import React, { useCallback, useState, useEffect, useMemo,useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import {
   Upload,
@@ -9,7 +9,7 @@ import {
   Lock,
 } from "lucide-react";
 import type { FileUploadInterface } from "../types";
-import { authApi } from "../services/api";
+import { authApi, BotTrainingStatus } from "../services/api";
 import { ApiFile } from "../types";
 import { useBot } from "../context/BotContext";
 import { toast, ToastContainer } from "react-toastify";
@@ -23,6 +23,9 @@ import SubscriptionScrape from "./SubscriptionScrape";
 import { UserUsageResponse } from "../types/index";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { useNavigate } from "react-router-dom";
+import { useBotStatusWebSocket } from '../services/useBotStatusWebSocket';
+import { BotTrainingStatusProgress } from "./BotTrainingStatusProgress";
+import { useGridRefreshWebSocket } from "../services/useGridRefreshWebSocket";
 
 const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
   return (
@@ -53,11 +56,15 @@ const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
 };
 
 export const FileUpload = () => {
+  const [isReconfiguring, setIsReconfiguring] = useState(false);
+  const { status: realtimeStatus, isConnected, refreshStatus } = useBotStatusWebSocket(isReconfiguring);
+  const [status, setStatus] = useState<BotTrainingStatus | null>(null);
   const { selectedBot, setSelectedBot } = useBot();
   const [existingFiles, setExistingFiles] = useState<FileUploadInterface[]>([]);
   const [newFiles, setNewFiles] = useState<FileUploadInterface[]>([]);
   const [totalSize, setTotalSize] = useState<number>(0);
   const [totalWordCount, setTotalWordCount] = useState<number>(0);
+  const [isRetraining, setIsRetraining] = useState(false);
   // const [activeTab, setActiveTab] = useState(user.subscription_plan_id === 1 || user.subscription_plan_id === 2
   //   ? "websitescraping"
   //   : "websiteSub");
@@ -68,6 +75,7 @@ export const FileUpload = () => {
       video_id: string;
       transcript_count?: number;
       upload_date?: string;
+      status?: string
     }[]
   >([]);
   const { loading, setLoading } = useLoader();
@@ -90,6 +98,7 @@ export const FileUpload = () => {
     selectedBot?.external_knowledge || false
   );
 
+  const [activeTabLock, setActiveTabLock] = useState(false);
   type Video1 = {
     video_url: string;
     reason: string;
@@ -126,6 +135,10 @@ export const FileUpload = () => {
 
   const MAX_FILE_SIZE = (userPlan?.per_file_size_limit ?? 20) * 1024 * 1024;
   const MAX_WORD_COUNT = userPlan?.word_count_limit;
+  const lastProgressRef = useRef<any>(null); //Track last progress snapshot
+  const [refetchScrapedUrls, setRefetchScrapedUrls] = useState<() => void>();
+  const { gridStatus, isConnected: isGridWsConnected } = useGridRefreshWebSocket();
+  const prevWebsiteStatusRef = useRef<Record<string, any> | null>(null);
 
   // Calculate usage metrics
   const totalWordsUsed =
@@ -170,6 +183,52 @@ export const FileUpload = () => {
       : "websiteSub"
   );
 
+  const [showCancelWarning, setShowCancelWarning] = useState(false);
+
+  const handleCancelClick = () => {
+    setShowCancelWarning(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    setShowCancelWarning(false);
+    await handleCancel(); 
+  };
+
+  const handleCancelClose = () => {
+    setShowCancelWarning(false);
+  };
+
+  useEffect(() => {
+    if (status?.overall_status === "reconfiguring") {
+      setIsReconfiguring(true);
+      setActiveTabLock(true);
+    }
+  }, [status?.overall_status]);
+
+  console.log("status?.overall_status", status?.overall_status)
+
+  // Fetch initial status on mount
+  useEffect(() => {
+    const fetchStatus = async () => {
+      if (selectedBot?.id) {
+        try {
+          const response = await authApi.getBotTrainingStatus(selectedBot.id);
+          setStatus(response);
+        } catch (error) {
+          console.error('Error fetching bot status:', error);
+        }
+      }
+    };
+    fetchStatus();
+  }, [selectedBot?.id]);
+
+  // Update status when WebSocket message arrives
+  useEffect(() => {
+    if (realtimeStatus) {
+      setStatus(realtimeStatus);
+    }
+  }, [realtimeStatus]);
+
   useEffect(() => {
     const fetchExternalKnowledgeStatus = async () => {
       if (selectedBot?.id) {
@@ -186,9 +245,9 @@ export const FileUpload = () => {
               setSelectedBot((prev: any) =>
                 prev
                   ? {
-                      ...prev,
-                      external_knowledge: response.external_knowledge,
-                    }
+                    ...prev,
+                    external_knowledge: response.external_knowledge,
+                  }
                   : null
               );
             }
@@ -306,7 +365,7 @@ export const FileUpload = () => {
               responseyoutube.status === "processing")
           ) {
             toast.info(
-              "Your YouTube videos are being processed. We'll notify you when they're ready."
+              ` Your YouTube videos are being processed. Inserted ${responseyoutube.inserted}, skipped ${responseyoutube.skipped} as already existing.`
             );
 
             // Clear selected videos since they're being processed
@@ -319,8 +378,15 @@ export const FileUpload = () => {
                 is_active: true,
               });
             }
+             fetchYouTubeVideos();
+          // ✅ Refresh YouTubeUploader component
+          setRefreshKey((prev) => prev + 1);
 
             return; // Exit early since videos are being processed in background
+          } else{
+            toast.info(
+              `  ${responseyoutube.message}`
+            );
           }
 
           // Handle traditional synchronous response (for backward compatibility)
@@ -366,8 +432,8 @@ export const FileUpload = () => {
           );
           const storedVideos = Array.isArray(responseyoutube.stored_videos)
             ? responseyoutube.stored_videos.map(
-                (video: Video1) => video.video_url
-              )
+              (video: Video1) => video.video_url
+            )
             : [];
           // ✅ Remove processed videos from local storage
           const remainingVideos = parsedSelectedVideos.filter(
@@ -477,9 +543,9 @@ export const FileUpload = () => {
       );
       console.log("Delete API response:", response);
 
-      if (response?.data?.words_removed) {
+      if (response?.data?.message) {
         toast.success(
-          `Video deleted successfully. ${response.data.words_removed} words removed.`
+          `Video deleted successfully.`
         );
 
         // Update the user usage statistics if possible
@@ -513,7 +579,7 @@ export const FileUpload = () => {
       } else {
         console.warn("Unexpected API response format:", response);
         toast.warning(
-          "Video was deleted, but word count may not have been updated correctly."
+          "Video was deleted successfully"
         );
       }
     } catch (error: any) {
@@ -533,6 +599,143 @@ export const FileUpload = () => {
 
   const cancelDeletion = () => {
     setConfirmDelete(null);
+  };
+
+  const handleReconfigure = async () => {
+    if (!selectedBot?.id || !status) return;
+    try {
+      // Update bot status to "Reconfiguring" and set is_active to false
+      const response = await authApi.updateBotFields(selectedBot.id, {
+        status: "Reconfiguring",
+        is_active: false,
+      });
+
+      setStatus({
+        ...status,
+        overall_status: "reconfiguring",
+        progress: {
+          files: { ...status.progress.files, status: "reconfiguring" },
+          websites: { ...status.progress.websites, status: "reconfiguring" },
+          youtube: { ...status.progress.youtube, status: "reconfiguring" }
+        }
+      });
+
+      if (response.success) {
+        // Update local state
+        setSelectedBot({
+          ...selectedBot,
+          status: "Reconfiguring",
+          is_active: false, 
+        });
+
+      } else {
+        toast.error("Failed to start reconfiguration");
+      }
+    } catch (error) {
+      console.error("Error updating bot status:", error);
+      toast.error("Failed to start reconfiguration");
+    } finally {
+      setIsReconfiguring(false);
+    }
+    setIsReconfiguring(true);
+    setActiveTabLock(true);
+    toast.info("You can now make changes. Click Retrain when done.");
+  };
+
+  const handleCancel = async () => {
+    if (!selectedBot?.id || !status) return;
+    try {
+      // Update bot status to "Reconfiguring" and set is_active to false
+      const response = await authApi.updateBotFields(selectedBot.id, {
+        status: "Pending",
+        is_active: false,
+      });
+
+      setStatus({
+        ...status,
+        overall_status: "Pending",
+        progress: {
+          files: { ...status.progress.files, status: "Pending" },
+          websites: { ...status.progress.websites, status: "Pending" },
+          youtube: { ...status.progress.youtube, status: "Pending" }
+        }
+      });
+      await authApi.cancel_training(selectedBot.id);
+      if (response.success) {
+        // Update local state
+        setSelectedBot({
+          ...selectedBot,
+          status: "Pending",
+          is_active: false,
+        });
+
+      } else {
+        toast.error("Failed to Cancel");
+      }
+    } catch (error) {
+      console.error("Error updating bot status:", error);
+      toast.error("Failed to Cancel");
+    } finally {
+      setIsReconfiguring(false);
+    }
+    setIsReconfiguring(false);
+    setActiveTabLock(false);
+  };
+  const handleRetrain = async () => {
+    if (!selectedBot?.id || !status) return;
+    try {
+      setIsRetraining(true);
+
+      // 1. First reset reconfiguring state to allow WS updates
+      setIsReconfiguring(false);
+
+      const response = await authApi.updateBotFields(selectedBot.id, {
+        status: "Retraining",
+        is_active: false,
+        is_retrained: true
+      });
+
+      // 1b. Call your training API
+        const trainingResponse = await authApi.startTraining(selectedBot.id);
+
+        if (!trainingResponse.success) {
+          throw new Error("Failed to start training");
+        }
+
+      // 2. Manually set status to "Training" for immediate UI feedback
+      setStatus({
+        ...status,
+        overall_status: "Retraining",
+        progress: {
+          files: { ...status.progress.files, status: "Retraining" },
+          websites: { ...status.progress.websites, status: "Retraining" },
+          youtube: { ...status.progress.youtube, status: "Retraining" }
+        }
+      });
+
+      const processResponse = await authApi.update_processed_with_training(selectedBot.id);
+      // 4. Force refresh status from backend
+      refreshStatus();
+      if (response.success) {
+        // Update local state
+        setSelectedBot({
+          ...selectedBot,
+          status: "Retraining",
+          is_active: false,
+          //is_trained: true 
+        });
+
+      } else {
+        toast.error("Failed to start Retraining");
+      }
+
+    } catch (error) {
+      toast.error("Retraining failed");
+      // Rollback to reconfiguring state if failed
+      setIsReconfiguring(true);
+    } finally {
+      setIsRetraining(false);
+    }
   };
 
   // Function to extract video ID from URL
@@ -559,7 +762,7 @@ export const FileUpload = () => {
   };
 
   // Fetch files when the component mounts or when selectedBot changes
-  const fetchFiles = async () => {
+  const fetchFiles = useCallback(async () => {
     if (!selectedBot?.id) {
       console.error("Bot ID is missing.");
       return;
@@ -580,6 +783,7 @@ export const FileUpload = () => {
           url: file.file_path,
           wordCount: file.word_count,
           charCount: file.character_count,
+          status: file.status
         };
       });
 
@@ -594,7 +798,62 @@ export const FileUpload = () => {
     } catch (error) {
       console.error("Failed to fetch files:", error);
     }
+  }, [selectedBot?.id]);
+
+  // Place the websocket hook here:
+
+const debounceTimeout = useRef<number | null>(null);
+const prevStatus = useRef<any>(null);
+
+useEffect(() => {
+  if (!selectedBot?.id || !gridStatus) return;
+
+  // Check if there are any changes in the relevant counts compared to previous status
+  const shouldFetchFiles = prevStatus.current?.files &&
+    (gridStatus.files.extracting !== prevStatus.current.files.extracting ||
+     gridStatus.files.extracted !== prevStatus.current.files.extracted ||
+     gridStatus.files.embedding !== prevStatus.current.files.embedding ||
+     gridStatus.files.success !== prevStatus.current.files.success ||
+     gridStatus.files.failed !== prevStatus.current.files.failed);
+
+  const shouldFetchYouTube = prevStatus.current?.youtube &&
+    (gridStatus.youtube.extracting !== prevStatus.current.youtube.extracting ||
+     gridStatus.youtube.extracted !== prevStatus.current.youtube.extracted ||
+     gridStatus.youtube.embedding !== prevStatus.current.youtube.embedding ||
+     gridStatus.youtube.success !== prevStatus.current.youtube.success ||
+     gridStatus.youtube.failed !== prevStatus.current.youtube.failed);
+
+  const shouldFetchWebsites = prevStatus.current?.websites &&
+    (gridStatus.websites.extracting !== prevStatus.current.websites.extracting ||
+     gridStatus.websites.extracted !== prevStatus.current.websites.extracted ||
+     gridStatus.websites.embedding !== prevStatus.current.websites.embedding ||
+     gridStatus.websites.success !== prevStatus.current.websites.success ||
+     gridStatus.websites.failed !== prevStatus.current.websites.failed);
+
+  // Update previous status
+  prevStatus.current = gridStatus;
+
+  // Only proceed if there are actual changes
+  if (!shouldFetchFiles && !shouldFetchYouTube && !shouldFetchWebsites) {
+    return;
+  }
+
+  if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+
+  debounceTimeout.current = setTimeout(() => {
+    if (shouldFetchFiles) fetchFiles();
+    if (shouldFetchYouTube) fetchYouTubeVideos();
+    if (shouldFetchWebsites && refetchScrapedUrls) refetchScrapedUrls();
+  }, 1000);
+
+  return () => {
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
   };
+}, [gridStatus, selectedBot?.id]);
+
+useEffect(() => {
+  console.log("Grid WebSocket connected:", isGridWsConnected);
+}, [isGridWsConnected]);
 
   useEffect(() => {
     fetchFiles();
@@ -651,6 +910,10 @@ export const FileUpload = () => {
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
+      if (!isReconfiguring) {
+        toast.error("Please click Reconfigure first before uploading files");
+        return;
+      }
       if (remainingWords <= 0) {
         toast.error(
           "You've reached your word limit. Please upgrade your plan."
@@ -688,7 +951,7 @@ export const FileUpload = () => {
           .join(", ");
         toast.error(
           `Cannot upload files with duplicate names: ${duplicateNames}. ` +
-            `Please rename the file(s) or delete the existing ones before uploading.`
+          `Please rename the file(s) or delete the existing ones before uploading.`
         );
         return;
       }
@@ -700,8 +963,7 @@ export const FileUpload = () => {
 
       if (oversizedFiles.length > 0) {
         toast.error(
-          `Files exceed the ${
-            userPlan?.per_file_size_limit
+          `Files exceed the ${userPlan?.per_file_size_limit
           }MB limit: ${oversizedFiles.map((f) => f.name).join(", ")}`
         );
         return;
@@ -778,6 +1040,7 @@ export const FileUpload = () => {
       }
     },
     [
+      isReconfiguring,
       totalWordsUsed,
       totalStorageUsed,
       userUsage.planLimit,
@@ -801,12 +1064,7 @@ export const FileUpload = () => {
         await authApi.deleteFile(id);
         setExistingFiles((prev) => prev.filter((file) => file.id !== id));
 
-        // Update bot word count in backend
-        await authApi.updateBotWordCount({
-          bot_id: selectedBot.id,
-          word_count: -fileToDelete.wordCount,
-          file_size: -fileToDelete.size,
-        });
+
 
         // Update global words used
         const apiUsage: UserUsageResponse = await authApi.getUserUsage();
@@ -915,7 +1173,7 @@ export const FileUpload = () => {
           });
         }
       } else {
-        toast.info("No new files to save");
+        //toast.info("No new files to save");
       }
     } catch (error) {
       toast.error("An error occurred while saving files");
@@ -979,639 +1237,503 @@ export const FileUpload = () => {
 
   return (
     <div className="space-y-6">
+      <BotTrainingStatusProgress 
+      status={status} 
+      selectedBot={selectedBot} 
+      isConnected={isConnected}
+      refreshStatus={refreshStatus}
+    />
       <ToastContainer />
-      {/* {loading && <Loader />} */}
+      {loading && <Loader />}
 
-      <div
-        className="flex justify-between items-center mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm"
-        style={{
-          border: "1px solid #DFDFDF",
-          borderRadius: "0.5rem" /* rounded-lg ≈ 8px but can adjust */,
-        }}
-      >
-        <div className="flex items-center ">
-          <h2
-            className="text-sm font-medium text-gray-700 dark:text-gray-300"
+     {/* Tabs Section */}
+
+      <div className="flex justify-between items-center w-full border-b border-gray-300 dark:border-gray-700">
+
+        <div className="flex">
+          <button
+            onClick={() => handleTabClick("websitescraping")}
+            className={`px-4 py-2 ${activeTab === "websitescraping" || activeTab === "websiteSub"
+                ? "border-b-2 border-[color:#5348CB] text-[color:#5348CB] "
+                : "text-gray-500"
+              }`}
             style={{
               fontFamily: "Instrument Sans, sans-serif",
-              fontWeight: 600,
-              color: "#000",
+              fontSize: "16px",
+              fontWeight: "600",
             }}
           >
-            Bot Name: {selectedBot?.name || "Untitled Bot"}
-          </h2>
+            Website
+          </button>
+          <button
+            onClick={() => setActiveTab("files")}
+            className={`px-4 py-2 ${activeTab === "files"
+                ? "border-b-2 border-[color:#5348CB] text-[color:#5348CB] "
+                : "text-gray-500"
+              }`}
+            style={{
+              fontFamily: "Instrument Sans, sans-serif",
+              fontSize: "16px",
+              fontWeight: "600",
+            }}
+          >
+            Files
+          </button>
+          <button
+            onClick={() => setActiveTab("youtube")}
+            className={`px-4 py-2 ${activeTab === "youtube"
+                ? "border-b-2 border-[color:#5348CB] text-[color:#5348CB] "
+                : "text-gray-500"
+              }`}
+
+          >
+            YouTube Videos
+          </button>
         </div>
 
-        {/* <div className="flex items-center space-x-4 ">
-          <span
-            className="text-sm font-medium text-gray-700 dark:text-gray-300"
-            style={{
-              fontFamily: "Instrument Sans, sans-serif",
-              fontWeight: 600,
-              color: "#000",
-            }}
+        <div className="flex items-center space-x-4 pb-2">
+          <button
+            onClick={handleReconfigure}
+            className={`px-4 py-2 rounded-md transition-colors ${status?.overall_status === "reconfiguring" || isReconfiguring
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-[#5348CB] text-white hover:bg-[#4339b6]"
+              }`}
+            disabled={status?.overall_status === "reconfiguring" || isReconfiguring}
           >
-            Knowledge Source:{" "}
-            {externalKnowledge
-              ? "Include external knowledge when needed"
-              : "Only provided knowledge"}
-          </span>
+            Reconfigure
+          </button>
+          <button
+            onClick={handleCancelClick}
+            className={`px-4 py-2 rounded-md transition-colors ${status?.overall_status !== "reconfiguring" && !isReconfiguring
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-[#5348CB] text-white hover:bg-[#4339b6]"
+              }`}
+            disabled={status?.overall_status !== "reconfiguring" && !isReconfiguring}
+          >
+            Cancel
+          </button>
 
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              className="sr-only peer"
-              checked={externalKnowledge}
-              onChange={async () => {
-                if (!selectedBot?.id) {
-                  toast.error("No bot selected");
-                  return;
-                }
+          {showCancelWarning && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+              <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+                <h2 className="text-lg font-bold mb-4">Warning</h2>
+                <p className="mb-4">
+                  All changes made during reconfiguration will be lost if you cancel. Are you sure you want to proceed?
+                </p>
+                <div className="flex justify-end space-x-4">
+                  <button
+                    onClick={handleCancelClose}
+                    className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100"
+                  >
+                    Go Back
+                  </button>
+                  <button
+                    onClick={handleCancelConfirm}
+                    className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+                  >
+                    Proceed Anyway
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
-                const newValue = !externalKnowledge;
-
-                try {
-                  setLoading(true);
-                  const response = await authApi.updateBotExternalKnowledge(
-                    selectedBot.id
-                  );
-
-                  if (response?.success) {
-                    setExternalKnowledge(response.external_knowledge);
-                    // Update the bot context
-                    setSelectedBot((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            external_knowledge: response.external_knowledge,
-                          }
-                        : null
-                    );
-                    toast.success(
-                      `Knowledge source updated to ${
-                        response.external_knowledge
-                          ? "include external knowledge"
-                          : "only use provided knowledge"
-                      }`
-                    );
-                  } else {
-                    throw new Error("Failed to update setting");
-                  }
-                } catch (error) {
-                  console.error("Error updating external knowledge:", error);
-                  toast.error("Failed to update knowledge source setting");
-                } finally {
-                  setLoading(false);
-                }
-              }}
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-          </label>
-        </div> */}
+          <button
+            onClick={handleRetrain}
+            className={`px-4 py-2 rounded-md transition-colors ${status?.overall_status !== "reconfiguring" && !isReconfiguring
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-[#5348CB] text-white hover:bg-[#4339b6]"
+              }`}
+            disabled={status?.overall_status !== "reconfiguring" && !isReconfiguring || isSaving}
+          >
+            {isRetraining ? (
+              <>
+                <svg className="w-4 h-4 mr-2 animate-spin inline" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Retraining...
+              </>
+            ) : (
+              "Retrain"
+            )}
+          </button>
+        </div>
       </div>
 
+      <div>
+        {activeTab === "websitescraping" &&
+          (user.subscription_plan_id === 1 ||
+            user.subscription_plan_id === 2) && (
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
+                Website Scraping
+              </h1>
+              <WebScrapingTab isReconfiguring={isReconfiguring}
+                isCreateBotFlow={false} setRefetchScrapedUrls={setRefetchScrapedUrls}  />
+            </div>
+          )}
 
-      {/* Tabs Section */}
-
-      <div className="flex border-b border-gray-300 dark:border-gray-700">
-        <button
-          onClick={() => handleTabClick("websitescraping")}
-          className={`px-4 py-2 ${
-            activeTab === "websitescraping" || activeTab === "websiteSub"
-              ? "border-b-2 border-[color:#5348CB] text-[color:#5348CB] "
-              : "text-gray-500"
-          }`}
-          style={{
-            fontFamily: "Instrument Sans, sans-serif",
-            fontSize: "16px",
-            fontWeight: "600",
-          }}
-        >
-          Website
-        </button>
-        <button
-          onClick={() => setActiveTab("files")}
-          className={`px-4 py-2 ${
-            activeTab === "files"
-              ? "border-b-2 border-[color:#5348CB] text-[color:#5348CB] "
-              : "text-gray-500"
-          }`}
-          style={{
-            fontFamily: "Instrument Sans, sans-serif",
-            fontSize: "16px",
-            fontWeight: "600",
-          }}
-        >
-          Files
-        </button>
-        <button
-          onClick={() => setActiveTab("youtube")}
-          className={`px-4 py-2 ${
-            activeTab === "youtube"
-              ? "border-b-2 border-[color:#5348CB] text-[color:#5348CB] "
-              : "text-gray-500"
-          }`}
-          
-        >
-          YouTube Videos
-        </button>
-      </div>
-<div>
-      {activeTab === "websitescraping" &&
-        (user.subscription_plan_id === 1 ||
-          user.subscription_plan_id === 2) && (
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
-              Website Scraping
-            </h1>
-            <WebScrapingTab />
-          </div>
-        )}
-
-      {activeTab === "websiteSub" &&
-        (user.subscription_plan_id === 3 ||
-          user.subscription_plan_id === 4) && (
-          <div>
-            {/* <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3 border-b border-pink-500">
+        {activeTab === "websiteSub" &&
+          (user.subscription_plan_id === 3 ||
+            user.subscription_plan_id === 4) && (
+            <div>
+              {/* <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3 border-b border-pink-500">
               Enter the Website URL
             </h1> */}
-            <SubscriptionScrape />
-          </div>
-        )}
-      {/* Files Tab Content */}
+              <SubscriptionScrape isReconfiguring={isReconfiguring} setRefetchScrapedUrls={setRefetchScrapedUrls} />
+            </div>
+          )}
+        {/* Files Tab Content */}
 
 
-</div>
-<div >
-      {activeTab === "files" && (
-        <>
-          {/* <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+      </div>
+      <div >
+        {activeTab === "files" && (
+          <>
+            {/* <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             File Upload
           </h1> */}
 
-          <h1
-            style={{
+            <h1
+              style={{
+                fontFamily: "Instrument Sans, sans-serif",
+                fontSize: "20px",
+                color: "#333333",
+                fontWeight: "bold",
+                marginBottom: "20px",
+              }}
+            >
+              Manage Files
+            </h1>
+
+            {/* Dropzone */}
+            <div
+              {...getRootProps({
+                onClick: (e) => {
+                  if (!isReconfiguring) {
+                    e.stopPropagation();
+                    toast.error("Please click Reconfigure first before uploading files");
+                    return false; // Important: prevent dropzone from handling the click
+                  }
+                  return undefined; // Let dropzone handle the click normally
+                }
+              })}
+
+              className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover-[#5348CB] transition-colors relative   "
+              style={{ backgroundColor: "#F8FDFF" }}
+
+            >
+              <input {...getInputProps()} disabled={!isReconfiguring} />
+              {isProcessingFiles && (
+                <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center rounded-lg ">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
+                  <p className="text-gray-600">{processingMessage}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    This may take a moment...
+                  </p>
+                </div>
+              )}
+              {/* <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" /> */}
+              <img
+                src="/images/dummy/folder.png"
+                alt="Upload Icon"
+                className="mx-auto h-12 w-12 object-contain"
+              />
+              <p
+                style={{
+                  fontFamily: '"Instrument Sans", sans-serif',
+                  fontSize: "14px",
+                  fontWeight: "400",
+                  color: "#333",
+                }}
+                className="text-gray-600 dark:text-gray-400"
+              >
+                {isDragActive
+                  ? "Drop the files here..."
+                  : "Drag & drop files here, or click to select files"}
+              </p>
+              <p
+                style={{
+                  fontFamily: '"Instrument Sans", sans-serif',
+                  fontSize: "12px",
+                  fontWeight: "400",
+                  color: "#666",
+                }}
+                className="text-gray-600 dark:text-gray-400"
+              >
+                Maximum {userUsage.planLimit.toLocaleString()} words total,{" "}
+                {userPlan?.per_file_size_limit}MB per file (PDF, TXT, Docx,
+                .png, .jpg, .jpeg, .gif files only)
+              </p>
+            </div>
+
+            <div className="flex flex-wrap justify-between gap-4  ">
+              <div className="flex-[0_0_48%] py-4 bg-white dark:bg-gray-700 rounded-lg ">
+                {/* Title */}
+                <div>
+                  <span
+                    className="text-gray-700 dark:text-gray-300"
+                    style={{
+                      fontFamily: "Instrument Sans, sans-serif",
+                      fontSize: "18px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Word Usage
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600 mt-2">
+                  <div
+                    className="h-2.5 rounded-full"
+                    style={{
+                      width: `${usagePercentage}%`,
+                      background:
+                        remainingWords <= 0
+                          ? "#ef4444"
+                          : remainingWords < userUsage.planLimit * 0.2
+                            ? "#f59e0b"
+                            : "linear-gradient(to right, #665AD7, #9D9CFF)",
+                    }}
+                  ></div>
+                </div>
+
+                {/* Usage Text Below Bar */}
+                <div className="mt-1 text-sm text-gray-500">
+                  {totalWordsUsed.toLocaleString()} / {userUsage.planLimit.toLocaleString()}
+                  {userUsage.currentSessionWords > 0 && (
+                    <span className="ml-2">
+                      (Current Bot: {userUsage.currentSessionWords.toLocaleString()})
+                    </span>
+                  )}
+                </div>
+
+                {/* Warnings */}
+                {remainingWords <= 0 ? (
+                  <div className="mt-2 text-xs text-red-500 dark:text-red-400">
+                    <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
+                    You've reached your word limit! Remove files or upgrade your plan.
+                  </div>
+                ) : remainingWords < userUsage.planLimit * 0.2 ? (
+                  <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
+                    <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
+                    Approaching word limit ({Math.round(usagePercentage)}% used)
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex-[0_0_48%] py-4 bg-white dark:bg-gray-700 rounded-lg">
+                {/* Title */}
+                <div>
+                  <span
+                    className="text-gray-700 dark:text-gray-300"
+                    style={{
+                      fontFamily: "Instrument Sans, sans-serif",
+                      fontSize: "18px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Storage
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600 mt-2">
+                  <div
+                    className="h-2.5 rounded-full"
+                    style={{
+                      width: `${storageUsagePercentage}%`,
+                      background:
+                        remainingStorage <= 0
+                          ? "#ef4444"
+                          : remainingStorage < userUsage.storageLimit * 0.2
+                            ? "#f59e0b"
+                            : "linear-gradient(to right, #665AD7, #9D9CFF)",
+                    }}
+                  ></div>
+                </div>
+
+                {/* Usage Text Below Bar */}
+                <div className="text-gray-700 dark:text-gray-300"
+                  style={{
+                    fontFamily: "Instrument Sans, sans-serif",
+                    fontSize: "12px",
+                    fontWeight: 400,
+                  }}>
+                  {formatBytesToHumanReadable(totalStorageUsed)} /{" "}
+                  {formatBytesToHumanReadable(userUsage.storageLimit)}
+                  {userUsage.currentSessionStorage > 0 && (
+                    <span className="ml-2">
+                      (This session:{" "}
+                      {formatBytesToHumanReadable(userUsage.currentSessionStorage)})
+                    </span>
+                  )}
+                </div>
+
+                {/* Warning or Info */}
+                {remainingStorage <= 0 ? (
+                  <div className="mt-2 text-sm font-medium text-red-500 dark:text-red-400 text-left">
+                    <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
+                    You've reached your storage limit! Remove files or upgrade your plan.
+                  </div>
+                ) : remainingStorage < userUsage.storageLimit * 0.2 ? (
+                  <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
+                    <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
+                    Approaching storage limit ({Math.round(storageUsagePercentage)}% used)
+                  </div>
+                ) : null}
+              </div>
+
+            </div>
+            {/* Files Table */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden ">
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Uploaded Files
+                </h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-700">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Words
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Size
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Upload Date
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {allFiles.map((file) => (
+                      <tr
+                        key={file.id}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <FileIcon className="w-5 h-5 text-gray-400 mr-2" />
+                            <span className="text-sm text-gray-900 dark:text-white">
+                              {file.name}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {getFileExtension(file.name)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                         <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {file.status || "Pending"}
+                         </span>
+                       </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {file.wordCount?.toLocaleString() || "N/A"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {formatBytesToHumanReadable(file.size)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {file.uploadDate.toLocaleDateString()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <button
+                            onClick={() => handleDelete(file.id)}
+                            className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="mt-4">
+              <button
+                onClick={handleSave}
+                disabled={isSaveDisabled || isSaving}
+                className={`w-[102px] h-[43px] px-4 py-2 bg-[#5348CB] text-white rounded-lg hover:bg-[#4339b6] disabled:bg-gray-400 disabled:cursor-not-allowed  ${isSaving ? "opacity-75" : ""
+                  }`}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save"
+                )}
+              </button>
+
+            </div>
+          </>
+        )}
+      </div>
+      {/* YouTube Videos Tab Content */}
+      {activeTab === "youtube" && (
+        <div className="bg-white p-6 relative" style={{ border: '1px solid #DFDFDF', borderRadius: '13px' }}>
+          {/* Show upgrade message only for plans 1 and 2 */}
+          {[1, 2].includes(user.subscription_plan_id) && (
+            <div className="absolute inset-0 z-20 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-lg pointer-events-auto">
+              <YouTubeUpgradeMessage requiredPlan="Growth" />
+            </div>
+          )}
+
+          <div className={[1, 2].includes(user.subscription_plan_id) ? "pointer-events-none opacity-50" : ""}>
+            <h1 style={{
               fontFamily: "Instrument Sans, sans-serif",
               fontSize: "20px",
               color: "#333333",
               fontWeight: "bold",
               marginBottom: "20px",
-            }}
-          >
-            Manage Files
-          </h1>
-
-          {/* Dropzone */}
-          <div 
-            {...getRootProps()}
-            // className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors relative ${
-            //   isDragActive
-            //     ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-            //     : "border-gray-300 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500"
-            // }`}
-
-            className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover-[#5348CB] transition-colors relative   "
-            style={{ backgroundColor: "#F8FDFF" }}
-          >
-            <input {...getInputProps()} />
-            {isProcessingFiles && (
-              <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center rounded-lg ">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
-                <p className="text-gray-600">{processingMessage}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  This may take a moment...
-                </p>
-              </div>
-            )}
-            {/* <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" /> */}
-            <img
-              src="/images/dummy/folder.png"
-              alt="Upload Icon"
-              className="mx-auto h-12 w-12 object-contain"
-            />
-            <p
-              style={{
-                fontFamily: '"Instrument Sans", sans-serif',
-                fontSize: "14px",
-                fontWeight: "400",
-                color: "#333",
-              }}
-              className="text-gray-600 dark:text-gray-400"
-            >
-              {isDragActive
-                ? "Drop the files here..."
-                : "Drag & drop files here, or click to select files"}
-            </p>
-            <p
-              style={{
-                fontFamily: '"Instrument Sans", sans-serif',
-                fontSize: "12px",
-                fontWeight: "400",
-                color: "#666",
-              }}
-              className="text-gray-600 dark:text-gray-400"
-            >
-              Maximum {userUsage.planLimit.toLocaleString()} words total,{" "}
-              {userPlan?.per_file_size_limit}MB per file (PDF, TXT, Docx,
-              .png, .jpg, .jpeg, .gif files only)
-            </p>
-          </div>
-          
-          <div className="flex flex-wrap justify-between gap-4  ">
-            {/* Progress Bar Section */}
-            {/* <div className="flex-[0_0_48%] p-4 bg-white dark:bg-gray-700 rounded-lg mt-2">
-
-
-                       <div  >
-          <span
-                  className="text-gray-700 dark:text-gray-300 mb-2 "
-                  style={{
-                    fontFamily: "Instrument Sans, sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 600,
-                  }}
-                >
-                  Word Usage
-                </span>
-</div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600">
-                <div
-                  className="h-2.5 rounded-full"
-                  style={{
-                    width: `${usagePercentage}%`,
-                    backgroundColor:
-                      remainingWords <= 0
-                        ? "#ef4444"
-                        : remainingWords < userUsage.planLimit * 0.2
-                        ? "#f59e0b"
-                        : "#10b981",
-                  }}
-                ></div>
-              </div>
-              
-                
-
-                <div className="flex items-center justify-between mb-1">
-                  <span
-                    className={`text-sm font-medium ${
-                      remainingWords <= 0
-                        ? "text-red-500"
-                        : remainingWords < userUsage.planLimit * 0.2
-                        ? "text-yellow-500"
-                        : "text-green-500"
-                    }`}
-                  >
-                    
-
-                    <div className="text-gray-700 dark:text-gray-300"
-      style={{
-        fontFamily: "Instrument Sans, sans-serif",
-        fontSize: "12px",
-        fontWeight: 400,
-      }}>
-                      {totalWordsUsed.toLocaleString()}/
-                      {userUsage.planLimit.toLocaleString()}
-                      {userUsage.currentSessionWords > 0 && (
-                        <span className="text-gray-500 ml-2">
-                          (Current Bot:{" "}
-                          {userUsage.currentSessionWords.toLocaleString()})
-                        </span>
-                      )}
-                    </div>
-                  </span>
-                </div>
-           
-              
-
-              
-
-              {remainingWords <= 0 ? (
-                <div className="mt-2 text-xs text-red-500 dark:text-red-400">
-                  <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-                  You've reached your word limit! Remove files or upgrade your
-                  plan.
-                </div>
-              ) : remainingWords < userUsage.planLimit * 0.2 ? (
-                <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
-                  <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-                  Approaching word limit ({Math.round(usagePercentage)}% used)
-                </div>
-              ) : null}
-            </div> */}
-            <div className="flex-[0_0_48%] py-4 bg-white dark:bg-gray-700 rounded-lg ">
-  {/* Title */}
-  <div>
-    <span
-      className="text-gray-700 dark:text-gray-300"
-      style={{
-        fontFamily: "Instrument Sans, sans-serif",
-        fontSize: "18px",
-        fontWeight: 600,
-      }}
-    >
-      Word Usage
-    </span>
-  </div>
-
-  {/* Progress Bar */}
-  <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600 mt-2">
-    <div
-      className="h-2.5 rounded-full"
-      style={{
-        width: `${usagePercentage}%`,
-        background:
-          remainingWords <= 0
-            ? "#ef4444"
-            : remainingWords < userUsage.planLimit * 0.2
-            ? "#f59e0b"
-            : "linear-gradient(to right, #665AD7, #9D9CFF)",
-      }}
-    ></div>
-  </div>
-
-  {/* Usage Text Below Bar */}
-  <div className="mt-1 text-sm text-gray-500">
-    {totalWordsUsed.toLocaleString()} / {userUsage.planLimit.toLocaleString()}
-    {userUsage.currentSessionWords > 0 && (
-      <span className="ml-2">
-        (Current Bot: {userUsage.currentSessionWords.toLocaleString()})
-      </span>
-    )}
-  </div>
-
-  {/* Warnings */}
-  {remainingWords <= 0 ? (
-    <div className="mt-2 text-xs text-red-500 dark:text-red-400">
-      <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-      You've reached your word limit! Remove files or upgrade your plan.
-    </div>
-  ) : remainingWords < userUsage.planLimit * 0.2 ? (
-    <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
-      <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-      Approaching word limit ({Math.round(usagePercentage)}% used)
-    </div>
-  ) : null}
-</div>
-
-
-            
-
-
-
-          <div className="flex-[0_0_48%] py-4 bg-white dark:bg-gray-700 rounded-lg">
-  {/* Title */}
-  <div>
-    <span
-      className="text-gray-700 dark:text-gray-300"
-      style={{
-        fontFamily: "Instrument Sans, sans-serif",
-        fontSize: "18px",
-        fontWeight: 600,
-      }}
-    >
-      Storage
-    </span>
-  </div>
-
-  {/* Progress Bar */}
-  <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600 mt-2">
-    <div
-      className="h-2.5 rounded-full"
-      style={{
-        width: `${storageUsagePercentage}%`,
-        background:
-          remainingStorage <= 0
-            ? "#ef4444"
-            : remainingStorage < userUsage.storageLimit * 0.2
-            ? "#f59e0b"
-            : "linear-gradient(to right, #665AD7, #9D9CFF)",
-      }}
-    ></div>
-  </div>
-
-  {/* Usage Text Below Bar */}
-  <div className="text-gray-700 dark:text-gray-300"
-      style={{
-        fontFamily: "Instrument Sans, sans-serif",
-        fontSize: "12px",
-        fontWeight: 400,
-      }}>
-    {formatBytesToHumanReadable(totalStorageUsed)} /{" "}
-    {formatBytesToHumanReadable(userUsage.storageLimit)}
-    {userUsage.currentSessionStorage > 0 && (
-      <span className="ml-2">
-        (This session:{" "}
-        {formatBytesToHumanReadable(userUsage.currentSessionStorage)})
-      </span>
-    )}
-  </div>
-
-  {/* Warning or Info */}
-  {remainingStorage <= 0 ? (
-    <div className="mt-2 text-sm font-medium text-red-500 dark:text-red-400 text-left">
-      <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-      You've reached your storage limit! Remove files or upgrade your plan.
-    </div>
-  ) : remainingStorage < userUsage.storageLimit * 0.2 ? (
-    <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
-      <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-      Approaching storage limit ({Math.round(storageUsagePercentage)}% used)
-    </div>
-  ) : null}
-</div>
-
-</div>
-          {/* <div className="flex justify-end">
-            <button
-              onClick={handleSave}
-              disabled={isSaveDisabled || isSaving}
-              className={`px-10 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed ${
-                isSaving ? "opacity-75" : ""
-              }`}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
-                  {existingFiles.length > 0 ? "Re-Training..." : "Saving..."}
-                </>
-              ) : existingFiles.length > 0 ? (
-                "Re-Train"
-              ) : (
-                "Save"
-              )}
-            </button>
-          </div> */}
-
-          {/* Files Table */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden ">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Uploaded Files
-              </h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-700">
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Words
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Chars
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Size
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Upload Date
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {allFiles.map((file) => (
-                    <tr
-                      key={file.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <FileIcon className="w-5 h-5 text-gray-400 mr-2" />
-                          <span className="text-sm text-gray-900 dark:text-white">
-                            {file.name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {getFileExtension(file.name)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {file.wordCount?.toLocaleString() || "N/A"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {file.charCount?.toLocaleString() || "N/A"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {formatBytesToHumanReadable(file.size)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {file.uploadDate.toLocaleDateString()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <button
-                          onClick={() => handleDelete(file.id)}
-                          className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-<div className="mt-4">
-          <button
-            onClick={handleSave}
-            disabled={isSaveDisabled || isSaving}
-            className={`w-[102px] h-[43px] px-4 py-2 bg-[#5348CB] text-white rounded-lg hover:bg-[#4339b6] disabled:bg-gray-400 disabled:cursor-not-allowed  ${
-              isSaving ? "opacity-75" : ""
-            }`}
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
-                Saving...
-              </>
-            ) : (
-              "Save"
-            )}
-          </button>
-
-          </div>
-        </>
-      )}
-</div>
-      {/* YouTube Videos Tab Content */}
-      {activeTab === "youtube" && (
-  <div className="bg-white p-6 relative" style={{ border: '1px solid #DFDFDF', borderRadius: '13px' }}>
-    {/* Show upgrade message only for plans 1 and 2 */}
-    {[1, 2].includes(user.subscription_plan_id) && (
-      <div className="absolute inset-0 z-20 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-lg pointer-events-auto">
-        <YouTubeUpgradeMessage requiredPlan="Growth" />
-      </div>
-    )}
-    
-    <div className={[1, 2].includes(user.subscription_plan_id) ? "pointer-events-none opacity-50" : ""}>
-      <h1 style={{
-        fontFamily: "Instrument Sans, sans-serif",
-        fontSize: "20px",
-        color: "#333333",
-        fontWeight: "bold",
-        marginBottom: "20px",
-      }}>
-        YouTube Videos
-      </h1>
-
-
-
-
+            }}>
+              YouTube Videos
+            </h1>
             <YouTubeUploader
+              isReconfiguring={isReconfiguring}
               maxVideos={remainingVideos}
               refreshKey={refreshKey}
               setIsVideoSelected={setIsVideoSelected}
             />
 
-            {/* <div className="p-4">
-              <button
-                onClick={handleFinish}
-                className="px-8 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                disabled={!isVideoSelected || isVideoProcessing}
-              >
-                {isVideoProcessing ? (
-                  <span className="flex items-center">
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Processing...
-                  </span>
-                ) : (
-                  "SAVE"
-                )}
-              </button>
-            </div> */}
-
-
             <div className="p-2" >
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Added Videos
-                </h2>
-              
-              </div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Added Videos
+              </h2>
+
+            </div>
             <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md "
-  style={{
-    
-    border: '1px solid #DFDFDF',
-    borderRadius: '13px'
-  }}>
-              
+              style={{
+
+                border: '1px solid #DFDFDF',
+                borderRadius: '13px'
+              }}>
+
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -1648,10 +1770,34 @@ export const FileUpload = () => {
                             fontSize: '16px',
                             fontWeight: 600,
                             color: '#333333',
+                           textTransform:'none'
+                          }}
+                        >
+                        Status
+                       </th>
+                      <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
                             textTransform:'none'
                           }}
                         >
                         Video URL
+                      </th>
+                       <th
+                          className="px-6 py-3 text-left uppercase tracking-wider"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333333',
+                            textTransform:'none'
+                          }}
+                        >
+                        Words
                       </th>
                       <th
                           className="px-6 py-3 text-left uppercase tracking-wider"
@@ -1696,6 +1842,9 @@ export const FileUpload = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                        {videoUrl.status}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <a
                             href={videoUrl.video_url}
                             target="_blank"
@@ -1704,6 +1853,11 @@ export const FileUpload = () => {
                           >
                             {videoUrl.video_url}
                           </a>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-900 dark:text-white">
+                          {videoUrl.transcript_count}
+                        </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -1733,35 +1887,25 @@ export const FileUpload = () => {
                   <button
                     key={number}
                     onClick={() => setCurrentPage(number)}
-                    className={`px-4 py-2 rounded-lg ${
-                      currentPage === number
+                    className={`px-4 py-2 rounded-lg ${currentPage === number
                         ? "bg-blue-500 text-white"
                         : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    }`}
+                      }`}
                   >
                     {number}
                   </button>
                 ))}
               </div>
-           
-          
-           
-           
-           
-           
-           
             </div>
-
- <div className="mt-4">
+            <div className="mt-4">
               <button
                 onClick={handleFinish}
                 className=" w-[102px]  h-[40px]  bg-blue-500 text-white rounded-lg hover:bg-[#5348CB] disabled:bg-[#AAAAAA] disabled:cursor-not-allowed"
-                
+
                 style={{
-    backgroundColor: isVideoSelected ? "#5348CB" : "#AAAAAA",
-  }}
-  disabled={!isVideoSelected || isVideoProcessing}
-                
+                  backgroundColor: isVideoSelected ? "#5348CB" : "#AAAAAA",
+                }}
+                disabled={!isVideoSelected || isVideoProcessing}
               >
                 {isVideoProcessing ? (
                   <span className="flex items-center">
@@ -1772,35 +1916,12 @@ export const FileUpload = () => {
                   "SAVE"
                 )}
               </button>
-              
+
             </div>
-           
+
           </div>
         </div>
       )}
-
-      {/* Website Scraping Tab Content
-      {activeTab === "websitescraping" &&
-        (user.subscription_plan_id === 1 ||
-          user.subscription_plan_id === 2) && (
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
-              Website Scraping
-            </h1>
-            <WebScrapingTab />
-          </div>
-        )}
-
-      {activeTab === "websiteSub" &&
-        (user.subscription_plan_id === 3 ||
-          user.subscription_plan_id === 4) && (
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
-            Enter the Website URL
-            </h1>
-            <SubscriptionScrape />
-          </div>
-        )} */}
 
       {/* Delete Confirmation Modal */}
       {confirmDelete && (

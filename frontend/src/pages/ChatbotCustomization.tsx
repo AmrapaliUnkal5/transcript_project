@@ -1035,6 +1035,11 @@ const handlePredefinedIconSelect = async (iconUrl: string) => {
       const response = await authApi.uploadBotIcon(formData);
       console.log("url",response.url)
       handleChange("icon", response.url);
+      // Update the selectedBot in context
+    setSelectedBot({
+      ...selectedBot,
+      bot_icon: response.url
+    });
     } catch (error) {
       console.error("Failed to upload bot icon:", error);
       toast.error("Failed to upload bot icon.");

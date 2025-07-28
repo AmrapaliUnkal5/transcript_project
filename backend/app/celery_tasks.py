@@ -23,16 +23,17 @@ The tasks are designed to support immediate user feedback by:
 4. Updating file status in the database at each step
 """
 
+from typing import List
 from app.celery_app import celery_app
 from app.youtube import store_videos_in_chroma, send_failure_notification
 from app.database import get_db
-from app.models import YouTubeVideo, User, Bot, File, SubscriptionPlan, UserSubscription, EmbeddingModel
+from app.models import YouTubeVideo, User, Bot, File, SubscriptionPlan, UserSubscription, EmbeddingModel, ScrapedNode
 from sqlalchemy.orm import Session
 import logging
 from app.utils.file_size_validations_utils import process_file_for_knowledge, prepare_file_metadata, insert_file_metadata
 from app.notifications import add_notification
 from datetime import datetime
-from app.scraper import scrape_selected_nodes, send_web_scraping_failure_notification
+from app.scraper import scrape_selected_nodes, send_web_scraping_failure_notification, mark_scraped_nodes_failed
 from app.vector_db import add_document, delete_document_from_chroma, delete_video_from_chroma, delete_url_from_chroma
 import os
 import hashlib
@@ -44,131 +45,309 @@ from app.utils.upload_knowledge_utils import extract_text_from_file
 from app.utils.upload_knowledge_utils import chunk_text
 from app.config import settings
 from app.utils.file_storage import save_file, get_file_url, delete_file as delete_file_storage, FileStorageError
+# from app.grid_refresh_ws import broadcast_grid_refresh
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-@celery_app.task(bind=True, name='process_youtube_videos', max_retries=3)
-def process_youtube_videos(self, bot_id: int, video_urls: list):
+
+
+@celery_app.task(bind=True, name='reembed_bots_for_subscription_plan', max_retries=3)
+def reembed_bots_for_subscription_plan(self, subscription_plan_id: int, old_embedding_model_id: int, new_embedding_model_id: int):
     """
-    Celery task to process YouTube videos in the background.
+    Celery task to reembed data for all bots affected by a subscription plan embedding model change.
+
+    This task identifies all bots that:
+    1. Don't have a specific embedding model assigned
+    2. Are owned by users with active subscriptions to the modified plan
     
     Args:
-        bot_id: The ID of the chatbot
-        video_urls: List of YouTube video URLs to process
+        subscription_plan_id: The ID of the subscription plan that was modified
+        old_embedding_model_id: The previous embedding model ID
+        new_embedding_model_id: The new embedding model ID
     """
     try:
-        logger.info(f"🎬 Starting Celery task to process {len(video_urls)} YouTube videos for bot {bot_id}")
+        logger.info(f"🔄 Starting Celery task to reembed bots for subscription plan {subscription_plan_id}")
+        logger.info(f"🔄 Embedding model change: {old_embedding_model_id} -> {new_embedding_model_id}")
         
         # Get database session
         db = next(get_db())
         
-        # Process videos
-        result = store_videos_in_chroma(bot_id, video_urls, db)
+        # Check if the embedding model IDs are actually different
+        if old_embedding_model_id == new_embedding_model_id:
+            logger.info(f"⏩ Embedding model unchanged. Skipping reembedding.")
+            return {
+                "status": "skipped",
+                "reason": "embedding_model_unchanged",
+                "subscription_plan_id": subscription_plan_id
+            }
+
+        # Get details of the embedding models
+        old_model = db.query(EmbeddingModel).filter(EmbeddingModel.id == old_embedding_model_id).first()
+        new_model = db.query(EmbeddingModel).filter(EmbeddingModel.id == new_embedding_model_id).first()
         
-        # Get bot information for user_id
-        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
-        user_id = bot.user_id if bot else None
+        if not new_model:
+            logger.error(f"❌ New embedding model with ID {new_embedding_model_id} not found")
+            return {
+                "status": "error",
+                "reason": "new_embedding_model_not_found",
+                "subscription_plan_id": subscription_plan_id
+            }
+
+        logger.info(f"📋 Old embedding model: {old_model.name if old_model else 'None'}")
+        logger.info(f"📋 New embedding model: {new_model.name}")
+
+        # Get the subscription plan
+        subscription_plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == subscription_plan_id).first()
+        if not subscription_plan:
+            logger.error(f"❌ Subscription plan with ID {subscription_plan_id} not found")
+            return {
+                "status": "error",
+                "reason": "subscription_plan_not_found",
+                "subscription_plan_id": subscription_plan_id
+            }
+
+        logger.info(f"📋 Subscription plan: {subscription_plan.name}")
+
+        # Find all active subscriptions to this plan
+        active_subscriptions = db.query(UserSubscription).filter(
+            UserSubscription.subscription_plan_id == subscription_plan_id,
+            UserSubscription.status == "active"
+        ).all()
+
+        if not active_subscriptions:
+            logger.info(f"⏩ No active subscriptions found for plan {subscription_plan_id}. Skipping reembedding.")
+            return {
+                "status": "completed",
+                "affected_bots": 0,
+                "processed_bots": 0,
+                "subscription_plan_id": subscription_plan_id
+            }
         
-        # Now handle embedding for each successfully stored video
-        stored_videos = result.get("stored_videos", [])
-        for video in stored_videos:
+        logger.info(f"👥 Found {len(active_subscriptions)} active subscriptions to plan {subscription_plan_id}")
+
+        # Extract user IDs with active subscriptions
+        user_ids = [sub.user_id for sub in active_subscriptions]
+        logger.info(f"👥 User IDs with active subscriptions: {user_ids}")
+
+        # Find all bots that:
+        # 1. Belong to users with active subscriptions to this plan
+        # 2. Don't have their own specific embedding model (i.e., rely on the plan default)
+        affected_bots = db.query(Bot).filter(
+            Bot.user_id.in_(user_ids),
+            Bot.embedding_model_id.is_(None)
+        ).all()
+
+        total_affected_bots = len(affected_bots)
+        logger.info(f"🤖 Found {total_affected_bots} bots affected by the embedding model change")
+
+        if total_affected_bots == 0:
+            logger.info(f"⏩ No affected bots found. Skipping reembedding.")
+            return {
+                "status": "completed",
+                "affected_bots": 0,
+                "processed_bots": 0,
+                "subscription_plan_id": subscription_plan_id
+            }
+
+        # Process each bot
+        successful_bots = 0
+        failed_bots = 0
+        bot_ids_processed = []
+
+        for index, bot in enumerate(affected_bots):
+            bot_id = bot.bot_id
+            logger.info(f"🤖 Processing bot {index+1}/{total_affected_bots}: {bot.bot_name} (ID: {bot_id})")
+
             try:
-                # Extract video_id safely from the video dictionary
-                video_id = video.get("video_id", None)
-                if not video_id:
-                    logger.warning(f"⚠️ Missing video_id in stored video data: {video}")
-                    continue
+                # Create event loop for async functions
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
                 
-                # Find video in database to get transcript
-                video_record = db.query(YouTubeVideo).filter(
-                    YouTubeVideo.bot_id == bot_id,
-                    YouTubeVideo.video_id == video_id
-                ).first()
+                try:
+                    # Run the reembedding
+                    results = loop.run_until_complete(reembed_all_bot_data(bot_id, db))
+                    
+                    # Check results
+                    if results.get("error"):
+                        logger.error(f"❌ Error reembedding bot {bot_id}: {results.get('error')}")
+                        failed_bots += 1
+                    else:
+                        logger.info(f"✅ Successfully reembedded bot {bot_id}")
+                        logger.info(f"📊 Results: {results['success_count']} successes, {results['error_count']} errors")
+                        successful_bots += 1
+                        bot_ids_processed.append(bot_id)
+                finally:
+                    loop.close()
                 
-                if video_record and video_record.transcript:
-                    # Create metadata for embedding - ENSURE CONSISTENT FORMAT
-                    video_id = video_record.video_id
-                    metadata = {
-                        "id": f"youtube_{video_id}",  # Consistent ID format
-                        "source": "youtube",          # Source type for retrieval
-                        "video_id": video_id,         # Original source ID
-                        "title": video_record.video_title,
-                        "url": video_record.video_url,
-                        "file_name": video_record.video_title,  # For consistency across sources
-                        "bot_id": bot_id              # Always include bot_id
-                    }
-                    
-                    # Add the document to the vector database
-                    logger.info(f"Adding YouTube transcript to vector database for video: {video_record.video_title}")
-                    add_document(bot_id, text=video_record.transcript, metadata=metadata, user_id=user_id)
-                    
-                    # Update the database record to mark embedding as complete
-                    video_record.embedding_status = "completed"
-                    video_record.last_embedded = datetime.now()
-                    db.commit()
-                    
-                    logger.info(f"✅ YouTube video transcript embedded successfully: {video_record.video_title}")
-                else:
-                    logger.warning(f"⚠️ No transcript found for video ID: {video_id}")
-            except Exception as embed_error:
-                logger.exception(f"❌ Error embedding YouTube transcript: {str(embed_error)}")
-                
-                # Update the video record if available
-                if 'video_record' in locals() and video_record:
-                    try:
-                        video_record.embedding_status = "failed"
-                        db.commit()
-                    except Exception as update_error:
-                        logger.exception(f"❌ Error updating embedding status: {str(update_error)}")
+            except Exception as e:
+                logger.exception(f"❌ Error processing bot {bot_id}: {str(e)}")
+                failed_bots += 1
+
+            # Add a small delay to prevent rate limiting issues with embedding APIs
+            time.sleep(0.5)
         
-        # Get success/failure counts
-        success_count = len(result.get("stored_videos", []))
-        failed_count = len(result.get("failed_videos", []))
+        logger.info(f"\n✅ Reembedding completed for subscription plan {subscription_plan_id}")
+        logger.info(f"📊 Summary:")
+        logger.info(f"   - Total affected bots: {total_affected_bots}")
+        logger.info(f"   - Successfully processed: {successful_bots}")
+        logger.info(f"   - Failed: {failed_bots}")
         
-        # Log completion
-        logger.info(
-            f"✅ YouTube processing complete for bot {bot_id}. "
-            f"Success: {success_count}, Failed: {failed_count}"
-        )
-        
-        # Return results
         return {
-            "status": "complete",
-            "bot_id": bot_id,
-            "success_count": success_count,
-            "failed_count": failed_count,
-            "failed_videos": result.get("failed_videos", [])
+            "status": "completed",
+            "affected_bots": total_affected_bots,
+            "processed_bots": successful_bots,
+            "failed_bots": failed_bots,
+            "bot_ids_processed": bot_ids_processed,
+            "subscription_plan_id": subscription_plan_id
         }
         
     except Exception as e:
-        logger.exception(f"❌ Error in Celery task for processing YouTube videos: {str(e)}")
+        logger.exception(f"❌ Error in Celery task for reembedding subscription plan bots: {str(e)}")
         
         # Retry task if not max retries
         if self.request.retries < self.max_retries:
             logger.info(f"Retrying task... Attempt {self.request.retries + 1} of {self.max_retries}")
             raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))  # Exponential backoff
         
-        # Report failure if no more retries
-        try:
-            db = next(get_db())
-            send_failure_notification(
-                db=db,
-                bot_id=bot_id,
-                video_url="multiple videos",
-                reason=f"Task failed after {self.max_retries} retries: {str(e)}"
-            )
-        except Exception as notify_error:
-            logger.exception(f"Failed to send failure notification: {str(notify_error)}")
-        
         return {
-            "status": "failed",
-            "bot_id": bot_id,
-            "error": str(e)
+            "status": "error",
+            "error": str(e),
+            "subscription_plan_id": subscription_plan_id
         } 
 
-@celery_app.task(bind=True, name='process_file_upload', max_retries=3)
-def process_file_upload(self, bot_id: int, file_data: dict):
+@celery_app.task(bind=True, name='process_youtube_videos_part1', max_retries=3)
+def process_youtube_videos_part1(self, bot_id: int, video_urls: List[str]):
+    """
+    Celery task to extract and save YouTube transcripts & metadata only (no embedding).
+    Mirrors original process_youtube_videos, but stops before vectorization.
+    """
+
+    from app.youtube import get_video_transcript, save_video_metadata, send_failure_notification
+    from app.models import Bot, User, SubscriptionPlan, UserSubscription
+    from app.word_count_validation import validate_cumulative_word_count_sync_for_celery
+
+    db = next(get_db())
+    valid_videos = []
+    failed_videos = []
+
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    user_id = bot.user_id if bot else None
+
+    for url in video_urls:
+        try:
+            transcript_result = get_video_transcript(url)
+            if isinstance(transcript_result, tuple) and len(transcript_result) == 2:
+                transcript, metadata = transcript_result
+            else:
+                transcript, metadata = transcript_result, None
+
+            if not transcript:
+                reason = "EXTRACTION_FAILED_Transcript missing"
+                send_failure_notification(db, bot_id, url, reason)
+
+                existing_video = db.query(YouTubeVideo).filter(
+                    YouTubeVideo.video_url == url,
+                    YouTubeVideo.bot_id == bot_id,
+                    YouTubeVideo.is_deleted == False
+                ).first()
+                if existing_video:
+                    existing_video.status = "Failed"
+                    existing_video.error_code = reason
+                    db.commit()
+                else:
+                    logger.warning(
+                        f"No YouTubeVideo entry found for bot_id={bot_id}, url={url}. Possibly deleted.",
+                        extra={"bot_id": bot_id}
+                    )
+
+                failed_videos.append({"url": url, "reason": reason})
+                continue
+
+            if not metadata:
+                if "youtu.be/" in url:
+                    extracted_video_id = url.split("youtu.be/")[-1].split("?")[0]
+                elif "v=" in url:
+                    extracted_video_id = url.split("v=")[-1].split("&")[0]
+                else:
+                    extracted_video_id = hashlib.md5(url.encode()).hexdigest()
+            else:
+                extracted_video_id = metadata.get("video_id")
+
+            existing_video = db.query(YouTubeVideo).filter(
+                YouTubeVideo.video_id == extracted_video_id,
+                YouTubeVideo.bot_id == bot_id,
+                YouTubeVideo.is_deleted == False
+            ).first()
+
+            if not existing_video:
+                logger.warning(
+                    f"[YouTubeTranscript] Video ID {extracted_video_id} not found in DB for bot_id={bot_id}. Possibly deleted or not inserted.",
+                    extra={"bot_id": bot_id}
+                )
+                failed_videos.append({
+                    "url": url,
+                    "reason": "Video not found in DB (possibly deleted)"
+                })
+                continue
+
+            word_count = len(transcript.split())
+            existing_word_count = existing_video.transcript_count if existing_video and existing_video.transcript_count else 0
+            word_diff = max(word_count - existing_word_count, 0)
+
+
+            # ✅ Individual word count validation here
+            try:
+                validate_cumulative_word_count_sync_for_celery(word_diff, {"user_id": user_id}, db)
+            except Exception as e:
+                # Mark this video as failed due to word limit
+                save_video_metadata(db, bot_id, url, transcript, metadata)
+                if existing_video:
+                    existing_video.status = "Failed"
+                    existing_video.error_code = "Word count exceeded"
+                    db.commit()
+                    add_notification(
+                            db=db,
+                            event_type="YOUTUBE_WORD_LIMIT_EXCEEDED",
+                            event_data=str(e),
+                            bot_id=bot_id,
+                            user_id=user_id
+                        )
+                failed_videos.append({
+                    "url": url,
+                    "reason": f"Word count exceeded: {str(e)}"
+                })
+                continue  # Skip saving and move to next video
+
+            valid_videos.append({
+                "url": url,
+                "transcript": transcript,
+                "word_count": word_diff,
+                "metadata": metadata,
+                "video_id": extracted_video_id
+            })
+            save_video_metadata(db, bot_id, url, transcript, metadata)
+
+        except Exception as e:
+            failed_videos.append({"url": url, "reason": str(e)})
+
+    if not valid_videos:
+        raise Exception("❌ All videos failed. Nothing to process.")
+
+
+    # for v in valid_videos:
+    #     save_video_metadata(db, bot_id, v["url"], v["transcript"], v["metadata"])
+
+    return {
+        "status": "completed",
+        "message": f"✅ Saved {len(valid_videos)} video(s) to DB. Embedding will be triggered manually.",
+        "failed": failed_videos,
+        "bot_id": bot_id
+    }
+
+
+@celery_app.task(bind=True, name='process_file_upload_part1', max_retries=3)
+def process_file_upload_part1(self, bot_id: int, file_data: dict):
     """
     Celery task to process file uploads in the background.
     
@@ -179,9 +358,12 @@ def process_file_upload(self, bot_id: int, file_data: dict):
     try:
         logger.info(f"📄 Starting Celery task to process file upload for bot {bot_id}")
         logger.info(f"File data received: {file_data}")
+        from app.word_count_validation import validate_cumulative_word_count_sync_for_celery
+        from app.utils.file_size_validations_utils import update_file_metadata_status_only
         
         # Get database session
         db = next(get_db())
+        print("file database id",file_data.get("file_id_db"))
         
         # Get bot information (for notifications)
         bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
@@ -205,16 +387,14 @@ def process_file_upload(self, bot_id: int, file_data: dict):
         
         # Attempt to process the file
         try:
-            # Update file status to "processing" in the database
+            # geting the Files
             file_record = db.query(File).filter(
                 File.bot_id == bot_id,
                 File.unique_file_name == file_id
             ).first()
             
             if file_record:
-                logger.info(f"Found file record in database, updating status to 'processing'")
-                file_record.embedding_status = "processing"
-                db.commit()
+                logger.info(f"Found file record in database, The status is 'EXTRACTING'")
             else:
                 logger.warning(f"No file record found in database for file_id: {file_id}")
             
@@ -718,7 +898,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                                             else:
                                                 # For other files, use the extraction utility
                                                 from app.utils.upload_knowledge_utils import extract_text_from_file
-                                                import asyncio
+                                                #import asyncio
                                                 
                                                 loop = asyncio.new_event_loop()
                                                 asyncio.set_event_loop(loop)
@@ -831,7 +1011,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                     if file_content_text is None:
                         # Import the existing text extraction function
                         from app.utils.upload_knowledge_utils import extract_text_from_file
-                        import asyncio
+                        #import asyncio
                         
                         # Use the same text extraction that's working in the rest of the system
                         logger.info(f"Starting text extraction for file: {original_filename}")
@@ -1083,44 +1263,65 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                             f.write(file_content_text)
                         logger.info(f"✅ Successfully updated text file with {len(file_content_text)} characters")
                 
-                # Create metadata for embedding - ENSURE CONSISTENT FORMAT
-                metadata = {
-                    "id": file_id,               # Primary identifier 
-                    "source": "upload",          # Source type for filtering
-                    "file_name": original_filename, 
-                    "file_type": file_type,
-                    "bot_id": bot_id            # Always include bot_id
-                }
-                
-                logger.info(f"Adding document to vector database: {original_filename}")
-                
-                # Split text into chunks before storing in vector database
-                text_chunks = chunk_text(file_content_text, bot_id=bot_id, user_id=user_id, db=db)
-                logger.info(f"📄 Split text into {len(text_chunks)} chunks")
-                
-                # Store each chunk with proper metadata
-                for i, chunk in enumerate(text_chunks):
-                    chunk_metadata = metadata.copy()
-                    chunk_metadata["id"] = f"{file_id}_chunk_{i+1}" if len(text_chunks) > 1 else file_id
-                    chunk_metadata["chunk_number"] = i + 1
-                    chunk_metadata["total_chunks"] = len(text_chunks)
-                    
-                    # Add the chunk to the vector database with user_id for model selection
-                    add_document(bot_id, text=chunk, metadata=chunk_metadata, user_id=user_id)
-                
-                # Update the database record
-                if file_record:
-                    logger.info(f"Updating file record with embedding status")
-                    file_record.embedding_status = "completed"
-                    file_record.last_embedded = datetime.now()
-                    db.commit()
-                
-                # Send success notification
+                file_metadata_list = [] #for updating word count and charater count in files Table
+                extracted_filenames = []
+                total_word_count = 0
+
+                word_count = len(file_content_text.split())
+                char_count = len(file_content_text)
+
+                # Save to a per-file metadata list
+                file_metadata_list.append({
+                    "file_id_db": file_data.get("file_id_db"),
+                    "word_count": word_count,
+                    "char_count": char_count
+                })
+                extracted_filenames.append(original_filename)
+                total_word_count += word_count
+
+                #validate the word count
+                try:
+                    validate_cumulative_word_count_sync_for_celery(total_word_count, {"user_id": user_id}, db)
+                    quota_exceeded = False
+                    print("quota_exceeded",quota_exceeded)
+                    error_message = None
+                except Exception as e:
+                    quota_exceeded = True
+                    error_message = f"WORD_QUOTA_EXCEEDED: {str(e)}"
+                    try:
+                        extracted_str = ", ".join(extracted_filenames)
+                        message = (
+                            f"Word count quota exceeded while extracting {len(extracted_filenames)} file(s): {extracted_str}. "
+                            f"Please upgrade your plan or reduce the file size."
+                        )
+
+                        add_notification(
+                            db=db,
+                            event_type="WORD_LIMIT_EXCEEDED",
+                            event_data=message,
+                            bot_id=bot_id,
+                            user_id=bot.user_id
+                        )
+                        logger.info("⚠️ Word count quota exceeded notification sent.")
+                    except Exception as notify_error:
+                        logger.error(f"Error sending quota exceeded notification: {str(notify_error)}")
+
+                # 2. Update each file's status in DB
+                for metadata in file_metadata_list:
+                    metadata["status"] = "Failed" if quota_exceeded else "Extracted"
+                    metadata["error_message"] = error_message if quota_exceeded else None
+                    metadata["updated_by"] = user_id  # Required for auditing
+                    print("metadata",metadata)
+
+                    update_file_metadata_status_only(db, metadata)
+                    # print("Broadcasting files update...")
+                    # asyncio.run(broadcast_grid_refresh(bot_id, "Files"))
+
                 try:
                     add_notification(
                         db=db,
-                        event_type="FILE_PROCESSED",
-                        event_data=f'"{original_filename}" has been processed and embedded successfully. {file_data.get("word_count", 0)} words extracted.',
+                        event_type="FILE_EXTRACTION",
+                        event_data=f'"{original_filename}" has been extracted successfully. {metadata.get("word_count", 0)} words extracted.',
                         bot_id=bot_id,
                         user_id=bot.user_id
                     )
@@ -1128,7 +1329,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                 except Exception as notify_error:
                     logger.error(f"Error sending notification: {str(notify_error)}")
                 
-                logger.info(f"✅ File processing and embedding complete for {original_filename}")
+                logger.info(f"✅ File processing -part 1 Complete for  {original_filename}")
                 
                 return {
                     "status": "complete",
@@ -1138,23 +1339,26 @@ def process_file_upload(self, bot_id: int, file_data: dict):
                     "word_count": file_data.get("word_count", 0)
                 }
             except Exception as process_error:
-                logger.exception(f"❌ Error processing file content: {str(process_error)}")
+                logger.exception(f"❌ Error processing file content extraction: {str(process_error)}")
                 raise process_error
                 
         except Exception as process_error:
             # Mark file as failed in database
             if file_record:
-                logger.info(f"Marking file as failed in database")
-                file_record.embedding_status = "failed"
+                logger.info(f"Marking file extraction as failed in database")
+                file_record.status = "Failed"
+                error_msg = f"EXTRACTION_FAILED: {str(process_error)}"
+                file_record.error_code = error_msg
+                file_record.updated_by = bot.user_id
                 db.commit()
-                logger.info(f"Updated file status to 'failed'")
+                logger.info(f"Updated file status of extraction to 'failed'")
                 
             # Send failure notification
             try:
                 add_notification(
                     db=db,
                     event_type="FILE_PROCESSING_FAILED",
-                    event_data=f'Failed to process and embed "{original_filename}". Reason: {str(process_error)}',
+                    event_data=f'Failed to process and extract text"{original_filename}". Reason: {str(process_error)}',
                     bot_id=bot_id,
                     user_id=bot.user_id
                 )
@@ -1165,7 +1369,7 @@ def process_file_upload(self, bot_id: int, file_data: dict):
             raise process_error
             
     except Exception as e:
-        logger.exception(f"❌ Error in Celery task for processing file upload: {str(e)}")
+        logger.exception(f"❌ Error in Celery task for processing file Extraction process: {str(e)}")
         
         # Retry task if not max retries
         if self.request.retries < self.max_retries:
@@ -1176,11 +1380,25 @@ def process_file_upload(self, bot_id: int, file_data: dict):
         try:
             db = next(get_db())
             bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
-            
+            # Update the file status to failed
+            file_id = file_data.get("file_id")
+            if file_id:
+                try:
+                    update_file_metadata_status_only(db, {
+                        "file_id_db": file_data.get("file_id_db"),
+                        "status": "Failed",
+                        "error_message": f"EXTRACTION_FAILED: {str(e)}",
+                        "updated_by": bot.user_id if bot else None
+                    })
+                    db.commit()
+                    logger.info(f"✅ File ID {file_id} marked as 'failed' in DB after final retry failure.")
+                except Exception as update_error:
+                    db.rollback()
+                    logger.exception(f"❌ Failed to mark file {file_id} as failed in DB: {str(update_error)}")
             add_notification(
                 db=db,
-                event_type="FILE_PROCESSING_FAILED",
-                event_data=f'Failed to process "{file_data.get("original_filename", "unknown file")}". Task failed after {self.max_retries} retries: {str(e)}',
+                event_type="FILE_EXTRACTION_FAILED",
+                event_data=f'Failed to extract "{file_data.get("original_filename", "unknown file")}". Task failed after {self.max_retries} retries: {str(e)}',
                 bot_id=bot_id,
                 user_id=bot.user_id if bot else None
             )
@@ -1195,8 +1413,233 @@ def process_file_upload(self, bot_id: int, file_data: dict):
             "error": str(e)
         } 
 
-@celery_app.task(bind=True, name='process_web_scraping', max_retries=3)
-def process_web_scraping(self, bot_id: int, url_list: list):
+
+@celery_app.task(bind=True, name="process_file_upload_part2", max_retries=3)
+def process_file_upload_part2(self, bot_id: int, file_id: str):
+    """
+    Celery task to perform vectorization (part 2) for a file after text extraction.
+
+    Args:
+        bot_id: The ID of the chatbot
+        file_id: Unique file ID (from files table)
+    """
+    from app.word_count_validation import update_bot_word_and_file_count
+    try:
+        logger.info(f"🧠 Starting vectorization for file_id: {file_id}, bot_id: {bot_id}")
+        db = next(get_db())
+
+        # Fetch file record
+        file_record = db.query(File).filter(
+            File.bot_id == bot_id,
+            File.unique_file_name == file_id
+        ).first()
+
+        if file_record:
+            logger.info(f"Found file record in database, The status is 'EXTRACTING'")
+                # file_record.embedding_status = "pending"
+            file_record.status = "Embedding"
+            db.commit()
+        else:
+            logger.warning(f"No file record found in database for file_id: {file_id}")
+
+
+        # Load extracted text from file
+        extracted_text_path = file_record.file_path
+        if not os.path.exists(extracted_text_path):
+            raise Exception(f"Extracted text file does not exist: {extracted_text_path}")
+
+        with open(extracted_text_path, "r", encoding="utf-8") as f:
+            file_content_text = f.read()
+
+
+        if not file_content_text.strip():
+            raise Exception("Extracted text is empty")
+
+        # Get bot information (for notifications)
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        if not bot:
+            raise Exception(f"Bot with ID {bot_id} not found")
+
+        # Get user_id for embedding model selection
+        user_id = bot.user_id
+        original_filename = file_record.file_name
+        file_type = file_record.file_type
+
+        # ✅ Create metadata for embedding - ENSURE CONSISTENT FORMAT
+        metadata = {
+            "id": file_id,               # Primary identifier
+            "source": "upload",          # Source type for filtering
+            "file_name": original_filename,
+            "file_type": file_type,
+            "bot_id": bot_id             # Always include bot_id
+        }
+
+        logger.info(f"📥 Adding document to vector database: {original_filename}")
+
+        # ✅ Split text into chunks before storing in vector database
+        print("bot_id",bot_id)
+        text_chunks = chunk_text(file_content_text, bot_id=bot_id, user_id=user_id, db=db)
+        logger.info(f"📄 Split text into {len(text_chunks)} chunks")
+
+        # ✅ Store each chunk with proper metadata
+        for i, chunk in enumerate(text_chunks):
+            chunk_metadata = metadata.copy()
+            chunk_metadata["id"] = f"{file_id}_chunk_{i+1}" if len(text_chunks) > 1 else file_id
+            chunk_metadata["chunk_number"] = i + 1
+            chunk_metadata["total_chunks"] = len(text_chunks)
+
+            # Add the chunk to the vector database with user_id for model selection
+            add_document(bot_id=bot_id, text=chunk, metadata=chunk_metadata, user_id=user_id)
+
+        # ✅ Update the database record
+        file_record.status = "Success"
+        file_record.last_embedded = datetime.now()
+        file_record.updated_by = user_id
+        db.commit()
+        # After embedding is completed
+        try:
+
+            word_count = len(file_content_text.split())
+            print("Now the File count is totally",word_count)
+            file_size = os.path.getsize(extracted_text_path)
+
+            update_bot_word_and_file_count(
+                db=db,
+                bot_id=bot_id,
+                word_count=word_count,
+                file_size=file_size
+            )
+            logger.info(f"✅ Bot and user word/file counts updated successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to update word/file counts: {str(e)}")
+        logger.info(f"✅ Vectorization completed for file_id: {file_id}")
+        try:
+            add_notification(
+                        db=db,
+                        event_type="FILE_EMBEDDING",
+                        event_data=f'"{original_filename}" has been embedded successfully.',
+                        bot_id=bot_id,
+                        user_id=bot.user_id
+                    )
+            logger.info(f"✅ Successfully sent success notification")
+        except Exception as notify_error:
+            logger.error(f"Error sending notification: {str(notify_error)}")
+
+
+    except Exception as e:
+        logger.exception(f"❌ Vectorization failed for file_id {file_id}: {str(e)}")
+        db = next(get_db())
+        file_record = db.query(File).filter(
+            File.bot_id == bot_id,
+            File.unique_file_name == file_id
+        ).first()
+        if file_record:
+            file_record.status = "Failed"
+            file_record.error_code = f"EMBEDDING_FAILED: {str(e)}"
+            db.commit()
+        # Send failure notification
+        try:
+            add_notification(
+                    db=db,
+                    event_type="FILE_PROCESSING_FAILED",
+                    event_data=f'Failed to process and embed Part 2"{original_filename}". Reason: {str(e)}',
+                    bot_id=bot_id,
+                    user_id=user_id
+                )
+            logger.info(f"Sent failure notification")
+        except Exception as notify_error:
+                logger.error(f"Error sending failure notification: {str(notify_error)}")
+
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
+
+
+@celery_app.task(bind=True, name='process_youtube_videos_part2', max_retries=3)
+def process_youtube_videos_part2(self, bot_id: int, video_ids: List[int]):
+    """
+    Part 2 Celery Task: Vectorize transcripts of YouTube videos by reading from DB.
+    """
+    from app.models import Bot, YouTubeVideo
+    from app.youtube import send_failure_notification, send_success_notification
+    from app.word_count_validation import update_word_usage
+
+    try:
+        logger.info(f"Starting Vectorization for  {bot_id}")
+        db = next(get_db())
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        user_id = bot.user_id if bot else None
+
+        videos_to_vectorize = db.query(YouTubeVideo).filter(YouTubeVideo.id.in_(video_ids)).all()
+        if not videos_to_vectorize:
+                logger.warning(f"🚫 No matching videos found in DB for bot {bot_id} and IDs: {video_ids}")
+                return {"status": "skipped", "message": "No matching videos found"}
+        for video in videos_to_vectorize:
+            try:
+                transcript = video.transcript
+                transcript_chunks = chunk_text(transcript)
+                logger.info(f"📄 Splitting transcript into {len(transcript_chunks)} chunks for video {video.video_title}")
+
+                for i, chunk in enumerate(transcript_chunks):
+                    metadata = {
+                        "id": f"youtube-{video.id}-chunk-{i+1}",
+                        "source": "youtube",
+                        "source_id": video.video_id,
+                        "title": video.video_title,
+                        "url": video.video_url,
+                        "channel_name": video.channel_name,
+                        "chunk_number": i + 1,
+                        "total_chunks": len(transcript_chunks),
+                        "bot_id": bot_id
+                    }
+                    add_document(bot_id=bot_id, text=chunk, metadata=metadata, user_id=user_id)
+
+                video.status = "Success"
+                video.last_embedded = datetime.now()
+                db.commit()
+
+                # ✅ Word count update
+                video_word_count = len(transcript.split())
+                update_word_usage(db, bot_id, video_word_count)
+                logger.info(
+                        f"✅ Word usage updated: {video_word_count} words added to bot {bot_id} from video {video.video_id}",
+                        extra={
+                            "bot_id": bot_id,
+                            "video_id": video.video_id,
+                            "words_added": video_word_count
+                        }
+                    )
+
+                logger.info(f"✅ Vectorized video: {video.video_title}")
+                send_success_notification(
+                    db, bot_id, "YOUTUBE_VIDEO_EMBEDDED",
+                    f"Transcript embedded for video '{video.video_title}'.",
+                    video.video_title
+                )
+
+            except Exception as e:
+                logger.exception(f"❌ Error vectorizing video {video.video_title}: {str(e)}")
+                video.status = "Failed"
+                video.error_code = f"EMBEDDING_FAILED: {str(e)}"
+                db.commit()
+
+                send_failure_notification(
+                    db, bot_id, video.video_url,
+                    f"Embedding failed for video '{video.video_title}': {str(e)}"
+                )
+
+        return {
+            "status": "completed",
+            "processed_count": len(videos_to_vectorize),
+            "bot_id": bot_id
+        }
+
+    except Exception as e:
+        logger.exception(f"❌ Error in YouTube vectorization task: {str(e)}")
+        return {"status": "failed", "error": str(e), "bot_id": bot_id}
+
+
+@celery_app.task(bind=True, name='process_web_scraping_part1', max_retries=3)
+def process_web_scraping_part1(self, bot_id: int, url_list: list):
     """
     Celery task to process web scraping in the background.
     
@@ -1213,8 +1656,10 @@ def process_web_scraping(self, bot_id: int, url_list: list):
         
         # Get bot information (for notifications)
         bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        print("Bot", bot.user_id)
         if not bot:
             error_msg = f"Bot with ID {bot_id} not found"
+            mark_scraped_nodes_failed(db, bot_id, url_list, error_msg)
             logger.error(f"❌ {error_msg}")
             return {
                 "status": "failed",
@@ -1252,7 +1697,7 @@ def process_web_scraping(self, bot_id: int, url_list: list):
         # in the vector database (see app/scraper.py implementation)
         logger.info(f"🌐 Starting scraping for bot {bot_id}")
         result = scrape_selected_nodes(url_list, bot_id, db)
-        
+        # asyncio.run(broadcast_grid_refresh(bot_id, "Websites"))
         # Get success/failure counts
         success_count = len(result) if result else 0
         
@@ -1261,6 +1706,7 @@ def process_web_scraping(self, bot_id: int, url_list: list):
             f"✅ Web scraping complete for bot {bot_id}. "
             f"Scraped {success_count} pages successfully."
         )
+        print("bot_id",bot_id)
         
         # Always send a completion notification
         try:
@@ -1268,17 +1714,15 @@ def process_web_scraping(self, bot_id: int, url_list: list):
                 add_notification(
                     db=db,
                     event_type="WEB_SCRAPING_COMPLETED",
-                    event_data=f"Successfully scraped and embedded {success_count} web pages for your bot.",
-                    bot_id=bot_id,
-                    user_id=bot.user_id
+                    event_data=f"Successfully scraped and extracted {success_count} web pages for your bot.",
+                    bot_id=bot_id
                 )
             else:
                 add_notification(
                     db=db,
                     event_type="WEB_SCRAPING_COMPLETED",
                     event_data=f"Web scraping completed but no content was found on the provided URLs.",
-                    bot_id=bot_id,
-                    user_id=bot.user_id
+                    bot_id=bot_id
                 )
             
             logger.info(f"✅ Sent completion notification for bot {bot_id}")
@@ -1295,7 +1739,11 @@ def process_web_scraping(self, bot_id: int, url_list: list):
         
     except Exception as e:
         logger.exception(f"❌ Error in Celery task for processing web scraping: {str(e)}")
-        
+        try:
+            db = next(get_db())
+            mark_scraped_nodes_failed(db, bot_id, url_list, str(e))
+        except Exception as mark_err:
+            logger.exception(f"❌ Failed to update scraped nodes to FAILED: {str(mark_err)}")
         # Capture full stack trace
         import traceback
         logger.error(f"❌ Full stack trace: {traceback.format_exc()}")
@@ -1322,166 +1770,100 @@ def process_web_scraping(self, bot_id: int, url_list: list):
             "error": str(e)
         } 
 
-@celery_app.task(bind=True, name='reembed_bots_for_subscription_plan', max_retries=3)
-def reembed_bots_for_subscription_plan(self, subscription_plan_id: int, old_embedding_model_id: int, new_embedding_model_id: int):
+@celery_app.task(bind=True, name="process_web_scraping_part2", max_retries=3)
+def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list):
     """
-    Celery task to reembed data for all bots affected by a subscription plan embedding model change.
-    
-    This task identifies all bots that:
-    1. Don't have a specific embedding model assigned
-    2. Are owned by users with active subscriptions to the modified plan
-    
-    Args:
-        subscription_plan_id: The ID of the subscription plan that was modified
-        old_embedding_model_id: The previous embedding model ID
-        new_embedding_model_id: The new embedding model ID
+    Celery task to vectorize selected scraped website nodes for a given bot.
     """
+    from app.word_count_validation import update_word_usage
     try:
-        logger.info(f"🔄 Starting Celery task to reembed bots for subscription plan {subscription_plan_id}")
-        logger.info(f"🔄 Embedding model change: {old_embedding_model_id} -> {new_embedding_model_id}")
-        
-        # Get database session
+        logger.info(f"🚀 Starting vectorization of {len(scraped_node_ids)} scraped nodes for bot {bot_id}")
         db = next(get_db())
-        
-        # Check if the embedding model IDs are actually different
-        if old_embedding_model_id == new_embedding_model_id:
-            logger.info(f"⏩ Embedding model unchanged. Skipping reembedding.")
-            return {
-                "status": "skipped",
-                "reason": "embedding_model_unchanged",
-                "subscription_plan_id": subscription_plan_id
-            }
-        
-        # Get details of the embedding models
-        old_model = db.query(EmbeddingModel).filter(EmbeddingModel.id == old_embedding_model_id).first()
-        new_model = db.query(EmbeddingModel).filter(EmbeddingModel.id == new_embedding_model_id).first()
-        
-        if not new_model:
-            logger.error(f"❌ New embedding model with ID {new_embedding_model_id} not found")
-            return {
-                "status": "error",
-                "reason": "new_embedding_model_not_found",
-                "subscription_plan_id": subscription_plan_id
-            }
-        
-        logger.info(f"📋 Old embedding model: {old_model.name if old_model else 'None'}")
-        logger.info(f"📋 New embedding model: {new_model.name}")
-        
-        # Get the subscription plan
-        subscription_plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == subscription_plan_id).first()
-        if not subscription_plan:
-            logger.error(f"❌ Subscription plan with ID {subscription_plan_id} not found")
-            return {
-                "status": "error",
-                "reason": "subscription_plan_not_found",
-                "subscription_plan_id": subscription_plan_id
-            }
-        
-        logger.info(f"📋 Subscription plan: {subscription_plan.name}")
-        
-        # Find all active subscriptions to this plan
-        active_subscriptions = db.query(UserSubscription).filter(
-            UserSubscription.subscription_plan_id == subscription_plan_id,
-            UserSubscription.status == "active"
+
+        nodes = db.query(ScrapedNode).filter(
+            ScrapedNode.id.in_(scraped_node_ids),
+            ScrapedNode.bot_id == bot_id,
+            ScrapedNode.nodes_text.isnot(None),
+            ScrapedNode.is_deleted == False
         ).all()
-        
-        if not active_subscriptions:
-            logger.info(f"⏩ No active subscriptions found for plan {subscription_plan_id}. Skipping reembedding.")
-            return {
-                "status": "completed",
-                "affected_bots": 0,
-                "processed_bots": 0,
-                "subscription_plan_id": subscription_plan_id
-            }
-        
-        logger.info(f"👥 Found {len(active_subscriptions)} active subscriptions to plan {subscription_plan_id}")
-        
-        # Extract user IDs with active subscriptions
-        user_ids = [sub.user_id for sub in active_subscriptions]
-        logger.info(f"👥 User IDs with active subscriptions: {user_ids}")
-        
-        # Find all bots that:
-        # 1. Belong to users with active subscriptions to this plan
-        # 2. Don't have their own specific embedding model (i.e., rely on the plan default)
-        affected_bots = db.query(Bot).filter(
-            Bot.user_id.in_(user_ids),
-            Bot.embedding_model_id.is_(None)
-        ).all()
-        
-        total_affected_bots = len(affected_bots)
-        logger.info(f"🤖 Found {total_affected_bots} bots affected by the embedding model change")
-        
-        if total_affected_bots == 0:
-            logger.info(f"⏩ No affected bots found. Skipping reembedding.")
-            return {
-                "status": "completed",
-                "affected_bots": 0,
-                "processed_bots": 0,
-                "subscription_plan_id": subscription_plan_id
-            }
-        
-        # Process each bot
-        successful_bots = 0
-        failed_bots = 0
-        bot_ids_processed = []
-        
-        for index, bot in enumerate(affected_bots):
-            bot_id = bot.bot_id
-            logger.info(f"🤖 Processing bot {index+1}/{total_affected_bots}: {bot.bot_name} (ID: {bot_id})")
-            
+
+        if not nodes:
+            logger.info(f"✅ No scraped nodes found by ID for bot {bot_id}")
+            return {"status": "skipped", "message": "No scraped nodes to process", "bot_id": bot_id}
+
+        logger.info(f"🎯 Found {len(nodes)} scraped nodes to vectorize for bot {bot_id}")
+        total_words_embedded = 0
+
+        for node in nodes:
+            url = node.url
             try:
-                # Create event loop for async functions
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+                logger.info(f"Preparing to add document to vector DB", extra={"bot_id": bot_id, "url": url})
+                website_id = hashlib.md5(url.encode()).hexdigest()
+
+                metadata = {
+                    "id": website_id,
+                    "source": "website",
+                    "website_url": url,
+                    "title": node.title or "No Title",
+                    "url": url,
+                    "file_name": node.title or "No Title",
+                    "bot_id": bot_id
+                }
+
+                bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+                user_id = bot.user_id if bot else None
                 
-                try:
-                    # Run the reembedding
-                    results = loop.run_until_complete(reembed_all_bot_data(bot_id, db))
-                    
-                    # Check results
-                    if results.get("error"):
-                        logger.error(f"❌ Error reembedding bot {bot_id}: {results.get('error')}")
-                        failed_bots += 1
+
+                text_chunks = chunk_text(node.nodes_text)
+                logger.info(f"Split text into {len(text_chunks)} chunks", extra={"bot_id": bot_id, "url": url})
+
+                for i, chunk in enumerate(text_chunks):
+                    chunk_metadata = metadata.copy()
+                    chunk_metadata["id"] = f"{website_id}_{i}" if len(text_chunks) > 1 else website_id
+                    chunk_metadata["chunk_number"] = i + 1
+                    chunk_metadata["total_chunks"] = len(text_chunks)
+
+                    if user_id:
+                        logger.info(f"Adding chunk {i+1}/{len(text_chunks)} to vector DB", 
+                                          extra={"bot_id": bot_id, "url": url, "user_id": user_id})
+                        add_document(bot_id, text=chunk, metadata=chunk_metadata, user_id=user_id)
                     else:
-                        logger.info(f"✅ Successfully reembedded bot {bot_id}")
-                        logger.info(f"📊 Results: {results['success_count']} successes, {results['error_count']} errors")
-                        successful_bots += 1
-                        bot_ids_processed.append(bot_id)
-                finally:
-                    loop.close()
+                        logger.warning(f"No user_id found for bot, adding chunk without user context",
+                                            extra={"bot_id": bot_id, "url": url})
+                        add_document(bot_id, text=chunk, metadata=chunk_metadata)
+
+                    total_words_embedded += len(node.nodes_text.split())
+                    print("count of words embeded in website", total_words_embedded)
+                logger.info(f"Successfully added document chunks to vector DB",
+                                  extra={"bot_id": bot_id, "url": url,
+                                        "document_id": website_id, "chunk_count": len(text_chunks)})
                 
-            except Exception as e:
-                logger.exception(f"❌ Error processing bot {bot_id}: {str(e)}")
-                failed_bots += 1
-            
-            # Add a small delay to prevent rate limiting issues with embedding APIs
-            time.sleep(0.5)
-        
-        logger.info(f"\n✅ Reembedding completed for subscription plan {subscription_plan_id}")
-        logger.info(f"📊 Summary:")
-        logger.info(f"   - Total affected bots: {total_affected_bots}")
-        logger.info(f"   - Successfully processed: {successful_bots}")
-        logger.info(f"   - Failed: {failed_bots}")
-        
-        return {
-            "status": "completed",
-            "affected_bots": total_affected_bots,
-            "processed_bots": successful_bots,
-            "failed_bots": failed_bots,
-            "bot_ids_processed": bot_ids_processed,
-            "subscription_plan_id": subscription_plan_id
-        }
-        
+
+                node.status = "Success"
+                node.last_embedded = datetime.now()
+                node.updated_by = user_id
+                logger.info(f"✅ Vectorization complete for {url}", extra={"bot_id": bot_id})
+
+            except Exception as db_err:
+                node.status = "Failed"
+                node.error_code = f"EMBEDDING_FAILED: {str(db_err)}"
+                logger.error(f"❌ Failed to embed document from {url}", extra={"bot_id": bot_id, "error": str(db_err)})
+                import traceback
+                logger.error(traceback.format_exc())
+
+        db.commit()
+        if total_words_embedded > 0:
+              # or wherever it's defined
+            update_word_usage(db, bot_id, total_words_embedded)
+            logger.info(
+                        f"✅ Word usage updated: {total_words_embedded} words added to bot {bot_id}",
+                        extra={
+                            "bot_id": bot_id,
+                            "words_added": total_words_embedded
+                        }
+                    )
+        return {"status": "completed", "message": "Vectorization complete", "bot_id": bot_id}
+
     except Exception as e:
-        logger.exception(f"❌ Error in Celery task for reembedding subscription plan bots: {str(e)}")
-        
-        # Retry task if not max retries
-        if self.request.retries < self.max_retries:
-            logger.info(f"Retrying task... Attempt {self.request.retries + 1} of {self.max_retries}")
-            raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))  # Exponential backoff
-        
-        return {
-            "status": "error",
-            "error": str(e),
-            "subscription_plan_id": subscription_plan_id
-        } 
+        logger.exception(f"❌ Error in vectorizing scraped nodes for bot {bot_id}: {str(e)}")
+        raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))

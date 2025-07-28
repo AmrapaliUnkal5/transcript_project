@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 //import { Button } from "@/components/ui/button";
 //import { Input } from "@/components/ui/input";
 import { authApi } from "../services/api";
@@ -10,7 +10,16 @@ import { Trash2, Info } from "lucide-react";
 import { toast } from "react-toastify";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 
-const SubscriptionScrape: React.FC = () => {
+interface SubscriptionScrapeProps {
+  isReconfiguring: boolean;
+  setRefetchScrapedUrls?: React.Dispatch<React.SetStateAction<(() => void) | undefined>>;
+  // Add other props if you have them
+}
+
+const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
+  isReconfiguring,
+  setRefetchScrapedUrls,
+}) => {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [nodes, setNodes] = useState<string[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
@@ -31,7 +40,7 @@ const SubscriptionScrape: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [scrapedUrls, setScrapedUrls] = useState<
-    { id: number; url: string; title: string;upload_date?: string }[]
+    { id: number; url: string; title: string;Word_Counts?: number; upload_date?: string; status?: string }[]
   >([]);
 
   const handleScrapingSuccess = (scrapedUrl: string) => {
@@ -65,11 +74,11 @@ const SubscriptionScrape: React.FC = () => {
   };
 
   // ✅ Move fetchScrapedUrls outside of useEffect so it can be reused
-  const fetchScrapedUrls = async () => {
+  const fetchScrapedUrls = useCallback(async () => {
     console.log("user.subscription_plan_id", user.subscription_plan_id);
     console.log("websiteUrl", websiteUrl.length);
     try {
-      setLoading(true);
+      //setLoading(true);
       if (!selectedBot?.id) {
         console.error("Bot ID is missing.");
         return;
@@ -83,7 +92,9 @@ const SubscriptionScrape: React.FC = () => {
           id: index + 1,
           url: item.url,
           title: item.title || "No Title",
+          Word_Counts:item.Word_Counts,
           upload_date: item.upload_date,
+          status: item.status
         }));
 
         console.log("Formatted URLs:", formattedUrls);
@@ -105,7 +116,13 @@ const SubscriptionScrape: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedBot?.id, setLoading, setScrapedUrls]);
+
+  useEffect(() => {
+  if (setRefetchScrapedUrls) {
+    setRefetchScrapedUrls(() => fetchScrapedUrls);
+  }
+}, [fetchScrapedUrls, setRefetchScrapedUrls]);
 
   // ✅ Call fetchScrapedUrls only when selectedBot changes
   useEffect(() => {
@@ -149,6 +166,10 @@ const SubscriptionScrape: React.FC = () => {
 
     if (!websiteUrl) {
       toast.error("Please enter a website URL.");
+      return;
+    }
+     if (!isReconfiguring) {
+      toast.error("Please click Reconfigure first before adding website URLs");
       return;
     }
 
@@ -351,6 +372,10 @@ const SubscriptionScrape: React.FC = () => {
   const totalPages = Math.ceil(nodes.length / itemsPerPage);
 
   const handleCheckboxChange = (url: string) => {
+    if (!isReconfiguring) {
+      toast.error("Please click Reconfigure first before selecting pages");
+      return;
+    }
     if (selectedNodes.includes(url)) {
       setSelectedNodes((prev) => prev.filter((node) => node !== url));
     } else {
@@ -671,7 +696,31 @@ const SubscriptionScrape: React.FC = () => {
         textTransform:'none'
       }}
     >
+      Status
+    </th>
+    <th
+      className="px-6 py-3 text-left uppercase tracking-wider"
+      style={{
+        fontFamily: 'Instrument Sans, sans-serif',
+        fontSize: '16px',
+        fontWeight: 600,
+        color: '#333333',
+        textTransform:'none'
+      }}
+    >
       URL
+    </th>
+     <th
+      className="px-6 py-3 text-left uppercase tracking-wider"
+      style={{
+        fontFamily: 'Instrument Sans, sans-serif',
+        fontSize: '16px',
+        fontWeight: 600,
+        color: '#333333',
+        textTransform:'none'
+      }}
+    >
+      Words
     </th>
     <th
       className="px-6 py-3 text-left uppercase tracking-wider"
@@ -723,6 +772,13 @@ const SubscriptionScrape: React.FC = () => {
                       fontSize: '14px',
                        color: '#333333',
                      }}>
+                      {item.status}
+                    </td>
+                    <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
+                    style={{ fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '14px',
+                       color: '#333333',
+                     }}>
                       <a
                         href={item.url}
                         target="_blank"
@@ -731,6 +787,13 @@ const SubscriptionScrape: React.FC = () => {
                       >
                         {item.url}
                       </a>
+                    </td>
+                    <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
+                    style={{ fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '14px',
+                       color: '#333333',
+                     }}>
+                      {item.Word_Counts}
                     </td>
                     <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
                     style={{ fontFamily: 'Instrument Sans, sans-serif',

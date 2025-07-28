@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Bot, ArrowRight, TrendingUp, Settings, Trash2 } from "lucide-react";
 import { Legend } from "recharts";
@@ -31,6 +31,9 @@ import {
   Tooltip as ttip,
   Legend as lgnd,
 } from "chart.js";
+
+import { useBotStatusWebSocket } from '../services/useBotStatusWebSocket';
+
 
 ChartJS.register(ArcElement, ttip, lgnd);
 
@@ -92,7 +95,7 @@ const SubscriptionExpiredOverlay = () => {
 export const Welcome = () => {
   const { user, refreshUserData } = useAuth();
   const navigate = useNavigate();
-  const userId = user?.user_id;
+  const userId: number | undefined = user?.user_id;
   const { setSelectedBot } = useBot();
   const { setLoading } = useLoader();
   const {
@@ -145,6 +148,7 @@ export const Welcome = () => {
 
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [botToDelete, setBotToDelete] = useState<number | null>(null);
+  const { allBotsStatus } = useBotStatusWebSocket(false, { userId, allBots: true });
 
   const userPlanId = user?.subscription_plan_id || 1;
   const userPlan = getPlanById(userPlanId);
@@ -240,7 +244,6 @@ export const Welcome = () => {
           const extractedBots = botResponse.map((botObj) => {
             const botId = Object.keys(botObj)[0];
             const botData = botObj[botId];
-
             return {
               id: Number(botId),
               name: botData.bot_name,
@@ -269,6 +272,20 @@ export const Welcome = () => {
 
     loadAllData();
   }, [userId, setLoading, setPlans, setAddons]);
+
+  useEffect(() => {
+    if (allBotsStatus) {
+      setBots((prevBots) =>
+        prevBots.map((bot) => {
+          const found = (allBotsStatus as { bot_id: number; status: string }[]).find((s) => s.bot_id === bot.id);
+          if (found && found.status !== bot.status) {
+            return { ...bot, status: found.status };
+          }
+          return bot;
+        })
+      );
+    }
+  }, [allBotsStatus]);
 
   if (isPlansLoading || !userPlan) {
     return <Loader />;
@@ -314,6 +331,48 @@ export const Welcome = () => {
     return value * (unitMultipliers[unit] || 1);
   }
 
+  const getStatusColors = (status: string) => {
+  switch (status.toLowerCase()) {
+    case 'active':
+      return {
+        textColor: 'text-green-800 dark:text-green-300',
+        bgColor: 'bg-green-100 dark:bg-green-900/20',
+        borderColor: 'border-green-500'
+      };
+    case 'draft':
+      return {
+        textColor: 'text-blue-800 dark:text-blue-200',
+        bgColor: 'bg-blue-50 dark:bg-blue-900/30',
+        borderColor: 'border-yellow-500'
+      };
+    case 'reconfiguring':
+      return {
+        textColor: 'text-purple-800 dark:text-purple-300',
+        bgColor: 'bg-purple-100 dark:bg-purple-900/20',
+        borderColor: 'border-purple-500'
+      };
+    case 'training':
+    case 'retraining':
+      return {
+        textColor: 'text-amber-800 dark:text-amber-300',
+        bgColor: 'bg-amber-100 dark:bg-amber-900/20',
+        borderColor: 'border-amber-500'
+      };
+    case 'error':
+      return {
+        textColor: 'text-red-800 dark:text-red-300',
+        bgColor: 'bg-red-100 dark:bg-red-900/20',
+        borderColor: 'border-red-500'
+      };
+    default:
+      return {
+        textColor: 'text-gray-800 dark:text-gray-300',
+        bgColor: 'bg-gray-100 dark:bg-gray-900/20',
+        borderColor: 'border-gray-500'
+      };
+  }
+};
+
   const handleCreateBot = () => {
     console.log("userPlan", userPlan);
     if (!userPlan) return;
@@ -348,6 +407,21 @@ export const Welcome = () => {
     ];
     return colors.slice(0, count);
   };
+
+const handleBotClick = (bot: any) => {
+  if (bot.status !== "Draft") {
+    navigate("/dashboard/upload", { state: { botId: bot.id } });
+    setSelectedBot(bot);
+  } else {
+    navigate(`/dashboard/create-bot?step=1`, { 
+      state: { 
+        botId: bot.id,  // Pass botId in state instead of URL
+        botName: bot.name,
+        fromDraft: true  // Flag to indicate coming from draft
+      }
+    });
+  }
+};
 
   // Function to get bot name by bot ID
   const getBotNameById = (botId: number) => {
@@ -424,76 +498,6 @@ export const Welcome = () => {
     // Example insights (You can generate these dynamically based on data)
 
     return (
-      // <ResponsiveContainer width="100%" height={350}>
-      //   <LineChart
-      //     data={transformedData}
-      //     margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
-      //   >
-      //     <XAxis
-      //       dataKey="day"
-      //       stroke="#888888"
-      //       tick={{
-      //         fill: "#000000", // black color for Y-axis numbers
-      //         fontFamily: "'Instrument Sans', sans-serif",
-      //         fontSize: 14,
-      //         fontWeight: 500,
-      //       }}
-      //     />
-      //     <YAxis
-      //       stroke="#888888"
-      //       tick={{
-      //         fill: "#000000", // black color for Y-axis numbers
-      //         fontFamily: "'Instrument Sans', sans-serif",
-      //         fontSize: 14,
-      //         fontWeight: 500,
-      //       }}
-      //       label={{
-      //         value: "Number of Sessions",
-      //         angle: -90,
-      //         position: "insideLeft",
-      //         dy: 60,
-      //         x: 13,
-      //         style: {
-      //           fontFamily: "'Instrument Sans', sans-serif",
-      //           fontSize: 16,
-      //           fill: "#666666",
-      //           fontWeight: 400, // optional for semi-bold
-      //         },
-      //       }}
-      //       allowDecimals={false}
-      //     />
-      //     <CartesianGrid strokeDasharray="3 3" />
-      //     <Tooltip />
-      //     {/* <Legend /> */}
-      //     <Legend content={renderCustomLegend} />
-
-      //     {hasData ? (
-      //       conversationTrends.map((trend, index) => (
-      //         <Line
-      //           key={trend.bot_id}
-      //           type="monotone"
-      //           dataKey={`bot_${trend.bot_id}`}
-      //           stroke={colors[index]}
-      //           strokeWidth={3}
-      //           dot={{ r: 5 }}
-      //           activeDot={{ r: 8 }}
-      //           name={getBotNameById(trend.bot_id)}
-      //         />
-      //       ))
-      //     ) : (
-      //       <Line
-      //         type="monotone"
-      //         dataKey="bot_0"
-      //         stroke={colors[0]}
-      //         strokeWidth={2}
-      //         dot={{ r: 0 }}
-      //         activeDot={false}
-      //         name="No Data"
-      //       />
-      //     )}
-      //   </LineChart>
-      // </ResponsiveContainer>
-
       <ResponsiveContainer width="100%" height={350}>
         <AreaChart
           data={transformedData}
@@ -797,6 +801,7 @@ const storageOptions = {
             likes: botData.satisfaction?.likes || 0,
             dislikes: botData.satisfaction?.dislikes || 0,
           },
+          is_trained: botData.is_trained || false, 
         };
       });
 
@@ -885,10 +890,12 @@ const storageOptions = {
         {bots.map((bot) => (
           <div
             key={bot.id}
-            onClick={() => {
-              setSelectedBot(bot); // ✅ Store selected bot
-              navigate("/dashboard/upload"); // ✅ Navigate after setting context
-            }}
+            // onClick={() => {
+            //   setSelectedBot(bot); // ✅ Store selected bot
+            //   navigate("/dashboard/upload"); // ✅ Navigate after setting context
+            // }}
+            onClick={() => handleBotClick(bot)}
+
 
             
             className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 cursor-pointer 
@@ -937,9 +944,15 @@ const storageOptions = {
   </div>
 </div>
 
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">
+                  {/* <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">
                     {bot.status}
-                  </span>
+                  </span> */}
+                  <span 
+  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColors(bot.status).bgColor} ${getStatusColors(bot.status).textColor}`}
+>
+  {bot.status}
+
+  </span>
                 </div>
               </div>
               <button
@@ -996,19 +1009,7 @@ const storageOptions = {
                   Feedback
                 </div> */}
                 <div className="flex flex-col items-center ml-[-80px] ">
-                  {/* <span className="text-sm flex items-center space-x-2">
-                    <span className="flex items-center text-green-500 space-x-1">
-                      <ThumbsUp size={14} />
-                      <span>{bot.satisfaction.likes}</span>
-                    </span>
-                    <span className="text-gray-300 dark:text-gray-500">|</span>
-                    <span className="flex items-center text-red-500 space-x-1">
-                      <ThumbsDown size={14} />
-                      <span>{bot.satisfaction.dislikes}</span>
-                    </span>
-                  </span> */}
-
-                  <div className="text-sm space-y-1">
+                   <div className="text-sm space-y-1">
                     <div className="flex items-center text-green-500 space-x-1">
                       <img
                         src="/images/dummy/thums-up.png"
@@ -1069,25 +1070,7 @@ const storageOptions = {
               Usage Summary
             </div>
             <div>
-              {/* Storage Usage */}
-              {/* <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                Storage Used
-              </span>
-              <span className="text-sm font-medium text-gray-900 dark:text-white">
-                {usageMetrics.total_storage_used}/ {storagelimit}
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
-              <div
-                className="bg-blue-500 h-3 rounded-full"
-                style={{ width: `${storageUsagePercent}%` }}
-              ></div>
-            </div>
-          </div> */}
-
-
+              
           {/* Donut Graph */}
  
               <div className="grid grid-cols-2 gap-6">
@@ -1148,30 +1131,6 @@ const storageOptions = {
                       Chat Messages
                     </span>
                   </div>
-
-                  {/* Total Chatbots */}
-                  {/* <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                Total Bots
-              </span>
-              <span className="text-sm font-medium text-gray-900 dark:text-white">
-                {usageMetrics.total_bots}/ {chatbotlimit}
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
-              <div
-                className="bg-purple-500 h-3 rounded-full"
-                style={{
-                  width: `${Math.min(
-                    (usageMetrics.total_bots / chatbotlimit) * 100,
-                    100
-                  ).toFixed(2)}%`,
-                }}
-              ></div>
-            </div>
-          </div> */}
-
                   <div className="flex flex-col items-center">
                     <div className="relative w-24 h-24">
                       <Doughnut data={data} options={options} />

@@ -163,6 +163,15 @@ class BotResponse(BotBase):
     class Config:
         from_attributes = True  
 
+class BotUpdateFields(BaseModel):
+    status: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_trained: Optional[bool] = None  
+    is_retrained: Optional[bool] = None 
+
+    class Config:
+        extra = "forbid"
+
 #added for Forgotpassword
 class ForgotpasswordRequest(BaseModel):
     email: EmailStr
@@ -190,7 +199,7 @@ class FileBase(BaseModel):
     word_count: Optional[int] = None
     character_count: Optional[int] = None
     embedding_model_id: Optional[int] = None
-    embedding_status: Optional[str] = "pending"
+    status: Optional[str] = "pending"
     last_embedded: Optional[datetime] = None
     original_file_size: str
     original_file_size_bytes: int 
@@ -280,6 +289,7 @@ class PageData(BaseModel):
     title: str | None  # Allowing None if the title is missing
     Word_Counts: int
     upload_date:Optional[datetime] = None
+    status:Optional[str] = None
 
 class EmbeddingModelBase(BaseModel):
     name: str
@@ -482,6 +492,7 @@ class YouTubeVideoResponse(BaseModel):
     video_url: str
     transcript_count: Optional[int] = 0
     upload_date: Optional[datetime] = None
+    status: Optional[str] = None
 
 class WordCloudResponse(BaseModel):
     words: List[Dict[str, Union[str, int]]]
@@ -553,3 +564,12 @@ class LeadOut(BaseModel):
     phone: Optional[str]
     address: Optional[str]
     created_at: datetime
+
+class MarkProcessedResponse(BaseModel):
+    success: bool
+    message: str
+    scraped_nodes_updated: int
+    youtube_videos_updated: int
+    files_updated: int
+class StartTrainingRequest(BaseModel):
+    bot_id: int
