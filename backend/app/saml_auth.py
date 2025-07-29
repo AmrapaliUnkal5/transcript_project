@@ -3,11 +3,11 @@ import base64
 import uuid
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Optional
 from urllib.parse import quote_plus
 from xml.sax.saxutils import escape
 
-from fastapi import APIRouter, Request, HTTPException, Depends, Form
+from fastapi import APIRouter, Request, HTTPException, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
@@ -15,42 +15,23 @@ from jose import jwt, JWTError
 from app.dependency import get_db
 from app.models import User
 from app.config import settings
-from app.utils.certificate_manager import CertificateManager
 from app.utils.logger import get_module_logger
-
-# Import cryptography for XML signing
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-from lxml import etree
-import hashlib
 
 # Initialize logger and router
 logger = get_module_logger(__name__)
 router = APIRouter(prefix="/auth/saml", tags=["SAML SSO"])
 
-# Initialize certificate manager
-cert_manager = CertificateManager(cert_dir=os.path.join(os.getcwd(), "certificates"))
-
-class SAMLService:
-    """Service for handling SAML SSO as Identity Provider"""
+class SimpleSAMLService:
+    """Simplified SAML Service for Zoho SSO"""
     
     def __init__(self):
         self.issuer = os.getenv('SAML_ISSUER', 'https://evolra.ai')
         self.acs_url = os.getenv('ZOHO_SAML_ACS_URL', '')
         self.relay_state = os.getenv('ZOHO_SAML_RELAY_STATE', '')
         
-    def generate_saml_response(self, user: User, request_id: str = None) -> str:
-        """Generate signed SAML response for authenticated user"""
+    def generate_simple_saml_response(self, user: User, request_id: str = None) -> str:
+        """Generate simple unsigned SAML response for Zoho"""
         try:
-            # Get certificate for signing
-            private_key_pem, public_cert_pem = cert_manager.get_or_create_certificate_pair()
-            
-            # Load private key for signing
-            private_key = serialization.load_pem_private_key(
-                private_key_pem.encode('utf-8'),
-                password=None
-            )
-            
             # Generate unique IDs
             response_id = f"_response_{uuid.uuid4().hex}"
             assertion_id = f"_assertion_{uuid.uuid4().hex}"
@@ -65,11 +46,10 @@ class SAMLService:
             not_before_str = not_before.strftime('%Y-%m-%dT%H:%M:%SZ')
             not_on_or_after_str = not_on_or_after.strftime('%Y-%m-%dT%H:%M:%SZ')
             
-            # Create SAML response XML
+            # Create simple SAML response (unsigned for simplicity)
             saml_response_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <saml2p:Response xmlns:saml2p="urn:oasis:names:tc:SAML:2.0:protocol" 
                  xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion"
-                 xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
                  ID="{response_id}" 
                  Version="2.0" 
                  IssueInstant="{issue_instant_str}" 
@@ -109,111 +89,27 @@ class SAMLService:
                 <saml2:AttributeValue>{escape(user.email)}</saml2:AttributeValue>
             </saml2:Attribute>
             <saml2:Attribute Name="firstName">
-                <saml2:AttributeValue>{escape(user.name or '')}</saml2:AttributeValue>
+                <saml2:AttributeValue>{escape(getattr(user, 'name', user.email.split('@')[0]))}</saml2:AttributeValue>
             </saml2:Attribute>
             <saml2:Attribute Name="lastName">
-                <saml2:AttributeValue>{escape(user.name or '')}</saml2:AttributeValue>
+                <saml2:AttributeValue>{escape(getattr(user, 'name', user.email.split('@')[0]))}</saml2:AttributeValue>
             </saml2:Attribute>
         </saml2:AttributeStatement>
     </saml2:Assertion>
 </saml2p:Response>"""
             
-            # Parse XML
-            doc = etree.fromstring(saml_response_xml.encode('utf-8'))
-            
-            # Sign the assertion
-            signed_doc = self._sign_saml_assertion(doc, assertion_id, private_key, public_cert_pem)
-            
-            # Convert back to string
-            signed_xml = etree.tostring(signed_doc, encoding='unicode', method='xml')
-            
             # Base64 encode the response
-            encoded_response = base64.b64encode(signed_xml.encode('utf-8')).decode('utf-8')
+            encoded_response = base64.b64encode(saml_response_xml.encode('utf-8')).decode('utf-8')
             
-            logger.info(f"Generated signed SAML response for user: {user.email}")
+            logger.info(f"Generated simple SAML response for user: {user.email}")
             return encoded_response
             
         except Exception as e:
             logger.error(f"Error generating SAML response: {str(e)}")
             raise
-    
-    def _sign_saml_assertion(self, doc: etree.Element, assertion_id: str, private_key, public_cert_pem: str) -> etree.Element:
-        """Sign the SAML assertion using XML digital signatures"""
-        try:
-            # Find the assertion to sign
-            assertion = doc.find(f".//*[@ID='{assertion_id}']")
-            if assertion is None:
-                raise Exception("Assertion not found for signing")
-            
-            # Create signature element
-            sig_elem = etree.Element("{http://www.w3.org/2000/09/xmldsig#}Signature")
-            
-            # Create SignedInfo
-            signed_info = etree.SubElement(sig_elem, "{http://www.w3.org/2000/09/xmldsig#}SignedInfo")
-            
-            # Canonicalization method
-            canon_method = etree.SubElement(signed_info, "{http://www.w3.org/2000/09/xmldsig#}CanonicalizationMethod")
-            canon_method.set("Algorithm", "http://www.w3.org/2001/10/xml-exc-c14n#")
-            
-            # Signature method
-            sig_method = etree.SubElement(signed_info, "{http://www.w3.org/2000/09/xmldsig#}SignatureMethod")
-            sig_method.set("Algorithm", "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256")
-            
-            # Reference
-            reference = etree.SubElement(signed_info, "{http://www.w3.org/2000/09/xmldsig#}Reference")
-            reference.set("URI", f"#{assertion_id}")
-            
-            # Transforms
-            transforms = etree.SubElement(reference, "{http://www.w3.org/2000/09/xmldsig#}Transforms")
-            transform1 = etree.SubElement(transforms, "{http://www.w3.org/2000/09/xmldsig#}Transform")
-            transform1.set("Algorithm", "http://www.w3.org/2000/09/xmldsig#enveloped-signature")
-            transform2 = etree.SubElement(transforms, "{http://www.w3.org/2000/09/xmldsig#}Transform")
-            transform2.set("Algorithm", "http://www.w3.org/2001/10/xml-exc-c14n#")
-            
-            # Digest method
-            digest_method = etree.SubElement(reference, "{http://www.w3.org/2000/09/xmldsig#}DigestMethod")
-            digest_method.set("Algorithm", "http://www.w3.org/2001/04/xmlenc#sha256")
-            
-            # Calculate digest
-            assertion_c14n = etree.tostring(assertion, method='c14n', exclusive=True)
-            digest_value = base64.b64encode(hashlib.sha256(assertion_c14n).digest()).decode('utf-8')
-            
-            digest_value_elem = etree.SubElement(reference, "{http://www.w3.org/2000/09/xmldsig#}DigestValue")
-            digest_value_elem.text = digest_value
-            
-            # Calculate signature
-            signed_info_c14n = etree.tostring(signed_info, method='c14n', exclusive=True)
-            signature = private_key.sign(signed_info_c14n, padding.PKCS1v15(), hashes.SHA256())
-            signature_value = base64.b64encode(signature).decode('utf-8')
-            
-            # Add signature value
-            sig_value_elem = etree.SubElement(sig_elem, "{http://www.w3.org/2000/09/xmldsig#}SignatureValue")
-            sig_value_elem.text = signature_value
-            
-            # Add key info
-            key_info = etree.SubElement(sig_elem, "{http://www.w3.org/2000/09/xmldsig#}KeyInfo")
-            x509_data = etree.SubElement(key_info, "{http://www.w3.org/2000/09/xmldsig#}X509Data")
-            x509_cert = etree.SubElement(x509_data, "{http://www.w3.org/2000/09/xmldsig#}X509Certificate")
-            
-            # Extract certificate content without headers
-            cert_content = public_cert_pem.replace('-----BEGIN CERTIFICATE-----\n', '')
-            cert_content = cert_content.replace('\n-----END CERTIFICATE-----\n', '')
-            cert_content = cert_content.replace('\n', '')
-            x509_cert.text = cert_content
-            
-            # Insert signature after issuer in assertion
-            issuer = assertion.find(".//{urn:oasis:names:tc:SAML:2.0:assertion}Issuer")
-            if issuer is not None:
-                issuer.getparent().insert(list(issuer.getparent()).index(issuer) + 1, sig_elem)
-            
-            return doc
-            
-        except Exception as e:
-            logger.error(f"Error signing SAML assertion: {str(e)}")
-            raise
 
 # Initialize SAML service
-saml_service = SAMLService()
+saml_service = SimpleSAMLService()
 
 def get_current_user_from_token(request: Request) -> Optional[User]:
     """Extract and validate user from JWT token in request"""
@@ -223,7 +119,7 @@ def get_current_user_from_token(request: Request) -> Optional[User]:
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split("Bearer ")[1]
         else:
-            # Try to get token from cookie (if you use cookies)
+            # Try to get token from cookie
             token = request.cookies.get("access_token")
             
         if not token:
@@ -255,8 +151,7 @@ async def saml_login(request: Request,
                     RelayState: str = None,
                     SAMLRequest: str = None):
     """
-    SAML SSO login endpoint - acts as Identity Provider
-    This is where Zoho will redirect users for authentication
+    Simple SAML SSO login endpoint for Zoho
     """
     try:
         logger.info(f"SAML login request received. RelayState: {RelayState}")
@@ -265,18 +160,17 @@ async def saml_login(request: Request,
         user = get_current_user_from_token(request)
         
         if not user:
-            # User not authenticated, redirect to login with return URL
+            # User not authenticated, redirect to login
             frontend_url = os.getenv('FRONTEND_URL', 'https://evolra.ai')
             login_url = f"{frontend_url}/login"
             
-            # Store the original SAML request parameters in session/state
+            # Store SAML parameters for return
             return_params = {
                 'saml_relay_state': RelayState or '',
                 'saml_request': SAMLRequest or '',
                 'redirect_to': 'saml_continue'
             }
             
-            # Encode parameters for URL
             param_string = '&'.join([f"{k}={quote_plus(str(v))}" for k, v in return_params.items()])
             redirect_url = f"{login_url}?{param_string}"
             
@@ -286,48 +180,46 @@ async def saml_login(request: Request,
         # User is authenticated, generate SAML response
         logger.info(f"User authenticated: {user.email}, generating SAML response")
         
-        # Extract request ID if present (for InResponseTo)
+        # Extract request ID if present
         request_id = None
         if SAMLRequest:
             try:
-                # Decode and parse SAML request to get ID (simplified)
                 decoded_request = base64.b64decode(SAMLRequest).decode('utf-8')
-                # Basic parsing to extract ID (you might want to use proper XML parsing)
                 if 'ID="' in decoded_request:
                     request_id = decoded_request.split('ID="')[1].split('"')[0]
             except Exception as e:
                 logger.warning(f"Could not parse SAMLRequest: {str(e)}")
         
-        # Generate SAML response
-        saml_response = saml_service.generate_saml_response(user, request_id)
+        # Generate simple SAML response
+        saml_response = saml_service.generate_simple_saml_response(user, request_id)
         
-        # Create HTML form for auto-posting to Zoho ACS URL
+        # Create HTML form for auto-posting to Zoho
         html_form = f"""
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Redirecting to Zoho Billing...</title>
+            <title>Redirecting to Zoho...</title>
         </head>
         <body>
             <form id="saml-form" method="post" action="{saml_service.acs_url}">
                 <input type="hidden" name="SAMLResponse" value="{saml_response}" />
                 <input type="hidden" name="RelayState" value="{RelayState or saml_service.relay_state}" />
                 <noscript>
-                    <input type="submit" value="Continue to Zoho Billing" />
+                    <input type="submit" value="Continue to Zoho" />
                 </noscript>
             </form>
             <script>
                 document.getElementById('saml-form').submit();
             </script>
             <div style="text-align: center; margin-top: 50px;">
-                <p>Redirecting to Zoho Billing...</p>
-                <p>If you are not redirected automatically, please click the button above.</p>
+                <p>Redirecting to Zoho...</p>
+                <p>If not redirected automatically, click the button above.</p>
             </div>
         </body>
         </html>
         """
         
-        logger.info("Returning SAML response form for auto-post to Zoho")
+        logger.info("Returning SAML response form for Zoho")
         return HTMLResponse(content=html_form)
         
     except Exception as e:
@@ -341,43 +233,12 @@ async def saml_login_post(request: Request,
     """Handle POST requests to SAML login endpoint"""
     return await saml_login(request, RelayState, SAMLRequest)
 
-@router.get("/logout")
-async def saml_logout(request: Request, 
-                     SAMLRequest: str = None,
-                     RelayState: str = None):
-    """
-    SAML SSO logout endpoint
-    Handle logout requests from Zoho
-    """
-    try:
-        logger.info("SAML logout request received")
-        
-        # You can add logout logic here if needed
-        # For now, just redirect to your app's logout or home page
-        frontend_url = os.getenv('FRONTEND_URL', 'https://evolra.ai')
-        logout_url = f"{frontend_url}/login?logged_out=true"
-        
-        return RedirectResponse(url=logout_url, status_code=302)
-        
-    except Exception as e:
-        logger.error(f"Error in SAML logout: {str(e)}")
-        raise HTTPException(status_code=500, detail="SAML logout error")
-
 @router.get("/metadata")
 async def saml_metadata():
     """
-    SAML metadata endpoint
-    Provides metadata about this Identity Provider for Zoho configuration
+    Simple SAML metadata endpoint for Zoho configuration
     """
     try:
-        # Get public certificate
-        _, public_cert_pem = cert_manager.get_or_create_certificate_pair()
-        
-        # Remove PEM headers for metadata
-        cert_content = public_cert_pem.replace('-----BEGIN CERTIFICATE-----\n', '')
-        cert_content = cert_content.replace('\n-----END CERTIFICATE-----\n', '')
-        cert_content = cert_content.replace('\n', '')
-        
         base_url = os.getenv('SERVER_URL', 'http://localhost:8000')
         
         metadata = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -385,19 +246,10 @@ async def saml_metadata():
                      entityID="{saml_service.issuer}">
     <md:IDPSSODescriptor WantAuthnRequestsSigned="false" 
                          protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
-        <md:KeyDescriptor use="signing">
-            <ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
-                <ds:X509Data>
-                    <ds:X509Certificate>{cert_content}</ds:X509Certificate>
-                </ds:X509Data>
-            </ds:KeyInfo>
-        </md:KeyDescriptor>
         <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" 
                                Location="{base_url}/auth/saml/login"/>
         <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" 
                                Location="{base_url}/auth/saml/login"/>
-        <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" 
-                               Location="{base_url}/auth/saml/logout"/>
     </md:IDPSSODescriptor>
 </md:EntityDescriptor>"""
         
@@ -405,20 +257,4 @@ async def saml_metadata():
         
     except Exception as e:
         logger.error(f"Error generating SAML metadata: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error generating metadata")
-
-@router.get("/certificate")
-async def get_public_certificate():
-    """
-    Endpoint to get the public certificate for Zoho configuration
-    Returns the certificate in the format required by Zoho
-    """
-    try:
-        cert_content = cert_manager.get_public_cert_for_zoho()
-        return {
-            "certificate": cert_content,
-            "message": "Copy this certificate content to Zoho Billing SSO configuration"
-        }
-    except Exception as e:
-        logger.error(f"Error getting public certificate: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error retrieving certificate") 
+        raise HTTPException(status_code=500, detail="Error generating metadata") 
