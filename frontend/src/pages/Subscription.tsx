@@ -944,6 +944,77 @@ export const Subscription = () => {
     }
   };
 
+  // Handle SAML SSO redirect to Zoho Billing
+  const handleManageSubscription = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Please log in to manage your subscription');
+        return;
+      }
+
+      // Make authenticated API call to get SAML redirect
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/'}auth/saml/login`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        // Get the HTML response and extract the form data
+        const htmlContent = await response.text();
+        
+        // Parse the HTML to extract form data
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, 'text/html');
+        const form = doc.getElementById('saml-form') as HTMLFormElement;
+        
+        if (form) {
+          // Extract form action and data
+          const formAction = form.getAttribute('action');
+          const samlResponse = (form.querySelector('input[name="SAMLResponse"]') as HTMLInputElement)?.value;
+          const relayState = (form.querySelector('input[name="RelayState"]') as HTMLInputElement)?.value;
+          
+          // Create a new form in the current window and submit it
+          const newForm = document.createElement('form');
+          newForm.method = 'POST';
+          newForm.action = formAction || '';
+          newForm.style.display = 'none';
+          
+          // Add SAMLResponse field
+          const samlInput = document.createElement('input');
+          samlInput.type = 'hidden';
+          samlInput.name = 'SAMLResponse';
+          samlInput.value = samlResponse || '';
+          newForm.appendChild(samlInput);
+          
+          // Add RelayState field
+          const relayInput = document.createElement('input');
+          relayInput.type = 'hidden';
+          relayInput.name = 'RelayState';
+          relayInput.value = relayState || '';
+          newForm.appendChild(relayInput);
+          
+          // Add form to document and submit
+          document.body.appendChild(newForm);
+          newForm.submit();
+          
+          // Clean up
+          document.body.removeChild(newForm);
+        } else {
+          throw new Error('Invalid SAML response format');
+        }
+      } else {
+        throw new Error('Failed to access billing portal');
+      }
+    } catch (error) {
+      console.error('Error accessing billing portal:', error);
+      toast.error('Failed to access billing portal. Please try again.');
+    }
+  };
+
   // Render the pending subscription notification
   const renderPendingSubscriptionNotification = () => {
     if (!showPendingNotification || !pendingSubscriptionDetails) return null;
@@ -1109,14 +1180,12 @@ export const Subscription = () => {
               please visit your Zoho Customer Portal.
             </span>
           </div>
-          <a
-            href={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/auth/saml/login`}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={handleManageSubscription}
             className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
           >
             Manage Subscription <ExternalLink className="ml-2 h-4 w-4" />
-          </a>
+          </button>
         </div>
       )}
       <PhoneNumberRequiredModal />
