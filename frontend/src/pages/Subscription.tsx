@@ -1110,7 +1110,7 @@ export const Subscription = () => {
             </span>
           </div>
           <a
-            href="https://subscriptions.zoho.in/portal/login"
+            href={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/auth/saml/login`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"

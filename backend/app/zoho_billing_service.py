@@ -624,6 +624,10 @@ class ZohoBillingService:
             print(f"Subscription ID: {subscription_id}")
             print(f"Add-on data: {addon_data}")
             
+            # Get the price list ID from environment variables
+            price_list_id = os.getenv('ZOHO_PRICE_LIST_ID')
+            print(f"Price List ID: {price_list_id}")
+            
             # Prepare the payload according to Zoho API docs
             payload = {
                 "subscription_id": subscription_id,
@@ -631,6 +635,13 @@ class ZohoBillingService:
                 "redirect_url": addon_data.get("redirect_url"),
                 "cancel_url": addon_data.get("cancel_url")
             }
+            
+            # Add price list ID if available
+            if price_list_id:
+                payload["price_list_id"] = price_list_id
+                print(f"Added price list ID to addon checkout payload: {price_list_id}")
+            else:
+                print("WARNING: ZOHO_PRICE_LIST_ID not set in environment variables")
             
             # Add customer if provided
             if "customer" in addon_data:
@@ -721,12 +732,16 @@ def format_subscription_data_for_hosted_page(
     # Get the frontend URL from environment variables or use default
     frontend_url = os.getenv('FRONTEND_URL', 'https://evolra.ai')
     
+    # Get the price list ID from environment variables
+    price_list_id = os.getenv('ZOHO_PRICE_LIST_ID')
+    
     # Enhanced debugging logs
     print(f"\n==== DEBUG: Creating Zoho Checkout Payload ====")
     print(f"User ID: {user_id}")
     print(f"User Data: {user_data}")
     print(f"Plan Code: {plan_code}")
     print(f"Addon Codes (received): {addon_codes}")
+    print(f"Price List ID: {price_list_id}")
     
     if not addon_codes:
         print("WARNING: No addon codes were provided")
@@ -735,24 +750,35 @@ def format_subscription_data_for_hosted_page(
     
     # Create the basic subscription data structure according to Zoho API docs
     subscription_data = {
-        "customer": {
-            "display_name": user_data.get("name", ""),
-            "email": user_data.get("email", "")
-        },
+        # "customer": {
+        #     # "display_name": user_data.get("name", ""),
+        #     # "email": user_data.get("email", "")
+        # },
         "plan": {
             "plan_code": plan_code,
             "quantity": 1  # Required by Zoho Billing
         },
         "redirect_url": f"{frontend_url}/",  # Redirect to dashboard after successful payment
-        "cancel_url": f"{frontend_url}/subscription"  # Redirect back to subscription page if cancelled
+        "cancel_url": f"{frontend_url}/subscription",  # Redirect back to subscription page if cancelled
+        # Configure address collection settings
+        "collect_billing_address": True,  # Enable billing address collection
+        "collect_shipping_address": True,  # Enable shipping address collection
+        "auto_populate_address": False  # Prevent pre-filling with default addresses
     }
+    
+    # Add price list ID if available
+    if price_list_id:
+        subscription_data["price_list_id"] = price_list_id
+        print(f"Added price list ID to checkout payload: {price_list_id}")
+    else:
+        print("WARNING: ZOHO_PRICE_LIST_ID not set in environment variables")
     
     # Add phone number/mobile - using mobile instead of phone for Zoho
     # Use default number if not present
-    subscription_data["customer"]["mobile"] = user_data.get("phone_no") or "9081726354"
+    # subscription_data["customer"]["mobile"] = user_data.get("phone_no")
     
-    if user_data.get("company_name"):
-        subscription_data["customer"]["company_name"] = user_data.get("company_name")
+    # if user_data.get("company_name"):
+    #     subscription_data["customer"]["company_name"] = user_data.get("company_name")
     
     # Add addons if provided
     if addon_codes and len(addon_codes) > 0:
