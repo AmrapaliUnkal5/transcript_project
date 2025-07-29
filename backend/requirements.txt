@@ -54,3 +54,6 @@ celery>=5.3.0
 redis>=4.6.0
 flower>=2.0.0
 boto3==1.35.0
+
+# SAML SSO Dependencies
+cryptography>=41.0.0
