@@ -18,6 +18,12 @@ from app.config import settings
 from app.utils.certificate_manager import CertificateManager
 from app.utils.logger import get_module_logger
 
+# Import cryptography for XML signing
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from lxml import etree
+import hashlib
+
 # Initialize logger and router
 logger = get_module_logger(__name__)
 router = APIRouter(prefix="/auth/saml", tags=["SAML SSO"])
@@ -34,10 +40,16 @@ class SAMLService:
         self.relay_state = os.getenv('ZOHO_SAML_RELAY_STATE', '')
         
     def generate_saml_response(self, user: User, request_id: str = None) -> str:
-        """Generate SAML response for authenticated user"""
+        """Generate signed SAML response for authenticated user"""
         try:
             # Get certificate for signing
             private_key_pem, public_cert_pem = cert_manager.get_or_create_certificate_pair()
+            
+            # Load private key for signing
+            private_key = serialization.load_pem_private_key(
+                private_key_pem.encode('utf-8'),
+                password=None
+            )
             
             # Generate unique IDs
             response_id = f"_response_{uuid.uuid4().hex}"
@@ -53,52 +65,11 @@ class SAMLService:
             not_before_str = not_before.strftime('%Y-%m-%dT%H:%M:%SZ')
             not_on_or_after_str = not_on_or_after.strftime('%Y-%m-%dT%H:%M:%SZ')
             
-            # Create SAML assertion
-            saml_assertion = f"""
-                <saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" 
-                                ID="{assertion_id}" 
-                                IssueInstant="{issue_instant_str}" 
-                                Version="2.0">
-                    <saml2:Issuer>{escape(self.issuer)}</saml2:Issuer>
-                    <saml2:Subject>
-                        <saml2:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">
-                            {escape(user.email)}
-                        </saml2:NameID>
-                        <saml2:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
-                            <saml2:SubjectConfirmationData NotOnOrAfter="{not_on_or_after_str}" 
-                                                          Recipient="{escape(self.acs_url)}"/>
-                        </saml2:SubjectConfirmation>
-                    </saml2:Subject>
-                    <saml2:Conditions NotBefore="{not_before_str}" NotOnOrAfter="{not_on_or_after_str}">
-                        <saml2:AudienceRestriction>
-                            <saml2:Audience>zoho.com</saml2:Audience>
-                        </saml2:AudienceRestriction>
-                    </saml2:Conditions>
-                    <saml2:AuthnStatement AuthnInstant="{issue_instant_str}">
-                        <saml2:AuthnContext>
-                            <saml2:AuthnContextClassRef>
-                                urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport
-                            </saml2:AuthnContextClassRef>
-                        </saml2:AuthnContext>
-                    </saml2:AuthnStatement>
-                    <saml2:AttributeStatement>
-                        <saml2:Attribute Name="email">
-                            <saml2:AttributeValue>{escape(user.email)}</saml2:AttributeValue>
-                        </saml2:Attribute>
-                        <saml2:Attribute Name="firstName">
-                            <saml2:AttributeValue>{escape(user.name or '')}</saml2:AttributeValue>
-                        </saml2:Attribute>
-                        <saml2:Attribute Name="lastName">
-                            <saml2:AttributeValue>{escape(user.name or '')}</saml2:AttributeValue>
-                        </saml2:Attribute>
-                    </saml2:AttributeStatement>
-                </saml2:Assertion>
-            """.strip()
-            
-            # Create SAML response
-            saml_response = f"""<?xml version="1.0" encoding="UTF-8"?>
+            # Create SAML response XML
+            saml_response_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <saml2p:Response xmlns:saml2p="urn:oasis:names:tc:SAML:2.0:protocol" 
                  xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion"
+                 xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
                  ID="{response_id}" 
                  Version="2.0" 
                  IssueInstant="{issue_instant_str}" 
@@ -108,17 +79,137 @@ class SAMLService:
     <saml2p:Status>
         <saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/>
     </saml2p:Status>
-    {saml_assertion}
+    <saml2:Assertion ID="{assertion_id}" 
+                     IssueInstant="{issue_instant_str}" 
+                     Version="2.0">
+        <saml2:Issuer>{escape(self.issuer)}</saml2:Issuer>
+        <saml2:Subject>
+            <saml2:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">
+                {escape(user.email)}
+            </saml2:NameID>
+            <saml2:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+                <saml2:SubjectConfirmationData NotOnOrAfter="{not_on_or_after_str}" 
+                                              Recipient="{escape(self.acs_url)}"/>
+            </saml2:SubjectConfirmation>
+        </saml2:Subject>
+        <saml2:Conditions NotBefore="{not_before_str}" NotOnOrAfter="{not_on_or_after_str}">
+            <saml2:AudienceRestriction>
+                <saml2:Audience>zoho.com</saml2:Audience>
+            </saml2:AudienceRestriction>
+        </saml2:Conditions>
+        <saml2:AuthnStatement AuthnInstant="{issue_instant_str}">
+            <saml2:AuthnContext>
+                <saml2:AuthnContextClassRef>
+                    urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport
+                </saml2:AuthnContextClassRef>
+            </saml2:AuthnContext>
+        </saml2:AuthnStatement>
+        <saml2:AttributeStatement>
+            <saml2:Attribute Name="email">
+                <saml2:AttributeValue>{escape(user.email)}</saml2:AttributeValue>
+            </saml2:Attribute>
+            <saml2:Attribute Name="firstName">
+                <saml2:AttributeValue>{escape(user.name or '')}</saml2:AttributeValue>
+            </saml2:Attribute>
+            <saml2:Attribute Name="lastName">
+                <saml2:AttributeValue>{escape(user.name or '')}</saml2:AttributeValue>
+            </saml2:Attribute>
+        </saml2:AttributeStatement>
+    </saml2:Assertion>
 </saml2p:Response>"""
             
-            # Base64 encode the response
-            encoded_response = base64.b64encode(saml_response.encode('utf-8')).decode('utf-8')
+            # Parse XML
+            doc = etree.fromstring(saml_response_xml.encode('utf-8'))
             
-            logger.info(f"Generated SAML response for user: {user.email}")
+            # Sign the assertion
+            signed_doc = self._sign_saml_assertion(doc, assertion_id, private_key, public_cert_pem)
+            
+            # Convert back to string
+            signed_xml = etree.tostring(signed_doc, encoding='unicode', method='xml')
+            
+            # Base64 encode the response
+            encoded_response = base64.b64encode(signed_xml.encode('utf-8')).decode('utf-8')
+            
+            logger.info(f"Generated signed SAML response for user: {user.email}")
             return encoded_response
             
         except Exception as e:
             logger.error(f"Error generating SAML response: {str(e)}")
+            raise
+    
+    def _sign_saml_assertion(self, doc: etree.Element, assertion_id: str, private_key, public_cert_pem: str) -> etree.Element:
+        """Sign the SAML assertion using XML digital signatures"""
+        try:
+            # Find the assertion to sign
+            assertion = doc.find(f".//*[@ID='{assertion_id}']")
+            if assertion is None:
+                raise Exception("Assertion not found for signing")
+            
+            # Create signature element
+            sig_elem = etree.Element("{http://www.w3.org/2000/09/xmldsig#}Signature")
+            
+            # Create SignedInfo
+            signed_info = etree.SubElement(sig_elem, "{http://www.w3.org/2000/09/xmldsig#}SignedInfo")
+            
+            # Canonicalization method
+            canon_method = etree.SubElement(signed_info, "{http://www.w3.org/2000/09/xmldsig#}CanonicalizationMethod")
+            canon_method.set("Algorithm", "http://www.w3.org/2001/10/xml-exc-c14n#")
+            
+            # Signature method
+            sig_method = etree.SubElement(signed_info, "{http://www.w3.org/2000/09/xmldsig#}SignatureMethod")
+            sig_method.set("Algorithm", "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256")
+            
+            # Reference
+            reference = etree.SubElement(signed_info, "{http://www.w3.org/2000/09/xmldsig#}Reference")
+            reference.set("URI", f"#{assertion_id}")
+            
+            # Transforms
+            transforms = etree.SubElement(reference, "{http://www.w3.org/2000/09/xmldsig#}Transforms")
+            transform1 = etree.SubElement(transforms, "{http://www.w3.org/2000/09/xmldsig#}Transform")
+            transform1.set("Algorithm", "http://www.w3.org/2000/09/xmldsig#enveloped-signature")
+            transform2 = etree.SubElement(transforms, "{http://www.w3.org/2000/09/xmldsig#}Transform")
+            transform2.set("Algorithm", "http://www.w3.org/2001/10/xml-exc-c14n#")
+            
+            # Digest method
+            digest_method = etree.SubElement(reference, "{http://www.w3.org/2000/09/xmldsig#}DigestMethod")
+            digest_method.set("Algorithm", "http://www.w3.org/2001/04/xmlenc#sha256")
+            
+            # Calculate digest
+            assertion_c14n = etree.tostring(assertion, method='c14n', exclusive=True)
+            digest_value = base64.b64encode(hashlib.sha256(assertion_c14n).digest()).decode('utf-8')
+            
+            digest_value_elem = etree.SubElement(reference, "{http://www.w3.org/2000/09/xmldsig#}DigestValue")
+            digest_value_elem.text = digest_value
+            
+            # Calculate signature
+            signed_info_c14n = etree.tostring(signed_info, method='c14n', exclusive=True)
+            signature = private_key.sign(signed_info_c14n, padding.PKCS1v15(), hashes.SHA256())
+            signature_value = base64.b64encode(signature).decode('utf-8')
+            
+            # Add signature value
+            sig_value_elem = etree.SubElement(sig_elem, "{http://www.w3.org/2000/09/xmldsig#}SignatureValue")
+            sig_value_elem.text = signature_value
+            
+            # Add key info
+            key_info = etree.SubElement(sig_elem, "{http://www.w3.org/2000/09/xmldsig#}KeyInfo")
+            x509_data = etree.SubElement(key_info, "{http://www.w3.org/2000/09/xmldsig#}X509Data")
+            x509_cert = etree.SubElement(x509_data, "{http://www.w3.org/2000/09/xmldsig#}X509Certificate")
+            
+            # Extract certificate content without headers
+            cert_content = public_cert_pem.replace('-----BEGIN CERTIFICATE-----\n', '')
+            cert_content = cert_content.replace('\n-----END CERTIFICATE-----\n', '')
+            cert_content = cert_content.replace('\n', '')
+            x509_cert.text = cert_content
+            
+            # Insert signature after issuer in assertion
+            issuer = assertion.find(".//{urn:oasis:names:tc:SAML:2.0:assertion}Issuer")
+            if issuer is not None:
+                issuer.getparent().insert(list(issuer.getparent()).index(issuer) + 1, sig_elem)
+            
+            return doc
+            
+        except Exception as e:
+            logger.error(f"Error signing SAML assertion: {str(e)}")
             raise
 
 # Initialize SAML service
