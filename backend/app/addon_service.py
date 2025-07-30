@@ -4,7 +4,7 @@ from app.schemas import UserAddonCreate, UserAddonUpdate
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 import logging
-from app.zoho_billing_service import ZohoBillingService, format_subscription_data_for_hosted_page
+from app.zoho_billing_service import ZohoBillingService
 
 logger = logging.getLogger(__name__)
 

@@ -227,20 +227,40 @@ async def create_subscription_checkout(
             logger.warning(f"Could not create temporary subscription record: {str(e)}")
             # Continue anyway, this is not critical
         
+        # Check if user already has a Zoho customer ID from previous subscriptions
+        existing_customer_id = None
+        existing_subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.zoho_customer_id.isnot(None)
+        ).first()
+        
+        if existing_subscription:
+            existing_customer_id = existing_subscription.zoho_customer_id
+            logger.info(f"Found existing Zoho customer ID {existing_customer_id} for user {user_id}")
+        else:
+            # If no existing customer ID, check if customer exists in Zoho by email
+            zoho_service = ZohoBillingService()
+            existing_customer = zoho_service.get_customer_by_email(user_data["email"])
+            if existing_customer:
+                existing_customer_id = existing_customer.get("customer_id")
+                logger.info(f"Found existing Zoho customer {existing_customer_id} by email for user {user_id}")
+
         # Build subscription data for Zoho
         # Use the formatter from zoho_billing_service
         subscription_data = format_subscription_data_for_hosted_page(
             user_id=user_id,
             user_data=user_data,
             plan_code=plan.zoho_plan_code,
-            addon_codes=addon_codes  # Pass the addon codes to include in the checkout
+            addon_codes=addon_codes,  # Pass the addon codes to include in the checkout
+            existing_customer_id=existing_customer_id  # Pass existing customer ID if found
         )
         
         # Log the final subscription data
         logger.info(f"Formatted subscription data: {subscription_data}")
 
-        # Initialize Zoho billing service and get checkout URL
-        zoho_service = ZohoBillingService()
+        # Initialize Zoho billing service and get checkout URL (reuse if already created)
+        if 'zoho_service' not in locals():
+            zoho_service = ZohoBillingService()
         checkout_url = zoho_service.get_hosted_page_url(subscription_data)
 
         if not checkout_url:
@@ -1004,17 +1024,37 @@ async def resume_checkout(
         # Update the pending subscription's timestamp
         subscription.updated_at = datetime.now()
         db.commit()
+        
+        # Check if user already has a Zoho customer ID from previous subscriptions
+        existing_customer_id = None
+        existing_subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.zoho_customer_id.isnot(None)
+        ).first()
+        
+        if existing_subscription:
+            existing_customer_id = existing_subscription.zoho_customer_id
+            logger.info(f"Found existing Zoho customer ID {existing_customer_id} for user {user_id} (resume checkout)")
+        else:
+            # If no existing customer ID, check if customer exists in Zoho by email
+            zoho_service = ZohoBillingService()
+            existing_customer = zoho_service.get_customer_by_email(user_data["email"])
+            if existing_customer:
+                existing_customer_id = existing_customer.get("customer_id")
+                logger.info(f"Found existing Zoho customer {existing_customer_id} by email for user {user_id} (resume checkout)")
             
         # Format the subscription data for Zoho
         subscription_data = format_subscription_data_for_hosted_page(
             user_id=user_id,
             user_data=user_data,
             plan_code=plan.zoho_plan_code,
-            addon_codes=[]  # No add-ons for now when resuming
+            addon_codes=[],  # No add-ons for now when resuming
+            existing_customer_id=existing_customer_id  # Pass existing customer ID if found
         )
         
-        # Get a new checkout URL
-        zoho_service = ZohoBillingService()
+        # Get a new checkout URL (reuse if already created)
+        if 'zoho_service' not in locals():
+            zoho_service = ZohoBillingService()
         checkout_url = zoho_service.get_hosted_page_url(subscription_data)
         
         if not checkout_url:
