@@ -227,41 +227,75 @@ async def create_subscription_checkout(
             logger.warning(f"Could not create temporary subscription record: {str(e)}")
             # Continue anyway, this is not critical
         
-        # Check if user already has a Zoho customer ID from previous subscriptions
-        existing_customer_id = None
-        existing_subscription = db.query(UserSubscription).filter(
+        # Check if user has any previous Zoho history (existing customer)
+        existing_customer_subscription = db.query(UserSubscription).filter(
             UserSubscription.user_id == user_id,
             UserSubscription.zoho_customer_id.isnot(None)
         ).first()
         
-        if existing_subscription:
-            existing_customer_id = existing_subscription.zoho_customer_id
-            logger.info(f"Found existing Zoho customer ID {existing_customer_id} for user {user_id}")
-        else:
-            # If no existing customer ID, check if customer exists in Zoho by email
-            zoho_service = ZohoBillingService()
-            existing_customer = zoho_service.get_customer_by_email(user_data["email"])
-            if existing_customer:
-                existing_customer_id = existing_customer.get("customer_id")
-                logger.info(f"Found existing Zoho customer {existing_customer_id} by email for user {user_id}")
-
-        # Build subscription data for Zoho
-        # Use the formatter from zoho_billing_service
-        subscription_data = format_subscription_data_for_hosted_page(
-            user_id=user_id,
-            user_data=user_data,
-            plan_code=plan.zoho_plan_code,
-            addon_codes=addon_codes,  # Pass the addon codes to include in the checkout
-            existing_customer_id=existing_customer_id  # Pass existing customer ID if found
-        )
+        # Check if user has an active subscription that can be updated
+        active_subscription_for_update = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "active",
+            UserSubscription.zoho_subscription_id.isnot(None)
+        ).order_by(UserSubscription.payment_date.desc()).first()
         
-        # Log the final subscription data
-        logger.info(f"Formatted subscription data: {subscription_data}")
+        logger.info(f"User {user_id} - Existing customer: {existing_customer_subscription.zoho_customer_id if existing_customer_subscription else 'None'}")
+        logger.info(f"User {user_id} - Active subscription for update: {active_subscription_for_update.zoho_subscription_id if active_subscription_for_update else 'None'}")
+        
+        zoho_service = ZohoBillingService()
+        
+        if active_subscription_for_update:
+            # User has active subscription that can be updated - use update subscription API
+            logger.info(f"Using update subscription API for existing subscription {active_subscription_for_update.zoho_subscription_id}")
+            
+            update_data = {
+                "plan": {
+                    "plan_code": plan.zoho_plan_code,
+                    "quantity": 1
+                },
+                "redirect_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/",
+                "cancel_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/subscription",
+            }
+            
+            # Add addons if provided
+            if addon_codes and len(addon_codes) > 0:
+                addon_counts = {}
+                for code in addon_codes:
+                    addon_counts[code] = addon_counts.get(code, 0) + 1
+                
+                update_data["addons"] = [
+                    {"addon_code": code, "quantity": count} 
+                    for code, count in addon_counts.items()
+                ]
+                
+            checkout_url = zoho_service.get_subscription_update_hosted_page_url(
+                active_subscription_for_update.zoho_subscription_id, 
+                update_data
+            )
+        else:
+            # User either has no subscription or has expired/cancelled subscription
+            # Use new subscription API, but pass customer_id if they're an existing customer
+            existing_customer_id = existing_customer_subscription.zoho_customer_id if existing_customer_subscription else None
+            
+            if existing_customer_id:
+                logger.info(f"Using new subscription API for existing customer {existing_customer_id} (expired/cancelled subscription)")
+            else:
+                logger.info(f"Using new subscription API for completely new user {user_id}")
+            
+            subscription_data = format_subscription_data_for_hosted_page(
+                user_id=user_id,
+                user_data=user_data,
+                plan_code=plan.zoho_plan_code,
+                addon_codes=addon_codes,
+                existing_customer_id=existing_customer_id
+            )
+            
+            checkout_url = zoho_service.get_hosted_page_url(subscription_data)
+            
+            # Log the final subscription data
+            logger.info(f"Formatted subscription data: {subscription_data}")
 
-        # Initialize Zoho billing service and get checkout URL (reuse if already created)
-        if 'zoho_service' not in locals():
-            zoho_service = ZohoBillingService()
-        checkout_url = zoho_service.get_hosted_page_url(subscription_data)
 
         if not checkout_url:
             logger.error("No checkout URL returned from Zoho")
@@ -1025,37 +1059,58 @@ async def resume_checkout(
         subscription.updated_at = datetime.now()
         db.commit()
         
-        # Check if user already has a Zoho customer ID from previous subscriptions
-        existing_customer_id = None
-        existing_subscription = db.query(UserSubscription).filter(
+        # Check if user has any previous Zoho history (existing customer)
+        existing_customer_subscription = db.query(UserSubscription).filter(
             UserSubscription.user_id == user_id,
             UserSubscription.zoho_customer_id.isnot(None)
         ).first()
         
-        if existing_subscription:
-            existing_customer_id = existing_subscription.zoho_customer_id
-            logger.info(f"Found existing Zoho customer ID {existing_customer_id} for user {user_id} (resume checkout)")
-        else:
-            # If no existing customer ID, check if customer exists in Zoho by email
-            zoho_service = ZohoBillingService()
-            existing_customer = zoho_service.get_customer_by_email(user_data["email"])
-            if existing_customer:
-                existing_customer_id = existing_customer.get("customer_id")
-                logger.info(f"Found existing Zoho customer {existing_customer_id} by email for user {user_id} (resume checkout)")
-            
-        # Format the subscription data for Zoho
-        subscription_data = format_subscription_data_for_hosted_page(
-            user_id=user_id,
-            user_data=user_data,
-            plan_code=plan.zoho_plan_code,
-            addon_codes=[],  # No add-ons for now when resuming
-            existing_customer_id=existing_customer_id  # Pass existing customer ID if found
-        )
+        # Check if user has another active subscription that can be updated (not the pending one)
+        active_subscription_for_update = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "active",
+            UserSubscription.zoho_subscription_id.isnot(None),
+            UserSubscription.id != subscription.id  # Exclude the pending subscription
+        ).order_by(UserSubscription.payment_date.desc()).first()
         
-        # Get a new checkout URL (reuse if already created)
-        if 'zoho_service' not in locals():
-            zoho_service = ZohoBillingService()
-        checkout_url = zoho_service.get_hosted_page_url(subscription_data)
+        zoho_service = ZohoBillingService()
+        
+        if active_subscription_for_update:
+            # User has another active subscription - use update subscription API
+            logger.info(f"Using update subscription API for existing subscription {active_subscription_for_update.zoho_subscription_id} (resume checkout)")
+            
+            update_data = {
+                "plan": {
+                    "plan_code": plan.zoho_plan_code,
+                    "quantity": 1
+                },
+                "redirect_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/",
+                "cancel_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/subscription",
+            }
+            
+            checkout_url = zoho_service.get_subscription_update_hosted_page_url(
+                active_subscription_for_update.zoho_subscription_id, 
+                update_data
+            )
+        else:
+            # No active subscription to update - use new subscription API
+            # But pass customer_id if they're an existing customer to avoid duplicates
+            existing_customer_id = existing_customer_subscription.zoho_customer_id if existing_customer_subscription else None
+            
+            if existing_customer_id:
+                logger.info(f"Using new subscription API for existing customer {existing_customer_id} (resume checkout)")
+            else:
+                logger.info(f"Using new subscription API for completely new user {user_id} (resume checkout)")
+            
+            subscription_data = format_subscription_data_for_hosted_page(
+                user_id=user_id,
+                user_data=user_data,
+                plan_code=plan.zoho_plan_code,
+                addon_codes=[],  # No add-ons for now when resuming
+                existing_customer_id=existing_customer_id
+            )
+            
+            checkout_url = zoho_service.get_hosted_page_url(subscription_data)
         
         if not checkout_url:
             raise HTTPException(status_code=500, detail="Failed to generate checkout URL")
