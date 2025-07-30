@@ -421,6 +421,95 @@ class ZohoBillingService:
             logger.error(f"Error creating hosted page for subscription: {str(e)}")
             raise
 
+    def get_subscription_update_hosted_page_url(self, subscription_id: str, update_data: Dict[str, Any]) -> str:
+        """
+        Get a hosted page URL for updating an existing subscription
+        
+        Args:
+            subscription_id: Zoho subscription ID to update
+            update_data: Dictionary containing update details
+            
+        Returns:
+            URL for the hosted page
+        """
+        try:
+            logger.info(f"\n=== Creating Zoho Subscription Update Hosted Page ===")
+            logger.info(f"Subscription ID: {subscription_id}")
+            logger.info(f"Update data: {update_data}")
+            
+            url = f"{self.base_url}/hostedpages/updatesubscription"
+            logger.info(f"API URL: {url}")
+            
+            # Prepare the payload for subscription update
+            payload = {
+                "subscription_id": subscription_id,
+                **update_data
+            }
+            
+            # Get headers with token
+            headers = self._get_headers()
+            logger.info(f"Using headers: {headers}")
+            
+            # Convert to JSON string for logging exact payload sent
+            payload_json = json.dumps(payload)
+            logger.debug(f"Exact JSON payload being sent:\n{payload_json}")
+            
+            # Make the API request
+            response = requests.post(url, headers=headers, json=payload)
+            
+            # Log the full response
+            logger.debug(f"Zoho API response status: {response.status_code}")
+            logger.debug(f"Zoho API response headers: {dict(response.headers)}")
+            
+            response_text = response.text
+            logger.debug(f"Zoho API raw response: {response_text}")
+            
+            # If we get a 401 error, refresh token and try again
+            if response.status_code == 401:
+                logger.info("Received 401 Unauthorized error. Refreshing token and retrying...")
+                headers = self._get_headers(force_refresh=True)
+                logger.info("Retrying request with new token...")
+                response = requests.post(url, headers=headers, json=payload)
+                logger.debug(f"Retry response status: {response.status_code}")
+                logger.debug(f"Retry response: {response.text}")
+            
+            # Check for HTTP errors
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            logger.info(f"Processing response data: {response_data}")
+            
+            if response_data.get('code') == 0 and response_data.get('hostedpage'):
+                hosted_page_data = response_data.get('hostedpage', {})
+                hosted_page_url = hosted_page_data.get('url', '')
+                
+                logger.info(f"Update checkout URL generated: {hosted_page_url}")
+                
+                if not hosted_page_url:
+                    logger.error("ERROR: No URL returned in the hosted page response")
+                    raise Exception("No URL returned in the hosted page response")
+                    
+                logger.info("=" * 40)
+                return hosted_page_url
+            else:
+                error_msg = response_data.get('message', 'Unknown error from Zoho API')
+                logger.error(f"ERROR: Zoho API error: {error_msg}")
+                raise Exception(error_msg)
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"ERROR: Request exception creating update hosted page: {str(e)}")
+            if hasattr(e, 'response') and e.response:
+                try:
+                    error_data = e.response.json()
+                    logger.error(f"Zoho API error details: {error_data}")
+                except:
+                    logger.error(f"Raw error response: {e.response.text}")
+            raise
+        except Exception as e:
+            logger.error(f"ERROR: Exception creating update hosted page: {str(e)}")
+            raise
+
     def sync_plans_with_zoho(self, db: Session) -> Dict[str, Any]:
         result = {
             "created": 0,
@@ -608,50 +697,7 @@ class ZohoBillingService:
         """Get the frontend URL from environment variables with a fallback default"""
         return os.getenv('FRONTEND_URL', 'https://evolra.ai')
 
-    def get_customer_by_email(self, email: str) -> Optional[Dict[str, Any]]:
-        """
-        Get a customer from Zoho Billing by email address
-        
-        Args:
-            email: Customer's email address
-            
-        Returns:
-            Customer data if found, None otherwise
-        """
-        try:
-            logger.info(f"Looking up customer by email: {email}")
-            url = f"{self.base_url}/customers"
-            headers = self._get_headers()
-            
-            # Zoho API supports filtering by email
-            params = {
-                'email': email
-            }
-            
-            response = requests.get(url, headers=headers, params=params)
-            
-            # If we get a 401 error, refresh token and try again
-            if response.status_code == 401:
-                logger.info("Received 401 Unauthorized error in get_customer_by_email. Refreshing token and retrying...")
-                headers = self._get_headers(force_refresh=True)
-                response = requests.get(url, headers=headers, params=params)
-            
-            response.raise_for_status()
-            response_data = response.json()
-            
-            customers = response_data.get('customers', [])
-            
-            if customers and len(customers) > 0:
-                customer = customers[0]  # Return the first match
-                logger.info(f"Found existing customer: {customer.get('customer_id')} for email: {email}")
-                return customer
-            else:
-                logger.info(f"No existing customer found for email: {email}")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Error looking up customer by email {email}: {str(e)}")
-            return None
+
 
     def get_addon_hosted_page_url(self, subscription_id: str, addon_data: Dict[str, Any]) -> str:
         """
@@ -809,9 +855,9 @@ def format_subscription_data_for_hosted_page(
         "auto_populate_address": False  # Prevent pre-filling with default addresses
     }
     
-    # Include customer data based on whether we have an existing customer or not
+    # Handle customer data based on whether they're existing or new
     if existing_customer_id:
-        # For existing customers, just provide the customer ID
+        # For existing customers, just provide the customer ID to avoid duplicates
         subscription_data["customer"] = {
             "customer_id": existing_customer_id
         }
