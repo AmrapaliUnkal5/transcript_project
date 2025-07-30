@@ -608,6 +608,51 @@ class ZohoBillingService:
         """Get the frontend URL from environment variables with a fallback default"""
         return os.getenv('FRONTEND_URL', 'https://evolra.ai')
 
+    def get_customer_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a customer from Zoho Billing by email address
+        
+        Args:
+            email: Customer's email address
+            
+        Returns:
+            Customer data if found, None otherwise
+        """
+        try:
+            logger.info(f"Looking up customer by email: {email}")
+            url = f"{self.base_url}/customers"
+            headers = self._get_headers()
+            
+            # Zoho API supports filtering by email
+            params = {
+                'email': email
+            }
+            
+            response = requests.get(url, headers=headers, params=params)
+            
+            # If we get a 401 error, refresh token and try again
+            if response.status_code == 401:
+                logger.info("Received 401 Unauthorized error in get_customer_by_email. Refreshing token and retrying...")
+                headers = self._get_headers(force_refresh=True)
+                response = requests.get(url, headers=headers, params=params)
+            
+            response.raise_for_status()
+            response_data = response.json()
+            
+            customers = response_data.get('customers', [])
+            
+            if customers and len(customers) > 0:
+                customer = customers[0]  # Return the first match
+                logger.info(f"Found existing customer: {customer.get('customer_id')} for email: {email}")
+                return customer
+            else:
+                logger.info(f"No existing customer found for email: {email}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error looking up customer by email {email}: {str(e)}")
+            return None
+
     def get_addon_hosted_page_url(self, subscription_id: str, addon_data: Dict[str, Any]) -> str:
         """
         Get a hosted page URL for buying a one-time addon for an existing subscription
@@ -725,7 +770,8 @@ def format_subscription_data_for_hosted_page(
     user_id: int, 
     user_data: Dict[str, Any], 
     plan_code: str,
-    addon_codes: List[str] = None
+    addon_codes: List[str] = None,
+    existing_customer_id: str = None
 ) -> Dict[str, Any]:
     """Correct payload for Zoho Hosted Page subscription checkout"""
     
@@ -741,6 +787,7 @@ def format_subscription_data_for_hosted_page(
     print(f"User Data: {user_data}")
     print(f"Plan Code: {plan_code}")
     print(f"Addon Codes (received): {addon_codes}")
+    print(f"Existing Customer ID: {existing_customer_id}")
     print(f"Price List ID: {price_list_id}")
     
     if not addon_codes:
@@ -750,10 +797,6 @@ def format_subscription_data_for_hosted_page(
     
     # Create the basic subscription data structure according to Zoho API docs
     subscription_data = {
-        # "customer": {
-        #     # "display_name": user_data.get("name", ""),
-        #     # "email": user_data.get("email", "")
-        # },
         "plan": {
             "plan_code": plan_code,
             "quantity": 1  # Required by Zoho Billing
@@ -766,6 +809,14 @@ def format_subscription_data_for_hosted_page(
         "auto_populate_address": False  # Prevent pre-filling with default addresses
     }
     
+    # Include customer data based on whether we have an existing customer or not
+    if existing_customer_id:
+        # For existing customers, just provide the customer ID
+        subscription_data["customer"] = {
+            "customer_id": existing_customer_id
+        }
+        print(f"Using existing customer ID: {existing_customer_id}")
+    
     # Add price list ID if available
     if price_list_id:
         subscription_data["price_list_id"] = price_list_id
@@ -773,12 +824,7 @@ def format_subscription_data_for_hosted_page(
     else:
         print("WARNING: ZOHO_PRICE_LIST_ID not set in environment variables")
     
-    # Add phone number/mobile - using mobile instead of phone for Zoho
-    # Use default number if not present
-    # subscription_data["customer"]["mobile"] = user_data.get("phone_no")
-    
-    # if user_data.get("company_name"):
-    #     subscription_data["customer"]["company_name"] = user_data.get("company_name")
+
     
     # Add addons if provided
     if addon_codes and len(addon_codes) > 0:
