@@ -126,15 +126,15 @@ async def create_subscription_checkout(
             user_data["name"] = user_data["email"].split("@")[0]  # Use part of email as name if not provided
             
         # Check if phone number is available - Zoho requires this field
-        if not user_data["phone_no"]:
-            # Return a specific error that the frontend can recognize
-            return JSONResponse(
-                status_code=422,
-                content={
-                    "detail": "phone_number_required",
-                    "message": "Phone number is required for subscription checkout"
-                }
-            )
+        # if not user_data["phone_no"]:
+        #     # Return a specific error that the frontend can recognize
+        #     return JSONResponse(
+        #         status_code=422,
+        #         content={
+        #             "detail": "phone_number_required",
+        #             "message": "Phone number is required for subscription checkout"
+        #         }
+        #     )
 
         # Log the attempt to create checkout
         logger.info(f"Creating subscription checkout for plan {plan.name} (ID: {plan.id}) for user {user_id}")
@@ -249,6 +249,15 @@ async def create_subscription_checkout(
             # User has active subscription that can be updated - use update subscription API
             logger.info(f"Using update subscription API for existing subscription {active_subscription_for_update.zoho_subscription_id}")
             
+            # Fetch customer details from Zoho first to include billing and account information
+            customer_details = None
+            if active_subscription_for_update.zoho_customer_id:
+                logger.info(f"Fetching customer details from Zoho for customer ID: {active_subscription_for_update.zoho_customer_id}")
+                customer_details = zoho_service.get_customer_details(active_subscription_for_update.zoho_customer_id)
+                
+                if not customer_details:
+                    logger.warning(f"Could not fetch customer details for customer ID: {active_subscription_for_update.zoho_customer_id}")
+            
             update_data = {
                 "plan": {
                     "plan_code": plan.zoho_plan_code,
@@ -257,6 +266,34 @@ async def create_subscription_checkout(
                 "redirect_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/",
                 "cancel_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/subscription",
             }
+            
+            # Include customer details if we successfully fetched them
+            if customer_details:
+                logger.info("Including customer details in update subscription call")
+                
+                # Extract and include customer information
+                customer_data = {
+                    "customer_id": customer_details.get("customer_id"),
+                    "display_name": customer_details.get("display_name"),
+                    "first_name": customer_details.get("first_name"),
+                    "last_name": customer_details.get("last_name"),
+                    "email": customer_details.get("email"),
+                    "phone": customer_details.get("phone"),
+                    "company_name": customer_details.get("company_name"),
+                }
+                
+                # Include billing address if available
+                if customer_details.get("billing_address"):
+                    customer_data["billing_address"] = customer_details.get("billing_address")
+                
+                # Include shipping address if available
+                if customer_details.get("shipping_address"):
+                    customer_data["shipping_address"] = customer_details.get("shipping_address")
+                
+                update_data["customer"] = customer_data
+                logger.info(f"Added customer data to update payload: {customer_data}")
+            else:
+                logger.warning("No customer details available - proceeding without customer data in update")
             
             # Add addons if provided
             if addon_codes and len(addon_codes) > 0:
@@ -290,7 +327,6 @@ async def create_subscription_checkout(
                 addon_codes=addon_codes,
                 existing_customer_id=existing_customer_id
             )
-            
             checkout_url = zoho_service.get_hosted_page_url(subscription_data)
             
             # Log the final subscription data
@@ -1079,6 +1115,15 @@ async def resume_checkout(
             # User has another active subscription - use update subscription API
             logger.info(f"Using update subscription API for existing subscription {active_subscription_for_update.zoho_subscription_id} (resume checkout)")
             
+            # Fetch customer details from Zoho first to include billing and account information
+            customer_details = None
+            if active_subscription_for_update.zoho_customer_id:
+                logger.info(f"Fetching customer details from Zoho for customer ID: {active_subscription_for_update.zoho_customer_id} (resume)")
+                customer_details = zoho_service.get_customer_details(active_subscription_for_update.zoho_customer_id)
+                
+                if not customer_details:
+                    logger.warning(f"Could not fetch customer details for customer ID: {active_subscription_for_update.zoho_customer_id} (resume)")
+            
             update_data = {
                 "plan": {
                     "plan_code": plan.zoho_plan_code,
@@ -1087,6 +1132,34 @@ async def resume_checkout(
                 "redirect_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/",
                 "cancel_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/subscription",
             }
+            
+            # Include customer details if we successfully fetched them
+            if customer_details:
+                logger.info("Including customer details in update subscription call (resume)")
+                
+                # Extract and include customer information
+                customer_data = {
+                    "customer_id": customer_details.get("customer_id"),
+                    "display_name": customer_details.get("display_name"),
+                    "first_name": customer_details.get("first_name"),
+                    "last_name": customer_details.get("last_name"),
+                    "email": customer_details.get("email"),
+                    "phone": customer_details.get("phone"),
+                    "company_name": customer_details.get("company_name"),
+                }
+                
+                # Include billing address if available
+                if customer_details.get("billing_address"):
+                    customer_data["billing_address"] = customer_details.get("billing_address")
+                
+                # Include shipping address if available
+                if customer_details.get("shipping_address"):
+                    customer_data["shipping_address"] = customer_details.get("shipping_address")
+                
+                update_data["customer"] = customer_data
+                logger.info(f"Added customer data to update payload (resume): {customer_data}")
+            else:
+                logger.warning("No customer details available - proceeding without customer data in update (resume)")
             
             checkout_url = zoho_service.get_subscription_update_hosted_page_url(
                 active_subscription_for_update.zoho_subscription_id, 
