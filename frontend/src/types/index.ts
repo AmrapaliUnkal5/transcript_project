@@ -58,6 +58,7 @@ export interface FileUploadInterface {
   wordCount: number;
   charCount: number;
   status?:string;
+  error_code?:string;
 }
 
 export interface CreateBotInterface {
@@ -119,6 +120,7 @@ export interface ApiFile {
   upload_date: string;
   unique_file_name: string;
   status:string;
+  error_code:string;
 }
 
 export interface BotStatusMessage {

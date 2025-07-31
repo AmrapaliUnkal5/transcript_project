@@ -290,6 +290,7 @@ class PageData(BaseModel):
     Word_Counts: int
     upload_date:Optional[datetime] = None
     status:Optional[str] = None
+    error_code:Optional[str] = None
 
 class EmbeddingModelBase(BaseModel):
     name: str
@@ -493,6 +494,7 @@ class YouTubeVideoResponse(BaseModel):
     transcript_count: Optional[int] = 0
     upload_date: Optional[datetime] = None
     status: Optional[str] = None
+    error_code: Optional[str] = None
 
 class WordCloudResponse(BaseModel):
     words: List[Dict[str, Union[str, int]]]

@@ -16,7 +16,7 @@ async def grid_refresh_ws(websocket: WebSocket, bot_id: int, db: Session = Depen
             files_status = get_files_status(db, bot_id)
             youtube_status = get_youtube_status(db, bot_id)
             website_status = get_scraped_node_status(db, bot_id)
-            print("file_status")
+
 
             await websocket.send_json({
                 "type": "GridStatus",
