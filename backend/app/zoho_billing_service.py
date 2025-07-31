@@ -510,6 +510,68 @@ class ZohoBillingService:
             logger.error(f"ERROR: Exception creating update hosted page: {str(e)}")
             raise
 
+    def get_customer_details(self, customer_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetch customer details from Zoho including billing address and account information
+        
+        Args:
+            customer_id: Zoho customer ID
+            
+        Returns:
+            Dictionary containing customer details or None if not found
+        """
+        try:
+            logger.info(f"\n=== Fetching Customer Details from Zoho ===")
+            logger.info(f"Customer ID: {customer_id}")
+            
+            url = f"{self.base_url}/customers/{customer_id}"
+            logger.info(f"API URL: {url}")
+            
+            # Get headers with token
+            headers = self._get_headers()
+            
+            # Make the API request
+            response = requests.get(url, headers=headers)
+            
+            logger.debug(f"Zoho customer API response status: {response.status_code}")
+            logger.debug(f"Zoho customer API response: {response.text}")
+            
+            # If we get a 401 error, refresh token and try again
+            if response.status_code == 401:
+                logger.info("Received 401 Unauthorized error. Refreshing token and retrying...")
+                headers = self._get_headers(force_refresh=True)
+                response = requests.get(url, headers=headers)
+                logger.debug(f"Retry response status: {response.status_code}")
+            
+            # Check for HTTP errors
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            
+            if response_data.get('code') == 0 and response_data.get('customer'):
+                customer_data = response_data.get('customer', {})
+                logger.info(f"Successfully fetched customer details for ID: {customer_id}")
+                logger.debug(f"Customer data: {customer_data}")
+                return customer_data
+            else:
+                error_msg = response_data.get('message', 'Customer not found')
+                logger.warning(f"Could not fetch customer details: {error_msg}")
+                return None
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"ERROR: Request exception fetching customer details: {str(e)}")
+            if hasattr(e, 'response') and e.response:
+                try:
+                    error_data = e.response.json()
+                    logger.error(f"Zoho API error details: {error_data}")
+                except:
+                    logger.error(f"Raw error response: {e.response.text}")
+            return None
+        except Exception as e:
+            logger.error(f"ERROR: Exception fetching customer details: {str(e)}")
+            return None
+
     def sync_plans_with_zoho(self, db: Session) -> Dict[str, Any]:
         result = {
             "created": 0,
@@ -819,7 +881,15 @@ def format_subscription_data_for_hosted_page(
     addon_codes: List[str] = None,
     existing_customer_id: str = None
 ) -> Dict[str, Any]:
-    """Correct payload for Zoho Hosted Page subscription checkout"""
+    """
+    Format subscription data for Zoho Hosted Page checkout
+    
+    Note: For NEW customers (existing_customer_id=None), we deliberately don't send 
+    user account data to force Zoho to collect billing address, shipping address, 
+    and complete account info during the checkout process.
+    
+    For EXISTING customers, we only send the customer_id to avoid duplicates.
+    """
     
     # Get the frontend URL from environment variables or use default
     frontend_url = os.getenv('FRONTEND_URL', 'https://evolra.ai')
@@ -862,6 +932,10 @@ def format_subscription_data_for_hosted_page(
             "customer_id": existing_customer_id
         }
         print(f"Using existing customer ID: {existing_customer_id}")
+    else:
+        # For NEW customers, we deliberately DON'T send user account data
+        # This forces Zoho to collect billing address, shipping address, and account info during checkout
+        print("New customer - Zoho will collect all customer data including billing address during checkout")
     
     # Add price list ID if available
     if price_list_id:
