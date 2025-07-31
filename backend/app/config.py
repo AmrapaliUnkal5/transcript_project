@@ -29,6 +29,7 @@ if not LOG_DIR.startswith("s3://"):
 # SMTP configuration using decouple
 SMTP_CONFIG = {
     "server": config("SMTP_SERVER"),
+    "PROFILE": config("PROFILE",default="not_dev"),   
     "port": config("SMTP_PORT", default=587, cast=int),  # Default to 587 if not provided
     "username": config("SMTP_USERNAME"),
     "password": config("SMTP_PASSWORD"),

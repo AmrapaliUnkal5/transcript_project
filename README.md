@@ -347,3 +347,16 @@ This dual approach ensures maximum reliability for transcript extraction across 
 * Run `playwright install` for web scraping features
 * Ensure Redis is running before starting Celery
 * Check the Flower dashboard at http://localhost:5555 for task monitoring
+
+
+## 📧 Email Configuration
+
+The application supports two email delivery methods:
+
+### 1. SendGrid (Recommended for Dev)
+To use SendGrid's API for email delivery:
+1. Add the following to your `.env` file:
+   PROFILE=dev
+   SMTP_USERNAME=apikey
+   SMTP_PASSWORD=your-sendgrid-api-key
+   
