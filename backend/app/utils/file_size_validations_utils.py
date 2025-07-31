@@ -382,14 +382,14 @@ async def get_current_usage(user_id: int, db: Session):
     # Get total words used (from files)
     total_words = db.query(func.sum(FileModel.word_count)).filter(
         FileModel.bot_id.in_(
-            db.query(Bot.bot_id).filter(Bot.user_id == user_id)
+            db.query(Bot.bot_id).filter(Bot.user_id == user_id, FileModel.status != 'Failed')
         )
     ).scalar() or 0
     
     # Get total storage used (from files)
     total_storage_bytes = db.query(func.sum(FileModel.original_file_size_bytes)).filter(
         FileModel.bot_id.in_(
-            db.query(Bot.bot_id).filter(Bot.user_id == user_id)
+            db.query(Bot.bot_id).filter(Bot.user_id == user_id, FileModel.status != 'Failed')
         )
     ).scalar() or 0
     

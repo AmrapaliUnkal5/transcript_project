@@ -26,6 +26,7 @@ import { useNavigate } from "react-router-dom";
 import { useBotStatusWebSocket } from '../services/useBotStatusWebSocket';
 import { BotTrainingStatusProgress } from "./BotTrainingStatusProgress";
 import { useGridRefreshWebSocket } from "../services/useGridRefreshWebSocket";
+import { AlertTriangle } from "lucide-react";
 
 const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
   return (
@@ -75,7 +76,8 @@ export const FileUpload = () => {
       video_id: string;
       transcript_count?: number;
       upload_date?: string;
-      status?: string
+      status?: string,
+      error_code?:string;
     }[]
   >([]);
   const { loading, setLoading } = useLoader();
@@ -152,7 +154,7 @@ export const FileUpload = () => {
     (totalWordsUsed / userUsage.planLimit) * 100
   );
   const totalStorageUsed =
-    userUsage.globalStorageUsed + userUsage.currentSessionStorage;
+    userUsage.globalStorageUsed ;
 
   console.log("totalStorageUsed=>", totalStorageUsed);
   const remainingStorage = Math.max(
@@ -668,6 +670,7 @@ export const FileUpload = () => {
           status: "Pending",
           is_active: false,
         });
+      if (refetchScrapedUrls) refetchScrapedUrls();
 
       } else {
         toast.error("Failed to Cancel");
@@ -695,12 +698,7 @@ export const FileUpload = () => {
         is_retrained: true
       });
 
-      // 1b. Call your training API
-        const trainingResponse = await authApi.startTraining(selectedBot.id);
 
-        if (!trainingResponse.success) {
-          throw new Error("Failed to start training");
-        }
 
       // 2. Manually set status to "Training" for immediate UI feedback
       setStatus({
@@ -783,7 +781,8 @@ export const FileUpload = () => {
           url: file.file_path,
           wordCount: file.word_count,
           charCount: file.character_count,
-          status: file.status
+          status: file.status,
+          error_code: file.error_code,
         };
       });
 
@@ -1147,11 +1146,7 @@ useEffect(() => {
           (acc, file) => acc + (file.size || 0),
           0
         );
-        await authApi.updateBotWordCount({
-          bot_id: selectedBot.id,
-          word_count: newWords,
-          file_size: newStorage,
-        });
+
 
         const apiUsage = await authApi.getUserUsage();
         setUserUsage({
@@ -1639,11 +1634,27 @@ useEffect(() => {
                             {getFileExtension(file.name)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {file.status || "Pending"}
-                         </span>
-                       </td>
+                        <td className="px-6 py-4 text-sm relative overflow-visible">
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {file.status || "Pending"}
+                          </span>
+
+                          {file.status === "Failed" && file.error_code && (
+                            <div className="relative group cursor-pointer">
+                              <AlertTriangle className="w-4 h-4 text-red-500" />
+                              <div
+                                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block
+                                          bg-white dark:bg-gray-900 text-xs text-gray-800 dark:text-gray-100
+                                          border border-gray-300 dark:border-gray-700 rounded px-2 py-1
+                                          shadow-lg z-50 max-w-xs w-max whitespace-normal break-words"
+                              >
+                                {file.error_code}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="text-sm text-gray-500 dark:text-gray-400">
                             {file.wordCount?.toLocaleString() || "N/A"}
@@ -1841,8 +1852,23 @@ useEffect(() => {
                             {videoUrl.video_title || "Untitled"}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                        {videoUrl.status}
+                        <td className="px-4 py-2 text-sm relative overflow-visible z-0">
+                          <div className="flex items-center gap-1">
+                            <span>{videoUrl.status}</span>
+                            {videoUrl.status === "Failed" && videoUrl.error_code && (
+                              <div className="relative group cursor-pointer">
+                                <AlertTriangle className="w-4 h-4 text-red-500" />
+                                <div
+                                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block
+                                            bg-white dark:bg-gray-800 text-xs text-gray-800 dark:text-gray-100
+                                            border border-gray-300 dark:border-gray-700 rounded px-2 py-1
+                                            shadow-lg z-50 max-w-xs w-max whitespace-normal break-words"
+                                >
+                                  {videoUrl.error_code}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <a

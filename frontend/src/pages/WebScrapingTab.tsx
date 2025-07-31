@@ -5,7 +5,7 @@ import { authApi } from "../services/api";
 import { useBot } from "../context/BotContext";
 //import { toast } from "react-toastify";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
-
+import { AlertTriangle } from "lucide-react";
 import { Trash2, Info } from "lucide-react";
 import { toast } from "react-toastify";
 import { useLocation } from 'react-router-dom';
@@ -85,7 +85,7 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
   }, [isCreateBotFlow]);
 
   const [scrapedUrls, setScrapedUrls] = useState<
-  { id: number; url: string; title: string; wordCount?: number;upload_date?:string;status?: string  }[]
+  { id: number; url: string; title: string; wordCount?: number;upload_date?:string;status?: string ,error_code?: string }[]
 >([]);
 
   // ✅ Move fetchScrapedUrls outside of useEffect so it can be reused
@@ -107,7 +107,8 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
           title: item.title || "No Title",
           wordCount: item.Word_Counts, // Add word count from response
           upload_date:item.upload_date,
-          status: item.status
+          status: item.status,
+          error_code:item.error_code
         }));
 
         console.log("Formatted URLs:", formattedUrls);
@@ -126,6 +127,7 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
       setScrapedUrls([]);
     } finally {
       setLoading(false);
+      setIsProcessing(false);
     }
   }, [selectedBot?.id]);
 
@@ -654,13 +656,31 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                      }}>
                         {item.title || "No Title"}
                       </td>
-                      <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
-                    style={{ fontFamily: 'Instrument Sans, sans-serif',
-                      fontSize: '14px',
-                       color: '#333333',
-                     }}>
-                      {item.status}
-                    </td>
+                      <td
+                          className="px-4 py-2 text-gray-900 dark:text-gray-200 relative overflow-visible"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '14px',
+                            color: '#333333',
+                          }}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>{item.status}</span>
+
+                            {item.status === "Failed" && item.error_code && (
+                              <div className="relative group cursor-pointer">
+                                <AlertTriangle className="w-4 h-4 text-red-500" />
+                                <div
+                                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block
+                                            bg-white text-xs text-gray-800 border border-gray-300 rounded px-2 py-1
+                                            shadow-lg z-50 whitespace-normal break-words w-max max-w-xs"
+                                >
+                                  {item.error_code}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
                       <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
                     style={{ fontFamily: 'Instrument Sans, sans-serif',
                       fontSize: '14px',

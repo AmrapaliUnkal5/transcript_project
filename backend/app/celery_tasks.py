@@ -243,7 +243,7 @@ def process_youtube_videos_part1(self, bot_id: int, video_urls: List[str]):
                 transcript, metadata = transcript_result, None
 
             if not transcript:
-                reason = "EXTRACTION_FAILED_Transcript missing"
+                reason = "Extraction Failed:Could not extract transcript from the YouTube video."
                 send_failure_notification(db, bot_id, url, reason)
 
                 existing_video = db.query(YouTubeVideo).filter(
@@ -304,7 +304,7 @@ def process_youtube_videos_part1(self, bot_id: int, video_urls: List[str]):
                 save_video_metadata(db, bot_id, url, transcript, metadata)
                 if existing_video:
                     existing_video.status = "Failed"
-                    existing_video.error_code = "Word count exceeded"
+                    existing_video.error_code = "Word count exceeds your subscription plan limit."
                     db.commit()
                     add_notification(
                             db=db,
@@ -1283,11 +1283,10 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                 try:
                     validate_cumulative_word_count_sync_for_celery(total_word_count, {"user_id": user_id}, db)
                     quota_exceeded = False
-                    print("quota_exceeded",quota_exceeded)
                     error_message = None
                 except Exception as e:
                     quota_exceeded = True
-                    error_message = f"WORD_QUOTA_EXCEEDED: {str(e)}"
+                    error_message = "Word count exceeds your subscription plan limit."
                     try:
                         extracted_str = ", ".join(extracted_filenames)
                         message = (
@@ -1347,7 +1346,7 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
             if file_record:
                 logger.info(f"Marking file extraction as failed in database")
                 file_record.status = "Failed"
-                error_msg = f"EXTRACTION_FAILED: {str(process_error)}"
+                error_msg = f"Extraction Failed: {str(process_error)}"
                 file_record.error_code = error_msg
                 file_record.updated_by = bot.user_id
                 db.commit()
@@ -1387,7 +1386,7 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                     update_file_metadata_status_only(db, {
                         "file_id_db": file_data.get("file_id_db"),
                         "status": "Failed",
-                        "error_message": f"EXTRACTION_FAILED: {str(e)}",
+                        "error_message": f"Extraction Failed: {str(e)}",
                         "updated_by": bot.user_id if bot else None
                     })
                     db.commit()
@@ -1535,7 +1534,7 @@ def process_file_upload_part2(self, bot_id: int, file_id: str):
         ).first()
         if file_record:
             file_record.status = "Failed"
-            file_record.error_code = f"EMBEDDING_FAILED: {str(e)}"
+            file_record.error_code = f"Embedding Failed: {str(e)}"
             db.commit()
         # Send failure notification
         try:
@@ -1619,7 +1618,7 @@ def process_youtube_videos_part2(self, bot_id: int, video_ids: List[int]):
             except Exception as e:
                 logger.exception(f"❌ Error vectorizing video {video.video_title}: {str(e)}")
                 video.status = "Failed"
-                video.error_code = f"EMBEDDING_FAILED: {str(e)}"
+                video.error_code = f"Embedding Failed: {str(e)}"
                 db.commit()
 
                 send_failure_notification(
@@ -1846,7 +1845,7 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list):
 
             except Exception as db_err:
                 node.status = "Failed"
-                node.error_code = f"EMBEDDING_FAILED: {str(db_err)}"
+                node.error_code = f"Embedding Failed: {str(db_err)}"
                 logger.error(f"❌ Failed to embed document from {url}", extra={"bot_id": bot_id, "error": str(db_err)})
                 import traceback
                 logger.error(traceback.format_exc())

@@ -9,6 +9,7 @@ import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import { Trash2, Info } from "lucide-react";
 import { toast } from "react-toastify";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
+import { AlertTriangle } from "lucide-react";
 
 interface SubscriptionScrapeProps {
   isReconfiguring: boolean;
@@ -40,7 +41,7 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [scrapedUrls, setScrapedUrls] = useState<
-    { id: number; url: string; title: string;Word_Counts?: number; upload_date?: string; status?: string }[]
+    { id: number; url: string; title: string;Word_Counts?: number; upload_date?: string; status?: string, error_code?: string  }[]
   >([]);
 
   const handleScrapingSuccess = (scrapedUrl: string) => {
@@ -94,7 +95,8 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
           title: item.title || "No Title",
           Word_Counts:item.Word_Counts,
           upload_date: item.upload_date,
-          status: item.status
+          status: item.status,
+          error_code:item.error_code
         }));
 
         console.log("Formatted URLs:", formattedUrls);
@@ -115,12 +117,14 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
       setScrapedUrls([]);
     } finally {
       setLoading(false);
+      setIsProcessing(false);
     }
   }, [selectedBot?.id, setLoading, setScrapedUrls]);
 
   useEffect(() => {
   if (setRefetchScrapedUrls) {
     setRefetchScrapedUrls(() => fetchScrapedUrls);
+    setIsSaved(false);
   }
 }, [fetchScrapedUrls, setRefetchScrapedUrls]);
 
@@ -767,12 +771,30 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
                       {item.title || "No Title"}{" "}
                       {/* ✅ Display Title with Fallback */}
                     </td>
-                    <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
-                    style={{ fontFamily: 'Instrument Sans, sans-serif',
-                      fontSize: '14px',
-                       color: '#333333',
-                     }}>
-                      {item.status}
+                    <td
+                      className="px-4 py-2 text-gray-900 dark:text-gray-200 relative overflow-visible"
+                      style={{
+                        fontFamily: 'Instrument Sans, sans-serif',
+                        fontSize: '14px',
+                        color: '#333333',
+                      }}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>{item.status}</span>
+
+                        {item.status === "Failed" && item.error_code && (
+                          <div className="relative group cursor-pointer">
+                            <AlertTriangle className="w-4 h-4 text-red-500" />
+                            <div
+                              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block
+                                        bg-white text-xs text-gray-800 border border-gray-300 rounded px-2 py-1
+                                        shadow-lg z-50 whitespace-normal break-words w-max max-w-xs"
+                            >
+                              {item.error_code}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
                     style={{ fontFamily: 'Instrument Sans, sans-serif',

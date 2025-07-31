@@ -235,7 +235,7 @@ def get_usage_metrics(
         # 5. Total storage used (parse file sizes and sum up)
         total_bytes_used = 0
         if bot_ids:
-            files = db.query(File).filter(File.bot_id.in_(bot_ids)).all()
+            files = db.query(File).filter(File.bot_id.in_(bot_ids), File.status == "Success").all()
             for file in files:
                 total_bytes_used += convert_to_bytes(file.original_file_size)
 

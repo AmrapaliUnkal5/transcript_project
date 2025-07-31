@@ -184,7 +184,8 @@ export const CreateBot = () => {
     (totalWordsUsed / userUsage.planLimit) * 100
   );
   const totalStorageUsed =
-    userUsage.globalStorageUsed + userUsage.currentSessionStorage;
+    userUsage.globalStorageUsed ;
+    console.log("userUsage.globalStorageUsed",userUsage.globalStorageUsed)
   const remainingStorage = Math.max(
     0,
     userUsage.storageLimit - totalStorageUsed
@@ -942,7 +943,7 @@ const handleSaveFiles = async () => {
       setUserUsage((prev) => ({
         ...prev,
         globalWordsUsed: prev.globalWordsUsed + prev.currentSessionWords,
-        globalStorageUsed: prev.globalStorageUsed + prev.currentSessionStorage,
+        globalStorageUsed: prev.globalStorageUsed ,
         currentSessionWords: 0,
         currentSessionStorage: 0,
       }));
@@ -1050,11 +1051,7 @@ const handleSaveYouTube = async () => {
           "Updating bot word count with:",
           userUsage.currentSessionWords
         );
-        await authApi.updateBotWordCount({
-          bot_id: selectedBot.id,
-          word_count: userUsage.currentSessionWords,
-          file_size: userUsage.currentSessionStorage,
-        });
+
 
         // Update global words used after successful submission
         setUserUsage((prev) => {
