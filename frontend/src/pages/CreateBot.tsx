@@ -109,7 +109,7 @@ export const CreateBot = () => {
   const { getPlanById } = useSubscriptionPlans();
   const userPlan = getPlanById(user?.subscription_plan_id);
   console.log("userPlan====>", userPlan);
-
+  
   const [processingMessage, setProcessingMessage] = useState(
     "Getting things ready for you..."
   );
@@ -690,7 +690,7 @@ export const CreateBot = () => {
     }
 
     setIsLoading(true);
-    setLoading(true);
+    // setLoading(true);
     try {
       if (selectedBot?.id) {
         console.log(

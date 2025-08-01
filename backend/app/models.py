@@ -120,7 +120,7 @@ class Bot(Base):
     lead_generation_enabled = Column(Boolean, nullable=False, default=False)
     lead_form_config = Column(JSONB, nullable=True)
     show_sources = Column(Boolean, nullable=False, default=False)
-    unanswered_msg = Column(Text, nullable=True, default="I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?")
+    unanswered_msg = Column(Text, nullable=True, default="I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?")
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")
