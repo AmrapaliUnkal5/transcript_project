@@ -109,6 +109,7 @@ export const CreateBot = () => {
   //const [currentStep, setCurrentStep] = useState(0);
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [files, setFiles] = useState<FileWithCounts[]>([]);
+  const[website,scrapedUrls]=useState<FileWithCounts[]>([]);
   const [botName, setBotName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { loading, setLoading } = useLoader();
@@ -242,8 +243,12 @@ useEffect(() => {
       console.log("status of all=>",files.length > 0 || 
         youtubeVideos.length > 0 || 
         scrapedUrls.length > 0)
+      if (youtubeVideos.length > 0){
       setHasYouTubeContent(true)
+      }
+      if (scrapedUrls.length > 0){
       setHasWebsiteContent(true)
+      }
     } catch (error) {
       console.error("Error checking existing content:", error);
     }
@@ -821,7 +826,7 @@ const handleDelete = async (id: string) => {
       toast.error("Please save your changes before proceeding");
       return;
     }
-      if (hasWebsiteContent  || files.length > 0 || hasYouTubeContent) {
+    if (hasWebsiteContent  || files.length > 0 || hasYouTubeContent) {
         setCurrentStep(currentStep + 1);
       } else {
         toast.error("Please add at least one knowledge source (website, files, or YouTube videos)");
