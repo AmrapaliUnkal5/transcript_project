@@ -148,7 +148,10 @@ export const Welcome = () => {
 
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [botToDelete, setBotToDelete] = useState<number | null>(null);
-  const { allBotsStatus } = useBotStatusWebSocket(false, { userId, allBots: true });
+  
+  // Check if subscription is expired before connecting to WebSocket
+  const isSubscriptionExpired = user?.subscription_status === "expired" || user?.subscription_status === "cancelled";
+  const { allBotsStatus } = useBotStatusWebSocket(!isSubscriptionExpired, { userId, allBots: true });
 
   const userPlanId = user?.subscription_plan_id || 1;
   const userPlan = getPlanById(userPlanId);
@@ -196,6 +199,15 @@ export const Welcome = () => {
   // Combined data loading effect
   useEffect(() => {
     const loadAllData = async () => {
+      // Early return if subscription is expired - don't make any API calls
+      if (isSubscriptionExpired) {
+        console.log("Subscription expired - skipping API calls");
+        setLoading(false);
+        setIsDataLoaded(true);
+        setHasBots(false); // Set to false to show overlay
+        return;
+      }
+
       try {
         setLoading(true);
         setIsDataLoaded(false);
@@ -271,9 +283,14 @@ export const Welcome = () => {
     };
 
     loadAllData();
-  }, [userId, setLoading, setPlans, setAddons]);
+  }, [userId, setLoading, setPlans, setAddons, isSubscriptionExpired]);
 
   useEffect(() => {
+    // Don't update bot status if subscription is expired
+    if (isSubscriptionExpired) {
+      return;
+    }
+    
     if (allBotsStatus) {
       setBots((prevBots) =>
         prevBots.map((bot) => {
@@ -285,7 +302,7 @@ export const Welcome = () => {
         })
       );
     }
-  }, [allBotsStatus]);
+  }, [allBotsStatus, isSubscriptionExpired]);
 
   if (isPlansLoading || !userPlan) {
     return <Loader />;
@@ -377,6 +394,12 @@ export const Welcome = () => {
     console.log("userPlan", userPlan);
     if (!userPlan) return;
 
+    // Prevent navigation if subscription is expired
+    if (isSubscriptionExpired) {
+      toast.error("Cannot create bot - subscription expired. Please renew your subscription.");
+      return;
+    }
+
     //const maxBotsAllowed = userPlan.chatbot_limit;
     //const maxWordsAllowed = userPlan.word_count_limit;
     console.log("maxBotsAllowed", maxBotsAllowed);
@@ -409,6 +432,12 @@ export const Welcome = () => {
   };
 
 const handleBotClick = (bot: any) => {
+  // Prevent navigation if subscription is expired
+  if (isSubscriptionExpired) {
+    toast.error("Cannot access bot - subscription expired. Please renew your subscription.");
+    return;
+  }
+
   if (bot.status !== "Draft") {
     navigate("/dashboard/upload", { state: { botId: bot.id } });
     setSelectedBot(bot);
@@ -776,6 +805,14 @@ const storageOptions = {
 
   const handleDeleteBot = async () => {
     if (!botToDelete) return;
+    
+    // Prevent API calls if subscription is expired
+    if (isSubscriptionExpired) {
+      toast.error("Cannot delete bot - subscription expired. Please renew your subscription.");
+      setIsDeleteConfirmOpen(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       await authApi.deletebot(botToDelete, { status: "Deleted" });
@@ -1212,14 +1249,16 @@ const storageOptions = {
   return (
     <div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b from  to-white dark:from-gray-900 dark:to-gray-800">
       {shouldShowExpiredOverlay() && <SubscriptionExpiredOverlay />}
-      <Loader />
-      {!isDataLoaded || hasBots === null ? (
-        <Loader /> // Show loader while data is loading
-      ) : hasBots ? (
-        <ExistingUserDashboard />
-      ) : (
-        <NewUserWelcome />
-      )}
+      <div className={shouldShowExpiredOverlay() ? "blur-sm pointer-events-none" : ""}>
+        <Loader />
+        {!isDataLoaded || hasBots === null ? (
+          <Loader /> // Show loader while data is loading
+        ) : hasBots ? (
+          <ExistingUserDashboard />
+        ) : (
+          <NewUserWelcome />
+        )}
+      </div>
     </div>
   );
 };
