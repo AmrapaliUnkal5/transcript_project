@@ -46,7 +46,10 @@ interface SubscriptionPlanContextType {
   setPlans: (plans: SubscriptionPlan[]) => void;
   setAddons: (addons: AddonPlan[]) => void;
   setLoading: (loading: boolean) => void;
-  createCheckout: (planId: number, addonIds?: number[]) => Promise<string>;
+  createCheckout: (planId: number, addonIds?: number[], addressData?: {
+    billingAddress?: any;
+    gstin?: string;
+  }) => Promise<string>;
   purchaseAddon: (addonId: number, quantity?: number, isContinuation?: boolean) => Promise<string>;
 }
 
@@ -124,9 +127,16 @@ export const SubscriptionPlanProvider: React.FC<{ children: React.ReactNode }> =
   const getPlanById = (id: number) => plans.find((plan) => plan.id === id);
   const getAddonById = (id: number) => addons.find((addon) => addon.id === id);
 
-  const createCheckout = async (planId: number, addonIds?: number[]) => {
+  const createCheckout = async (
+    planId: number, 
+    addonIds?: number[], 
+    addressData?: {
+      billingAddress?: any;
+      gstin?: string;
+    }
+  ) => {
     try {
-      return await subscriptionApi.createSubscriptionCheckout(planId, addonIds);
+      return await subscriptionApi.createSubscriptionCheckout(planId, addonIds, addressData);
     } catch (error) {
       console.error("Error creating checkout:", error);
       throw error;

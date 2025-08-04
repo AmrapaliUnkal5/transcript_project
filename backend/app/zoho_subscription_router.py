@@ -126,15 +126,15 @@ async def create_subscription_checkout(
             user_data["name"] = user_data["email"].split("@")[0]  # Use part of email as name if not provided
             
         # Check if phone number is available - Zoho requires this field
-        # if not user_data["phone_no"]:
-        #     # Return a specific error that the frontend can recognize
-        #     return JSONResponse(
-        #         status_code=422,
-        #         content={
-        #             "detail": "phone_number_required",
-        #             "message": "Phone number is required for subscription checkout"
-        #         }
-        #     )
+        if not user_data["phone_no"]:
+            # Return a specific error that the frontend can recognize
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "detail": "phone_number_required",
+                    "message": "Phone number is required for subscription checkout"
+                }
+            )
 
         # Log the attempt to create checkout
         logger.info(f"Creating subscription checkout for plan {plan.name} (ID: {plan.id}) for user {user_id}")
@@ -325,7 +325,10 @@ async def create_subscription_checkout(
                 user_data=user_data,
                 plan_code=plan.zoho_plan_code,
                 addon_codes=addon_codes,
-                existing_customer_id=existing_customer_id
+                existing_customer_id=existing_customer_id,
+                billing_address=request.billing_address,
+                shipping_address=request.shipping_address,
+                gstin=request.gstin
             )
             checkout_url = zoho_service.get_hosted_page_url(subscription_data)
             
@@ -1180,7 +1183,10 @@ async def resume_checkout(
                 user_data=user_data,
                 plan_code=plan.zoho_plan_code,
                 addon_codes=[],  # No add-ons for now when resuming
-                existing_customer_id=existing_customer_id
+                existing_customer_id=existing_customer_id,
+                billing_address=None,  # No new address data when resuming
+                shipping_address=None,  # No new address data when resuming
+                gstin=None  # No new GSTIN when resuming
             )
             
             checkout_url = zoho_service.get_hosted_page_url(subscription_data)

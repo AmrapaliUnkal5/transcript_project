@@ -116,7 +116,7 @@ class ForceHTTPSMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         return response
 
-app.add_middleware(ForceHTTPSMiddleware)
+# app.add_middleware(ForceHTTPSMiddleware)
 
 # Initialize the scheduler
 scheduler = init_scheduler()

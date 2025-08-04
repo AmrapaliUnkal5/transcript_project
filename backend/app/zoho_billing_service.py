@@ -879,7 +879,10 @@ def format_subscription_data_for_hosted_page(
     user_data: Dict[str, Any], 
     plan_code: str,
     addon_codes: List[str] = None,
-    existing_customer_id: str = None
+    existing_customer_id: str = None,
+    billing_address: Dict[str, Any] = None,
+    shipping_address: Dict[str, Any] = None,
+    gstin: str = None
 ) -> Dict[str, Any]:
     """
     Format subscription data for Zoho Hosted Page checkout
@@ -905,6 +908,9 @@ def format_subscription_data_for_hosted_page(
     print(f"Addon Codes (received): {addon_codes}")
     print(f"Existing Customer ID: {existing_customer_id}")
     print(f"Price List ID: {price_list_id}")
+    print(f"Billing Address: {billing_address}")
+    print(f"Shipping Address: {shipping_address}")
+    print(f"GSTIN: {gstin}")
     
     if not addon_codes:
         print("WARNING: No addon codes were provided")
@@ -933,9 +939,54 @@ def format_subscription_data_for_hosted_page(
         }
         print(f"Using existing customer ID: {existing_customer_id}")
     else:
-        # For NEW customers, we deliberately DON'T send user account data
-        # This forces Zoho to collect billing address, shipping address, and account info during checkout
-        print("New customer - Zoho will collect all customer data including billing address during checkout")
+        # For NEW customers, include basic contact info and address if provided
+        customer_data = {
+            "display_name": user_data.get("name", ""),
+            "email": user_data.get("email", ""),
+            "mobile": user_data.get("phone_no", ""),
+            "company_name": user_data.get("company_name", "")
+        }
+        
+        # Add billing address if provided
+        if billing_address:
+            customer_data["billing_address"] = {
+                "attention": f"{billing_address.get('firstName', '')} {billing_address.get('lastName', '')}".strip(),
+                "address": billing_address.get('address1', ''),
+                "street2": billing_address.get('address2', ''),
+                "city": billing_address.get('city', ''),
+                "state": billing_address.get('state', ''),
+                "zip": billing_address.get('zipCode', ''),
+                "country": billing_address.get('country', ''),
+                "fax": ""  # Optional field
+            }
+            print(f"Added billing address to customer data")
+            
+        # Add shipping address if provided  
+        if shipping_address:
+            customer_data["shipping_address"] = {
+                "attention": f"{shipping_address.get('firstName', '')} {shipping_address.get('lastName', '')}".strip(),
+                "address": shipping_address.get('address1', ''),
+                "street2": shipping_address.get('address2', ''),
+                "city": shipping_address.get('city', ''),
+                "state": shipping_address.get('state', ''),
+                "zip": shipping_address.get('zipCode', ''),
+                "country": shipping_address.get('country', ''),
+                "fax": ""  # Optional field
+            }
+            print(f"Added shipping address to customer data")
+            
+        # Add custom fields for GSTIN if provided
+        if gstin:
+            customer_data["custom_fields"] = [
+                {
+                    "field_name": "cf_gstin",
+                    "value": gstin
+                }
+            ]
+            print(f"Added GSTIN to customer data: {gstin}")
+            
+        subscription_data["customer"] = customer_data
+        print("New customer - included address data for Zoho checkout")
     
     # Add price list ID if available
     if price_list_id:

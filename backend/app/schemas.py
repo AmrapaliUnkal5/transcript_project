@@ -384,6 +384,10 @@ class FAQResponse(BaseModel):
 class ZohoCheckoutRequest(BaseModel):
     plan_id: int
     addon_ids: Optional[List[int]] = None
+    # Address information for Zoho checkout (not stored in our DB)
+    billing_address: Optional[dict] = None
+    shipping_address: Optional[dict] = None
+    gstin: Optional[str] = None
 
 class ZohoCheckoutResponse(BaseModel):
     checkout_url: str
