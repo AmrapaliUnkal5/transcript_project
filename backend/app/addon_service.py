@@ -83,13 +83,17 @@ class AddonService:
         # Determine expiry date based on addon type
         current_time = datetime.now()
         
-        # Default - expires with the subscription (for one-time add-ons)
-        expiry_date = subscription.expiry_date
-        
-        # Special case: Additional Messages addon (lifetime until used up or subscription cancelled)
-        if addon.addon_type == "Additional Messages":
-            # Set a far future date (5 years) as messages add-on doesn't expire with billing cycle
-            expiry_date = current_time + timedelta(days=5*365)
+        if addon.is_recurring:
+            # Recurring addons expire with the subscription billing cycle
+            expiry_date = subscription.expiry_date
+        else:
+            # One-time addons - special handling based on type
+            if addon.addon_type == "Additional Messages":
+                # Set a far future date (5 years) as messages add-on doesn't expire with billing cycle
+                expiry_date = current_time + timedelta(days=5*365)
+            else:
+                # Other one-time addons expire with the subscription
+                expiry_date = subscription.expiry_date
         
         # Create new user addon record
         user_addon = UserAddon(
@@ -182,34 +186,47 @@ class AddonService:
         zoho_service = ZohoBillingService()
         
         print(f"Zoho service initialized")
-        # Format data for Zoho hosted page (buyonetimeaddon endpoint)
-        addon_data = {
-            "customer": {
-                "display_name": user_data.get("name", ""),
-                "email": user_data.get("email", ""),
-                "mobile": user_data.get("phone_no") or "9081726354"  # Use mobile instead of phone with default
-            },
-            "addons": [
-                {
-                    "addon_code": addon.zoho_addon_code,
-                    "quantity": quantity
-                }
-            ],
-            "redirect_url": f"{zoho_service.get_frontend_url()}/account/add-ons",
-            "cancel_url": f"{zoho_service.get_frontend_url()}/account/add-ons"
-        }
         
-        # Add company name if it exists
-        if user_data.get("company_name"):
-            addon_data["customer"]["company_name"] = user_data.get("company_name")
-        
-        print(f"Addon data: {addon_data}")
-        
-        # Get the checkout URL using the buyonetimeaddon endpoint
-        checkout_url = zoho_service.get_addon_hosted_page_url(
-            subscription_id=subscription.zoho_subscription_id,
-            addon_data=addon_data
-        )
+        # Check if addon is recurring and handle accordingly
+        if addon.is_recurring:
+            print(f"Processing recurring addon: {addon.name}")
+            # For recurring addons, we need to use subscription modification
+            # Note: updatesubscription endpoint doesn't need user_data since it's modifying existing subscription
+            checkout_url = zoho_service.get_recurring_addon_hosted_page_url(
+                subscription_id=subscription.zoho_subscription_id,
+                addon_code=addon.zoho_addon_code,
+                quantity=quantity
+            )
+        else:
+            print(f"Processing one-time addon: {addon.name}")
+            # Format data for Zoho hosted page (buyonetimeaddon endpoint)
+            addon_data = {
+                "customer": {
+                    "display_name": user_data.get("name", ""),
+                    "email": user_data.get("email", ""),
+                    "mobile": user_data.get("phone_no") or "9081726354"  # Use mobile instead of phone with default
+                },
+                "addons": [
+                    {
+                        "addon_code": addon.zoho_addon_code,
+                        "quantity": quantity
+                    }
+                ],
+                "redirect_url": f"{zoho_service.get_frontend_url()}/account/add-ons",
+                "cancel_url": f"{zoho_service.get_frontend_url()}/account/add-ons"
+            }
+            
+            # Add company name if it exists
+            if user_data.get("company_name"):
+                addon_data["customer"]["company_name"] = user_data.get("company_name")
+            
+            print(f"Addon data: {addon_data}")
+            
+            # Get the checkout URL using the buyonetimeaddon endpoint
+            checkout_url = zoho_service.get_addon_hosted_page_url(
+                subscription_id=subscription.zoho_subscription_id,
+                addon_data=addon_data
+            )
         
         if not checkout_url:
             raise ValueError("Failed to generate checkout URL")
