@@ -532,7 +532,7 @@ useEffect(() => {
           id: Math.random().toString(36).substr(2, 9), // Temp ID until saved
           name: file.name,
           type: file.type,
-          size: file.size,
+          size: 0,
           uploadDate: new Date(),
           url: URL.createObjectURL(file),
           file: file,
@@ -957,7 +957,8 @@ const handleSaveFiles = async () => {
         id: file.file_id.toString(),
         name: file.file_name,
         type: file.file_type,
-        size: file.original_file_size_bytes || parseFileSizeToBytes(file.file_size),
+        size: 0,
+        //file.original_file_size_bytes || parseFileSizeToBytes(file.file_size),
         uploadDate: new Date(file.upload_date),
         url: file.file_path,
         wordCount: file.word_count,

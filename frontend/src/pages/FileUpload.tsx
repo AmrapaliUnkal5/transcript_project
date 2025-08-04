@@ -1011,7 +1011,7 @@ useEffect(() => {
             id: Math.random().toString(36).substr(2, 9),
             name: file.name,
             type: file.type,
-            size: file.size,
+            size: 0,
             displaySize: formatBytesToHumanReadable(file.size),
             uploadDate: new Date(),
             url: URL.createObjectURL(file),
