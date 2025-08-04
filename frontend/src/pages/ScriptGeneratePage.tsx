@@ -14,6 +14,7 @@ export const ScriptGeneratePage = () => {
   const [copySuccess, setCopySuccess] = useState("");
   const { setLoading } = useLoader();
   const [botId, setBotId] = useState<number | null>(null);
+  const [botStatus, setBotStatus] = useState<string>("");
   const VITE_WIDGET_API_URL =
     import.meta.env.VITE_WIDGET_API_URL;
   const VITE_API_URL = import.meta.env.VITE_API_URL;
@@ -75,6 +76,9 @@ export const ScriptGeneratePage = () => {
         if (response) {
           setBotId(selectedBot.id);
           console.log("botId from scriptGeneratepage", botId);
+          
+          // Set bot status from API response
+          setBotStatus(response.status || "");
 
           setSettings({
             name: response.bot_name,
@@ -222,13 +226,39 @@ export const ScriptGeneratePage = () => {
     <div className="p-4 text-black" >
       
     <ToastContainer position="top-right" autoClose={5000}  />
-    <h2  style={{
-    fontFamily: "Instrument Sans, sans-serif",
-    fontSize: "24px",
-    color: "#333333",
-    fontWeight: "bold",
-    marginBottom: "16px"
-  }}> Bot Name: {selectedBot.name}</h2>
+    <div className="flex items-center gap-3 mb-4">
+      <h2 style={{
+        fontFamily: "Instrument Sans, sans-serif",
+        fontSize: "24px",
+        color: "#333333",
+        fontWeight: "bold"
+      }}> 
+        Bot Name: {selectedBot.name}
+      </h2>
+      <div className="flex items-center gap-2">
+        <div
+          className={`w-3 h-3 rounded-full ${
+            botStatus === "Active" ? 'bg-green-400' : 'bg-red-400'
+          }`}
+        ></div>
+        <span className="text-sm font-medium text-gray-600">
+          {botStatus === "Active" ? 'Active' : 'Inactive'}
+        </span>
+      </div>
+    </div>
+
+    {botStatus !== "Active" && (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center gap-2">
+          <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          <span className="text-yellow-800 font-medium">
+            Bot is currently inactive. Please activate your bot to use deployment features.
+          </span>
+        </div>
+      </div>
+    )}
 
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-10"
   style={{
@@ -252,17 +282,27 @@ export const ScriptGeneratePage = () => {
       <input
         type="text"
         readOnly
-        value={`${VITE_API_URL.replace(/\/$/, "")}/bot/${token}`}
+        value={botStatus === "Active" ? `${VITE_API_URL.replace(/\/$/, "")}/bot/${token}` : ""}
+        placeholder={botStatus !== "Active" ? "Bot must be active to generate link" : ""}
         className="flex-1 p-2 border border-gray-300 rounded-lg bg-white text-black text-sm"
       />
       <button
         onClick={() => {
-          navigator.clipboard.writeText(
-            `${VITE_API_URL.replace(/\/$/, "")}/bot/${token}`
-          );
-          toast.success("Link copied!");
+          if (botStatus === "Active") {
+            navigator.clipboard.writeText(
+              `${VITE_API_URL.replace(/\/$/, "")}/bot/${token}`
+            );
+            toast.success("Link copied!");
+          } else {
+            toast.error("Bot must be active to copy link");
+          }
         }}
-        className="w-[118px] h-[40px] px-4 py-2 bg-[#5348CB] text-white rounded-lg hover:bg-[#4339b6] transition-colors"
+        disabled={botStatus !== "Active"}
+        className={`w-[118px] h-[40px] px-4 py-2 rounded-lg transition-colors ${
+          botStatus === "Active"
+            ? "bg-[#5348CB] text-white hover:bg-[#4339b6]"
+            : "bg-gray-400 text-gray-600 cursor-not-allowed"
+        }`}
          style={{ fontFamily: "Instrument Sans, sans-serif", fontSize: "14px" }}
       >
         Copy Link
@@ -304,7 +344,12 @@ export const ScriptGeneratePage = () => {
         />
         <button
           onClick={handleSaveDomain}
-          className="w-[100px] h-[40px] px-4 py-2 bg-[#5348CB] text-white rounded-lg hover:bg-[#4339b6] transition-colors"
+          disabled={botStatus !== "Active"}
+          className={`w-[100px] h-[40px] px-4 py-2 rounded-lg transition-colors ${
+            botStatus === "Active"
+              ? "bg-[#5348CB] text-white hover:bg-[#4339b6]"
+              : "bg-gray-400 text-gray-600 cursor-not-allowed"
+          }`}
           style={{ fontFamily: "Instrument Sans, sans-serif", fontSize: "14px" }}
         >
           Save 
@@ -336,7 +381,12 @@ export const ScriptGeneratePage = () => {
     <div className=" flex items-center gap-2">
       <button
         onClick={handleCopy}
-        className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+        disabled={botStatus !== "Active"}
+        className={`px-4 py-2 rounded-lg transition-colors ${
+          botStatus === "Active"
+            ? "bg-blue-500 hover:bg-blue-600 text-white"
+            : "bg-gray-400 text-gray-600 cursor-not-allowed"
+        }`}
       >
         Copy Code
       </button>

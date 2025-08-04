@@ -347,6 +347,7 @@ useEffect(() => {
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
   const [botId, setBotId] = useState<number | null>(null);
+  const [botStatus, setBotStatus] = useState<string>("");
   const [waitingForBotResponse, setWaitingForBotResponse] = useState(false);
   const headerStyle: React.CSSProperties = {
     backgroundColor: settings.headerBgColor || "#007bff",
@@ -490,6 +491,9 @@ const hasLeadFields = (settings?.lead_form_config  ?? []).length > 0;
         if (response) {
           setBotId(selectedBot.id);
           setIsBotExisting(true);
+          
+          // Set bot status from API response
+          setBotStatus(response.status || "");
 
           // Set the selected theme from database
         setSelectedTheme(response.theme_id || 'none');
@@ -754,12 +758,24 @@ useEffect(() => {
       "messageUsage.effectiveRemaining=>",
       messageUsage.effectiveRemaining
     );
+    console.log("botStatus=>", botStatus);
+    
+    // Check if bot is active
+    if (botStatus !== "Active") {
+      return false;
+    }
+    
     return messageUsage.effectiveRemaining > 0;
     //return (messageUsage.baseRemaining + messageUsage.addonRemaining) > 0;
   };
 
   const sendMessage = async () => {
 
+    // Check if bot is active
+    if (botStatus !== "Active") {
+      toast.error("Bot is currently inactive. Please activate your bot to start chatting.");
+      return;
+    }
    
     // First check if we can send (either base or addon messages available)
     if (!canSendMessage()) {
@@ -2529,14 +2545,29 @@ const handleThemeSelect = async (themeId: string) => {
                     }}
                   />
                 )}
-                <h2
-                  className="text-lg font-semibold truncate max-w-[150px] whitespace-nowrap overflow-hidden"
-                  style={{fontFamily: "Instrument Sans, sans-serif", color: settings.headerTextColor }}
-                  title={settings.name} // Tooltip to show full name on hover
-                >
-                  {settings.name}{" "}
-                  {/* <span className="text-xs ml-2 opacity-70">(preview)</span> */}
-                </h2>
+                <div className="flex flex-col">
+                  <h2
+                    className="text-lg font-semibold truncate max-w-[150px] whitespace-nowrap overflow-hidden"
+                    style={{fontFamily: "Instrument Sans, sans-serif", color: settings.headerTextColor }}
+                    title={settings.name} // Tooltip to show full name on hover
+                  >
+                    {settings.name}{" "}
+                    {/* <span className="text-xs ml-2 opacity-70">(preview)</span> */}
+                  </h2>
+                  <div className="flex items-center gap-1">
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        botStatus === "Active" ? 'bg-green-400' : 'bg-red-400'
+                      }`}
+                    ></div>
+                    <span
+                      className="text-xs opacity-70"
+                      style={{ color: settings.headerTextColor }}
+                    >
+                      {botStatus === "Active" ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
               </div>
               <div className="flex items-center space-x-4 ">
                 <div className="flex flex-col space-y-1 text-sm bg-opacity-20 bg-white px-3 py-2 rounded-lg ">
@@ -2576,6 +2607,41 @@ const handleThemeSelect = async (themeId: string) => {
             >
               {/* Content directly starts with messages now */}
               <div className="flex-1"></div>
+              
+              {/* Show bot inactive message if bot is not active */}
+              {botStatus !== "Active" && (
+                <div
+                  className="mr-auto p-3 rounded-lg max-w-[80%] mb-4"
+                  style={{
+                    backgroundColor: "#fef2f2",
+                    color: "#dc2626",
+                    fontSize: settings.fontSize,
+                    fontFamily: settings.chatFontFamily || settings.fontStyle,
+                    borderRadius:
+                      settings.borderRadius === "rounded-full"
+                        ? "20px"
+                        : settings.borderRadius,
+                    border: "1px solid #fecaca",
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span>Bot is currently inactive. Please activate your bot to start chatting.</span>
+                  </div>
+                  <div
+                    className="text-xs mt-1 text-right"
+                    style={{ color: "#dc2626" }}
+                  >
+                    {new Date().toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                </div>
+              )}
+              
               {messages.length > 0 ? (
                 messages.map((msg, index) => (
                   <div key={index} className="mb-4">
@@ -3070,7 +3136,9 @@ const handleThemeSelect = async (themeId: string) => {
                         : settings.borderRadius,
                   }}
                   placeholder={
-                    !canSendMessage()
+                    botStatus !== "Active"
+                      ? "Bot is currently inactive. Please activate your bot to start chatting."
+                      : !canSendMessage()
                       ? "We are facing technical issue. Kindly reach out to website admin for assistance"
                       : "Type your message..."
                   }
@@ -3083,6 +3151,7 @@ const handleThemeSelect = async (themeId: string) => {
                     if (
                       e.key === "Enter" &&
                       inputMessage.trim() &&
+                      botStatus === "Active" &&
                       canSendMessage() &&
                       !waitingForBotResponse &&
                       !isBotTyping &&
@@ -3091,7 +3160,7 @@ const handleThemeSelect = async (themeId: string) => {
                       sendMessage();
                     }
                   }}
-                  disabled={!canSendMessage() ||
+                  disabled={botStatus !== "Active" || !canSendMessage() ||
               (settings.lead_generation_enabled && hasLeadFields && !formSubmitted)}
                 />
                 <button
@@ -3107,6 +3176,7 @@ const handleThemeSelect = async (themeId: string) => {
                   onClick={sendMessage}
                   disabled={
                     !inputMessage.trim() ||
+                    botStatus !== "Active" ||
                     !canSendMessage() ||
                     waitingForBotResponse ||
                     isBotTyping ||
