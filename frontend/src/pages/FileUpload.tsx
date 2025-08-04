@@ -199,6 +199,9 @@ export const FileUpload = () => {
   const handleCancelClose = () => {
     setShowCancelWarning(false);
   };
+  const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
+  const [nodes, setNodes] = useState<string[]>([]);
+  const [hasWebChanges, setHasWebChanges] = useState(false);
 
   useEffect(() => {
     if (status?.overall_status === "reconfiguring") {
@@ -1364,8 +1367,16 @@ useEffect(() => {
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
                 Website Scraping
               </h1>
-              <WebScrapingTab isReconfiguring={isReconfiguring}
-                isCreateBotFlow={false} setRefetchScrapedUrls={setRefetchScrapedUrls}  />
+              <WebScrapingTab
+              isReconfiguring={isReconfiguring}
+              isCreateBotFlow={false}
+              setRefetchScrapedUrls={setRefetchScrapedUrls}
+              selectedNodes={selectedNodes}
+              setSelectedNodes={setSelectedNodes}
+              nodes={nodes}
+              setNodes={setNodes}
+              onChangesMade={() => setHasWebChanges(true)}
+/>
             </div>
           )}
 
