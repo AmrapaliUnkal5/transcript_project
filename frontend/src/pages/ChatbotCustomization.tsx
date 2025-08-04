@@ -194,6 +194,42 @@ export const ChatbotCustomization = () => {
   const userId = user?.user_id;
   const navigate = useNavigate();
   const { selectedBot, setSelectedBot } = useBot(); // Get setSelectedBot from context
+  
+  // === External Knowledge Sync ===
+const [externalKnowledge, setExternalKnowledge] = useState<boolean>(false);
+
+useEffect(() => {
+  if (selectedBot?.external_knowledge !== undefined) {
+    setExternalKnowledge(selectedBot.external_knowledge);
+  }
+}, [selectedBot?.external_knowledge]);
+
+useEffect(() => {
+  const fetchExternalKnowledgeStatus = async () => {
+    if (!selectedBot?.id) return;
+
+    try {
+      const response = await authApi.getBotExternalKnowledge(selectedBot.id);
+      if (response?.success) {
+        setExternalKnowledge(response.external_knowledge);
+
+        if (selectedBot.external_knowledge !== response.external_knowledge) {
+          setSelectedBot((prev) =>
+            prev
+              ? { ...prev, external_knowledge: response.external_knowledge }
+              : null
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching external knowledge status:", error);
+    }
+  };
+
+  fetchExternalKnowledgeStatus();
+}, [selectedBot?.id]);
+
+  
   if (!userId) {
     //alert("User ID is missing. Please log in again.");
   }
@@ -306,7 +342,7 @@ export const ChatbotCustomization = () => {
     lead_generation_enabled: false,
     lead_form_config: [{ field: "name", required: false },{ field: "phone", required: false },{ field: "email", required: false },{ field: "address", required: false }],
     showSources: false, 
-    unansweredMsg: "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?",
+    unansweredMsg: "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?",
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
@@ -488,7 +524,7 @@ const hasLeadFields = (settings?.lead_form_config  ?? []).length > 0;
             lead_generation_enabled: response.lead_generation_enabled ?? false,
             lead_form_config: response.lead_form_config || [],
             showSources: response.show_sources ?? false,
-            unansweredMsg: response.unanswered_msg || "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?",
+            unansweredMsg: response.unanswered_msg || "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?",
           });
         }
       } catch (error) {
@@ -1339,41 +1375,6 @@ const handleThemeSelect = async (themeId: string) => {
   }
 };
 
- // we will use this for external knowledge
-
- const [externalKnowledge, setExternalKnowledge] = useState<boolean>(
-  selectedBot?.external_knowledge || false
-);
-
-
-useEffect(() => {
-  const fetchExternalKnowledgeStatus = async () => {
-    if (selectedBot?.id) {
-      try {
-        const response = await authApi.getBotExternalKnowledge(selectedBot.id);
-
-        if (response?.success) {
-          setExternalKnowledge(response.external_knowledge);
-
-          if (selectedBot.external_knowledge !== response.external_knowledge) {
-            setSelectedBot((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    external_knowledge: response.external_knowledge,
-                  }
-                : null
-            );
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching external knowledge status:", error);
-      }
-    }
-  };
-
-  fetchExternalKnowledgeStatus();
-}, [selectedBot?.id]);
 
 
 

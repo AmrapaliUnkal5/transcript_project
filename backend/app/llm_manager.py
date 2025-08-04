@@ -381,7 +381,7 @@ class LLMManager:
         # Store the user_id and bot_id for addon feature checking and logging
         self.user_id = user_id
         self.bot_id = bot_id
-        self.unanswered_message = unanswered_message or "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?"
+        self.unanswered_message = unanswered_message or "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?"
         
         db = SessionLocal()
         try:

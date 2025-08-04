@@ -123,7 +123,6 @@ export const CreateBot = () => {
   const user = userData ? JSON.parse(userData) : null;
   const { getPlanById } = useSubscriptionPlans();
   const userPlan = getPlanById(user?.subscription_plan_id);
-  console.log("userPlan====>", userPlan);
   const [hasYouTubeVideos, setHasYouTubeVideos] = useState(false);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [isLoadingSaveWeb, setIsLoadingSaveWeb] = useState(false);
@@ -140,7 +139,6 @@ export const CreateBot = () => {
 // Initialize currentStep based on URL
   const [currentStep, setCurrentStep] = useState(urlStep ? parseInt(urlStep) : 0);
   const [bots, setBots] = useState<Bot[]>([]);
-
   const [processingMessage, setProcessingMessage] = useState(
     "Getting things ready for you..."
   );
