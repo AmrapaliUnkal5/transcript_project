@@ -905,16 +905,34 @@ export const subscriptionApi = {
     return response.data;
   },
   
-  createSubscriptionCheckout: async (planId: number, addonIds?: number[]) => {
+  createSubscriptionCheckout: async (
+    planId: number, 
+    addonIds?: number[], 
+    addressData?: {
+      billingAddress?: any;
+      gstin?: string;
+    }
+  ) => {
     try {
       console.log(`DEBUG - API - Creating checkout for plan ${planId}`);
       console.log(`DEBUG - API - Addon IDs being sent to backend:`, addonIds || []);
+      console.log(`DEBUG - API - Address data being sent:`, addressData);
       
       // Log the exact payload being sent
-      const payload = {
+      const payload: any = {
         plan_id: planId,
         addon_ids: addonIds || []
       };
+      
+      // Add address data if provided
+      if (addressData) {
+        if (addressData.billingAddress) {
+          payload.billing_address = addressData.billingAddress;
+          payload.shipping_address = addressData.billingAddress; // Use billing address for shipping too
+        }
+        if (addressData.gstin) payload.gstin = addressData.gstin;
+      }
+      
       console.log(`DEBUG - API - Exact payload being sent to backend:`, JSON.stringify(payload));
       
       const response = await api.post("/zoho/checkout", payload);
