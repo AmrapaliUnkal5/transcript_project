@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 //import { Button } from "@/components/ui/button";
 //import { Input } from "@/components/ui/input";
 import { authApi } from "../services/api";
 import { useBot } from "../context/BotContext";
 //import { toast } from "react-toastify";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
-
+import { AlertTriangle } from "lucide-react";
 import { Trash2, Info } from "lucide-react";
 import { toast } from "react-toastify";
 import { useLocation } from 'react-router-dom';
@@ -16,10 +16,43 @@ type Timeout = ReturnType<typeof setTimeout>;
 // Add a flag to track if we've shown the notification for this session
 let hasShownCreateBotInfoToast = false;
 
-const WebScrapingTab: React.FC = () => {
+interface WebScrapingTabProps {
+  selectedNodes: string[];
+  setSelectedNodes: React.Dispatch<React.SetStateAction<string[]>>;
+  nodes: string[];
+  setNodes: React.Dispatch<React.SetStateAction<string[]>>;
+  onChangesMade?: () => void;
+  onSaveComplete?: () => void;
+  websiteUrl?: string;
+  setWebsiteUrl?: (url: string) => void;
+  isReconfiguring?: boolean; 
+  disableActions?: boolean; 
+ isCreateBotFlow?:boolean;
+ disableActions2?:boolean;
+ setRefetchScrapedUrls?: React.Dispatch<React.SetStateAction<(() => void) | undefined>>;
+
+}
+
+const WebScrapingTab: React.FC<WebScrapingTabProps> = ({ 
+  // selectedNodes, 
+  // setSelectedNodes ,
+  // nodes,
+  // setNodes,
+  // onChangesMade,
+  selectedNodes = [], 
+  setSelectedNodes = () => {},
+  nodes = [],
+  setNodes = () => {},
+  onChangesMade,
+  isReconfiguring = false, 
+  disableActions = false,
+  disableActions2 = false,
+  setRefetchScrapedUrls,
+}) => {
+  
   const [websiteUrl, setWebsiteUrl] = useState("");
-  const [nodes, setNodes] = useState<string[]>([]);
-  const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
+  //const [nodes, setNodes] = useState<string[]>([]);
+  //const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const { loading, setLoading } = useLoader();
   //const { selectedBot, setSelectedBot } = useBot(); // Use BotContext
   const [currentPage, setCurrentPage] = useState(1);
@@ -32,12 +65,12 @@ const WebScrapingTab: React.FC = () => {
   );
   const [isProcessing, setIsProcessing] = useState(false);
   
+  
   const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   
   // Check if we're in create bot flow
   const isCreateBotFlow = location.pathname.includes('/dashboard/create-bot');
-  
   
   // Reset toast flag when component unmounts or when not in create bot flow
   useEffect(() => {
@@ -52,11 +85,11 @@ const WebScrapingTab: React.FC = () => {
   }, [isCreateBotFlow]);
 
   const [scrapedUrls, setScrapedUrls] = useState<
-  { id: number; url: string; title: string; wordCount?: number;upload_date?:string }[]
+  { id: number; url: string; title: string; wordCount?: number;upload_date?:string;status?: string ,error_code?: string }[]
 >([]);
 
   // ✅ Move fetchScrapedUrls outside of useEffect so it can be reused
-  const fetchScrapedUrls = async () => {
+  const fetchScrapedUrls = useCallback(async () => {
     try {
       setLoading(true);
       if (!selectedBot?.id) {
@@ -74,6 +107,8 @@ const WebScrapingTab: React.FC = () => {
           title: item.title || "No Title",
           wordCount: item.Word_Counts, // Add word count from response
           upload_date:item.upload_date,
+          status: item.status,
+          error_code:item.error_code
         }));
 
         console.log("Formatted URLs:", formattedUrls);
@@ -92,8 +127,9 @@ const WebScrapingTab: React.FC = () => {
       setScrapedUrls([]);
     } finally {
       setLoading(false);
+      setIsProcessing(false);
     }
-  };
+  }, [selectedBot?.id]);
 
   // ✅ Call fetchScrapedUrls only when selectedBot changes
   useEffect(() => {
@@ -101,6 +137,12 @@ const WebScrapingTab: React.FC = () => {
       fetchScrapedUrls();
     }
   }, [selectedBot?.id]);
+  
+  useEffect(() => {
+  if (setRefetchScrapedUrls) {
+    setRefetchScrapedUrls(() => fetchScrapedUrls);
+  }
+}, [fetchScrapedUrls, setRefetchScrapedUrls]);
 
   const handleDeleteClick = (url: string, wordCount: number) => {
   setUrlToDelete(url);
@@ -136,6 +178,10 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
     setSearchTerm('');
     if (!websiteUrl) return;
 
+    if (!disableActions && !isReconfiguring) {
+    toast.error("Please click Reconfigure first before adding website URLs");
+    return;
+  }
     // Restrict changing the website once scraping has started
     if (scrapedWebsiteUrl && new URL(websiteUrl).origin !== scrapedWebsiteUrl) {
       toast.error(
@@ -304,7 +350,12 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
   const totalPages = Math.ceil(nodes.length / itemsPerPage);
 
   const handleCheckboxChange = (url: string) => {
+    if (!disableActions && !isReconfiguring) {
+      toast.error("Please click Reconfigure first before selecting pages");
+      return;
+    }
     if (selectedNodes.includes(url)) {
+    //const newSelectedNodes = selectedNodes.filter((node) => node !== url);
       setSelectedNodes((prev) => prev.filter((node) => node !== url));
     } else {
       if (selectedNodes.length >= 10) {
@@ -313,8 +364,10 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
         // );
         // return;
       }
+      //const newSelectedNodes = [...selectedNodes, url];
       setSelectedNodes((prev) => [...prev, url]);
     }
+    if (onChangesMade) onChangesMade();
   };
 
   return (
@@ -334,18 +387,22 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
               placeholder="  Website URL"
               value={websiteUrl}
               onChange={(e) => setWebsiteUrl(e.target.value)}
-               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              required
-              disabled={loading || isProcessing}
+              className={`block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
+            (isCreateBotFlow && disableActions2) ? 'bg-gray-100 cursor-not-allowed' : ''
+          }`}
+               required
+              disabled={(isCreateBotFlow && disableActions2) || loading || isProcessing}
             />
             <button
               onClick={handleFetchNodes}
-              disabled={!websiteUrl || loading || isProcessing}
+              disabled={(isCreateBotFlow && disableActions2) ||!websiteUrl || loading || isProcessing}
                style={{
     backgroundColor: '#5348CB',
     borderColor: '#5348CB',
   }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500  disabled:cursor-not-allowed flex-shrink-0"
+            className={`px-4 py-2 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:cursor-not-allowed flex-shrink-0 ${
+            (isCreateBotFlow && disableActions2) ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600'
+          }`}
               >
               Fetch Pages
             </button>
@@ -415,7 +472,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                 fontWeight: 600,
                 color: 'white',
                 minWidth: '102px',
-                width: '140px',
+                width: '110px',
                 textAlign: 'center',
                 borderRadius: '0.375rem', // rounded-md
               }}
@@ -485,15 +542,6 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                 <div className="flex">{renderPaginationButtons()}</div>
               </div>
             )}
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={handleScrape}
-                disabled={selectedNodes.length === 0 || loading || isProcessing}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Start Scraping
-              </button>
-            </div>
           </div>
         )}
 
@@ -531,6 +579,18 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                       Name
                     </th>
                     <th
+                    className="px-6 py-3 text-left uppercase tracking-wider"
+                    style={{
+                      fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '16px',
+                      fontWeight: 600,
+                      color: '#333333',
+                      textTransform:'none'
+                    }}
+                  >
+                    Status
+                  </th>
+                    <th
                       className="px-6 py-3 text-left uppercase tracking-wider"
                       style={{
                         fontFamily: 'Instrument Sans, sans-serif',
@@ -541,6 +601,18 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                       }}
                     >
                       URL
+                    </th>
+                    <th
+                      className="px-6 py-3 text-left uppercase tracking-wider"
+                      style={{
+                        fontFamily: 'Instrument Sans, sans-serif',
+                        fontSize: '16px',
+                        fontWeight: 600,
+                        color: '#333333',
+                        textTransform:'none'
+                      }}
+                    >
+                      Words
                     </th>
                     <th
                       className="px-6 py-3 text-left uppercase tracking-wider"
@@ -584,6 +656,31 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                      }}>
                         {item.title || "No Title"}
                       </td>
+                      <td
+                          className="px-4 py-2 text-gray-900 dark:text-gray-200 relative overflow-visible"
+                          style={{
+                            fontFamily: 'Instrument Sans, sans-serif',
+                            fontSize: '14px',
+                            color: '#333333',
+                          }}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>{item.status}</span>
+
+                            {item.status === "Failed" && item.error_code && (
+                              <div className="relative group cursor-pointer">
+                                <AlertTriangle className="w-4 h-4 text-red-500" />
+                                <div
+                                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block
+                                            bg-white text-xs text-gray-800 border border-gray-300 rounded px-2 py-1
+                                            shadow-lg z-50 whitespace-normal break-words w-max max-w-xs"
+                                >
+                                  {item.error_code}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
                       <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
                     style={{ fontFamily: 'Instrument Sans, sans-serif',
                       fontSize: '14px',
@@ -598,6 +695,13 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                           {item.url}
                         </a>
                       </td>
+                        <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
+                    style={{ fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '14px',
+                       color: '#333333',
+                     }}>
+                      {item.wordCount}
+                    </td>
                         <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
                     style={{ fontFamily: 'Instrument Sans, sans-serif',
                       fontSize: '14px',

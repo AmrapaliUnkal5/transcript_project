@@ -1,6 +1,6 @@
 import re
 from fastapi import HTTPException,UploadFile,HTTPException, status
-from typing import List
+from typing import List, Union, Optional
 from pathlib import Path
 import os
 import uuid
@@ -9,7 +9,7 @@ from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.database import get_db, SessionLocal
-from app.models import File as FileModel, Bot, User
+from app.models import File as FileModel, Bot, User, ScrapedNode, YouTubeVideo
 from app.schemas import UserOut
 from app.utils.upload_knowledge_utils import extract_text_from_file
 from app.vector_db import add_document
@@ -19,6 +19,8 @@ import logging
 from app.utils.logger import get_module_logger
 from app.config import settings
 from app.utils.file_storage import save_file, FileStorageError
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy import select
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -158,6 +160,56 @@ async def save_extracted_text(text: str, file_path: str):
         logger.error(f"Error saving extracted text to {file_path}: {str(e)}")
         raise
 
+async def archive_original_file_backup(
+    file: Union[UploadFile, bytes],
+    bot_id: int,
+    file_id: str,
+    filename: Optional[str] = None,
+    content_type: Optional[str] = None
+):
+    """
+    Archives the original file, handling both UploadFile (from FastAPI)
+    and raw bytes (from Celery). Supports S3 or local storage.
+    """
+    try:
+        if isinstance(file, UploadFile):
+            # Called from FastAPI
+            _, ext = os.path.splitext(file.filename)
+            filename = file.filename
+            file.file.seek(0)
+            file_content = await file.read()
+        else:
+            # Called from Celery – `file` is bytes
+            if not filename:
+                raise ValueError("Filename is required when using file bytes.")
+            _, ext = os.path.splitext(filename)
+            file_content = file
+
+        archive_filename = f"{file_id}_original{ext}"
+
+        if settings.UPLOAD_DIR.startswith("s3://"):
+            user_id = get_bot_user_id(bot_id)
+            archive_relative_path = (
+                f"account_{user_id}/bot_{bot_id}/archives/{archive_filename}"
+                if user_id else f"archives/{archive_filename}"
+            )
+            saved_path = save_file(settings.UPLOAD_DIR, archive_relative_path, file_content)
+            logger.info(f"✅ Archived file to S3: {saved_path}")
+            return saved_path
+
+        else:
+            archive_path = get_hierarchical_file_path(
+                bot_id, archive_filename, folder=settings.UPLOAD_DIR, is_archive=True
+            )
+            with open(archive_path, "wb") as buffer:
+                buffer.write(file_content)
+            logger.info(f"✅ Archived file locally: {archive_path}")
+            return archive_path
+
+    except Exception as e:
+        logger.error(f"❌ Error archiving original file: {str(e)}")
+        raise
+
 async def archive_original_file(file: UploadFile, bot_id: int, file_id: str):
     """Archives the original file, handling both local and S3 storage."""
     try:
@@ -197,7 +249,7 @@ async def archive_original_file(file: UploadFile, bot_id: int, file_id: str):
         logger.error(f"Error archiving original file: {str(e)}")
         raise
 
-def prepare_file_metadata(original_filename: str, file_type: str, bot_id: int, text_file_path: str, file_id: str, word_count: int = 0, char_count: int = 0, original_size_bytes: int = 0 ):
+def prepare_file_metadata(original_filename: str, file_type: str, bot_id: int, text_file_path: str, file_id: str, word_count: int = 0, char_count: int = 0, original_size_bytes: int = 0):
     """Prepares file metadata for database insertion."""
     try:
         # Check if this is an S3 path
@@ -244,6 +296,37 @@ def insert_file_metadata(db: Session, file_metadata: dict):
     db.commit()
     db.refresh(db_file)
     return db_file
+
+def update_file_metadata_status_only(db: Session, file_metadata: dict):
+    """
+    Updates an existing file's word count, character count,
+    extraction status, error message, and updated_by.
+    """
+    file_id_db = file_metadata.get("file_id_db")
+    if not file_id_db:
+        raise ValueError("file_id_db is required to update file metadata.")
+
+    existing_file = db.query(FileModel).filter_by(file_id=file_id_db).first()
+    if not existing_file:
+        raise ValueError(f"File with ID {file_id_db} not found.")
+
+
+    # Update only the necessary fields
+    if "word_count" in file_metadata:
+        existing_file.word_count = file_metadata["word_count"]
+    if "char_count" in file_metadata:
+        existing_file.character_count = file_metadata["char_count"]
+    if "status" in file_metadata:
+        existing_file.status = file_metadata["status"]
+    if "error_message" in file_metadata:
+        existing_file.error_code = file_metadata["error_message"]
+    if "updated_by" in file_metadata:
+        existing_file.updated_by = file_metadata["updated_by"]
+
+    db.commit()
+    db.refresh(existing_file)
+    return existing_file
+
 
 async def process_file_for_knowledge(file: UploadFile, bot_id: int):
     """
@@ -299,18 +382,66 @@ async def get_current_usage(user_id: int, db: Session):
     # Get total words used (from files)
     total_words = db.query(func.sum(FileModel.word_count)).filter(
         FileModel.bot_id.in_(
-            db.query(Bot.bot_id).filter(Bot.user_id == user_id)
+            db.query(Bot.bot_id).filter(Bot.user_id == user_id, FileModel.status != 'Failed')
         )
     ).scalar() or 0
     
     # Get total storage used (from files)
     total_storage_bytes = db.query(func.sum(FileModel.original_file_size_bytes)).filter(
         FileModel.bot_id.in_(
-            db.query(Bot.bot_id).filter(Bot.user_id == user_id)
+            db.query(Bot.bot_id).filter(Bot.user_id == user_id, FileModel.status != 'Failed')
         )
     ).scalar() or 0
     
     return {
         "word_count": total_words,
+        "storage_bytes": total_storage_bytes
+    }
+
+def get_current_usage_sync(user_id: int, db: Session):
+    """Get current word count and storage usage for a user"""
+    print("user_id",user_id)
+    # Get all active bot IDs for the user
+    # Explicit select for active bot IDs
+    active_bot_ids_select = select(Bot.bot_id).filter(
+        Bot.user_id == user_id,
+        Bot.status != 'Deleted'
+    )
+    print("active_bot_ids_select",active_bot_ids_select)
+
+    # Total word count from uploaded files
+    total_file_words = db.query(func.sum(FileModel.word_count)).filter(
+        FileModel.bot_id.in_(active_bot_ids_select),
+        FileModel.status != 'Failed'
+    ).scalar() or 0
+    print("total_file_words",total_file_words)
+
+    # Total transcript word count from YouTube videos
+    total_youtube_words = db.query(func.sum(YouTubeVideo.transcript_count)).filter(
+        YouTubeVideo.bot_id.in_(active_bot_ids_select),
+        YouTubeVideo.is_deleted == False,
+        YouTubeVideo.status != 'Failed'
+    ).scalar() or 0
+    print("total_youtube_words",total_youtube_words)
+
+    # Total text word count from scraped website nodes
+    total_scraped_words = db.query(func.sum(ScrapedNode.nodes_text_count)).filter(
+    ScrapedNode.bot_id.in_(active_bot_ids_select),
+    ScrapedNode.is_deleted == False,
+    ScrapedNode.status != 'Failed'
+    ).scalar() or 0
+    print("total_scraped_words",total_scraped_words)
+
+    # Combine all word counts
+    total_words_used = total_file_words + total_youtube_words + total_scraped_words
+
+    total_storage_bytes = db.query(func.sum(FileModel.original_file_size_bytes)).filter(
+        FileModel.bot_id.in_(
+            db.query(Bot.bot_id).filter(Bot.user_id == user_id, Bot.is_active == True)
+        )
+    ).scalar() or 0
+
+    return {
+        "word_count": total_words_used,
         "storage_bytes": total_storage_bytes
     }

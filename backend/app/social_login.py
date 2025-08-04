@@ -160,8 +160,14 @@ async def google_auth(request: Request, payload: TokenPayload, db: Session = Dep
                 "name": user.name,
                 "user_id": user.user_id,
                 "avatar_url": resolve_file_url(user.avatar_url),
-                "subscription_plan_id": subscription_plan_id,  
-                "total_words_used": user.total_words_used or 0
+                "subscription_plan_id": subscription_plan_id,
+                "total_words_used": user.total_words_used or 0,
+                "addon_plan_ids": addon_plan_ids,
+                "subscription_status": user_subscription.status if user_subscription else "new",
+                "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
+                "role": user.role,
+                "phone_no": user.phone_no,
+                "company_name": user.company_name,
             }
         }
 

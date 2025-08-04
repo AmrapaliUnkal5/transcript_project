@@ -4,9 +4,12 @@ export interface Bot {
   id: number;
   name: string;
   status: string;
-  conversations: number;
-  satisfaction: number;
+  conversations?: number;
+  satisfaction?: number;
   external_knowledge?: boolean;
+  is_active?: boolean;
+  is_trained?: boolean; 
+  bot_icon?:string;
 }
 
 interface BotContextType {

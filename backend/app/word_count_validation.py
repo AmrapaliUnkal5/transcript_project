@@ -6,19 +6,19 @@ import io
 import tempfile
 import os
 from fastapi import Body, UploadFile, File, APIRouter, HTTPException, status
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from docx import Document
 import zipfile
 import pandas as pd
 from sqlalchemy import func
 from app.dependency import get_current_user
 from fastapi import Depends
-from app.fetchsubscripitonplans import get_subscription_plan_by_id
+from app.fetchsubscripitonplans import get_subscription_plan_by_id,get_subscription_plan_by_id_sync
 from app.schemas import UserOut
 from app.database import get_db
-from app.models import Bot, User
+from app.models import Bot, User,UserSubscription
 from sqlalchemy.orm import Session
-from app.utils.file_size_validations_utils import get_current_usage
+from app.utils.file_size_validations_utils import get_current_usage, get_current_usage_sync
 
 router = APIRouter()
  
@@ -257,11 +257,13 @@ async def extract_text(file: UploadFile) -> str:
     if file_ext == "pdf":
         text = await extract_text_from_pdf(file)
         await file.seek(0)
-        return text + " " + await extract_text_from_pdf_images(file)
+        # return text + " " + await extract_text_from_pdf_images(file)
+        return text
     elif file_ext == "docx":
         text = await extract_text_from_docx(file)
         await file.seek(0)
-        return text + " " + await extract_text_from_docx_images(file)
+        # return text + " " + await extract_text_from_docx_images(file)
+        return text
     elif file_ext == "txt":
         return await extract_text_from_txt(file)
     elif file_ext == "csv":
@@ -303,22 +305,22 @@ async def word_count_endpoint(
     
     for file in files:
         try:
-            # Extract text
-            text = await extract_text(file)
-            word_count, char_count = count_words_and_chars(text)
+            # Extract text This Extraction is removed, because the extraction will be done via celery instead of now. 25 July 2025
+            # text = await extract_text(file)
+            # word_count, char_count = count_words_and_chars(text)
 
             # Validate word count
-            if word_count > user_word_limit:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"File exceeds {user_word_limit} word limit for your {plan_limits['name']} plan"
-                )
+            # if word_count > user_word_limit:
+            #     raise HTTPException(
+            #         status_code=status.HTTP_400_BAD_REQUEST,
+            #         detail=f"File exceeds {user_word_limit} word limit for your {plan_limits['name']} plan"
+            #     )
 
             results.append({
                 "file_name": file.filename,
-                "word_count": word_count,
-                "character_count": char_count,
-                "text_sample": text[:200] + "..." if len(text) > 200 else text,
+                "word_count": 0,
+                "character_count": 0,
+                # "text_sample": text[:200] + "..." if len(text) > 200 else text,
                 "plan_limit": user_word_limit,  
                 "plan_name": plan_limits["name"]  
             })
@@ -359,14 +361,14 @@ async def get_user_usage(
         total_used = db.query(func.sum(Bot.word_count)).filter(
             Bot.user_id == current_user["user_id"],
             Bot.status != "Deleted",  
-            Bot.is_active == True
+            #Bot.is_active == True
         ).scalar() or 0
 
         # Also get from user table for verification
         user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
         user_total = user.total_words_used if user else 0
 
-         # If there's a discrepancy, update the user record
+        # If there's a discrepancy, update the user record
         if user and total_used != user_total:
             user.total_words_used = total_used
             db.commit()
@@ -375,7 +377,7 @@ async def get_user_usage(
         total_storage = db.query(func.sum(Bot.file_size)).filter(
             Bot.user_id == current_user["user_id"],
             Bot.status != "Deleted",  
-            Bot.is_active == True
+            #Bot.is_active == True
         ).scalar() or 0
 
         # Also get from user table for verification
@@ -426,24 +428,22 @@ def parse_storage_limit(limit_str: str) -> int:
     return int(match.group(1)) * units[match.group(2)]
 
 @router.post("/bot/update_word_count")
-async def update_bot_word_count(
+async def update_bot_word_count_4(
     bot_data: dict = Body(...),
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    #print(f"Received update request: {bot_data}")  
-    #print(f"Current user: {current_user['user_id']}")  
 
     # Verify the bot belongs to the current user
     bot = db.query(Bot).filter(
         Bot.bot_id == bot_data["bot_id"],
         Bot.user_id == current_user["user_id"]
     ).first()
+
     
     if not bot:
         print("Bot not found or doesn't belong to user")  
         raise HTTPException(status_code=404, detail="Bot not found")
-        
     
     try:
         #print(f"Current bot word_count: {bot.word_count}")  
@@ -483,6 +483,80 @@ async def update_bot_word_count(
         #print(f"Error during update: {str(e)}")  
         raise HTTPException(status_code=500, detail=str(e))
     
+def update_bot_word_and_file_count(db, bot_id: int, word_count: int, file_size: Optional[int] = None):
+    print("elete from the user and bot table")
+    from app.models import Bot, User
+
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if not bot:
+        raise Exception("Bot not found")
+
+    user = db.query(User).filter(User.user_id == bot.user_id).first()
+    if not user:
+        raise Exception("User not found")
+    print("bot word count",bot.word_count)
+
+    bot.word_count = (bot.word_count or 0) + word_count
+
+    if file_size is not None:
+        bot.file_size = (bot.file_size or 0) + file_size
+        user.total_file_size = (user.total_file_size or 0) + file_size
+
+    user.total_words_used = (user.total_words_used or 0) + word_count
+    print("user.total_words_used",user.total_words_used)
+
+    db.commit()
+    return True
+
+def update_word_usage(db, bot_id: int, word_count: int):
+    """
+    Updates the word count for the bot and the associated user.
+
+    This function should be used after successful processing of any data source
+    (e.g., file, scraping, YouTube, API) that contributes to the bot's word count.
+    """
+    from app.models import Bot, User
+
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if not bot:
+        raise Exception("Bot not found")
+
+    user = db.query(User).filter(User.user_id == bot.user_id).first()
+    if not user:
+        raise Exception("User not found")
+
+    bot.word_count = (bot.word_count or 0) + word_count
+    user.total_words_used = (user.total_words_used or 0) + word_count
+
+    db.commit()
+    return True
+
+def validate_cumulative_word_count_sync_for_celery(
+    new_word_count: int,
+    current_user: dict,
+    db: Session
+):
+    """Validate that adding new words won't exceed plan limit"""
+    user = db.query(UserSubscription).filter(UserSubscription.user_id == current_user["user_id"]).first()
+    if not user:
+        raise Exception("User or subscription plan not found")
+
+    subscription_plan_id = user.subscription_plan_id
+    print("subscription_plan_id",subscription_plan_id)
+    plan_limits = get_subscription_plan_by_id_sync(subscription_plan_id, db, current_user["user_id"])
+    if not plan_limits:
+        raise Exception("Subscription plan not found")
+
+    # Get current usage
+    current_usage = get_current_usage_sync(current_user["user_id"], db)
+    print("current_usage + new_word_count:", current_usage["word_count"], "+", new_word_count)
+
+    # Validate cumulative word count
+    if current_usage["word_count"] + new_word_count > plan_limits["effective_word_limit"]:
+        raise Exception(
+            f"Upload would exceed your word count limit of {plan_limits['effective_word_limit']}"
+        )
+
 async def validate_cumulative_word_count(
     new_word_count: int, 
     current_user: dict, 

@@ -33,6 +33,7 @@ apscheduler
 PyPDF2>=3.0.0
 lingua-language-detector
 nltk
+sendgrid
 
 # For LLM Part
 chromadb
