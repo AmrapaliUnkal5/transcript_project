@@ -109,6 +109,15 @@ export const TrainingDataTab = ({ botId, onTrain, isLoading, onCancel }: Trainin
     }
   };
 
+  const hasTrainingContent = (data: TrainingData | null): boolean => {
+  if (!data) return false;
+  return (
+    data.files.length > 0 ||
+    data.scraped_content.length > 0 ||
+    data.youtube_videos.length > 0
+  );
+};
+
   // Delete handlers
   const handleDeleteFile = async (fileId: string, wordCount: number = 0, fileSize: number = 0, isModal: boolean = false) => {
     if (!botId) return;
@@ -124,12 +133,6 @@ export const TrainingDataTab = ({ botId, onTrain, isLoading, onCancel }: Trainin
         fs = fs || fileObj?.original_file_size_bytes || 0;
       }
       await authApi.deleteFile(fileId);
-      // Update bot word count and file size
-      // await authApi.updateBotWordCount({
-      //   bot_id: botId,
-      //   word_count: -wc,
-      //   file_size: -fs,
-      // });
       toast.success("File deleted");
       if (isModal) {
         await loadModalData();
@@ -391,8 +394,9 @@ export const TrainingDataTab = ({ botId, onTrain, isLoading, onCancel }: Trainin
       <div className="flex justify-center">
         <button
           onClick={onTrain}
-          disabled={isLoading}
-          className={`px-6 py-3 rounded-lg text-white font-medium ${isLoading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"} transition-colors duration-200`}
+          disabled={isLoading || !hasTrainingContent(dataToTrain)}
+          className={`px-6 py-3 rounded-lg text-white font-medium ${isLoading || !hasTrainingContent(dataToTrain)
+          ? "cursor-not-allowed bg-gray-400 text-white" : "bg-blue-600 hover:bg-blue-700"} transition-colors duration-200`}
         >
           {isLoading ? (
             <div className="flex items-center justify-center">
@@ -427,4 +431,3 @@ export const TrainingDataTab = ({ botId, onTrain, isLoading, onCancel }: Trainin
     </div>
   );
 };
-
