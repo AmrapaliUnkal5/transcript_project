@@ -830,17 +830,26 @@ useEffect(() => {
         }));
       }
 
-      const thinkingDelay = Math.random() * 1000 + 500;
-      setTimeout(() => {
-        //setIsBotTyping(true);
-        setIsBotTyping(true);
+      // Check if content has formatting - if yes, show immediately without typing animation
+      const hasFormatting = data.formatted_content && data.formatted_content.formatting_type !== 'plain';
+      
+      if (hasFormatting) {
+        // Show formatted content immediately
+        setIsBotTyping(false);
         setWaitingForBotResponse(false);
-        //setCurrentBotMessage("");
-        setCurrentBotMessage(data.message.charAt(0)); // Start with first char
-        setFullBotMessage(data.message);
+        setCurrentBotMessage("");
+        setMessages((prevMessages) => [...prevMessages, botMessage]);
+      } else {
+        // Use typing animation for plain text (faster)
+        const thinkingDelay = Math.random() * 500 + 250; // Reduced thinking delay
+        setTimeout(() => {
+          setIsBotTyping(true);
+          setWaitingForBotResponse(false);
+          setCurrentBotMessage(data.message.charAt(0)); // Start with first char
+          setFullBotMessage(data.message);
 
-        let charIndex = 0;
-        const baseTypingSpeed = 25;
+          let charIndex = 0;
+          const baseTypingSpeed = 8; // Much faster: 8ms instead of 25ms
         const typingInterval = setInterval(() => {
           if (charIndex < data.message.length) {
             setCurrentBotMessage(
@@ -862,7 +871,7 @@ useEffect(() => {
                   newMessages,
                   botMessage 
                 );
-              }, 200 + Math.random() * 200);
+              }, 50 + Math.random() * 50); // Reduced pause between sentences
             }
           } else {
             clearInterval(typingInterval);
@@ -878,7 +887,8 @@ useEffect(() => {
             // ]);
           }
         }, baseTypingSpeed);
-      }, thinkingDelay);
+        }, thinkingDelay);
+      } // Close the else block for hasFormatting
       updateMessageCount();
     } catch (error) {
       console.error("Failed to send message:", error);

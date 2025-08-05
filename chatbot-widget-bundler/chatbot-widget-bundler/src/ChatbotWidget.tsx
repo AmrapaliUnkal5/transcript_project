@@ -377,31 +377,51 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
           return;
         }
 
-        // Simulate character-by-character typing effect for the bot's reply
-        let index = 0;
-        let displayedMessage = "";
-        const typeInterval = setInterval(() => {
-          if (index < botReply.length) {
-            displayedMessage += botReply[index];
-            setCurrentBotMessage(displayedMessage);
-            index++;
-          } else {
-            clearInterval(typeInterval);
-            setMessages((prev) => [
-              ...prev,
-              { 
-                sender: "bot", 
-                message: botReply, 
-                message_id: botMessageId,
-                formatted_content: formattedContent,
-                sources: sources,
-                showSources: false
-              },
-            ]);
-            setCurrentBotMessage("");
-            setIsBotTyping(false);
-          }
-        }, 30);
+        // Check if content has formatting - if yes, show immediately without typing animation
+        const hasFormatting = formattedContent && formattedContent.formatting_type !== 'plain';
+        
+        if (hasFormatting) {
+          // Show formatted content immediately
+          setMessages((prev) => [
+            ...prev,
+            { 
+              sender: "bot", 
+              message: botReply, 
+              message_id: botMessageId,
+              formatted_content: formattedContent,
+              sources: sources,
+              showSources: false
+            },
+          ]);
+          setCurrentBotMessage("");
+          setIsBotTyping(false);
+        } else {
+          // Simulate character-by-character typing effect for plain text (faster)
+          let index = 0;
+          let displayedMessage = "";
+          const typeInterval = setInterval(() => {
+            if (index < botReply.length) {
+              displayedMessage += botReply[index];
+              setCurrentBotMessage(displayedMessage);
+              index++;
+            } else {
+              clearInterval(typeInterval);
+              setMessages((prev) => [
+                ...prev,
+                { 
+                  sender: "bot", 
+                  message: botReply, 
+                  message_id: botMessageId,
+                  formatted_content: formattedContent,
+                  sources: sources,
+                  showSources: false
+                },
+              ]);
+              setCurrentBotMessage("");
+              setIsBotTyping(false);
+            }
+          }, 8); // Faster typing speed: 8ms instead of 30ms
+        }
       } catch (error) {
         console.error("Failed to send message:", error);
         setMessages((prev) => [

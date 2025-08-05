@@ -41,7 +41,7 @@ def parse_llm_response(response_text: str) -> Dict[str, Any]:
     return parsed_response
 
 def _has_bullet_points(text: str) -> bool:
-    return bool(re.search(r'^[\s]*[-*+]\s+', text, re.MULTILINE))
+    return bool(re.search(r'^[\s]*[-*+•]\s+', text, re.MULTILINE))
 
 def _has_numbered_list(text: str) -> bool:
     return bool(re.search(r'^[\s]*\d+\.\s+', text, re.MULTILINE))
@@ -56,7 +56,7 @@ def _has_bold_or_italic(text: str) -> bool:
     return bool(re.search(r'\*\*.*?\*\*|\*.*?\*|__.*?__|_.*?_', text))
 
 def _extract_bullet_points(text: str) -> List[Dict[str, Any]]:
-    pattern = r'^[\s]*[-*+]\s+(.+)$'
+    pattern = r'^[\s]*[-*+•]\s+(.+)$'
     matches = re.findall(pattern, text, re.MULTILINE)
     return [{"type": "bullet", "content": match.strip()} for match in matches]
 
@@ -102,13 +102,13 @@ def _extract_mixed_content(text: str, primary_type: str) -> List[Dict[str, Any]]
     
     if primary_type == "bullet":
         # Split by bullet points but preserve surrounding text
-        parts = re.split(r'(^[\s]*[-*+]\s+.+$)', text, flags=re.MULTILINE)
+        parts = re.split(r'(^[\s]*[-*+•]\s+.+$)', text, flags=re.MULTILINE)
         for part in parts:
             part = part.strip()
             if not part:
                 continue
-            if re.match(r'^[\s]*[-*+]\s+', part):
-                match = re.match(r'^[\s]*[-*+]\s+(.+)$', part)
+            if re.match(r'^[\s]*[-*+•]\s+', part):
+                match = re.match(r'^[\s]*[-*+•]\s+(.+)$', part)
                 if match:
                     content.append({"type": "bullet", "content": match.group(1).strip()})
             else:
