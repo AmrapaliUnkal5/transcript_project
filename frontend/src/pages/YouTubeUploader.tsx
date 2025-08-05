@@ -13,9 +13,11 @@ interface YouTubeUploaderProps {
   onChangesMade?: () => void; 
   isReconfiguring?: boolean;
   disableActions?: boolean;  
+  isConfigured: boolean;
 }
 
 const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
+  isConfigured,
   maxVideos = 0, // Default to 0
   refreshKey = 0, // Default to 0 (since it's a number)
   setIsVideoSelected = () => {}, 
@@ -342,8 +344,10 @@ const renderPaginationButtons = () => {
           type="text"
           placeholder="YouTube URL"
           value={youtubeUrl}
-          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+          // className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
           onChange={(e) => setYoutubeUrl(e.target.value)}
+          disabled={!isConfigured}
         />
 
         <button
@@ -361,7 +365,8 @@ const renderPaginationButtons = () => {
     textAlign: 'center',
     borderRadius: '0.375rem', // same as rounded-md
   }}
-          disabled={loading} // Disable button when loading
+          //disabled={loading} // Disable button when loading
+          disabled={!isConfigured || loading}
         >
           {loading ? "Processing..." : "Add"}
         </button>

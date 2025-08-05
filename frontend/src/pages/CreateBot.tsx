@@ -1434,7 +1434,7 @@ const renderStepContent = () => {
                     isCreateBotFlow={true}
                   />
                  <div className="flex justify-start mt-4">
-                  <button
+                  {/* <button
                     onClick={handleSaveWebContent}
                     disabled={!hasWebChanges || isLoadingSaveWeb}
                     className={`px-4 py-2 rounded-md text-white ${
@@ -1443,6 +1443,22 @@ const renderStepContent = () => {
                   >
                     {isLoadingSaveWeb ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
                     Save
+                  </button> */}
+                  <button
+                  onClick={handleSaveWebContent}
+                  disabled={!hasWebChanges || isLoadingSaveWeb || selectedNodes.length === 0}
+                  className={`px-4 py-2 rounded-md ${
+                  hasWebChanges && selectedNodes.length > 0
+                  ? 'bg-[#5348CB] hover:bg-[#4338a1] text-white'
+                  : 'bg-gray-400 text-black cursor-not-allowed'
+                  }`}>
+                  {isLoadingSaveWeb ? (
+                  <>
+                  <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                  Saving...
+                  </>
+                   ) : (
+                   'Save')}
                   </button>
                 </div>
               </div>

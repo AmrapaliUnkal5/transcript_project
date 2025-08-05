@@ -63,7 +63,7 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
   const [scrapedWebsiteUrl, setScrapedWebsiteUrl] = useState<string | null>(
     null
   );
-  const [isProcessing, setIsProcessing] = useState(false);
+   const [isProcessing, setIsProcessing] = useState(false);
   
   
   const location = useLocation();
@@ -126,7 +126,7 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
       console.error("Failed to fetch scraped URLs:", error);
       setScrapedUrls([]);
     } finally {
-      setLoading(false);
+       setLoading(false);
       setIsProcessing(false);
     }
   }, [selectedBot?.id]);
@@ -167,7 +167,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
       toast.error("Failed to delete URL.");
       console.error("Delete Error:", error);
     } finally {
-      setLoading(false);
+       setLoading(false);
       setIsModalOpen(false); // Close modal
       setUrlToDelete(null);
       setWordCountToDelete(0);
@@ -224,7 +224,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
       if (!selectedBot?.id) {
         console.error("Bot ID is missing.");
         toast.error("Bot ID is missing. Please select a bot first.");
-        setIsProcessing(false);
+         setIsProcessing(false);
         setLoading(false);
         return;
       }
@@ -441,6 +441,8 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                   onClick={() => {
                 const filtered = getFilteredNodes();
                 setSelectedNodes(filtered);
+                if (onChangesMade) {
+                  onChangesMade();}
               }}
               className="px-3 py-1 text-black  rounded hover:bg-[#5348CB] font-instrument min-w-[120px] transition-all"
               disabled={loading || isProcessing}
