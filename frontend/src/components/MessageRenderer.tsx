@@ -20,14 +20,21 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
   style,
   className 
 }) => {
+  // Debug logging
+  console.log('MessageRenderer - content:', content);
+  console.log('MessageRenderer - formattedContent:', formattedContent);
+  
   // If no formatted content or plain type, render as normal text
   if (!formattedContent || formattedContent.formatting_type === 'plain') {
+    console.log('MessageRenderer - using plain text rendering');
     return (
       <div style={style} className={className}>
         {content}
       </div>
     );
   }
+  
+  console.log('MessageRenderer - using formatted rendering, type:', formattedContent.formatting_type);
 
   const renderContent = () => {
     switch (formattedContent.formatting_type) {
@@ -129,7 +136,7 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
               return (
                 <div key={index} style={{ display: 'flex', marginBottom: '4px' }}>
                   <span style={{ marginRight: '8px', minWidth: '16px' }}>•</span>
-                  <span>{item.content}</span>
+                  <span>{renderMarkdownText(item.content)}</span>
                 </div>
               );
             
@@ -137,7 +144,7 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
               return (
                 <div key={index} style={{ display: 'flex', marginBottom: '4px' }}>
                   <span style={{ marginRight: '8px', minWidth: '20px' }}>{item.number}.</span>
-                  <span>{item.content}</span>
+                  <span>{renderMarkdownText(item.content)}</span>
                 </div>
               );
             
@@ -157,20 +164,23 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
   };
 
   const renderMarkdownText = (text: string) => {
+    console.log('renderMarkdownText - input:', text);
     // Simple markdown parsing for bold text
     const parts = text.split(/(\*\*.*?\*\*)/g);
+    console.log('renderMarkdownText - parts:', parts);
     
     return (
       <span>
         {parts.map((part, index) => {
           if (part.startsWith('**') && part.endsWith('**')) {
+            console.log('renderMarkdownText - making bold:', part.slice(2, -2));
             return (
-              <strong key={index}>
+              <strong key={index} style={{ fontWeight: 'bold' }}>
                 {part.slice(2, -2)}
               </strong>
             );
           }
-          return part;
+          return <span key={index}>{part}</span>;
         })}
       </span>
     );

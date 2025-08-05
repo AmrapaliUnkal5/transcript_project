@@ -377,51 +377,35 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
           return;
         }
 
-        // Check if content has formatting - if yes, show immediately without typing animation
+        // Use faster typing animation for formatted content, normal speed for plain text
         const hasFormatting = formattedContent && formattedContent.formatting_type !== 'plain';
+        const typingSpeed = hasFormatting ? 3 : 8; // Very fast for formatted, fast for plain
         
-        if (hasFormatting) {
-          // Show formatted content immediately
-          setMessages((prev) => [
-            ...prev,
-            { 
-              sender: "bot", 
-              message: botReply, 
-              message_id: botMessageId,
-              formatted_content: formattedContent,
-              sources: sources,
-              showSources: false
-            },
-          ]);
-          setCurrentBotMessage("");
-          setIsBotTyping(false);
-        } else {
-          // Simulate character-by-character typing effect for plain text (faster)
-          let index = 0;
-          let displayedMessage = "";
-          const typeInterval = setInterval(() => {
-            if (index < botReply.length) {
-              displayedMessage += botReply[index];
-              setCurrentBotMessage(displayedMessage);
-              index++;
-            } else {
-              clearInterval(typeInterval);
-              setMessages((prev) => [
-                ...prev,
-                { 
-                  sender: "bot", 
-                  message: botReply, 
-                  message_id: botMessageId,
-                  formatted_content: formattedContent,
-                  sources: sources,
-                  showSources: false
-                },
-              ]);
-              setCurrentBotMessage("");
-              setIsBotTyping(false);
-            }
-          }, 8); // Faster typing speed: 8ms instead of 30ms
-        }
+        // Simulate character-by-character typing effect
+        let index = 0;
+        let displayedMessage = "";
+        const typeInterval = setInterval(() => {
+          if (index < botReply.length) {
+            displayedMessage += botReply[index];
+            setCurrentBotMessage(displayedMessage);
+            index++;
+          } else {
+            clearInterval(typeInterval);
+            setMessages((prev) => [
+              ...prev,
+              { 
+                sender: "bot", 
+                message: botReply, 
+                message_id: botMessageId,
+                formatted_content: formattedContent,
+                sources: sources,
+                showSources: false
+              },
+            ]);
+            setCurrentBotMessage("");
+            setIsBotTyping(false);
+          }
+        }, typingSpeed);
       } catch (error) {
         console.error("Failed to send message:", error);
         setMessages((prev) => [

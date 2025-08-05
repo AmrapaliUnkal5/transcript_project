@@ -830,26 +830,19 @@ useEffect(() => {
         }));
       }
 
-      // Check if content has formatting - if yes, show immediately without typing animation
+      // Use faster typing animation for formatted content, normal speed for plain text
       const hasFormatting = data.formatted_content && data.formatted_content.formatting_type !== 'plain';
+      const baseTypingSpeed = hasFormatting ? 3 : 8; // Very fast for formatted, fast for plain
       
-      if (hasFormatting) {
-        // Show formatted content immediately
-        setIsBotTyping(false);
+      // Use typing animation for all content (but faster for formatted)
+      const thinkingDelay = Math.random() * 500 + 250; // Reduced thinking delay
+      setTimeout(() => {
+        setIsBotTyping(true);
         setWaitingForBotResponse(false);
-        setCurrentBotMessage("");
-        setMessages((prevMessages) => [...prevMessages, botMessage]);
-      } else {
-        // Use typing animation for plain text (faster)
-        const thinkingDelay = Math.random() * 500 + 250; // Reduced thinking delay
-        setTimeout(() => {
-          setIsBotTyping(true);
-          setWaitingForBotResponse(false);
-          setCurrentBotMessage(data.message.charAt(0)); // Start with first char
-          setFullBotMessage(data.message);
+        setCurrentBotMessage(data.message.charAt(0)); // Start with first char
+        setFullBotMessage(data.message);
 
-          let charIndex = 0;
-          const baseTypingSpeed = 8; // Much faster: 8ms instead of 25ms
+        let charIndex = 0;
         const typingInterval = setInterval(() => {
           if (charIndex < data.message.length) {
             setCurrentBotMessage(
@@ -887,8 +880,7 @@ useEffect(() => {
             // ]);
           }
         }, baseTypingSpeed);
-        }, thinkingDelay);
-      } // Close the else block for hasFormatting
+      }, thinkingDelay);
       updateMessageCount();
     } catch (error) {
       console.error("Failed to send message:", error);
