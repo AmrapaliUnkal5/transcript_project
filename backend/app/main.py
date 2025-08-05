@@ -55,7 +55,7 @@ from app.fetchsubscripitonplans import router as fetchsubscriptionplans_router
 from app.fetchsubscriptionaddons import router as fetchsubscriptionaddons_router
 from app.notifications import router as notifications_router, add_notification
 from app.message_count_validations import router as message_count_validations_router
-from app.zoho_subscription_router import router as zoho_subscription_router
+from app.zoho_subscription_router import create_fresh_user_token, router as zoho_subscription_router
 from app.zoho_sync_scheduler import initialize_scheduler
 from app.admin_routes import router as admin_routes_router
 from app.widget_botsettings import router as widget_botsettings_router
@@ -1031,3 +1031,14 @@ def scrape_async_endpoint(request: WebScrapingRequest, db: Session = Depends(get
         import traceback
         logger.error(f"[SCRAPE-ASYNC] Stack trace: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error starting web scraping: {str(e)}")
+
+class TokenResponse(BaseModel):
+    access_token: str
+
+@app.get("/auth/refresh-token", response_model=TokenResponse)
+def refresh_token(request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Returns a fresh access token with updated subscription and addon details.
+    """
+    new_token = create_fresh_user_token(db, current_user.get("user_id"))
+    return {"access_token": new_token}

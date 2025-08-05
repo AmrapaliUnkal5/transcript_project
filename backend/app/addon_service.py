@@ -212,7 +212,7 @@ class AddonService:
                         "quantity": quantity
                     }
                 ],
-                "redirect_url": f"{zoho_service.get_frontend_url()}/account/add-ons",
+                "redirect_url": f"{zoho_service.get_frontend_url()}/dashboard/welcome?payment=success",
                 "cancel_url": f"{zoho_service.get_frontend_url()}/account/add-ons"
             }
             

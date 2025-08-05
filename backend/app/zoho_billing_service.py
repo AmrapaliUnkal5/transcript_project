@@ -840,7 +840,7 @@ def format_subscription_data_for_hosted_page(
             "plan_code": plan_code,
             "quantity": 1  # Required by Zoho Billing
         },
-        "redirect_url": f"{frontend_url}/",  # Redirect to dashboard after successful payment
+        "redirect_url": f"{frontend_url}/dashboard/welcome?payment=success",  # Redirect to dashboard after successful payment
         "cancel_url": f"{frontend_url}/subscription"  # Redirect back to subscription page if cancelled
     }
     

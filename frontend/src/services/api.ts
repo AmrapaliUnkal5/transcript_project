@@ -715,6 +715,11 @@ deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
   return response.data; // Expected format: { exists: true/false }
   },
 
+  refreshToken: async () => {
+  const response = await api.get("/auth/refresh-token");
+  return response.data;
+},
+
 
   getUserUsage: async (): Promise<UserUsageResponse> => {
     const response = await api.get('/user/usage');
