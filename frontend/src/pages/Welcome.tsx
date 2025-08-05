@@ -95,6 +95,7 @@ const SubscriptionExpiredOverlay = () => {
 export const Welcome = () => {
   const { user, refreshUserData } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const userId: number | undefined = user?.user_id;
   const { setSelectedBot } = useBot();
   const { setLoading } = useLoader();
@@ -195,6 +196,33 @@ export const Welcome = () => {
       user?.subscription_plan_id !== undefined
     );
   };
+
+  // Replace the current payment success useEffect with this:
+useEffect(() => {
+  const params = new URLSearchParams(location.search);
+  const paymentSuccess = params.get("payment") === "success";
+
+  if (paymentSuccess) {
+    const handlePaymentSuccess = async () => {
+      try {
+        setLoading(true);
+        await refreshUserData(); // Refresh user data to get new subscription info
+
+        // Clean up the URL
+        const cleanUrl = location.pathname;
+        navigate(cleanUrl, { replace: true });
+      } catch (err) {
+        console.error("Failed to refresh after payment", err);
+        toast.error("Failed to update subscription details. Please refresh the page.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    handlePaymentSuccess();
+  }
+}, [location.search, refreshUserData, navigate, setLoading]);
+
 
   // Combined data loading effect
   useEffect(() => {

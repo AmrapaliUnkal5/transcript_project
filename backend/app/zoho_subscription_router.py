@@ -13,6 +13,7 @@ from app.schemas import ZohoCheckoutRequest, ZohoCheckoutResponse
 from app.utils.create_access_token import create_access_token
 from fastapi.responses import JSONResponse
 from app.utils.logger import get_module_logger, get_webhook_logger
+from app.config import settings
 
 router = APIRouter(prefix="/zoho", tags=["Zoho Subscriptions"])
 logger = get_module_logger(__name__)
@@ -235,6 +236,7 @@ async def create_subscription_checkout(
             plan_code=plan.zoho_plan_code,
             addon_codes=addon_codes  # Pass the addon codes to include in the checkout
         )
+        subscription_data["redirect_url"] = f"{settings.BASE_URL}/dashboard/welcome?payment=success"
         
         # Log the final subscription data
         logger.info(f"Formatted subscription data: {subscription_data}")
