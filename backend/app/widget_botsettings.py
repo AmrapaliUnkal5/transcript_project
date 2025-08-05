@@ -481,6 +481,10 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
 
     # ✅ Extract actual response string
     bot_reply_text = bot_reply_dict["bot_reply"]
+    
+    # ✅ Parse response for formatting
+    from app.utils.response_parser import parse_llm_response
+    formatted_content = parse_llm_response(bot_reply_text)
 
     # ✅ Store bot response in DB
     bot_message = ChatMessage(
@@ -525,6 +529,7 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
     return {
         "message": bot_reply_text,
         "message_id": messageid_data_token,
+        "formatted_content": formatted_content,
         "sources": document_sources,
         "is_greeting": is_greeting(request.message_text)
     }

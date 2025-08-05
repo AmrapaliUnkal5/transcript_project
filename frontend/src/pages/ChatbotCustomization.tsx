@@ -22,6 +22,7 @@ import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { Theme , THEMES } from '../types/index'; 
 import { Info } from "lucide-react";
+import { MessageRenderer } from "../components/MessageRenderer";
 
 
 interface MessageUsage {
@@ -242,6 +243,7 @@ useEffect(() => {
       message_id?: number;
       reaction?: "like" | "dislike";
       is_greeting?: boolean; 
+      formatted_content?: any;  // Add formatted content
       sources?: Array<{  // Add sources to the message object
       file_name: string;
       source: string;
@@ -812,6 +814,7 @@ useEffect(() => {
       text: data.message,
       message_id: data.message_id,
       is_greeting: data.is_greeting,
+      formatted_content: data.formatted_content, // Add formatted content
       sources: data.sources || [], // Add sources to this message
       showSources: false // Start with sources hidden
     };
@@ -2602,7 +2605,10 @@ const handleThemeSelect = async (themeId: string) => {
                             : settings.borderRadius,
                       }}
                     >
-                      <div>{msg.text}</div>
+                      <MessageRenderer 
+                        content={msg.text}
+                        formattedContent={msg.formatted_content}
+                      />
                       <div
                         className="text-xs mt-1 text-right"
                         style={{
