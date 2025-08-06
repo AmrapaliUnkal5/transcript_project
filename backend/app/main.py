@@ -57,6 +57,7 @@ from app.notifications import router as notifications_router, add_notification
 from app.message_count_validations import router as message_count_validations_router
 from app.zoho_subscription_router import create_fresh_user_token, router as zoho_subscription_router
 from app.zoho_sync_scheduler import initialize_scheduler
+from app.saml_auth import router as saml_auth_router
 from app.admin_routes import router as admin_routes_router
 from app.widget_botsettings import router as widget_botsettings_router
 from app.current_billing_metrics import router as billing_metrics_router
@@ -165,6 +166,7 @@ app.include_router(fetchsubscriptionaddons_router)
 app.include_router(notifications_router)
 app.include_router(message_count_validations_router)
 app.include_router(zoho_subscription_router)
+app.include_router(saml_auth_router)
 app.include_router(admin_routes_router)
 app.include_router(widget_botsettings_router)
 app.include_router(billing_metrics_router)
