@@ -1246,7 +1246,7 @@ useEffect(() => {
       refreshStatus={refreshStatus}
     />
       <ToastContainer />
-      {loading && <Loader />}
+      {/* {loading && <Loader />} */}
 
      {/* Tabs Section */}
 
