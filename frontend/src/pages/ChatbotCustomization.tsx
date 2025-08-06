@@ -2217,66 +2217,6 @@ const handleThemeSelect = async (themeId: string) => {
         </div>
       </div>
 
-      <div>
-         <label
-      className="block mb-1 ml-12 pl-2"
-       style={{
-            fontFamily: "Instrument Sans, sans-serif",
-            fontSize: "14px",
-            fontWeight: 400,
-            color: "#333333",
-              }}
-          >
-        Button Color
-       </label>
-        <div className="flex items-center space-x-2">
-          <input
-            type="color"
-            value={settings.buttonColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonColor", e.target.value)}
-            className="w-12 h-12 rounded border"
-          />
-          <input
-            type="text"
-            value={settings.buttonColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonColor", e.target.value)}
-            placeholder="#0000FF"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-             style={{ color: "#333333" }}
-          />
-        </div>
-      </div>
-
-      <div>
-         <label
-          className="block mb-1 ml-12 pl-2"
-          style={{
-              fontFamily: "Instrument Sans, sans-serif",
-              fontSize: "14px",
-              fontWeight: 400,
-              color: "#333333",
-            }}
-            >
-             Button Text Color
-           </label>
-        <div className="flex items-center space-x-2">
-          <input
-            type="color"
-            value={settings.buttonTextColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value)}
-            className="w-12 h-12 rounded border"
-          />
-          <input
-            type="text"
-            value={settings.buttonTextColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value)}
-            placeholder="#FFFFFF"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-             style={{ color: "#333333" }}
-          />
-        </div>
-      </div>
-
     </div>
   </div>
 )}
