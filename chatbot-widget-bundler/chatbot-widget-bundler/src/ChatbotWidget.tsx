@@ -13,6 +13,7 @@ import React, {
 import axios from "axios";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import "./chatbot-widget.css";
+import { MessageRenderer } from "./components/MessageRenderer";
 
 interface BotSettings {
   user_id?: number; // Optional user_id, if available from backend
@@ -72,6 +73,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         message_id?: number;
         reaction?: "like" | "dislike";
         is_greeting?: boolean;
+        formatted_content?: any;
         sources?: Array<{
           file_name: string;
           source: string;
@@ -364,6 +366,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         
         const botReply = response.data.message;
         const botMessageId = response.data.message_id;
+        const formattedContent = response.data.formatted_content;
         const sources = response.data.sources || [];
 
         if (response.data.error) {
@@ -374,7 +377,11 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
           return;
         }
 
-        // Simulate character-by-character typing effect for the bot's reply
+        // Use faster typing animation for formatted content, normal speed for plain text
+        const hasFormatting = formattedContent && formattedContent.formatting_type !== 'plain';
+        const typingSpeed = hasFormatting ? 3 : 8; // Very fast for formatted, fast for plain
+        
+        // Simulate character-by-character typing effect
         let index = 0;
         let displayedMessage = "";
         const typeInterval = setInterval(() => {
@@ -390,6 +397,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                 sender: "bot", 
                 message: botReply, 
                 message_id: botMessageId,
+                formatted_content: formattedContent,
                 sources: sources,
                 showSources: false
               },
@@ -397,7 +405,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
             setCurrentBotMessage("");
             setIsBotTyping(false);
           }
-        }, 30);
+        }, typingSpeed);
       } catch (error) {
         console.error("Failed to send message:", error);
         setMessages((prev) => [
@@ -725,7 +733,10 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                     marginRight: msg.sender === "user" ? "0px" : "auto",
                   }}
                 >
-                  <div>{msg.message}</div>
+                  <MessageRenderer 
+                    content={msg.message}
+                    formattedContent={msg.formatted_content}
+                  />
                   <div style={{
                     fontSize: "11px",
                     marginTop: "4px",
