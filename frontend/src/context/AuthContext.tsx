@@ -71,15 +71,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           if (!updatedUserData.addon_plan_ids) {
             updatedUserData.addon_plan_ids = [];
           }
+
+          // 🔁 Fetch new token (with new subscription info)
+        const tokenResponse = await authApi.refreshToken();
+        if (tokenResponse.access_token) {
+          localStorage.setItem("token", tokenResponse.access_token);
+        }
           
           // Update the user state
           setUser(updatedUserData);
           localStorage.setItem("user", JSON.stringify(updatedUserData));
           
-          // Get fresh JWT token with updated user information
-          if (response.access_token) {
-            localStorage.setItem("token", response.access_token);
-          }
         }
       }
     } catch (error) {

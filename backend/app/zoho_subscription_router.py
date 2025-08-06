@@ -13,6 +13,7 @@ from app.schemas import ZohoCheckoutRequest, ZohoCheckoutResponse
 from app.utils.create_access_token import create_access_token
 from fastapi.responses import JSONResponse
 from app.utils.logger import get_module_logger, get_webhook_logger
+from app.config import settings
 
 router = APIRouter(prefix="/zoho", tags=["Zoho Subscriptions"])
 logger = get_module_logger(__name__)

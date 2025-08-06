@@ -57,6 +57,55 @@ async def get_subscription_plan_by_id(plan_id: int, db: Session, user_id: int = 
         result["effective_message_limit"] = (plan.message_limit or 0) + total_additional_messages
         
     return result
+
+def get_subscription_plan_by_id_sync(plan_id: int, db: Session, user_id: int = None) -> dict:
+    """Get subscription plan details by ID from database with addon calculations"""
+    print("get_subscription_plan_by_id_sync")
+    plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == plan_id).first()
+    if not plan:
+        return None
+
+    result = {
+        "id": plan.id,
+        "name": plan.name,
+        "word_count_limit": plan.word_count_limit,
+        "storage_limit": plan.storage_limit,
+        "file_size_limit_mb": plan.per_file_size_limit,
+        "message_limit": plan.message_limit,
+    }
+
+    if user_id:
+        active_addons = db.query(Addon)\
+            .join(UserAddon, Addon.id == UserAddon.addon_id)\
+            .filter(
+                UserAddon.user_id == user_id,
+                UserAddon.is_active == True,
+                or_(
+                    UserAddon.expiry_date == None,
+                    UserAddon.expiry_date >= datetime.utcnow()
+                )
+            ).all()
+
+        total_additional_words = 0
+        total_additional_messages = 0
+        total_additional_admins = 0
+
+        for addon in active_addons:
+            total_additional_words += addon.additional_word_limit or 0
+            total_additional_messages += addon.additional_message_limit or 0
+            total_additional_admins += addon.additional_admin_users or 0
+
+        result["addon_additional_words"] = total_additional_words
+        result["addon_additional_messages"] = total_additional_messages
+        result["addon_additional_admins"] = total_additional_admins
+        result["effective_word_limit"] = (plan.word_count_limit or 0) + total_additional_words
+        result["effective_message_limit"] = (plan.message_limit or 0) + total_additional_messages
+
+    else:
+        result["effective_word_limit"] = plan.word_count_limit
+        result["effective_message_limit"] = plan.message_limit
+
+    return result
     
 
 router = APIRouter(prefix="/subscriptionplans", tags=["Subscription Plans"])

@@ -22,6 +22,7 @@ import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { Theme , THEMES } from '../types/index'; 
 import { Info } from "lucide-react";
+import { MessageRenderer } from "../components/MessageRenderer";
 
 
 interface MessageUsage {
@@ -194,6 +195,42 @@ export const ChatbotCustomization = () => {
   const userId = user?.user_id;
   const navigate = useNavigate();
   const { selectedBot, setSelectedBot } = useBot(); // Get setSelectedBot from context
+  
+  // === External Knowledge Sync ===
+const [externalKnowledge, setExternalKnowledge] = useState<boolean>(false);
+
+useEffect(() => {
+  if (selectedBot?.external_knowledge !== undefined) {
+    setExternalKnowledge(selectedBot.external_knowledge);
+  }
+}, [selectedBot?.external_knowledge]);
+
+useEffect(() => {
+  const fetchExternalKnowledgeStatus = async () => {
+    if (!selectedBot?.id) return;
+
+    try {
+      const response = await authApi.getBotExternalKnowledge(selectedBot.id);
+      if (response?.success) {
+        setExternalKnowledge(response.external_knowledge);
+
+        if (selectedBot.external_knowledge !== response.external_knowledge) {
+          setSelectedBot((prev) =>
+            prev
+              ? { ...prev, external_knowledge: response.external_knowledge }
+              : null
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching external knowledge status:", error);
+    }
+  };
+
+  fetchExternalKnowledgeStatus();
+}, [selectedBot?.id]);
+
+  
   if (!userId) {
     //alert("User ID is missing. Please log in again.");
   }
@@ -206,6 +243,7 @@ export const ChatbotCustomization = () => {
       message_id?: number;
       reaction?: "like" | "dislike";
       is_greeting?: boolean; 
+      formatted_content?: any;  // Add formatted content
       sources?: Array<{  // Add sources to the message object
       file_name: string;
       source: string;
@@ -306,7 +344,7 @@ export const ChatbotCustomization = () => {
     lead_generation_enabled: false,
     lead_form_config: [{ field: "name", required: false },{ field: "phone", required: false },{ field: "email", required: false },{ field: "address", required: false }],
     showSources: false, 
-    unansweredMsg: "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?",
+    unansweredMsg: "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?",
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
@@ -488,7 +526,7 @@ const hasLeadFields = (settings?.lead_form_config  ?? []).length > 0;
             lead_generation_enabled: response.lead_generation_enabled ?? false,
             lead_form_config: response.lead_form_config || [],
             showSources: response.show_sources ?? false,
-            unansweredMsg: response.unanswered_msg || "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?",
+            unansweredMsg: response.unanswered_msg || "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?",
           });
         }
       } catch (error) {
@@ -776,6 +814,7 @@ useEffect(() => {
       text: data.message,
       message_id: data.message_id,
       is_greeting: data.is_greeting,
+      formatted_content: data.formatted_content, // Add formatted content
       sources: data.sources || [], // Add sources to this message
       showSources: false // Start with sources hidden
     };
@@ -791,17 +830,19 @@ useEffect(() => {
         }));
       }
 
-      const thinkingDelay = Math.random() * 1000 + 500;
+      // Use faster typing animation for formatted content, normal speed for plain text
+      const hasFormatting = data.formatted_content && data.formatted_content.formatting_type !== 'plain';
+      const baseTypingSpeed = hasFormatting ? 3 : 8; // Very fast for formatted, fast for plain
+      
+      // Use typing animation for all content (but faster for formatted)
+      const thinkingDelay = Math.random() * 500 + 250; // Reduced thinking delay
       setTimeout(() => {
-        //setIsBotTyping(true);
         setIsBotTyping(true);
         setWaitingForBotResponse(false);
-        //setCurrentBotMessage("");
         setCurrentBotMessage(data.message.charAt(0)); // Start with first char
         setFullBotMessage(data.message);
 
         let charIndex = 0;
-        const baseTypingSpeed = 25;
         const typingInterval = setInterval(() => {
           if (charIndex < data.message.length) {
             setCurrentBotMessage(
@@ -823,7 +864,7 @@ useEffect(() => {
                   newMessages,
                   botMessage 
                 );
-              }, 200 + Math.random() * 200);
+              }, 50 + Math.random() * 50); // Reduced pause between sentences
             }
           } else {
             clearInterval(typingInterval);
@@ -1035,6 +1076,11 @@ const handlePredefinedIconSelect = async (iconUrl: string) => {
       const response = await authApi.uploadBotIcon(formData);
       console.log("url",response.url)
       handleChange("icon", response.url);
+      // Update the selectedBot in context
+    setSelectedBot({
+      ...selectedBot,
+      bot_icon: response.url
+    });
     } catch (error) {
       console.error("Failed to upload bot icon:", error);
       toast.error("Failed to upload bot icon.");
@@ -1334,41 +1380,6 @@ const handleThemeSelect = async (themeId: string) => {
   }
 };
 
- // we will use this for external knowledge
-
- const [externalKnowledge, setExternalKnowledge] = useState<boolean>(
-  selectedBot?.external_knowledge || false
-);
-
-
-useEffect(() => {
-  const fetchExternalKnowledgeStatus = async () => {
-    if (selectedBot?.id) {
-      try {
-        const response = await authApi.getBotExternalKnowledge(selectedBot.id);
-
-        if (response?.success) {
-          setExternalKnowledge(response.external_knowledge);
-
-          if (selectedBot.external_knowledge !== response.external_knowledge) {
-            setSelectedBot((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    external_knowledge: response.external_knowledge,
-                  }
-                : null
-            );
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching external knowledge status:", error);
-      }
-    }
-  };
-
-  fetchExternalKnowledgeStatus();
-}, [selectedBot?.id]);
 
 
 
@@ -2206,66 +2217,6 @@ useEffect(() => {
         </div>
       </div>
 
-      <div>
-         <label
-      className="block mb-1 ml-12 pl-2"
-       style={{
-            fontFamily: "Instrument Sans, sans-serif",
-            fontSize: "14px",
-            fontWeight: 400,
-            color: "#333333",
-              }}
-          >
-        Button Color
-       </label>
-        <div className="flex items-center space-x-2">
-          <input
-            type="color"
-            value={settings.buttonColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonColor", e.target.value)}
-            className="w-12 h-12 rounded border"
-          />
-          <input
-            type="text"
-            value={settings.buttonColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonColor", e.target.value)}
-            placeholder="#0000FF"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-             style={{ color: "#333333" }}
-          />
-        </div>
-      </div>
-
-      <div>
-         <label
-          className="block mb-1 ml-12 pl-2"
-          style={{
-              fontFamily: "Instrument Sans, sans-serif",
-              fontSize: "14px",
-              fontWeight: 400,
-              color: "#333333",
-            }}
-            >
-             Button Text Color
-           </label>
-        <div className="flex items-center space-x-2">
-          <input
-            type="color"
-            value={settings.buttonTextColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value)}
-            className="w-12 h-12 rounded border"
-          />
-          <input
-            type="text"
-            value={settings.buttonTextColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value)}
-            placeholder="#FFFFFF"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-             style={{ color: "#333333" }}
-          />
-        </div>
-      </div>
-
     </div>
   </div>
 )}
@@ -2596,7 +2547,10 @@ useEffect(() => {
                             : settings.borderRadius,
                       }}
                     >
-                      <div>{msg.text}</div>
+                      <MessageRenderer 
+                        content={msg.text}
+                        formattedContent={msg.formatted_content}
+                      />
                       <div
                         className="text-xs mt-1 text-right"
                         style={{

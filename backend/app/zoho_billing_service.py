@@ -420,6 +420,254 @@ class ZohoBillingService:
             logger.error(f"ERROR: Exception creating hosted page: {str(e)}")
             logger.error(f"Error creating hosted page for subscription: {str(e)}")
             raise
+    
+    def get_recurring_addon_hosted_page_url(self, subscription_id: str, addon_code: str, quantity: int = 1) -> str:
+        """
+        Get a hosted page URL for adding a recurring addon to an existing subscription
+        
+        Args:
+            subscription_id: Zoho subscription ID to add the addon to
+            addon_code: Addon code to add
+            quantity: Quantity of the addon
+            
+        Returns:
+            URL for the hosted page
+        """
+        try:
+            print(f"\n=== Creating Zoho Hosted Page for Recurring Add-on Purchase ===")
+            print(f"Subscription ID: {subscription_id}")
+            print(f"Add-on code: {addon_code}")
+            print(f"Quantity: {quantity}")
+            
+            # For recurring addons, we use the updatesubscription hosted page
+            # This allows adding addons that will renew with the subscription
+            # Note: updatesubscription endpoint doesn't need customer data since it's modifying existing subscription
+            payload = {
+                "subscription_id": subscription_id,
+                "addons": [
+                    {
+                        "addon_code": addon_code,
+                        "quantity": quantity
+                    }
+                ],
+                "redirect_url": f"{self.get_frontend_url()}/account/add-ons",
+                "cancel_url": f"{self.get_frontend_url()}/account/add-ons"
+            }
+                
+            logger.info(f"Creating recurring add-on hosted page with data: {payload}")
+            url = f"{self.base_url}/hostedpages/updatesubscription"
+            print(f"API URL: {url}")
+            
+            # Get headers with token
+            headers = self._get_headers()
+            
+            # Convert to JSON string for logging exact payload sent
+            payload_json = json.dumps(payload)
+            print(f"Exact JSON payload being sent:\n{payload_json}")
+            
+            # Make the API request
+            response = requests.post(url, headers=headers, json=payload)
+            
+            # Log the full response
+            print(f"Zoho API response status: {response.status_code}")
+            print(f"Zoho API response headers: {dict(response.headers)}")
+            
+            response_text = response.text
+            print(f"Zoho API raw response: {response_text}")
+            
+            # If we get a 401 error, refresh token and try again
+            if response.status_code == 401:
+                print("Received 401 Unauthorized error. Refreshing token and retrying...")
+                headers = self._get_headers(force_refresh=True)
+                print("Retrying request with new token...")
+                response = requests.post(url, headers=headers, json=payload)
+                print(f"Retry response status: {response.status_code}")
+                print(f"Retry response: {response.text}")
+            
+            # Check for HTTP errors
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            print(f"Processing response data: {response_data}")
+            logger.info(f"Recurring addon hosted page response: {response_data}")
+            
+            if response_data.get('code') == 0 and response_data.get('hostedpage'):
+                hosted_page_data = response_data.get('hostedpage', {})
+                hosted_page_url = hosted_page_data.get('url', '')
+                
+                if hosted_page_url:
+                    print(f"Successfully created recurring addon hosted page: {hosted_page_url}")
+                    logger.info(f"Recurring addon hosted page URL: {hosted_page_url}")
+                    return hosted_page_url
+                else:
+                    print("No URL found in hosted page response")
+                    logger.error("No URL found in hosted page response")
+            else:
+                print(f"Error in response: {response_data}")
+                logger.error(f"Error in recurring addon hosted page response: {response_data}")
+            
+            return None
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request error creating recurring addon hosted page: {str(e)}")
+            print(f"Request error: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Error creating recurring addon hosted page: {str(e)}")
+            print(f"General error: {str(e)}")
+            raise
+        
+    def get_subscription_update_hosted_page_url(self, subscription_id: str, update_data: Dict[str, Any]) -> str:
+        """
+        Get a hosted page URL for updating an existing subscription
+        
+        Args:
+            subscription_id: Zoho subscription ID to update
+            update_data: Dictionary containing update details
+            
+        Returns:
+            URL for the hosted page
+        """
+        try:
+            logger.info(f"\n=== Creating Zoho Subscription Update Hosted Page ===")
+            logger.info(f"Subscription ID: {subscription_id}")
+            logger.info(f"Update data: {update_data}")
+            
+            url = f"{self.base_url}/hostedpages/updatesubscription"
+            logger.info(f"API URL: {url}")
+            
+            # Prepare the payload for subscription update
+            payload = {
+                "subscription_id": subscription_id,
+                **update_data
+            }
+            
+            # Get headers with token
+            headers = self._get_headers()
+            logger.info(f"Using headers: {headers}")
+            
+            # Convert to JSON string for logging exact payload sent
+            payload_json = json.dumps(payload)
+            logger.debug(f"Exact JSON payload being sent:\n{payload_json}")
+            
+            # Make the API request
+            response = requests.post(url, headers=headers, json=payload)
+            
+            # Log the full response
+            logger.debug(f"Zoho API response status: {response.status_code}")
+            logger.debug(f"Zoho API response headers: {dict(response.headers)}")
+            
+            response_text = response.text
+            logger.debug(f"Zoho API raw response: {response_text}")
+            
+            # If we get a 401 error, refresh token and try again
+            if response.status_code == 401:
+                logger.info("Received 401 Unauthorized error. Refreshing token and retrying...")
+                headers = self._get_headers(force_refresh=True)
+                logger.info("Retrying request with new token...")
+                response = requests.post(url, headers=headers, json=payload)
+                logger.debug(f"Retry response status: {response.status_code}")
+                logger.debug(f"Retry response: {response.text}")
+            
+            # Check for HTTP errors
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            logger.info(f"Processing response data: {response_data}")
+            
+            if response_data.get('code') == 0 and response_data.get('hostedpage'):
+                hosted_page_data = response_data.get('hostedpage', {})
+                hosted_page_url = hosted_page_data.get('url', '')
+                
+                logger.info(f"Update checkout URL generated: {hosted_page_url}")
+                
+                if not hosted_page_url:
+                    logger.error("ERROR: No URL returned in the hosted page response")
+                    raise Exception("No URL returned in the hosted page response")
+                    
+                logger.info("=" * 40)
+                return hosted_page_url
+            else:
+                error_msg = response_data.get('message', 'Unknown error from Zoho API')
+                logger.error(f"ERROR: Zoho API error: {error_msg}")
+                raise Exception(error_msg)
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"ERROR: Request exception creating update hosted page: {str(e)}")
+            if hasattr(e, 'response') and e.response:
+                try:
+                    error_data = e.response.json()
+                    logger.error(f"Zoho API error details: {error_data}")
+                except:
+                    logger.error(f"Raw error response: {e.response.text}")
+            raise
+        except Exception as e:
+            logger.error(f"ERROR: Exception creating update hosted page: {str(e)}")
+            raise
+
+    def get_customer_details(self, customer_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetch customer details from Zoho including billing address and account information
+        
+        Args:
+            customer_id: Zoho customer ID
+            
+        Returns:
+            Dictionary containing customer details or None if not found
+        """
+        try:
+            logger.info(f"\n=== Fetching Customer Details from Zoho ===")
+            logger.info(f"Customer ID: {customer_id}")
+            
+            url = f"{self.base_url}/customers/{customer_id}"
+            logger.info(f"API URL: {url}")
+            
+            # Get headers with token
+            headers = self._get_headers()
+            
+            # Make the API request
+            response = requests.get(url, headers=headers)
+            
+            logger.debug(f"Zoho customer API response status: {response.status_code}")
+            logger.debug(f"Zoho customer API response: {response.text}")
+            
+            # If we get a 401 error, refresh token and try again
+            if response.status_code == 401:
+                logger.info("Received 401 Unauthorized error. Refreshing token and retrying...")
+                headers = self._get_headers(force_refresh=True)
+                response = requests.get(url, headers=headers)
+                logger.debug(f"Retry response status: {response.status_code}")
+            
+            # Check for HTTP errors
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            
+            if response_data.get('code') == 0 and response_data.get('customer'):
+                customer_data = response_data.get('customer', {})
+                logger.info(f"Successfully fetched customer details for ID: {customer_id}")
+                logger.debug(f"Customer data: {customer_data}")
+                return customer_data
+            else:
+                error_msg = response_data.get('message', 'Customer not found')
+                logger.warning(f"Could not fetch customer details: {error_msg}")
+                return None
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"ERROR: Request exception fetching customer details: {str(e)}")
+            if hasattr(e, 'response') and e.response:
+                try:
+                    error_data = e.response.json()
+                    logger.error(f"Zoho API error details: {error_data}")
+                except:
+                    logger.error(f"Raw error response: {e.response.text}")
+            return None
+        except Exception as e:
+            logger.error(f"ERROR: Exception fetching customer details: {str(e)}")
+            return None
 
     def get_subscription_update_hosted_page_url(self, subscription_id: str, update_data: Dict[str, Any]) -> str:
         """

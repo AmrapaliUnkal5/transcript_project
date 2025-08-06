@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 //import { Button } from "@/components/ui/button";
 //import { Input } from "@/components/ui/input";
 import { authApi } from "../services/api";
@@ -9,8 +9,20 @@ import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import { Trash2, Info } from "lucide-react";
 import { toast } from "react-toastify";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
+import { AlertTriangle } from "lucide-react";
 
-const SubscriptionScrape: React.FC = () => {
+interface SubscriptionScrapeProps {
+  isReconfiguring: boolean;
+  isConfigured: boolean;
+  setRefetchScrapedUrls?: React.Dispatch<React.SetStateAction<(() => void) | undefined>>;
+  // Add other props if you have them
+}
+
+const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
+  isReconfiguring,
+  isConfigured,
+  setRefetchScrapedUrls,
+}) => {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [nodes, setNodes] = useState<string[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
@@ -31,7 +43,7 @@ const SubscriptionScrape: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [scrapedUrls, setScrapedUrls] = useState<
-    { id: number; url: string; title: string;upload_date?: string }[]
+    { id: number; url: string; title: string;Word_Counts?: number; upload_date?: string; status?: string, error_code?: string  }[]
   >([]);
 
   const handleScrapingSuccess = (scrapedUrl: string) => {
@@ -65,11 +77,11 @@ const SubscriptionScrape: React.FC = () => {
   };
 
   // ✅ Move fetchScrapedUrls outside of useEffect so it can be reused
-  const fetchScrapedUrls = async () => {
+  const fetchScrapedUrls = useCallback(async () => {
     console.log("user.subscription_plan_id", user.subscription_plan_id);
     console.log("websiteUrl", websiteUrl.length);
     try {
-      setLoading(true);
+      //setLoading(true);
       if (!selectedBot?.id) {
         console.error("Bot ID is missing.");
         return;
@@ -83,7 +95,10 @@ const SubscriptionScrape: React.FC = () => {
           id: index + 1,
           url: item.url,
           title: item.title || "No Title",
+          Word_Counts:item.Word_Counts,
           upload_date: item.upload_date,
+          status: item.status,
+          error_code:item.error_code
         }));
 
         console.log("Formatted URLs:", formattedUrls);
@@ -104,8 +119,16 @@ const SubscriptionScrape: React.FC = () => {
       setScrapedUrls([]);
     } finally {
       setLoading(false);
+      setIsProcessing(false);
     }
-  };
+  }, [selectedBot?.id, setLoading, setScrapedUrls]);
+
+  useEffect(() => {
+  if (setRefetchScrapedUrls) {
+    setRefetchScrapedUrls(() => fetchScrapedUrls);
+    setIsSaved(false);
+  }
+}, [fetchScrapedUrls, setRefetchScrapedUrls]);
 
   // ✅ Call fetchScrapedUrls only when selectedBot changes
   useEffect(() => {
@@ -149,6 +172,10 @@ const SubscriptionScrape: React.FC = () => {
 
     if (!websiteUrl) {
       toast.error("Please enter a website URL.");
+      return;
+    }
+     if (!isReconfiguring) {
+      toast.error("Please click Reconfigure first before adding website URLs");
       return;
     }
 
@@ -351,6 +378,10 @@ const SubscriptionScrape: React.FC = () => {
   const totalPages = Math.ceil(nodes.length / itemsPerPage);
 
   const handleCheckboxChange = (url: string) => {
+    if (!isReconfiguring) {
+      toast.error("Please click Reconfigure first before selecting pages");
+      return;
+    }
     if (selectedNodes.includes(url)) {
       setSelectedNodes((prev) => prev.filter((node) => node !== url));
     } else {
@@ -427,32 +458,32 @@ const SubscriptionScrape: React.FC = () => {
           /> */}
 
 
-          <input
+<input
   type="text"
   placeholder="Website URL"
   value={websiteUrl}
   onChange={(e) => setWebsiteUrl(e.target.value)}
-  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500  "
+  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
   style={{
     fontFamily: 'Instrument Sans, sans-serif',
   }}
-  disabled={loading || isProcessing}
+  disabled={!isConfigured || loading || isProcessing}
 />
-
-          <button
+        
+<button
   onClick={handleFetchNodes}
   className="ml-2 flex items-center justify-center disabled:opacity-80 disabled:cursor-not-allowed"
   style={{
-    backgroundColor: "#5348CB",
+    backgroundColor: (!websiteUrl || loading || isProcessing) ? "rgb(170, 170, 170)": "#5348CB",
     fontFamily: 'Instrument Sans, sans-serif',
     fontSize: '12px',
     fontWeight: 600,
     color: 'white',
     minWidth: '102px',
     width: '140px',
-    height: '40px', 
+    height: '40px',
     textAlign: 'center',
-    borderRadius: '0.375rem', // same as rounded-md
+    borderRadius: '0.375rem',
   }}
   disabled={!websiteUrl || loading || isProcessing}
 >
@@ -671,7 +702,31 @@ const SubscriptionScrape: React.FC = () => {
         textTransform:'none'
       }}
     >
+      Status
+    </th>
+    <th
+      className="px-6 py-3 text-left uppercase tracking-wider"
+      style={{
+        fontFamily: 'Instrument Sans, sans-serif',
+        fontSize: '16px',
+        fontWeight: 600,
+        color: '#333333',
+        textTransform:'none'
+      }}
+    >
       URL
+    </th>
+     <th
+      className="px-6 py-3 text-left uppercase tracking-wider"
+      style={{
+        fontFamily: 'Instrument Sans, sans-serif',
+        fontSize: '16px',
+        fontWeight: 600,
+        color: '#333333',
+        textTransform:'none'
+      }}
+    >
+      Words
     </th>
     <th
       className="px-6 py-3 text-left uppercase tracking-wider"
@@ -718,6 +773,31 @@ const SubscriptionScrape: React.FC = () => {
                       {item.title || "No Title"}{" "}
                       {/* ✅ Display Title with Fallback */}
                     </td>
+                    <td
+                      className="px-4 py-2 text-gray-900 dark:text-gray-200 relative overflow-visible"
+                      style={{
+                        fontFamily: 'Instrument Sans, sans-serif',
+                        fontSize: '14px',
+                        color: '#333333',
+                      }}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>{item.status}</span>
+
+                        {item.status === "Failed" && item.error_code && (
+                          <div className="relative group cursor-pointer">
+                            <AlertTriangle className="w-4 h-4 text-red-500" />
+                            <div
+                              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block
+                                        bg-white text-xs text-gray-800 border border-gray-300 rounded px-2 py-1
+                                        shadow-lg z-50 whitespace-normal break-words w-max max-w-xs"
+                            >
+                              {item.error_code}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </td>
                     <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
                     style={{ fontFamily: 'Instrument Sans, sans-serif',
                       fontSize: '14px',
@@ -731,6 +811,13 @@ const SubscriptionScrape: React.FC = () => {
                       >
                         {item.url}
                       </a>
+                    </td>
+                    <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
+                    style={{ fontFamily: 'Instrument Sans, sans-serif',
+                      fontSize: '14px',
+                       color: '#333333',
+                     }}>
+                      {item.Word_Counts}
                     </td>
                     <td className="  px-4 py-2 text-gray-900 dark:text-gray-200 "
                     style={{ fontFamily: 'Instrument Sans, sans-serif',

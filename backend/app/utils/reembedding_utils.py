@@ -117,7 +117,7 @@ async def reembed_all_files(bot_id: int, db):
     for file in files:
         if bot.embedding_model_id:
             file.embedding_model_id = bot.embedding_model_id
-            file.embedding_status = "pending"
+            file.status = "Embedding"
             file.last_embedded = None
     db.commit()
     
@@ -172,7 +172,7 @@ async def reembed_all_files(bot_id: int, db):
             }
             
             # Update embedding_status in database
-            file.embedding_status = "processing"
+            file.status = "Embedding"
             db.commit()
             
             # Add document with new embedding
@@ -180,7 +180,7 @@ async def reembed_all_files(bot_id: int, db):
                 add_document(bot_id, text, metadata, force_model=model_name)  # Force using the same model
                 
                 # Update status in DB
-                file.embedding_status = "completed"
+                file.status = "Success"
                 file.last_embedded = datetime.now()
                 db.commit()
                 
@@ -193,7 +193,7 @@ async def reembed_all_files(bot_id: int, db):
                     first_error_message = error_msg
                 
                 # Update status in DB to reflect the error
-                file.embedding_status = "failed"
+                file.status = "Failed"
                 db.commit()
                 error_count += 1
             
@@ -208,7 +208,7 @@ async def reembed_all_files(bot_id: int, db):
                 first_error_message = error_msg
             
             # Update status in DB
-            file.embedding_status = "failed"
+            file.status = "Failed"
             db.commit()
             error_count += 1
     
@@ -223,7 +223,7 @@ async def reembed_all_files(bot_id: int, db):
         
         # Update all files to indicate they were embedded with the new model
         for file in files:
-            file.embedding_status = "completed"
+            file.status = "Success"
             file.last_embedded = datetime.now()
             file.embedding_model_id = bot.embedding_model_id
         db.commit()
@@ -248,7 +248,7 @@ async def reembed_all_files(bot_id: int, db):
         # List failed files for debugging
         failed_files = db.query(File).filter(
             File.bot_id == bot_id,
-            File.embedding_status == "failed"
+            File.status == "Failed"
         ).all()
         
         for f in failed_files:
@@ -368,7 +368,7 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
     
     # Update all scraped nodes' status
     for node in scraped_nodes:
-        node.embedding_status = "pending"
+        node.status = "Embedding"
         node.last_embedded = None
     db.commit()
     
@@ -403,7 +403,7 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
             }
             
             # Update embedding_status in database
-            node.embedding_status = "processing"
+            node.status = "Embedding"
             db.commit()
             
             # Add document with new embedding
@@ -411,7 +411,7 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
                 add_document(bot_id, nodes_text, metadata, force_model=model_name)
                 
                 # Update status in DB
-                node.embedding_status = "completed"
+                node.status = "Success"
                 node.last_embedded = datetime.now()
                 db.commit()
                 
@@ -424,7 +424,7 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
                     first_error_message = error_msg
                 
                 # Update status in DB to reflect the error
-                node.embedding_status = "failed"
+                node.status = "Failed"
                 db.commit()
                 error_count += 1
             
@@ -438,7 +438,7 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
                 first_error_message = error_msg
             
             # Update status in DB
-            node.embedding_status = "failed"
+            node.status = "Failed"
             db.commit()
             error_count += 1
     
@@ -453,7 +453,7 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
         
         # Update all nodes to indicate they were embedded with the new model
         for node in scraped_nodes:
-            node.embedding_status = "completed"
+            node.status = "Success"
             node.last_embedded = datetime.now()
         db.commit()
     else:
@@ -578,7 +578,7 @@ async def reembed_all_youtube_videos(bot_id: int, db):
     
     # Update all YouTube videos' status
     for video in youtube_videos:
-        video.embedding_status = "pending"
+        video.status = "Embedding"
         video.last_embedded = None
     db.commit()
     
@@ -612,7 +612,7 @@ async def reembed_all_youtube_videos(bot_id: int, db):
             }
             
             # Update embedding_status in database
-            video.embedding_status = "processing"
+            video.status = "Embedding"
             db.commit()
             
             # Add document with new embedding
@@ -620,7 +620,7 @@ async def reembed_all_youtube_videos(bot_id: int, db):
                 add_document(bot_id, transcript_text, metadata, force_model=model_name)
                 
                 # Update status in DB
-                video.embedding_status = "completed"
+                video.status = "Success"
                 video.last_embedded = datetime.now()
                 db.commit()
                 
@@ -633,7 +633,7 @@ async def reembed_all_youtube_videos(bot_id: int, db):
                     first_error_message = error_msg
                 
                 # Update status in DB to reflect the error
-                video.embedding_status = "failed"
+                video.status = "Failed"
                 db.commit()
                 error_count += 1
             
@@ -647,7 +647,7 @@ async def reembed_all_youtube_videos(bot_id: int, db):
                 first_error_message = error_msg
             
             # Update status in DB
-            video.embedding_status = "failed"
+            video.status = "Failed"
             db.commit()
             error_count += 1
     
@@ -662,7 +662,7 @@ async def reembed_all_youtube_videos(bot_id: int, db):
         
         # Update all videos to indicate they were embedded with the new model
         for video in youtube_videos:
-            video.embedding_status = "completed"
+            video.status = "Success"
             video.last_embedded = datetime.now()
         db.commit()
     else:

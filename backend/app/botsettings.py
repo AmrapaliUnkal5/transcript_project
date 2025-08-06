@@ -196,8 +196,39 @@ async def submit_reaction(payload: ReactionCreate, db: Session = Depends(get_db)
     db.refresh(reaction)
     return {"message": "Reaction recorded successfully"}
 
-def send_bot_activation_email(user_name: str, user_email: str, bot_name: str):
-    print("user send_bot_activation_email")
+# def send_bot_activation_email(user_name: str, user_email: str, bot_name: str):
+#     print("user send_bot_activation_email")
+#     subject = "Your chatbot has been activated!"
+#     body = f"""
+#     <html>
+#     <body style="font-family: Arial, sans-serif; color: #000;">
+#         <p>Hello {user_name},</p>
+
+#         <p>Your chatbot "{bot_name}" is now active and ready to use.</p>
+
+#         <p>You can customize it further by selecting the bot from the homepage if needed.</p>
+
+#         <p>Best regards,<br>
+#         Evolra Admin</p>
+#     </body>
+#     </html>
+#     """
+#     send_email(user_email, subject, body)
+
+
+def send_bot_activation_email(db: Session, user_name: str, user_email: str, bot_name: str, bot_id: int):
+    # First get the bot to check active_mail_sent status
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if not bot:
+        print(f"Bot with ID {bot_id} not found")
+        return
+    
+    # Check if email was already sent
+    if bot.active_mail_sent:
+        print(f"Activation email already sent for bot {bot_id}")
+        return
+    
+    print("Sending bot activation email")
     subject = "Your chatbot has been activated!"
     body = f"""
     <html>
@@ -214,8 +245,11 @@ def send_bot_activation_email(user_name: str, user_email: str, bot_name: str):
     </html>
     """
     send_email(user_email, subject, body)
-
-
+    
+    # Update the active_mail_sent status
+    bot.active_mail_sent = True
+    db.commit()
+    
 @router.put("/theme/{bot_id}")
 async def update_theme(
     bot_id: int,

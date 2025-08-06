@@ -24,6 +24,11 @@ import SubscriptionScrape from "./SubscriptionScrape";
 import WebScrapingTab from "./WebScrapingTab.tsx";
 import { UserUsage } from "../types/index";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
+import  handleScrape  from "./WebScrapingTab.tsx";
+import { TrainingDataTab } from "./TrainingDataTab";
+import { ChevronDown } from 'lucide-react';
+import { useSearchParams,useLocation } from "react-router-dom";
+
 
 interface Step {
   title: string;
@@ -31,14 +36,23 @@ interface Step {
   icon: React.FC<{ className?: string }> | string;
 }
 
-interface FileWithCounts
+interface FileWithCounts 
   extends Omit<CreateBotInterface, "wordCount" | "charCount"> {
   wordCount?: number;
   charCount?: number;
   loadingCounts?: boolean;
   error?: string;
   file: File;
+  status?: string;
 }
+
+interface UploadFilesResponse {
+  success: boolean;
+  uploaded_files?: Array<{
+    file_id: string;
+    file_name: string;
+  }>;
+ }
 
 const steps: Step[] = [
   {
@@ -47,15 +61,16 @@ const steps: Step[] = [
     icon: "/images/dummy/message-icon.png",
   },
   {
-    title: "Website information",
-    description:
-      "Add your website URL to help your bot understand the contents.",
-    icon: Globe,
-  },
-  {
     title: "Add knowledge base",
     description:
-      "Upload documents that will serve as the knowledge base for your chatbot.",
+      "Add your website, youtube URL or upload documents that will serve as the knowledge base for your chatbot.",
+    icon: "/images/dummy/knowledge-base-icon.png",
+  },
+
+  {
+    title: "Training",
+    description:
+      "Train your bot with the provided knowledge base.",
     icon: "/images/dummy/knowledge-base-icon.png",
   },
 ];
@@ -91,9 +106,10 @@ const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
 export const CreateBot = () => {
   const { selectedBot, setSelectedBot } = useBot();
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(0);
+  //const [currentStep, setCurrentStep] = useState(0);
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [files, setFiles] = useState<FileWithCounts[]>([]);
+  const[website,scrapedUrls]=useState<FileWithCounts[]>([]);
   const [botName, setBotName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { loading, setLoading } = useLoader();
@@ -108,8 +124,22 @@ export const CreateBot = () => {
   const user = userData ? JSON.parse(userData) : null;
   const { getPlanById } = useSubscriptionPlans();
   const userPlan = getPlanById(user?.subscription_plan_id);
-  console.log("userPlan====>", userPlan);
+  const [hasYouTubeVideos, setHasYouTubeVideos] = useState(false);
+  const [isLoadingNext, setIsLoadingNext] = useState(false);
+  const [isLoadingSaveWeb, setIsLoadingSaveWeb] = useState(false);
+  const [isLoadingSaveFiles, setIsLoadingSaveFiles] = useState(false);
+  const [isLoadingSaveYouTube, setIsLoadingSaveYouTube] = useState(false);
+  const [searchParams] = useSearchParams();
+  const urlBotId = searchParams.get('botId');
+  const urlStep = searchParams.get('step');
+  const [hasAnyExistingContent, setHasAnyExistingContent] = useState(false);
+  const [userBotCount, setUserBotCount] = useState(0);
+  const [maxBotsAllowed, setMaxBotsAllowed] = useState(0);
+  const location = useLocation();
 
+// Initialize currentStep based on URL
+  const [currentStep, setCurrentStep] = useState(urlStep ? parseInt(urlStep) : 0);
+  const [bots, setBots] = useState<Bot[]>([]);
   const [processingMessage, setProcessingMessage] = useState(
     "Getting things ready for you..."
   );
@@ -153,7 +183,8 @@ export const CreateBot = () => {
     (totalWordsUsed / userUsage.planLimit) * 100
   );
   const totalStorageUsed =
-    userUsage.globalStorageUsed + userUsage.currentSessionStorage;
+    userUsage.globalStorageUsed ;
+    console.log("userUsage.globalStorageUsed",userUsage.globalStorageUsed)
   const remainingStorage = Math.max(
     0,
     userUsage.storageLimit - totalStorageUsed
@@ -162,6 +193,119 @@ export const CreateBot = () => {
     100,
     (totalStorageUsed / userUsage.storageLimit) * 100
   );
+const [hasWebChanges, setHasWebChanges] = useState(false);
+const [hasFileChanges, setHasFileChanges] = useState(false);
+const [hasYouTubeChanges, setHasYouTubeChanges] = useState(false);
+const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+const [hasWebsiteContent, setHasWebsiteContent] = useState(false);
+const [hasYouTubeContent, setHasYouTubeContent] = useState(false);
+const isCreateBotFlow = location.pathname.includes('/dashboard/create-bot');
+const [hasScraped, setHasScraped] = useState(false);
+
+useEffect(() => {
+  const fetchBotLimits = async () => {
+    try {
+      // Get user's current bot count
+      const botResponse = await authApi.getBotSettingsByUserId(user?.user_id);
+      const botCount = botResponse.length;
+      setUserBotCount(botCount);
+      
+      // Get user's plan limits
+      const userPlan = getPlanById(user?.subscription_plan_id);
+      setMaxBotsAllowed(userPlan?.chatbot_limit || 0);
+    } catch (error) {
+      console.error("Error fetching bot limits:", error);
+    }
+  };
+  
+  fetchBotLimits();
+}, [user?.user_id, user?.subscription_plan_id, getPlanById]);
+
+useEffect(() => {
+  const checkForExistingContent = async () => {
+    if (!selectedBot?.id) return;
+    
+    try {
+      // Check all content types in parallel
+      const [files, youtubeVideos, scrapedUrls] = await Promise.all([
+        authApi.getFiles(selectedBot.id),
+        authApi.fetchVideosForBot(selectedBot.id),
+        authApi.getScrapedUrls(selectedBot.id)
+      ]);
+      
+      setHasAnyExistingContent(
+        files.length > 0 || 
+        youtubeVideos.length > 0 || 
+        scrapedUrls.length > 0
+      );
+      console.log("status of all=>",files.length > 0 || 
+        youtubeVideos.length > 0 || 
+        scrapedUrls.length > 0)
+      if (youtubeVideos.length > 0){
+      setHasYouTubeContent(true)
+      }
+      if (scrapedUrls.length > 0){
+      setHasWebsiteContent(true)
+      }
+    } catch (error) {
+      console.error("Error checking existing content:", error);
+    }
+  };
+  
+  checkForExistingContent();
+}, [selectedBot?.id,currentStep]);
+
+// Load bot data if URL has botId
+useEffect(() => {
+  // First check location state for bot data
+  if (location.state?.botId) {
+    setBotId(location.state.botId);
+    if (location.state.botName) {
+      setBotName(location.state.botName);
+    }
+    // If coming from draft, we already have the bot
+    if (location.state.fromDraft) {
+      setSelectedBot({
+        id: location.state.botId,
+        name: location.state.botName,
+        status: "Draft",
+        conversations: 0,
+        satisfaction: 0
+      });
+      
+      // If coming from draft and URL has step=1, stay on step 1
+      if (urlStep === '1') {
+        setCurrentStep(1);
+      }
+    }
+  }
+
+  // Then check URL params if no state
+  else if (urlBotId) {
+    setBotId(parseInt(urlBotId));
+  }
+}, [location.state, urlBotId, urlStep]);
+
+
+ useEffect(() => {
+  if (selectedBot?.id) {
+    fetchFiles();
+    //fetchYouTubeVideos(); // For YouTube videos
+  }
+}, [selectedBot?.id, currentStep]);
+
+
+useEffect(() => {
+  // When CreateBot is freshly loaded, and we are on step 1 (YouTube step),
+  // clear any previous YouTube selections
+  if (urlStep === "1") {
+    localStorage.removeItem("selected_videos");
+    localStorage.removeItem("youtube_video_urls");
+    setHasYouTubeVideos(false);
+    setHasYouTubeChanges(false);
+    window.dispatchEvent(new Event("resetYouTubeUploader"));
+  }
+}, []); 
 
   // Fetch user usage on component mount
   useEffect(() => {
@@ -217,141 +361,241 @@ export const CreateBot = () => {
     }
   };
 
+  const fetchFiles = useCallback(async () => {
+  if (!selectedBot?.id) return;
+
+  try {
+    const fetchedFiles = await authApi.getFiles(selectedBot.id);
+    const formattedFiles = fetchedFiles.map((file) => ({
+      id: file.file_id.toString(),
+      name: file.file_name,
+      type: file.file_type,
+      size: file.original_file_size_bytes || parseFileSizeToBytes(file.file_size),
+      uploadDate: new Date(file.upload_date),
+      url: file.file_path,
+      wordCount: file.word_count,
+      charCount: file.character_count,
+      status:file.status
+    }));
+    setFiles(formattedFiles);
+  } catch (error) {
+    console.error("Failed to fetch files:", error);
+  }
+}, [selectedBot?.id]);
+
+
+  const parseFileSizeToBytes = (size: string): number => {
+    const sizeRegex = /^(\d+(\.\d+)?)\s*(B|KB|MB|GB)$/i;
+    const match = size.match(sizeRegex);
+
+    if (!match) {
+      console.error("Invalid file size format:", size);
+      return 0;
+    }
+
+    const value = parseFloat(match[1]);
+    const unit = match[3].toUpperCase();
+
+    switch (unit) {
+      case "B":
+        return value;
+      case "KB":
+        return value * 1024;
+      case "MB":
+        return value * 1024 * 1024;
+      case "GB":
+        return value * 1024 * 1024 * 1024;
+      default:
+        return 0;
+    }
+  };
+
   const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
-      // Filter out oversized files first
-      const validSizeFiles = acceptedFiles.filter(
-        (file) => file.size <= MAX_FILE_SIZE
+  async (acceptedFiles: File[]) => {
+    // Set flag that files have been changed
+    setHasFileChanges(true);
+
+    // 1. Check word limit
+    if (remainingWords <= 0) {
+      toast.error("You've reached your word limit. Please upgrade your plan.");
+      return;
+    }
+
+    // 2. Check storage limit
+    const newFilesTotalSize = acceptedFiles.reduce(
+      (sum, file) => sum + file.size,
+      0
+    );
+    if (totalStorageUsed + newFilesTotalSize > userUsage.storageLimit) {
+      toast.error(
+        `Uploading these files would exceed your storage limit of ${formatFileSize(
+          userUsage.storageLimit
+        )}`
       );
-      const oversizedFiles = acceptedFiles.filter(
-        (file) => file.size > MAX_FILE_SIZE
+      return;
+    }
+
+    // 3. Check for duplicate file names (case-insensitive)
+    const existingFileNames = files.map((f) => f.name.toLowerCase());
+    const duplicateFiles = acceptedFiles.filter((file) =>
+      existingFileNames.includes(file.name.toLowerCase())
+    );
+
+    if (duplicateFiles.length > 0) {
+      const duplicateNames = duplicateFiles
+        .map((f) => `"${f.name}"`)
+        .join(", ");
+      toast.error(
+        `File(s) with the same name already exist: ${duplicateNames}. ` +
+          `Please rename the file(s) or remove the existing ones before uploading.`
       );
+      return;
+    }
 
-      // Show error for oversized files immediately
-      if (oversizedFiles.length > 0) {
-        const oversizedNames = oversizedFiles
-          .map((f) => `"${f.name}" (${formatFileSize(f.size)})`)
-          .join(", ");
-        toast.error(
-          `The following files exceed the size limit of ${formatFileSize(
-            MAX_FILE_SIZE
-          )}: ${oversizedNames}`
-        );
-      }
+    // 4. Check each file's size before processing
+    const oversizedFiles = acceptedFiles.filter(
+      (file) => file.size > MAX_FILE_SIZE
+    );
 
-      // If no valid files remain after size check, return early
-      if (validSizeFiles.length === 0) return;
-
-      // Rest of your existing checks (word limit, duplicates, etc.)
-      if (remainingWords <= 0) {
-        toast.error(
-          "You've reached your word limit. Please upgrade your plan."
-        );
-        return;
-      }
-
-      const newFilesTotalSize = acceptedFiles.reduce(
-        (sum, file) => sum + file.size,
-        0
+    if (oversizedFiles.length > 0) {
+      const oversizedNames = oversizedFiles
+        .map((f) => `"${f.name}" (${formatFileSize(f.size)})`)
+        .join(", ");
+      toast.error(
+        `The following files exceed the size limit of ${formatFileSize(
+          MAX_FILE_SIZE
+        )}: ${oversizedNames}`
       );
-      if (totalStorageUsed + newFilesTotalSize > userUsage.storageLimit) {
-        toast.error(
-          `Uploading these files would exceed your storage limit of ${formatFileSize(
-            userUsage.storageLimit
-          )}`
-        );
-        return;
-      }
-      const existingFileNames = files.map((f) => f.name.toLowerCase());
-      const duplicateFiles = validSizeFiles.filter((file) =>
-        existingFileNames.includes(file.name.toLowerCase())
-      );
+      // Continue with valid files
+      if (acceptedFiles.length === oversizedFiles.length) return;
+    }
 
-      if (duplicateFiles.length > 0) {
-        const duplicateNames = duplicateFiles
-          .map((f) => `"${f.name}"`)
-          .join(", ");
-        toast.error(
-          `File(s) with the same name already exist: ${duplicateNames}. ` +
-            `Please rename the file(s) or remove the existing ones before uploading.`
-        );
-        return;
-      }
+    // Only process files that passed all validations
+    const validSizeFiles = acceptedFiles.filter(
+      (file) => file.size <= MAX_FILE_SIZE
+    );
 
-      setIsProcessingFiles(true);
+    if (validSizeFiles.length === 0) return;
 
-      try {
-        // Only process files that passed all validations
-        const counts = await processWordCounts(validSizeFiles);
+    setIsProcessingFiles(true);
+    setProcessingMessage("Processing your files...");
 
-        let newWords = 0;
-        let newStorage = 0;
-        const validFiles: FileWithCounts[] = [];
+    try {
+      // Initialize progress tracking
+      const newProgress: Record<string, number> = {};
+      validSizeFiles.forEach((file) => {
+        newProgress[file.name] = 0;
+      });
+      setUploadProgress(newProgress);
 
-        for (let i = 0; i < validSizeFiles.length; i++) {
-          const file = validSizeFiles[i];
-          const countData = counts[i];
+      // Process word counts for new files
+      const counts = await processWordCounts(validSizeFiles);
 
-          if (countData.error) {
-            console.log(`File ${file.name} has error:`, countData.error);
-            toast.error(`${file.name}: ${countData.error}`);
-            continue;
-          }
+      let newWords = 0;
+      let newStorage = 0;
+      const validFiles: FileWithCounts[] = [];
 
-          const fileWords = countData.word_count || 0;
-          const fileSize = file.size;
+      for (let i = 0; i < validSizeFiles.length; i++) {
+        const file = validSizeFiles[i];
+        const countData = counts[i];
 
-          if (totalWordsUsed + fileWords > userUsage.planLimit) {
-            toast.error(`Skipped "${file.name}" - would exceed word limit`);
-            continue;
-          }
+        // Update progress for this file
+        setUploadProgress((prev) => ({
+          ...prev,
+          [file.name]: 30, // 30% after word count processing
+        }));
 
-          if (
-            totalStorageUsed + newStorage + fileSize >
-            userUsage.storageLimit
-          ) {
-            toast.error(`Skipped "${file.name}" - would exceed storage limit`);
-            continue;
-          }
-
-          validFiles.push({
-            id: Math.random().toString(36).substr(2, 9),
-            name: file.name,
-            type: file.type,
-            size: file.size,
-            uploadDate: new Date(),
-            url: URL.createObjectURL(file),
-            file: file,
-            wordCount: fileWords,
-            charCount: countData.character_count,
-            loadingCounts: false,
-          });
-
-          newWords += fileWords;
-          newStorage += fileSize;
+        if (countData.error) {
+          console.log(`File ${file.name} has error:`, countData.error);
+          toast.error(`${file.name}: ${countData.error}`);
+          continue;
         }
 
-        setFiles((prev) => [...prev, ...validFiles]);
-        setUserUsage((prev) => ({
-          ...prev,
-          currentSessionWords: prev.currentSessionWords + newWords,
-          currentSessionStorage: prev.currentSessionStorage + newStorage,
-        }));
-      } finally {
-        setIsProcessingFiles(false);
-      }
-    },
-    [
-      totalWordsUsed,
-      totalStorageUsed,
-      userUsage.planLimit,
-      userUsage.storageLimit,
-      files,
-      MAX_FILE_SIZE,
-      remainingWords,
-    ]
-  );
+        const fileWords = countData.word_count || 0;
+        const fileSize = file.size;
 
+        // Check if adding this file would exceed limits
+        if (totalWordsUsed + fileWords > userUsage.planLimit) {
+          toast.error(`Skipped "${file.name}" - would exceed word limit`);
+          continue;
+        }
+
+        if (
+          totalStorageUsed + newStorage + fileSize >
+          userUsage.storageLimit
+        ) {
+          toast.error(`Skipped "${file.name}" - would exceed storage limit`);
+          continue;
+        }
+
+        validFiles.push({
+          id: Math.random().toString(36).substr(2, 9), // Temp ID until saved
+          name: file.name,
+          type: file.type,
+          size: 0,
+          uploadDate: new Date(),
+          url: URL.createObjectURL(file),
+          file: file,
+          wordCount: fileWords,
+          charCount: countData.character_count,
+          loadingCounts: false,
+        });
+
+        newWords += fileWords;
+        newStorage += fileSize;
+
+        // Update progress
+        setUploadProgress((prev) => ({
+          ...prev,
+          [file.name]: 60, // 60% after validation
+        }));
+      }
+
+      // Add all valid files at once
+      setFiles((prev) => [...prev, ...validFiles]);
+      setUserUsage((prev) => ({
+        ...prev,
+        currentSessionWords: prev.currentSessionWords + newWords,
+        currentSessionStorage: prev.currentSessionStorage + newStorage,
+      }));
+
+      // Update progress to complete
+      validFiles.forEach((file) => {
+        setUploadProgress((prev) => ({
+          ...prev,
+          [file.name]: 100,
+        }));
+      });
+
+      if (validFiles.length > 0) {
+        toast.success(
+          validFiles.length === 1
+            ? "1 file added successfully"
+            : `${validFiles.length} files added successfully`
+        );
+      }
+    } catch (error) {
+      console.error("Error processing files:", error);
+      toast.error(
+        "An error occurred while processing files. Please try again."
+      );
+    } finally {
+      setTimeout(() => {
+        setUploadProgress({});
+        setIsProcessingFiles(false);
+      }, 500); // Small delay to show completion
+    }
+  },
+  [
+    files,
+    remainingWords,
+    totalStorageUsed,
+    totalWordsUsed,
+    userUsage.storageLimit,
+    userUsage.planLimit,
+    MAX_FILE_SIZE,
+  ]
+);
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
     accept: {
@@ -414,98 +658,50 @@ export const CreateBot = () => {
     "userUsage.storageLimit FormatFileSize=>",
     formatFileSize(userUsage.storageLimit)
   );
-  const handleDelete = (id: string) => {
-    setFiles((prevFiles) => {
-      const fileToDelete = prevFiles.find((file) => file.id === id);
-      if (!fileToDelete) {
-        return prevFiles;
-      }
+const handleDelete = async (id: string) => {
+  if (!selectedBot?.id) return;
 
-      const deletedWordCount = fileToDelete.wordCount || 0;
-      const deletedFileSize = fileToDelete.size || 0;
+  const fileToDelete = files.find(file => file.id === id);
+  if (!fileToDelete) return;
 
-      setUserUsage((prev) => ({
+  try {
+    const deletedWordCount = fileToDelete.wordCount || 0;
+    const deletedFileSize = fileToDelete.size || 0;
+
+    // Determine if this is a saved file (has numeric ID) or unsaved
+    const isSavedFile = /^\d+$/.test(id);
+
+    if (isSavedFile) {
+      // For saved files: delete from server and update backend counts
+      await authApi.deleteFile(id);
+  
+      // Update local state to reflect the deletion
+      setUserUsage(prev => ({
         ...prev,
-        currentSessionWords: Math.max(
-          0,
-          prev.currentSessionWords - deletedWordCount
-        ),
-        currentSessionStorage: Math.max(
-          0,
-          prev.currentSessionStorage - deletedFileSize
-        ),
+        globalWordsUsed: Math.max(0, prev.globalWordsUsed - deletedWordCount),
+        globalStorageUsed: Math.max(0, prev.globalStorageUsed - deletedFileSize),
       }));
+    } else {
+      // For unsaved files: just update local session counts
+      setUserUsage(prev => ({
+        ...prev,
+        currentSessionWords: Math.max(0, prev.currentSessionWords - deletedWordCount),
+        currentSessionStorage: Math.max(0, prev.currentSessionStorage - deletedFileSize),
+      }));
+    }
 
-      return prevFiles.filter((file) => file.id !== id);
-    });
-  };
+    // Remove from files state
+    setFiles(prev => prev.filter(file => file.id !== id));
 
+    toast.success("File deleted successfully");
+  } catch (error) {
+    console.error("Error deleting file:", error);
+    toast.error("Failed to delete file");
+  }
+};
   const getFileExtension = (fileName: string) => {
     const extension = fileName.split(".").pop()?.toLowerCase();
     return extension ? extension.toUpperCase() : "UNKNOWN";
-  };
-
-  const fetchNodes = async (websiteUrl: string) => {
-    if (!websiteUrl) {
-      toast.error("Please enter a website URL.");
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const data = await authApi.getWebsiteNodes(websiteUrl);
-      if (data.nodes) {
-        setNodes(data.nodes);
-        setSelectedNodes([]);
-      } else {
-        setNodes([]);
-        toast.error("No nodes found for this website.");
-      }
-    } catch (error) {
-      console.error("Error fetching website nodes:", error);
-      toast.error("Failed to fetch website nodes. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const getPaginatedNodes = () => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return nodes.slice(startIndex, endIndex);
-  };
-
-  const totalPages = Math.ceil(nodes.length / itemsPerPage);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  const renderPaginationButtons = () => {
-    const buttons = [];
-    const maxVisiblePages = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      buttons.push(
-        <button
-          key={i}
-          onClick={() => handlePageChange(i)}
-          className={`px-4 py-2 mx-1 rounded-md ${
-            currentPage === i
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          {i}
-        </button>
-      );
-    }
-    return buttons;
   };
 
   const updateBotName = async (
@@ -547,7 +743,7 @@ export const CreateBot = () => {
     try {
       const response = await authApi.createBot({
         bot_name: botName,
-        status: "In Progress",
+        status: "Draft",
         is_active: false,
         external_knowledge: useExternalKnowledge,
       });
@@ -571,6 +767,12 @@ export const CreateBot = () => {
 
   const handleNext = async () => {
     if (currentStep === 0) {
+    if (!botId && userBotCount >= maxBotsAllowed) {
+      toast.error(
+        `You already have ${userBotCount} bots. Your plan allows only ${maxBotsAllowed} bot(s). Upgrade to create more.`
+      );
+      return;
+    }
       if (!botName.trim()) {
         toast.error("Please enter a bot name.");
         return;
@@ -592,6 +794,7 @@ export const CreateBot = () => {
         try {
           localStorage.removeItem("youtube_video_urls");
           localStorage.removeItem("selected_videos");
+          setHasYouTubeVideos(false);  
           const newBotId = await createBotEntry(botName);
           setBotId(newBotId);
           setSelectedBot({
@@ -612,54 +815,209 @@ export const CreateBot = () => {
           return;
         }
       }
+      
       setCurrentStep(currentStep + 1);
     } else if (currentStep === 1) {
-      if (selectedNodes.length === 0) {
-        // toast.error("Please select at least one page to scrape.");
-        // return;
-      }
 
-      setIsLoading(true);
 
-      try {
-        if (!selectedBot?.id) {
-          console.error("Bot ID is missing.");
-          return;
-        }
-        const data = await authApi.scrapeNodesAsync(
-          selectedNodes,
-          selectedBot?.id
-        );
-        console.log("Scraping started:", data);
-
-        if (data.status === "processing") {
-          // toast.info("Web scraping has started. You will be notified when it's complete.");
-          // toast.info("During bot creation, you can only scrape one website. To add more websites, go to bot settings after creation.");
-          localStorage.setItem("isScraped", "1");
-          setCurrentStep(currentStep + 1);
-        } else {
-          toast.error("Failed to start web scraping. Please try again.");
-        }
-      } catch (error) {
-        console.error("Error scraping website:", error);
-        toast.error("An error occurred while scraping. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    } else if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      handleFinish();
+      if (hasWebChanges || hasFileChanges || hasYouTubeChanges) {
+      toast.error("Please save your changes before proceeding");
+      return;
     }
-  };
+    if (hasWebsiteContent  || files.length > 0 || hasYouTubeContent) {
+        setCurrentStep(currentStep + 1);
+      } else {
+        toast.error("Please add at least one knowledge source (website, files, or YouTube videos)");
+      }
+       
+    //setCurrentStep(currentStep + 1);
+  } else if (currentStep < steps.length - 1) {
+    // For other steps just advance
+    setHasWebChanges(false);
+    setHasFileChanges(false);
+    setHasYouTubeChanges(false);
+    setCurrentStep(currentStep + 1);
+  }
+};
 
   const handleBack = () => {
+
+    if (currentStep === 1 && (hasWebChanges || hasFileChanges || hasYouTubeChanges)) {
+    toast.error("Please save your changes before going back");
+    return;
+  }
     if (currentStep === 0) {
-      navigate("/");
+      navigate("/",{ state: { botName,
+        botId,
+        fromDraft: !!location.state?.fromDraft
+       } });
     } else if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
   };
+
+  
+  const handleSaveWebContent = async () => {
+  if (!selectedBot?.id || selectedNodes.length === 0) return;
+  
+  try {
+    setIsLoadingSaveWeb(true);
+    const data = await authApi.scrapeNodesAsync(selectedNodes, selectedBot.id);
+    
+    if (data.status === "processing") {
+      
+      localStorage.setItem("isScraped", "1");
+      setSelectedNodes([]); 
+      setNodes([]); 
+      setWebsiteUrl("");
+      setHasWebChanges(false);
+      setHasScraped(true);
+
+      
+      toast.info("Your website content is being prepared. We'll notify you when it's ready.");
+      setHasWebsiteContent(true);
+    }
+  } catch (error) {
+    toast.error("Failed to start web scraping");
+  } finally {
+    setIsLoadingSaveWeb(false);
+  }
+};
+
+const handleSaveFiles = async () => {
+  if (!selectedBot?.id) return;
+  
+  try {
+    setIsLoadingSaveFiles(true);
+    let uploadedFileIds: string[] = [];
+    let totalWords = 0;
+    let totalSize = 0;
+
+    // First upload files if there are new ones
+    if (files.length > 0) {
+      // Separate new files (with File objects) from existing ones
+      const newFiles = files.filter(file => file.file);
+      const existingFiles = files.filter(file => !file.file);
+
+      if (newFiles.length > 0) {
+        const formData = new FormData();
+        newFiles.forEach((file) => {
+          if (file.file) formData.append("files", file.file);
+        });
+        formData.append("word_counts", JSON.stringify(newFiles.map(f => f.wordCount)));
+        formData.append("char_counts", JSON.stringify(newFiles.map(f => f.charCount)));
+        formData.append("bot_id", selectedBot.id.toString());
+
+        const uploadResponse = await authApi.uploadFilesWithCounts(formData) as UploadFilesResponse;
+        
+        if (!uploadResponse.success) {
+          throw new Error("File upload failed");
+        }
+
+        // Get the uploaded file IDs
+        if (uploadResponse.uploaded_files) {
+          uploadedFileIds = uploadResponse.uploaded_files.map(f => f.file_id);
+        }
+
+        // Update files state with new IDs
+        const updatedFiles = files.map((file, index) => {
+          // Only update IDs for new files
+          if (file.file && uploadedFileIds[index]) {
+            return {
+              ...file,
+              id: uploadedFileIds[index]
+            };
+          }
+          return file;
+        });
+
+        setFiles(updatedFiles);
+      }
+
+      // Calculate totals from all files (new and existing)
+      totalWords = files.reduce((sum, file) => sum + (file.wordCount || 0), 0);
+      totalSize = files.reduce((sum, file) => sum + file.size, 0);
+    }
+    // if (updateResponse.success) {
+      setHasFileChanges(false);
+      toast.success("Files saved successfully");
+      
+      // Update user usage - move current session to global
+      setUserUsage((prev) => ({
+        ...prev,
+        globalWordsUsed: prev.globalWordsUsed + prev.currentSessionWords,
+        globalStorageUsed: prev.globalStorageUsed ,
+        currentSessionWords: 0,
+        currentSessionStorage: 0,
+      }));
+
+      // Refresh files list from server to ensure consistency
+      const refreshedFiles = await authApi.getFiles(selectedBot.id);
+      const formattedFiles = refreshedFiles.map((file) => ({
+        id: file.file_id.toString(),
+        name: file.file_name,
+        type: file.file_type,
+        size: 0,
+        //file.original_file_size_bytes || parseFileSizeToBytes(file.file_size),
+        uploadDate: new Date(file.upload_date),
+        url: file.file_path,
+        wordCount: file.word_count,
+        charCount: file.character_count,
+      }));
+      setFiles(formattedFiles);
+    
+  } catch (error) {
+    console.error("Error saving files:", error);
+    toast.error(
+      error instanceof Error 
+        ? error.message 
+        : "Failed to save files. Please try again."
+    );
+  } finally {
+    setIsLoadingSaveFiles(false);
+  }
+};
+
+
+const handleSaveYouTube = async () => {
+  if (!selectedBot?.id) return;
+  
+  try {
+    setIsLoadingSaveYouTube(true);
+    const savedSelectedVideos = localStorage.getItem("selected_videos");
+    const parsedSelectedVideos = savedSelectedVideos
+      ? JSON.parse(savedSelectedVideos)
+      : [];
+
+    if (parsedSelectedVideos.length > 0) {
+      const response = await authApi.storeSelectedYouTubeTranscripts(
+        parsedSelectedVideos,
+        selectedBot.id
+      );
+      if (response && response.message) {
+         
+        localStorage.removeItem("selected_videos"); // Clear selected videos
+        localStorage.removeItem("youtube_video_urls"); // Clear video URLs
+        setHasYouTubeChanges(false);
+        setHasYouTubeVideos(false);
+        // ✅ Explicitly clear state in uploader
+        const savedVideoState = localStorage.getItem("selected_videos");
+        if (savedVideoState) {
+          localStorage.removeItem("selected_videos");
+        }
+
+        // ✅ Use window.dispatchEvent to send global reset event like a hack
+        window.dispatchEvent(new Event("resetYouTubeUploader"));
+        toast.info("Your YouTube videos are being processed. We'll notify you when they're ready.");
+        setHasYouTubeContent(true);
+      }
+    }
+  } catch (error) {
+    toast.error("Failed to process YouTube videos");
+  } finally {
+    setIsLoadingSaveYouTube(false);
+  }
+};
 
   const handleFinish = async () => {
     console.log("=== STARTING BOT FINALIZATION ===");
@@ -689,19 +1047,15 @@ export const CreateBot = () => {
       return;
     }
 
-    setIsLoading(true);
-    setLoading(true);
+    setIsLoadingSaveFiles(true);
+    setIsLoadingSaveFiles(true);
     try {
       if (selectedBot?.id) {
         console.log(
           "Updating bot word count with:",
           userUsage.currentSessionWords
         );
-        await authApi.updateBotWordCount({
-          bot_id: selectedBot.id,
-          word_count: userUsage.currentSessionWords,
-          file_size: userUsage.currentSessionStorage,
-        });
+
 
         // Update global words used after successful submission
         setUserUsage((prev) => {
@@ -741,8 +1095,14 @@ export const CreateBot = () => {
           JSON.stringify(filesToUpload.map((f) => f.charCount))
         );
         formData.append("bot_id", botId!.toString());
+        if (selectedBot?.id) {
+        console.log(
+          "Updating bot word count with:",
+          userUsage.currentSessionWords
+        );
 
-        const response = await authApi.uploadFilesWithCounts(formData);
+        //const response = await authApi.uploadFilesWithCounts(formData);
+        const response = await authApi.startTraining(selectedBot.id);
         console.log("Backend response:", response);
 
         if (response.success) {
@@ -751,7 +1111,7 @@ export const CreateBot = () => {
         } else {
           toast.error("Failed to upload files.");
         }
-      }
+      }}
 
       const savedSelectedVideos = localStorage.getItem("selected_videos");
       const parsedSelectedVideos = savedSelectedVideos
@@ -790,8 +1150,8 @@ export const CreateBot = () => {
 
       // ✅ Check if at least one source is provided
       if (!(isUploadSuccess || isYouTubeSuccess || isScraped)) {
-        setIsLoading(false);
-        setLoading(false);
+        setIsLoadingNext(false);
+        setIsLoadingNext(false);
         toast.error(
           "Please upload at least one file, one YouTube video, or scrape one website to create a bot."
         );
@@ -815,7 +1175,7 @@ export const CreateBot = () => {
             satisfaction: 0,
           });
 
-          toast.success("Your bot is now ready to use!");
+          //toast.success("Your bot is now ready to use!");
         } catch (error) {
           console.error("Error updating bot status:", error);
           toast.error("We couldn't activate your bot. Please try again.");
@@ -825,7 +1185,8 @@ export const CreateBot = () => {
       setTimeout(() => {
         localStorage.removeItem("youtube_video_urls");
         localStorage.removeItem("selected_videos");
-        navigate("/dashboard/upload");
+        //navigate("/dashboard/upload");
+        setCurrentStep(currentStep + 1);
       }, 7000);
     } catch (error) {
       console.error("Error creating bot:", error);
@@ -861,254 +1222,290 @@ export const CreateBot = () => {
     }
   };
 
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 0:
-        return (
-          <div className="space-y-4  ">
-            {/* <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 ">
-              Bot Name
-            </label> */}
-            <input
-              type="text"
-              value={botName}
-              onChange={(e) => setBotName(e.target.value)}
-              placeholder="Bot name"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-            />
+//   const handleTrainBot = () => {
+//   setIsLoading(true);
+//   // Show loader for 3 seconds
+//   setTimeout(() => {
+//     setIsLoading(false);
+//     navigate("/dashboard/upload");
+//   }, 3000);
+// };
 
-            {/* Knowledge Source Toggle */}
-            {/* <div className="pt-6">
-              <label
-                className="block font-medium mb-2"
-                style={{
-                  color: "#333333", // dark text color
-                  fontFamily: "Instrument Sans, sans-serif",
-                  fontSize: "16px",
-                  fontWeight: "600",
-                }}
-              >
-                Knowledge Source
-              </label>
+const handleTrainBot = async () => {
+  if (!selectedBot?.id) return;
+  
+  setIsLoading(true);
+  try {
+    // Update bot status to "Training" and set is_active to false
+    const response = await authApi.updateBotFields(selectedBot.id, {
+      status: "Training",
+      is_active: false,
+      is_trained: true 
+    });
 
-              <div className="flex items-center">
-                <span className="mr-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+    if (response.success) {
+      // Update local state
+      setSelectedBot({
+        ...selectedBot,
+        status: "Training",
+        is_active: false,
+        is_trained: true 
+      });
+
+      const processResponse  = await authApi.update_processed_with_training (selectedBot.id);
+
+      // Step 3: Training via Celery
+      // Step 3: Start training via Celery
+      const celeryStartResponse = await authApi.startTraining(selectedBot.id);
+
+      if (!celeryStartResponse.success) {
+        setIsLoading(false);
+        toast.error("Failed to trigger training");
+        return;
+      }
+
+      if (processResponse.success) {
+      // Show loader for 3 seconds before redirecting
+      setTimeout(() => {
+        setIsLoading(false);
+        navigate("/dashboard/upload");
+      }, 3000);
+    }else {
+        setIsLoading(false);
+        toast.error("Failed to mark processed training");
+      }
+    }  
+    else {
+      setIsLoading(false);
+      toast.error("Failed to start training");
+    }
+  } catch (error) {
+    console.error("Error updating bot status:", error);
+    setIsLoading(false);
+    toast.error("Failed to start training");
+  }
+};
+
+const renderStepContent = () => {
+  const [expandedSections, setExpandedSections] = useState({
+    webScraping: false,
+    fileUpload: false,
+    youtubeUpload: false
+  });
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  switch (currentStep) {
+    case 0:
+      return (
+        <div className="space-y-4">
+          <input
+            type="text"
+            value={botName}
+            onChange={(e) => setBotName(e.target.value)}
+            placeholder="Bot name"
+            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+          />
+
+          <div className="pt-6">
+            <label
+              className="block font-medium mb-2"
+              style={{
+                color: "#333333",
+                fontFamily: "Instrument Sans, sans-serif",
+                fontSize: "16px",
+                fontWeight: "600",
+              }}
+            >
+              Knowledge Source
+            </label>
+
+            <div className="flex flex-col space-y-4">
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  className="hidden"
+                  name="knowledgeSource"
+                  checked={!useExternalKnowledge}
+                  onChange={() => setUseExternalKnowledge(false)}
+                />
+                <span
+                  className={`h-4 w-4 mr-2 inline-block rounded-full border-2 flex items-center justify-center ${
+                    !useExternalKnowledge ? "border-blue-600 bg-blue-600" : "border-gray-400"
+                  }`}
+                  style={{
+                    borderColor: !useExternalKnowledge ? "#5348CB" : "#9CA3AF",
+                    backgroundColor: !useExternalKnowledge ? "#5348CB" : "transparent"
+                  }}
+                ></span>
+                <span
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                  style={{
+                    fontFamily: "Instrument Sans, sans-serif",
+                    fontSize: "16px",
+                    fontWeight: "400",
+                    color: "#000000",
+                  }}
+                >
                   Only provided knowledge
                 </span>
-                
-               
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={useExternalKnowledge}
-                    onChange={() =>
-                      setUseExternalKnowledge(!useExternalKnowledge)
-                    }
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                </label>
-                <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Include external knowledge when needed
-                </span>
-              </div>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                {`When enabled, external knowledge helps answer questions beyond your provided content.`}
-              </p>
-            </div> */}
-
-            {/* Knowledge Source RadioButton in two line  */}
-            <div className="pt-6 ">
-              <label
-                className="block font-medium mb-2"
-                style={{
-                  color: "#333333",
-                  fontFamily: "Instrument Sans, sans-serif",
-                  fontSize: "16px",
-                  fontWeight: "600",
-                }}
-              >
-                Knowledge Source
               </label>
 
-              <div className="flex flex-col space-y-4">
-                {/* First radio - always selected, not clickable */}
-                <label className="inline-flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    className="hidden"
-                    name="knowledgeSource"
-                    checked={!useExternalKnowledge}
-                    onChange={() => setUseExternalKnowledge(false)}
-                  />
-                  <span
-                    className={`h-4 w-4 mr-2 inline-block rounded-full border-2 flex items-center justify-center ${
-                      !useExternalKnowledge ? "border-blue-600 bg-blue-600" : "border-gray-400"
-                    }`}
-                    style={{
-                      borderColor: !useExternalKnowledge ? "#5348CB" : "#9CA3AF",
-                      backgroundColor: !useExternalKnowledge ? "#5348CB" : "transparent"
-                    }}
-                  ></span>
-                  <span
-                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                    style={{
-                      fontFamily: "Instrument Sans, sans-serif",
-                      fontSize: "16px",
-                      fontWeight: "400",
-                      color: "#000000",
-                    }}
-                  >
-                    Only provided knowledge
-                  </span>
-                </label>
-
-                {/* Second radio - toggleable */}
-                <label className="inline-flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    className="hidden"
-                    name="knowledgeSource"
-                    checked={useExternalKnowledge}
-                    onChange={() => setUseExternalKnowledge(true)}
-                  />
-                  <span
-                    className={`h-4 w-4 mr-2 inline-block rounded-full border-2 flex items-center justify-center ${
-                      useExternalKnowledge ? "border-blue-600 bg-blue-600" : "border-gray-400"
-                    }`}
-                    style={{
-                      borderColor: useExternalKnowledge ? "#5348CB" : "#9CA3AF",
-                      backgroundColor: useExternalKnowledge ? "#5348CB" : "transparent"
-                    }}
-                  ></span>
-                  <span
-                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                    style={{
-                      fontFamily: "Instrument Sans, sans-serif",
-                      fontSize: "16px",
-                      fontWeight: "400",
-                      color: "#000000",
-                    }}
-                  >
-                    Include external knowledge when needed
-                  </span>
-                </label>
-              </div>
-
-              <p
-                className="mt-2 text-xs text-gray-500 dark:text-gray-400"
-                style={{
-                  fontFamily: "Instrument Sans, sans-serif",
-                  fontSize: "14px",
-                  color: "#666666",
-                }}
-              >
-                When enabled, external knowledge helps answer questions beyond
-                your provided content.
-              </p>
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  className="hidden"
+                  name="knowledgeSource"
+                  checked={useExternalKnowledge}
+                  onChange={() => setUseExternalKnowledge(true)}
+                />
+                <span
+                  className={`h-4 w-4 mr-2 inline-block rounded-full border-2 flex items-center justify-center ${
+                    useExternalKnowledge ? "border-blue-600 bg-blue-600" : "border-gray-400"
+                  }`}
+                  style={{
+                    borderColor: useExternalKnowledge ? "#5348CB" : "#9CA3AF",
+                    backgroundColor: useExternalKnowledge ? "#5348CB" : "transparent"
+                  }}
+                ></span>
+                <span
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                  style={{
+                    fontFamily: "Instrument Sans, sans-serif",
+                    fontSize: "16px",
+                    fontWeight: "400",
+                    color: "#000000",
+                  }}
+                >
+                  Include external knowledge when needed
+                </span>
+              </label>
             </div>
+
+            <p
+              className="mt-2 text-xs text-gray-500 dark:text-gray-400"
+              style={{
+                fontFamily: "Instrument Sans, sans-serif",
+                fontSize: "14px",
+                color: "#666666",
+              }}
+            >
+              When enabled, external knowledge helps answer questions beyond
+              your provided content.
+            </p>
           </div>
-        );
+        </div>
+      );
 
-      case 1:
-        return <WebScrapingTab />;
-      // if (user.subscription_plan_id === 1) {
-      //   return <WebScrapingTab />;
-      // } else {
-      //   return <SubscriptionScrape />;
-      // }
-      // return (
-      //   <div className="space-y-4">
-      //     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-      //       Website URL
-      //     </label>
-      //     <div className="mt-1 flex">
-      //       <input
-      //         type="url"
-      //         value={websiteUrl}
-      //         onChange={(e) => setWebsiteUrl(e.target.value)}
-      //         placeholder="https://your-website.com"
-      //         className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-      //       />
-      //       <button
-      //         onClick={() => fetchNodes(websiteUrl)}
-      //         className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-      //       >
-      //         Submit
-      //       </button>
-      //     </div>
-      //     {nodes.length < 1 && (
-      //       <p className="text-sm text-gray-500">
-      //         This will help your chatbot understand your business context
-      //         better.
-      //       </p>
-      //     )}
-      //     {nodes.length > 0 && (
-      //       <p className="text-sm text-gray-500">
-      //         You can select up to <strong>10 pages</strong> for free. Want to
-      //         add more?{" "}
-      //         <a href="/subscription" className="text-blue-500 underline">
-      //           Upgrade your subscription
-      //         </a>
-      //         .
-      //       </p>
-      //     )}
+    case 1:
+      return (
+        <div className="space-y-4">
+          {/* Web Scraping Section */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100"
+              onClick={() => toggleSection('webScraping')}
+            >
+              <div className="flex items-center">
+                <Globe className="w-5 h-5 mr-3 text-gray-600" />
+                <h3 className="text-lg font-medium text-gray-900">Add Website Content</h3>
+              </div>
+              <ChevronDown 
+                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
+                  expandedSections.webScraping ? 'transform rotate-180' : ''
+                }`}
+              />
+            </button>
+            {expandedSections.webScraping && (
+              <div className="p-4">
+                  <WebScrapingTab 
+                    selectedNodes={selectedNodes} 
+                    setSelectedNodes={setSelectedNodes} 
+                    nodes={nodes}
+                    setNodes={setNodes}
+                    onChangesMade={() => setHasWebChanges(true)} 
+                    disableActions={true} 
+                    disableActions2={hasScraped}
+                    isCreateBotFlow={true}
+                  />
+                 <div className="flex justify-start mt-4">
+                  {/* <button
+                    onClick={handleSaveWebContent}
+                    disabled={!hasWebChanges || isLoadingSaveWeb}
+                    className={`px-4 py-2 rounded-md text-white ${
+                      hasWebChanges ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {isLoadingSaveWeb ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
+                    Save
+                  </button> */}
+                  <button
+                  onClick={handleSaveWebContent}
+                  disabled={!hasWebChanges || isLoadingSaveWeb || selectedNodes.length === 0}
+                  className={`px-4 py-2 rounded-md ${
+                  hasWebChanges && selectedNodes.length > 0
+                  ? 'bg-[#5348CB] hover:bg-[#4338a1] text-white'
+                  : 'bg-gray-400 text-black cursor-not-allowed'
+                  }`}>
+                  {isLoadingSaveWeb ? (
+                  <>
+                  <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                  Saving...
+                  </>
+                   ) : (
+                   'Save')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
-      //     {nodes.length > 0 && (
-      //       <div className="mt-4">
-      //         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-      //           Select Pages to Scrape:
-      //         </h4>
-      //         <div className="space-y-2">
-      //           {getPaginatedNodes().map((node, index) => (
-      //             <label key={index} className="flex items-center space-x-2">
-      //               <input
-      //                 type="checkbox"
-      //                 value={node}
-      //                 checked={selectedNodes.includes(node)}
-      //                 onChange={() => handleCheckboxChange(node)}
-      //                 className="h-5 w-5 text-blue-600 border-gray-400 rounded shrink-0"
-      //               />
-      //               <span className="text-sm text-gray-600 dark:text-gray-400">
-      //                 {node}
-      //               </span>
-      //             </label>
-      //           ))}
-      //         </div>
-      //         <div className="flex justify-center mt-4">
-      //           {renderPaginationButtons()}
-      //         </div>
-      //       </div>
-      //     )}
-      //   </div>
-      // );
-
-      case 2:
-        return (
-          <div>
+          {/* File upload section */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100"
+              onClick={() => toggleSection('fileUpload')}
+            >
+              <div className="flex items-center">
+                <Upload className="w-5 h-5 mr-3 text-gray-600" />
+                <h3 className="text-lg font-medium text-gray-900">Upload Files</h3>
+              </div>
+              <ChevronDown 
+                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
+                  expandedSections.fileUpload ? 'transform rotate-180' : ''
+                }`}
+              />
+            </button>
+            {expandedSections.fileUpload && (
+              <div className="p-4">
+            
             {/* File Dropzone */}
             <div
               {...getRootProps()}
-              className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors relative  "
+              className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors relative"
               style={{ backgroundColor: "#F8FDFF" }}
             >
               <input {...getInputProps()} />
               {isProcessingFiles && (
-                <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center  ">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2  " />
-                  <p className="text-gray-600 ">{processingMessage}</p>
+                <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
+                  <p className="text-gray-600">{processingMessage}</p>
                   <p className="text-xs text-gray-500 mt-1">
                     This may take a moment...
                   </p>
                 </div>
               )}
-              {/* <Upload className="mx-auto h-12 w-12 text-gray-400" /> */}
               <img
                 src="/images/dummy/folder.png"
                 alt="Upload Icon"
                 className="mx-auto h-12 w-12 object-contain"
               />
-              <p className="mt-2 text-sm text-gray-600 ">
+              <p className="mt-2 text-sm text-gray-600">
                 Drag and drop files here, or click to select files
               </p>
               <p className="text-xs text-gray-500 mt-1">
@@ -1117,11 +1514,12 @@ export const CreateBot = () => {
                 Docx, .png, .jpg, .jpeg, .gif files only))
               </p>
             </div>
-            <div className="flex flex-wrap justify-between gap-4 mt-4  ">
-              {/* Word Count Summary */}
-              <div className="flex-[0_0_48%] p-4 bg-white dark:bg-gray-700 rounded-lg  ">
+
+            {/* Word Count and Storage Summary */}
+            <div className="flex flex-wrap justify-between gap-4 mt-4">
+              <div className="flex-[0_0_48%] p-4 bg-white dark:bg-gray-700 rounded-lg">
                 <span
-                  className="text-gray-700 dark:text-gray-300 "
+                  className="text-gray-700 dark:text-gray-300"
                   style={{
                     fontFamily: "Instrument Sans, sans-serif",
                     fontSize: "18px",
@@ -1130,9 +1528,7 @@ export const CreateBot = () => {
                 >
                   Word Usage
                 </span>
-
-                {/* Progress Bar - Fixed Calculation */}
-                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600 mt-2 mb-2  ">
+                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600 mt-2 mb-2">
                   <div
                     className="h-2.5 rounded-full"
                     style={{
@@ -1146,8 +1542,7 @@ export const CreateBot = () => {
                     }}
                   ></div>
                 </div>
-
-                <div className="flex items-center justify-between mb-1  ">
+                <div className="flex items-center justify-between mb-1">
                   <span
                     className="text-sm font-medium"
                     style={{
@@ -1166,8 +1561,6 @@ export const CreateBot = () => {
                     )}
                   </span>
                 </div>
-
-                {/* Warning Messages */}
                 {remainingWords <= 0 ? (
                   <div className="mt-2 text-xs text-red-500 dark:text-red-400">
                     <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
@@ -1182,10 +1575,9 @@ export const CreateBot = () => {
                 ) : null}
               </div>
 
-              {/* File Storage Summary */}
               <div className="flex-[0_0_48%] p-4 bg-white dark:bg-gray-700 rounded-lg">
                 <span
-                  className="text-gray-700 dark:text-gray-300 "
+                  className="text-gray-700 dark:text-gray-300"
                   style={{
                     fontFamily: "Instrument Sans, sans-serif",
                     fontSize: "18px",
@@ -1194,8 +1586,6 @@ export const CreateBot = () => {
                 >
                   Storage
                 </span>
-
-                {/* Storage Progress Bar */}
                 <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600 mt-2 mb-2">
                   <div
                     className="h-2.5 rounded-full"
@@ -1210,7 +1600,6 @@ export const CreateBot = () => {
                     }}
                   ></div>
                 </div>
-
                 <div className="flex items-center justify-between mb-1">
                   <span
                     className="text-sm font-medium"
@@ -1230,8 +1619,6 @@ export const CreateBot = () => {
                     )}
                   </span>
                 </div>
-
-                {/* Storage Warning Messages */}
                 {remainingStorage <= 0 ? (
                   <div className="mt-2 text-xs text-red-500 dark:text-red-400">
                     <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
@@ -1247,9 +1634,10 @@ export const CreateBot = () => {
                 ) : null}
               </div>
             </div>
+
             {/* Uploaded Files Table */}
-            <div className="bg-white  mt-4">
-              <div className="p-4 ">
+            <div className="bg-white mt-4">
+              <div className="p-4">
                 <h2
                   className="text-gray-900 dark:text-white"
                   style={{
@@ -1272,11 +1660,11 @@ export const CreateBot = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Type
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Words
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Chars
+                        Words
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Size
@@ -1310,18 +1698,10 @@ export const CreateBot = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            {file.loadingCounts ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                            ) : file.error ? (
-                              <span className="text-xs text-red-500">
-                                Error
-                              </span>
-                            ) : (
-                              <span className="text-sm text-gray-500 dark:text-gray-400">
-                                {file.wordCount?.toLocaleString() || "0"}
-                              </span>
-                            )}
-                          </td>
+                         <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {file.status || "Pending"}
+                         </span>
+                       </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {file.loadingCounts ? (
                               <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
@@ -1331,7 +1711,7 @@ export const CreateBot = () => {
                               </span>
                             ) : (
                               <span className="text-sm text-gray-500 dark:text-gray-400">
-                                {file.charCount?.toLocaleString() || "0"}
+                                {file.wordCount?.toLocaleString() || "0"}
                               </span>
                             )}
                           </td>
@@ -1369,59 +1749,78 @@ export const CreateBot = () => {
                 </table>
               </div>
             </div>
+          <div className="flex justify-start mt-4">
+      <button
+        onClick={handleSaveFiles}
+        disabled={!hasFileChanges || isLoadingSaveFiles}
+        className={`px-4 py-2 rounded-md text-white ${
+          hasFileChanges ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'
+        }`}
+      >
+        {isLoadingSaveFiles ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
+        Save
+      </button>
+    </div>
+  </div>
+)}
+            </div>
 
-            {/* YouTube Uploader */}
-            <div className="mt-6 relative">
-              <h2
-                className="mb-2 text-gray-900 dark:text-white"
-                style={{
-                  fontSize: "18px",
-                  fontWeight: 600,
-                  fontFamily: "'Instrument Sans', sans-serif",
-                }}
-              >
-                Add YouTube videos
-              </h2>
-              {/* <p
-                className="text-gray-700 dark:text-gray-300"
-                style={{
-                  fontSize: "14px",
-                  fontWeight: 400,
-                  color: "#666666",
-                  fontFamily: "'Instrument Sans', sans-serif",
-                  marginTop: 0,
-                }}
-              >
-                Import videos from YouTube
-              </p> */}
-              {/* This container holds both the uploader and overlay */}
-              <div className="min-h-[100px] mb-10 ">
-                <YouTubeUploader maxVideos={5} />
-                {/* <p
-                  className="mb-2 mt-2"
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: 400,
-                    fontFamily: "'Instrument Sans', sans-serif",
-                    color: "#666666",
-                  }}
+          {/* YouTube Upload Section */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100"
+              onClick={() => toggleSection('youtubeUpload')}
+            >
+              <div className="flex items-center">
+                <MessageSquare className="w-5 h-5 mr-3 text-gray-600" />
+                <h3 className="text-lg font-medium text-gray-900">Add YouTube Videos</h3>
+              </div>
+              <ChevronDown 
+                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
+                  expandedSections.youtubeUpload ? 'transform rotate-180' : ''
+                }`}
+              />
+            </button>
+            {expandedSections.youtubeUpload && (
+              <div className="p-4 relative">
+                <YouTubeUploader maxVideos={5}
+                 setIsVideoSelected={setHasYouTubeVideos} 
+                onChangesMade={() => setHasYouTubeChanges(true)}
+                disableActions={true}/>
+                <div className="flex justify-start mt-4">
+                <button
+                  onClick={handleSaveYouTube}
+                  disabled={!hasYouTubeChanges || isLoadingSaveYouTube}
+                  className={`px-4 py-2 rounded-md text-white ${
+                    hasYouTubeChanges ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'
+                  }`}
                 >
-                  Enter YouTube video or playlist URL
-                </p> */}
-
-                {/* Show upgrade message only for plans 1 and 2 */}
+                  {isLoadingSaveYouTube ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
+                  Save
+                </button>
+              </div>
                 {[1, 2].includes(user.subscription_plan_id) && (
                   <YouTubeUpgradeMessage requiredPlan="Growth" />
                 )}
               </div>
-            </div>
+            )}
           </div>
-        );
-      default:
-        return null;
-    }
-  };
+        </div>
+      );
 
+    case 2:
+      return (
+        <TrainingDataTab 
+          botId={selectedBot?.id || null}
+          onTrain={handleTrainBot}
+          onCancel={handleBack}
+          isLoading={isLoading}
+        />
+      );
+    default:
+      return null;
+  }
+};  
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-white py-8  ">
       <ToastContainer />
@@ -1488,60 +1887,56 @@ export const CreateBot = () => {
               {steps[currentStep].description}
             </p>
             {renderStepContent()}
-          </div>
-
-          <div className="flex justify-start  gap-x-3 m-2 mt-10 ">
-            <button
-              onClick={handleBack}
-              className="flex items-center px-6 py-2 rounded-lg border hover:bg-blue-50  "
-              style={{
-                backgroundColor: "#FFFFFF",
-                color: "#1D4ED8", // Tailwind's blue-700
-                borderColor: "#1D4ED8",
-                borderWidth: "1px",
-                fontFamily: "Instrument Sans, sans-serif",
-                fontSize: "16px",
-                fontWeight: 500,
-                borderRadius: "12px",
-                minWidth: "100px",
-              }}
-            >
-              Cancel
-            </button>
-
-            <button
-              onClick={handleNext}
-              disabled={isLoading}
-              className={`flex items-center justify-center px-6 py-2 rounded-lg text-white font-medium min-w-[100px]
-    ${isLoading ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-    transition-colors duration-200
-  `}
-              style={{
-                fontFamily: "Instrument Sans, sans-serif",
-                fontSize: "16px",
-                backgroundColor: botName.trim() ? "#5348CB" : "#AAAAAA",
-              }}
-              onMouseEnter={(e) => {
-                if (botName.trim())
-                  e.currentTarget.style.backgroundColor = "#4034B1"; // hover shade
-              }}
-              onMouseLeave={(e) => {
-                if (botName.trim())
-                  e.currentTarget.style.backgroundColor = "#5348CB"; // original color
-              }}
-            >
-              {isLoading ? (
-                "Processing..."
-              ) : currentStep === steps.length - 1 ? (
-                "Finish"
-              ) : (
-                <>Next</>
-              )}
-            </button>
+    
+            {/* Only show navigation buttons for non-training steps */}
+            {currentStep !== 2 && (
+              <div className="flex justify-start gap-x-3 m-2 mt-10">
+                <button
+                  onClick={handleBack}
+                  className="flex items-center px-6 py-2 rounded-lg border hover:bg-blue-50"
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    color: "#1D4ED8",
+                    borderColor: "#1D4ED8",
+                    borderWidth: "1px",
+                    fontFamily: "Instrument Sans, sans-serif",
+                    fontSize: "16px",
+                    fontWeight: 500,
+                    borderRadius: "12px",
+                    minWidth: "100px",
+                  }}
+                >
+                  Previous
+                </button>
+                <button
+                onClick={handleNext}
+                disabled={
+                  isLoadingNext || 
+                  (currentStep === 0 && !botName.trim()) ||
+                  (currentStep === 1 && !hasAnyExistingContent && files.length === 0 && !hasYouTubeContent && !hasWebsiteContent)
+                }
+                className={`flex items-center justify-center px-6 py-2 rounded-lg text-white font-medium min-w-[100px]
+                  ${(isLoadingNext || 
+                    (currentStep === 0 && !botName.trim()) ||
+                    (currentStep === 1 && !hasAnyExistingContent && files.length === 0 && !hasYouTubeContent && !hasWebsiteContent)) 
+                    ? "cursor-not-allowed bg-gray-400" : "cursor-pointer bg-blue-600 hover:bg-blue-700"}
+                  transition-colors duration-200
+                `}
+              >
+                {isLoadingNext ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                    Processing...
+                  </>
+                ) : "Next"}
+              </button>
+              </div>
+            )}
           </div>
         </div>
+        </div>
       </div>
-    </div>
+   
   );
 };
 
