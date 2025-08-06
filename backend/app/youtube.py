@@ -15,6 +15,7 @@ import traceback
 from apify_client import ApifyClient
 from app.utils.upload_knowledge_utils import chunk_text
 
+
 # Load environment variables
 load_dotenv()
 
@@ -314,7 +315,7 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
             if existing_video:
                 # Update existing video with transcript content
                 existing_video.transcript = transcript
-                existing_video.embedding_status = "pending"
+                existing_video.status = "pending"
                 existing_video.last_embedded = None
                 existing_video.transcript_count = len(transcript.split())
                 db.commit()
@@ -427,7 +428,7 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
                     "bot_id": bot_id,
                     "transcript_count": word_count_transcript,
                     "transcript": transcript,
-                    "embedding_status": "pending"
+                    "status": "pending"
                 }
             else:
                 # Create minimal video data when metadata isn't available
@@ -450,7 +451,7 @@ def store_videos_in_chroma(bot_id: int, video_urls: list[str], db: Session):
                     "bot_id": bot_id,
                     "transcript_count": word_count_transcript,
                     "transcript": transcript,
-                    "embedding_status": "pending"
+                    "status": "pending"
                 }
 
             print(f"📝 Saving video data to database: {video_data['video_title']}")
@@ -639,3 +640,85 @@ def report_video_processing_results(db, bot_id, stored_videos, failed_videos):
     except Exception as e:
         print(f"❌ Error sending processing report: {e}")
         return False
+
+def save_video_metadata(db, bot_id: int, url: str, transcript: str, metadata: dict):
+    """Saves or updates YouTube video metadata and transcript in the database."""
+    try:
+        assert url, "video_url cannot be empty"
+
+        word_count = len(transcript.split())
+        video_id = metadata.get("video_id") or hashlib.md5(url.encode()).hexdigest()
+
+        # Upload date parsing
+        upload_date = None
+        if metadata.get("upload_date"):
+            try:
+                date_str = metadata.get("upload_date", "")
+                if "," in date_str:
+                    upload_date = datetime.strptime(date_str, "%b %d, %Y")
+            except Exception as e:
+                print(f"⚠️ Date parse error: {e}")
+
+        # Views parsing
+        views = 0
+        try:
+            views_str = str(metadata.get("views", "0")).replace(",", "").split()[0]
+            views = int(views_str)
+        except Exception as e:
+            print(f"⚠️ View parse error: {e}")
+
+        # Likes parsing
+        likes = 0
+        try:
+            likes_str = str(metadata.get("likes", "0")).replace(",", "")
+            if "K" in likes_str:
+                likes = int(float(likes_str.replace("K", "")) * 1_000)
+            elif "M" in likes_str:
+                likes = int(float(likes_str.replace("M", "")) * 1_000_000)
+            else:
+                if likes_str.isdigit():
+                    likes = int(likes_str)
+                else:
+                    raise ValueError(f"Unexpected likes format: '{likes_str}'")
+        except Exception as e:
+            print(f"⚠️ Like parse error: {e}")
+
+        # Check for existing video
+        existing_video = db.query(YouTubeVideo).filter(
+            YouTubeVideo.video_id == video_id,
+            YouTubeVideo.bot_id == bot_id,
+            YouTubeVideo.is_deleted == False
+        ).first()
+        print("video titel",metadata.get("video_title"))
+
+        if existing_video:
+            # Update existing video record
+            existing_video.transcript = transcript
+            existing_video.transcript_count = word_count
+            existing_video.status = "Extracted"
+            existing_video.last_embedded = None
+            existing_video.video_title = metadata.get("video_title") or existing_video.video_title or "Untitled Video"
+            existing_video.channel_id = metadata.get("channel_id")
+            existing_video.channel_name = metadata.get("channel_name", "Unknown Channel")
+            existing_video.duration = metadata.get("duration", 0)
+            existing_video.upload_date = upload_date
+            existing_video.is_playlist = metadata.get("is_playlist", False)
+            existing_video.playlist_id = metadata.get("playlist_id")
+            existing_video.playlist_name = metadata.get("playlist_name")
+            existing_video.view_count = views
+            existing_video.likes = likes
+            existing_video.description = metadata.get("description", "")
+            existing_video.thumbnail_url = metadata.get("thumbnail_url")
+        else:
+            print(f"⚠️ Video not found in DB for update (video_id={video_id}, bot_id={bot_id}). Possibly deleted during extraction.")
+            return  # Skip inserting
+
+
+        db.commit()
+
+        print(f"✅ Saved video: {existing_video.video_title }")
+
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Failed to save metadata for {url}: {e}")
+        raise

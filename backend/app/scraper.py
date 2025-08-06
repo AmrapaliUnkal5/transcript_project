@@ -18,6 +18,7 @@ from urllib.parse import urlparse, urlunparse, urljoin, urldefrag, parse_qsl, ur
 import time
 from typing import List, Optional
 from concurrent.futures import ThreadPoolExecutor
+from app.word_count_validation import validate_cumulative_word_count_sync_for_celery
 
 NON_HTML_EXTENSIONS = (
     ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg",
@@ -28,17 +29,63 @@ NON_HTML_EXTENSIONS = (
 # Function to detect if JavaScript is needed
 def is_js_heavy(url):
     """
-    Check if the website is JavaScript-heavy by looking for script tags.
+    Check if the website is JavaScript-heavy by looking for script tags and modern JS frameworks.
     """
     try:
         print(f"[DEBUG] Checking if {url} is JS-heavy")
-        response = requests.get(url, timeout=5)
-        if "<script" in response.text.lower() or "react" in response.text.lower() or "angular" in response.text.lower():
-            print(f"[DEBUG] {url} is JS-heavy")
+        response = requests.get(url, timeout=5, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+        
+        html_content = response.text.lower()
+        
+        # Check for script tags
+        if "<script" in html_content:
+            print(f"[DEBUG] {url} has script tags - JS-heavy")
             return True
+        
+        # Check for modern JavaScript frameworks and libraries
+        js_indicators = [
+            'react', 'angular', 'vue.js', 'vue', 'ember', 'backbone',
+            'knockout', 'meteor', 'polymer', 'aurelia', 'svelte',
+            'lit-element', 'stencil', 'alpine.js', 'alpine',
+            'lwc', 'lightning', 'salesforce',  # Salesforce Lightning Web Components
+            'webpack', 'browserify', 'rollup', 'parcel',
+            'next.js', 'nuxt', 'gatsby', 'sveltekit',
+            'require.js', 'systemjs', 'esm.sh',
+            'data-react', 'data-vue', 'ng-app', 'ng-controller',
+            '__next', '__nuxt', '_app', 'chunk-', 'vendor.',
+            'spa-', 'single-page', 'client-side',
+            'xhr', 'fetch(', 'websocket', 'socket.io',
+            'json-ld', 'application/ld+json',
+        ]
+        
+        for indicator in js_indicators:
+            if indicator in html_content:
+                print(f"[DEBUG] {url} contains '{indicator}' - JS-heavy")
+                return True
+        
+        # Check for minimal HTML content (likely dynamic)
+        # Remove script and style content for analysis
+        import re
+        clean_html = re.sub(r'<script.*?</script>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+        clean_html = re.sub(r'<style.*?</style>', '', clean_html, flags=re.DOTALL | re.IGNORECASE)
+        
+        # Extract text content
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(clean_html, "html.parser")
+        text_content = soup.get_text(strip=True)
+        
+        # If very little text content, likely JS-heavy
+        if len(text_content) < 200:
+            print(f"[DEBUG] {url} has minimal text content ({len(text_content)} chars) - likely JS-heavy")
+            return True
+            
     except Exception as e:
         print(f"[DEBUG] Error checking if {url} is JS-heavy: {str(e)}")
+        # If we can't determine, assume JS-heavy for safety
         return True
+    
     print(f"[DEBUG] {url} is not JS-heavy")
     return False
 
@@ -48,20 +95,78 @@ def scrape_static_page(url):
     try:
         print(f"[DEBUG] Starting static scraping for {url}")
         
-        response = requests.get(url, timeout=5)
+        # Add better headers to avoid blocking
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+        }
+        
+        response = requests.get(url, timeout=10, headers=headers)
         if response.status_code != 200:
             print(f"[DEBUG] Failed to fetch {url}: Status code {response.status_code}")
             return None
 
         soup = BeautifulSoup(response.text, "html.parser")
-        title = soup.title.string if soup.title else "No title"
-        text = " ".join([p.get_text() for p in soup.find_all("p")])
+        
+        # Extract title
+        title = soup.title.string if soup.title else ""
+        if title:
+            title = title.strip()
+        
+        # Remove script and style elements
+        for script in soup(["script", "style"]):
+            script.decompose()
+        
+        # Try multiple strategies to extract meaningful content
+        text = ""
+        
+        # Strategy 1: Look for main content areas
+        main_content_selectors = [
+            'main', '[role="main"]', '.main-content', '.content', 
+            'article', '.article', '#content', '.page-content',
+            '.post-content', '.entry-content'
+        ]
+        
+        for selector in main_content_selectors:
+            elements = soup.select(selector)
+            if elements and elements[0].get_text(strip=True):
+                text = elements[0].get_text(separator=' ', strip=True)
+                print(f"[DEBUG] Found content using selector: {selector}")
+                break
+        
+        # Strategy 2: If no main content found, extract from common text elements
+        if not text or len(text.strip()) < 50:
+            text_elements = soup.find_all(['p', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th'])
+            text_parts = []
+            for element in text_elements:
+                element_text = element.get_text(strip=True)
+                if element_text and len(element_text) > 10:  # Only include substantial text
+                    text_parts.append(element_text)
+            text = ' '.join(text_parts)
+            print(f"[DEBUG] Extracted text from multiple elements")
+        
+        # Strategy 3: Last resort - get all text from body
+        if not text or len(text.strip()) < 50:
+            body = soup.find('body')
+            if body:
+                text = body.get_text(separator=' ', strip=True)
+                print(f"[DEBUG] Extracted all text from body")
+            else:
+                text = soup.get_text(separator=' ', strip=True)
+                print(f"[DEBUG] Extracted all text from document")
+        
+        # Clean up the text
+        text = ' '.join(text.split())  # Normalize whitespace
         
         print(f"[DEBUG] Static scraping results for {url}:")
         print(f"[DEBUG] - Title: {title}")
         print(f"[DEBUG] - Text length: {len(text)} characters")
         
-        if not title:
+        if not title and text:
             title = extract_page_title(text)  
         word_count = len(text.split())
         print(f"[DEBUG] - Word count: {word_count}")
@@ -81,29 +186,134 @@ def scrape_dynamic_page(url):
     try:
         with sync_playwright() as p:
             print(f"[DEBUG] Playwright initialized for {url}")
-            browser = p.chromium.launch(headless=True)
-            print(f"[DEBUG] Browser launched for {url}")
-            page = browser.new_page()
-            print(f"[DEBUG] Navigating to {url}")
-            page.goto(url, timeout=10000)
-            print(f"[DEBUG] Waiting for page to load {url}")
-            page.wait_for_load_state("networkidle")
-            print(f"[DEBUG] Page loaded {url}")
             
-            title = page.title()  # Extract the page title           
-            text = page.inner_text("body")
+            # Improved browser configuration
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox', 
+                    '--disable-dev-shm-usage',
+                    '--disable-blink-features=AutomationControlled'
+                ]
+            )
+            
+            # Better context configuration
+            context = browser.new_context(
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                viewport={'width': 1920, 'height': 1080},
+                extra_http_headers={
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                }
+            )
+            
+            page = context.new_page()
+            
+            # Set longer timeout for complex sites
+            page.set_default_timeout(60000)
+            
+            print(f"[DEBUG] Navigating to {url}")
+            
+            # Try different loading strategies
+            try:
+                # Strategy 1: Load with 'load' event (faster, works for most sites)
+                page.goto(url, wait_until='load', timeout=30000)
+                print(f"[DEBUG] Page loaded with 'load' event")
+                
+                # Wait for JavaScript frameworks to initialize
+                time.sleep(8)
+                
+            except Exception as load_error:
+                print(f"[DEBUG] Load strategy failed: {load_error}")
+                try:
+                    # Strategy 2: Fallback to networkidle with shorter timeout
+                    print(f"[DEBUG] Trying networkidle strategy")
+                    page.goto(url, wait_until='networkidle', timeout=20000)
+                    print(f"[DEBUG] Page loaded with networkidle")
+                except Exception as networkidle_error:
+                    print(f"[DEBUG] Networkidle strategy also failed: {networkidle_error}")
+                    # Strategy 3: Basic domcontentloaded + wait
+                    page.goto(url, wait_until='domcontentloaded', timeout=15000)
+                    time.sleep(10)
+                    print(f"[DEBUG] Page loaded with domcontentloaded + wait")
+
+            print(f"[DEBUG] Page navigation completed for {url}")
+            
+            # Try to wait for common content indicators
+            try:
+                # Wait for any substantial content to appear
+                page.wait_for_function(
+                    "() => document.body && document.body.innerText.length > 100",
+                    timeout=15000
+                )
+                print(f"[DEBUG] Content appeared")
+            except:
+                print(f"[DEBUG] Content wait timeout, proceeding anyway")
+            
+            # Extract title
+            title = page.title() or ""
+            
+            # Try multiple content extraction strategies
+            text = ""
+            
+            # Strategy 1: Try to find main content areas
+            main_selectors = [
+                'main', '[role="main"]', '.main-content', '.content',
+                'article', '.page-content', '#content'
+            ]
+            
+            for selector in main_selectors:
+                try:
+                    elements = page.query_selector_all(selector)
+                    if elements:
+                        extracted_text = page.inner_text(selector)
+                        if len(extracted_text.strip()) > 100:
+                            text = extracted_text
+                            print(f"[DEBUG] Found content using selector: {selector}")
+                            break
+                except:
+                    continue
+            
+            # Strategy 2: Extract from body if main content not found
+            if not text or len(text.strip()) < 100:
+                try:
+                    text = page.inner_text("body")
+                    print(f"[DEBUG] Extracted content from body")
+                except:
+                    pass
+            
+            # Strategy 3: Try text_content as fallback
+            if not text or len(text.strip()) < 100:
+                try:
+                    text = page.text_content("body") or ""
+                    print(f"[DEBUG] Extracted content using text_content")
+                except:
+                    pass
+            
+            # Strategy 4: Last resort - get all visible text
+            if not text or len(text.strip()) < 50:
+                try:
+                    text = page.evaluate("() => document.body.innerText") or ""
+                    print(f"[DEBUG] Extracted content using JavaScript evaluation")
+                except:
+                    text = ""
+            
+            # Clean up the text
+            text = ' '.join(text.split()) if text else ""
             
             print(f"[DEBUG] Dynamic scraping results for {url}:")
             print(f"[DEBUG] - Title: {title}")
             print(f"[DEBUG] - Text length: {len(text)} characters")
             
-            if not title:
+            if not title and text:
                 title = extract_page_title(text)            
-            word_count = len(text.split())
+            word_count = len(text.split()) if text else 0
             print(f"[DEBUG] - Word count: {word_count}")
             
             browser.close()
             return {"url": url, "title": title,"text": text,"word_count":word_count}
+            
     except Exception as e:
         print(f"[ERROR] Error scraping {url} with Playwright: {e}")
         import traceback
@@ -111,7 +321,7 @@ def scrape_dynamic_page(url):
         return None
 
 # Hybrid scraping function
-def scrape_selected_nodes(url_list, bot_id, db: Session):
+def scrape_selected_nodes2(url_list, bot_id, db: Session):
     logger = get_module_logger(__name__)
     
     logger.info(f"Starting scrape_selected_nodes", 
@@ -245,14 +455,14 @@ def scrape_selected_nodes(url_list, bot_id, db: Session):
     if crawled_data:
         try:
             save_scraped_nodes(crawled_data, bot_id, db)
-            logger.info(f"Saved scraped nodes to database", 
+            logger.info(f"Saved scraped nodes to database",
                       extra={"bot_id": bot_id, "count": len(crawled_data)})
         except Exception as save_err:
-            logger.error(f"Failed to save scraped nodes", 
+            logger.error(f"Failed to save scraped nodes",
                        extra={"bot_id": bot_id, "error": str(save_err)})
     else:
         logger.warning(f"No data was scraped from any URL", extra={"bot_id": bot_id})
-        
+
         # Create completion notification even if no URLs were successfully scraped
         try:
             bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
@@ -266,7 +476,7 @@ def scrape_selected_nodes(url_list, bot_id, db: Session):
                 )
                 logger.info(f"Sent empty completion notification", extra={"bot_id": bot_id})
         except Exception as notify_err:
-            logger.error(f"Failed to send empty completion notification", 
+            logger.error(f"Failed to send empty completion notification",
                        extra={"bot_id": bot_id, "error": str(notify_err)})
 
     return crawled_data
@@ -494,18 +704,20 @@ def save_scraped_nodes(url_list, bot_id, db: Session):
         if url_list:  # Only proceed if there are URLs
             # Extract domain from first URL
             first_url = url_list[0]["url"]
+            print("first_url")
             domain = urlparse(first_url).netloc
+            print("domain",domain)
             
             # Check if website exists or create it
             website = db.query(WebsiteDB).filter(
                 WebsiteDB.domain == domain,
-                WebsiteDB.bot_id == bot_id
+                WebsiteDB.bot_id == bot_id,
+                WebsiteDB.is_deleted == False
             ).first()
             
             if not website:
-                website = WebsiteDB(domain=domain, bot_id=bot_id)
-                db.add(website)
-                db.flush()
+                print(f"❌ Website '{domain}' not found or was deleted for bot_id={bot_id}. Skipping all updates.")
+                return  # Exit early if the website is not valid
 
         for item in url_list:
             url = item["url"]
@@ -531,22 +743,11 @@ def save_scraped_nodes(url_list, bot_id, db: Session):
                 
                 # Update nodes_text field with text content
                 existing_node.nodes_text = text_content
-                existing_node.embedding_status = "pending"
+                existing_node.nodes_text_count = word_count
+                existing_node.status = "Extracted"
                 existing_node.last_embedded = None
                 print("Website node updated with text content")
-            else:
-                print("New")
-                # Insert new record with text content
-                new_node = ScrapedNode(
-                    url=url, 
-                    title=title, 
-                    bot_id=bot_id,
-                    website_id=website.id,
-                    nodes_text_count=word_count if website else None,
-                    nodes_text=text_content,
-                    embedding_status="pending"
-                )
-                db.add(new_node)
+                #Add notification only for existing and updated nodes
                 event_type = "SCRAPED_URL_SAVED"
                 event_data = f"URL '{url}' for bot added successfully. {word_count} words extracted."
                 add_notification(
@@ -556,8 +757,10 @@ def save_scraped_nodes(url_list, bot_id, db: Session):
                     event_data=event_data,
                     bot_id=bot_id,
                     user_id=None
-
-                    )
+                )
+            else:
+                print(f"⚠️ Node for URL not found in DB (maybe deleted): {url}. Skipping insert.")
+                continue  # Don't insert, just move to the next
 
         db.commit()  # Commit changes to the database
         print("✅ Scraped nodes with titles saved successfully!")
@@ -569,12 +772,12 @@ def save_scraped_nodes(url_list, bot_id, db: Session):
         db.close()  # Close the session
 
 def get_scraped_urls_func(bot_id, db: Session):
-    scraped_nodes = db.query(ScrapedNode.url, ScrapedNode.title, ScrapedNode.nodes_text_count,ScrapedNode.created_at).filter(
+    scraped_nodes = db.query(ScrapedNode.url, ScrapedNode.title, ScrapedNode.nodes_text_count,ScrapedNode.created_at, ScrapedNode.status, ScrapedNode.error_code).filter(
         ScrapedNode.bot_id == bot_id,
         ScrapedNode.is_deleted == False
     ).all()
     print("Scrapped Node=>",scraped_nodes)
-    return [{"url": node[0], "title": node[1], "Word_Counts": node[2], "upload_date": node[3] } for node in scraped_nodes]  # Extract URL & Title
+    return [{"url": node[0], "title": node[1], "Word_Counts": node[2], "upload_date": node[3], "status": node[4], "error_code": node[5] } for node in scraped_nodes]  # Extract URL & Title
 
 def extract_page_title(html_content):
     """Extracts the title from HTML content."""
@@ -633,3 +836,172 @@ def send_web_scraping_failure_notification(db: Session, bot_id: int, reason: str
         print(f"✅ Web scraping failure notification sent for bot {bot_id}")
     except Exception as e:
         print(f"❌ Error sending web scraping failure notification: {str(e)}")
+
+
+# Hybrid scraping function
+def scrape_selected_nodes(url_list, bot_id, db: Session):
+    logger = get_module_logger(__name__)
+
+    logger.info(f"Starting scrape_selected_nodes",
+               extra={"bot_id": bot_id, "url_count": len(url_list), "urls": url_list})
+
+    crawled_data = []
+    failed_urls = []
+
+    for url in url_list:
+        logger.info(f"Processing URL", extra={"bot_id": bot_id, "url": url})
+        result = None
+
+        try:
+            if is_js_heavy(url):
+                logger.info(f"JavaScript detected - Using Playwright", extra={"bot_id": bot_id, "url": url})
+                result = scrape_dynamic_page(url)
+                print("result",result)
+            else:
+                logger.info(f"Static HTML detected - Using BeautifulSoup", extra={"bot_id": bot_id, "url": url})
+                result = scrape_static_page(url)
+                print("result",result)
+                # If result is None or text is empty, fallback to dynamic
+                if not result or not result.get("text"):
+                    logger.warning(f"Static scraping failed or returned empty text. Falling back to dynamic scraping.",
+                                extra={"bot_id": bot_id, "url": url})
+                    result = scrape_dynamic_page(url)
+
+            if result:
+                logger.info(f"Successfully scraped URL",
+                          extra={"bot_id": bot_id, "url": url, "title": result.get("title", "No Title")})
+                crawled_data.append(result)
+
+                if result["text"]:
+                    logger.info(f"Extracted text content",
+                              extra={"bot_id": bot_id, "url": url,
+                                   "word_count": result["word_count"],
+                                   "text_length": len(result["text"])})
+                    print("word_count", result["word_count"])
+                    print("text", result["text"])
+
+                else:
+                    logger.warning(f"No text content extracted",
+                                 extra={"bot_id": bot_id, "url": url})
+            else:
+                logger.warning(f"No content was scraped", extra={"bot_id": bot_id, "url": url})
+                failed_urls.append(url)
+                send_web_scraping_failure_notification(db=db,bot_id=bot_id,reason=f"URL '{url}' failed. No content was scraped.")
+
+        except Exception as e:
+            logger.error(f"Unexpected error processing URL",
+                       extra={"bot_id": bot_id, "url": url, "error": str(e)})
+            import traceback
+            logger.error(f"Processing traceback",
+                       extra={"bot_id": bot_id, "url": url,
+                             "traceback": traceback.format_exc()})
+            failed_urls.append(url)
+            send_web_scraping_failure_notification(db=db,bot_id=bot_id,reason=f"URL '{url}' failed with error: {str(e)}")
+
+    logger.info(f"Scraping completed",
+              extra={"bot_id": bot_id, "successful": len(crawled_data),
+                   "failed": len(failed_urls)})
+
+    if crawled_data:
+        try:
+            total_word_count = sum(item["word_count"] for item in crawled_data)
+            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+            user_id = bot.user_id if bot else None
+
+            for item in crawled_data:
+                try:
+                    # Validate this node's word count
+                    validate_cumulative_word_count_sync_for_celery(
+                        item["word_count"],
+                        {"user_id": user_id},
+                        db
+                    )
+                    # ✅ Save single node
+                    save_scraped_nodes([item], bot_id, db)
+
+                except Exception as wc_error:
+                    # ❌ Mark this node as failed
+                    logger.warning(f"❌ Word count exceeded for URL. Marking as FAILED", extra={
+                        "bot_id": bot_id,
+                        "url": item["url"],
+                        "error": str(wc_error)
+                    })
+
+                    node = db.query(ScrapedNode).filter(
+                        ScrapedNode.bot_id == bot_id,
+                        ScrapedNode.url == item["url"],
+                        ScrapedNode.is_deleted == False
+                    ).first()
+
+                    if node:
+                        node.status = "Failed"
+                        node.error_code = "Word count exceeds your subscription plan limit."
+                        node.nodes_text = item.get("text", "")
+                        node.title = item.get("title", "No Title")
+                        node.updated_at = datetime.utcnow()
+                        node.updated_by = user_id
+                        db.commit()
+
+                    send_web_scraping_failure_notification(
+                        db=db,
+                        bot_id=bot_id,
+                        reason=f"Word count exceeded for URL: {item['url']}"
+                    )
+            logger.info(f"Saved scraped nodes to database",
+                      extra={"bot_id": bot_id, "count": len(crawled_data)})
+        except Exception as save_err:
+            logger.error(f"Failed to save scraped nodes",
+                       extra={"bot_id": bot_id, "error": str(save_err)})
+    else:
+        logger.warning(f"No data was scraped from any URL", extra={"bot_id": bot_id})
+
+        # Create completion notification even if no URLs were successfully scraped
+        try:
+            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+            if bot:
+                add_notification(
+                    db=db,
+                    event_type="WEB_SCRAPING_COMPLETED",
+                    event_data=f"Web scraping completed but no content was found on the provided URLs.",
+                    bot_id=bot_id,
+                    user_id=bot.user_id
+                )
+                logger.info(f"Sent empty completion notification", extra={"bot_id": bot_id})
+        except Exception as notify_err:
+            logger.error(f"Failed to send empty completion notification",
+                       extra={"bot_id": bot_id, "error": str(notify_err)})
+
+     # Mark all failed URLs in the database
+    if failed_urls:
+        logger.info(f"Marking {len(failed_urls)} URLs as FAILED in database", extra={"bot_id": bot_id})
+        try:
+            mark_scraped_nodes_failed(
+                db=db,
+                bot_id=bot_id,
+                urls=failed_urls,
+                error_message="Extraction Failed"
+            )
+        except Exception as mark_fail_err:
+            logger.error("❌ Failed to mark URLs as FAILED", extra={
+                "bot_id": bot_id,
+                "error": str(mark_fail_err)
+            })
+
+    return crawled_data
+
+def mark_scraped_nodes_failed(db: Session, bot_id: int, urls: list, error_message: str):
+    try:
+        for url in urls:
+            node = db.query(ScrapedNode).filter(
+                ScrapedNode.url == url,
+                ScrapedNode.bot_id == bot_id,
+                ScrapedNode.is_deleted == False
+            ).first()
+            if node:
+                node.status = "Failed"
+                node.error_code = error_message
+        db.commit()
+    except Exception as e:
+        import traceback
+        print(f"❌ Failed to mark scraped nodes as FAILED for bot {bot_id}: {str(e)}")
+        print(traceback.format_exc())

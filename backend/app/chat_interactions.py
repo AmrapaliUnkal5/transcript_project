@@ -364,6 +364,10 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     # ✅ Extract actual response string
     bot_reply_text = bot_reply_dict["bot_reply"]
     
+    # ✅ Parse response for formatting
+    from app.utils.response_parser import parse_llm_response
+    formatted_content = parse_llm_response(bot_reply_text)
+    
     # ✅ Log LLM generation completion
     ai_logger.info("LLM response generation completed", extra={
         "ai_task": {
@@ -455,6 +459,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     return {
         "message": bot_reply_text,
         "message_id": bot_message.message_id,
+        "formatted_content": formatted_content,
         "sources": document_sources,
         "is_greeting": is_greeting(request.message_text)
     }

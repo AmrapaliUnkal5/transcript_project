@@ -9,13 +9,21 @@ import { toast } from "react-toastify";
 interface YouTubeUploaderProps {
   maxVideos?: number;
   refreshKey?: number; // Add refreshKey prop
-  setIsVideoSelected?: React.Dispatch<React.SetStateAction<boolean>>; // Add this prop
+  setIsVideoSelected?: React.Dispatch<React.SetStateAction<boolean>>; 
+  onChangesMade?: () => void; 
+  isReconfiguring?: boolean;
+  disableActions?: boolean;  
+  isConfigured: boolean;
 }
 
 const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
+  isConfigured = true,
   maxVideos = 0, // Default to 0
   refreshKey = 0, // Default to 0 (since it's a number)
-  setIsVideoSelected = () => {}, // Default to a no-op function
+  setIsVideoSelected = () => {}, 
+  onChangesMade,
+  isReconfiguring = false, // Default to false
+  disableActions = false,
 }) => {
   const { selectedBot } = useBot(); // Use BotContext
   const [youtubeUrl, setYoutubeUrl] = useState("");
@@ -29,6 +37,20 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
   const [refreshKeyState, setRefreshKeyState] = useState<number>(0);
   const [scrapeSuccess, setScrapeSuccess] = useState(false);
 
+
+  useEffect(() => {
+  const handleReset = () => {
+    setVideoUrls([]);
+    setSelectedVideos([]);
+    setYoutubeUrl("");
+  };
+
+  window.addEventListener("resetYouTubeUploader", handleReset);
+
+  return () => {
+    window.removeEventListener("resetYouTubeUploader", handleReset);
+  };
+}, []);
 
   // ✅ Reload video URLs when refreshKey changes
   useEffect(() => {
@@ -86,6 +108,13 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
 
   const handleFetchVideos = async () => {
     if (!youtubeUrl) return;
+
+    // Only check isReconfiguring if disableActions is false
+    if (!disableActions && !isReconfiguring) {
+      toast.error("Please click Reconfigure first before adding YouTube videos");
+      return;
+    }
+
     try {
       console.log("selectedBot?.id", selectedBot?.id);
       setLoading(true);
@@ -139,14 +168,29 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
   };
 
   const handleSelectVideo = (videoUrl: string) => {
+    
+     if (!disableActions && !isReconfiguring) {
+      toast.error("Please click Reconfigure first before selecting videos");
+      return;
+    }
+
     if (selectedVideos.includes(videoUrl)) {
+      const newSelectedVideos = selectedVideos.filter((url) => url !== videoUrl);
       setSelectedVideos(selectedVideos.filter((url) => url !== videoUrl));
+      setIsVideoSelected(newSelectedVideos.length > 0);
     } else {
+      const newSelectedVideos = [...selectedVideos, videoUrl];
       setSelectedVideos([...selectedVideos, videoUrl]);
       setIsVideoSelected(true);
     }
+    if (onChangesMade) onChangesMade(); 
   };
 
+  const handleVideoSelection = (videos: any[]) => {
+    setIsVideoSelected(videos.length > 0);
+    if (onChangesMade) onChangesMade(); // Call the callback
+  };
+  
   const handleScrape = async () => {
     if (selectedVideos.length === 0) {
       toast.error("Please select at least one video to process.");
@@ -222,6 +266,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
     {pageNumber}
   </button>
 );
+console.log("isConfigured:", isConfigured, "isReconfiguring:", isReconfiguring);
 
 const renderPaginationButtons = () => {
   const buttons = [];
@@ -300,8 +345,11 @@ const renderPaginationButtons = () => {
           type="text"
           placeholder="YouTube URL"
           value={youtubeUrl}
-          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+          // className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
           onChange={(e) => setYoutubeUrl(e.target.value)}
+          // disabled={!isConfigured}
+          disabled={!isReconfiguring && !isConfigured}
         />
 
         <button
@@ -319,7 +367,9 @@ const renderPaginationButtons = () => {
     textAlign: 'center',
     borderRadius: '0.375rem', // same as rounded-md
   }}
-          disabled={loading} // Disable button when loading
+          //disabled={loading} // Disable button when loading
+          // disabled={!isConfigured || loading}
+          disabled={!isReconfiguring && (!isConfigured || loading)}
         >
           {loading ? "Processing..." : "Add"}
         </button>
@@ -343,7 +393,11 @@ const renderPaginationButtons = () => {
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => setSelectedVideos([...videoUrls])}
+                      onClick={() => {
+                        setSelectedVideos([...videoUrls]);
+                        setIsVideoSelected(videoUrls.length > 0);
+                        if (onChangesMade) onChangesMade();
+                      }}
                       className="px-3 py-1 bg-[#5348CB] text-white text-sm rounded hover:bg-[#433aa8]"
                     >
                       Select All ({videoUrls.length})
