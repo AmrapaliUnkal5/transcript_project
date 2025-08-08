@@ -73,7 +73,14 @@ def get_qdrant_client():
             return None
         
         logger.info(f"Creating Qdrant client with URL: {settings.QDRANT_URL}")
-        client = QdrantClient(url=settings.QDRANT_URL)
+        
+        # Create client with API key if provided (for Qdrant Cloud)
+        if settings.QDRANT_API_KEY:
+            logger.info("Using API key authentication for Qdrant Cloud")
+            client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
+        else:
+            logger.info("No API key provided, connecting to self-hosted Qdrant")
+            client = QdrantClient(url=settings.QDRANT_URL)
         
         # Validate the client works
         try:
