@@ -332,6 +332,7 @@ async def create_subscription_checkout(
                 gstin=request.gstin
             )
             checkout_url = zoho_service.get_hosted_page_url(subscription_data)
+            subscription_data["redirect_url"] = f"{settings.BASE_URL}/dashboard/welcome?payment=success"
             
             # Log the final subscription data
             logger.info(f"Formatted subscription data: {subscription_data}")
