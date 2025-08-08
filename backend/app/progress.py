@@ -157,8 +157,8 @@ async def compute_status(bot_id: int, db: Session):
     overall_status = determine_overall_status(file_status, website_status, youtube_status, bot)
 
     # update bot status
-    bot.is_trained = (overall_status == "active")
-    bot.is_active = (overall_status == "active")
+    bot.is_trained = (overall_status == "Active")
+    bot.is_active = (overall_status == "Active")
     bot.status = overall_status
     bot.updated_at = datetime.utcnow()
 
@@ -360,28 +360,22 @@ def determine_overall_status(file_status: Dict, website_status: Dict, youtube_st
     Determine overall bot status based on individual knowledge source statuses.
     
     Rules:
-    - If ALL knowledge sources have failed (error status), return "error"
-    - If ANY knowledge source is still training (training status), return "training"
-    - Otherwise (all complete or mix of complete and some failed), return "active"
+    - If no content uploaded (total == 0 for all) => Draft
+    - If any training => Training/Retraining
+    - If all uploaded types have status = error => Error
+    - If only uploaded type is error => Error
+    - Otherwise => Active
     """
-    all_failed = (
-        (file_status["status"] == "error") and
-        (website_status["status"] == "error") and
-        (youtube_status["status"] == "error")
-    )
-    
-    if all_failed:
-        return "Error"
-    
-    no_content=(
-        (file_status["total"] == 0) and 
-        (website_status["total"] == 0) and 
-        (youtube_status["total"] == 0)
-    )
 
-    if no_content:
-        return "Draft"
+    total_file = file_status["total"]
+    total_web = website_status["total"]
+    total_yt = youtube_status["total"]
+
+    all_total = total_file + total_web + total_yt
     
+    if all_total == 0:
+        return "Draft"
+        
     # Check if any knowledge source is still training
     any_training = (
         file_status["status"] == "training" or
@@ -394,5 +388,16 @@ def determine_overall_status(file_status: Dict, website_status: Dict, youtube_st
             return "Retraining"
         return "Training"
     
-    # Otherwise, bot is active (has at least one completed knowledge source)
+    uploaded_types = []
+
+    if total_file > 0:
+        uploaded_types.append(file_status["status"])
+    if total_web > 0:
+        uploaded_types.append(website_status["status"])
+    if total_yt > 0:
+        uploaded_types.append(youtube_status["status"])
+
+    if all(status == "error" for status in uploaded_types):
+        return "Error"
+
     return "Active"
