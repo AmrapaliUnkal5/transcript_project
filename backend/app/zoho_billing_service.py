@@ -450,7 +450,7 @@ class ZohoBillingService:
                         "quantity": quantity
                     }
                 ],
-                "redirect_url": f"{self.get_frontend_url()}/account/add-ons",
+                "redirect_url": f"{self.get_frontend_url()}/dashboard/welcome?payment=success",
                 "cancel_url": f"{self.get_frontend_url()}/account/add-ons"
             }
                 
@@ -1171,7 +1171,7 @@ def format_subscription_data_for_hosted_page(
             "plan_code": plan_code,
             "quantity": 1  # Required by Zoho Billing
         },
-        "redirect_url": f"{frontend_url}/",  # Redirect to dashboard after successful payment
+        "redirect_url": f"{frontend_url}/dashboard/welcome?payment=success",  # Redirect to dashboard after successful payment
         "cancel_url": f"{frontend_url}/subscription",  # Redirect back to subscription page if cancelled
         # Configure address collection settings
         "collect_billing_address": True,  # Enable billing address collection
