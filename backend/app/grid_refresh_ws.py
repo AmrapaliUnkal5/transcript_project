@@ -2,6 +2,7 @@ from fastapi import WebSocket, APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Bot, File, ScrapedNode, YouTubeVideo
+from starlette.websockets import WebSocketState
 
 import asyncio
 
@@ -29,7 +30,8 @@ async def grid_refresh_ws(websocket: WebSocket, bot_id: int, db: Session = Depen
     except Exception as e:
         print(f"WebSocket grid refresh closed: {e}")
     finally:
-        await websocket.close()
+        if websocket.application_state != WebSocketState.DISCONNECTED:
+            await websocket.close()
 
 
 def get_files_status(db: Session, bot_id: int):
