@@ -1294,13 +1294,22 @@ useEffect(() => {
         </div>
 
         <div className="flex items-center space-x-4 pb-2">
-          <button
+            <button
             onClick={handleReconfigure}
-            className={`px-4 py-2 rounded-md transition-colors ${status?.overall_status === "reconfiguring" || isReconfiguring
+            className={`px-4 py-2 rounded-md transition-colors ${
+              status?.overall_status === "reconfiguring" || 
+              isReconfiguring ||
+              status?.overall_status === "training" || 
+              status?.overall_status === "Retraining"
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-[#5348CB] text-white hover:bg-[#4339b6]"
-              }`}
-            disabled={status?.overall_status === "reconfiguring" || isReconfiguring}
+            }`}
+            disabled={
+              status?.overall_status === "reconfiguring" || 
+              isReconfiguring ||
+              status?.overall_status === "training" || 
+              status?.overall_status === "Retraining"
+            }
           >
             Reconfigure
           </button>
@@ -1700,8 +1709,11 @@ useEffect(() => {
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <button
                             onClick={() => handleDelete(file.id)}
-                            className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
-                          >
+                            className={`text-red-600 hover:text-red-900 dark:hover:text-red-400 ${
+                                !isReconfiguring ? 'opacity-30 cursor-not-allowed' : ''
+                              }`}
+                              disabled={!isReconfiguring}
+                            >
                             <Trash2 className="w-5 h-5" />
                           </button>
                         </td>
@@ -1925,8 +1937,11 @@ useEffect(() => {
                             onClick={() =>
                               handleVideoDelete(videoUrl.video_url)
                             }
-                            className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
-                          >
+                            className={`text-red-600 hover:text-red-900 dark:hover:text-red-400 ${
+                                !isReconfiguring ? 'opacity-30 cursor-not-allowed' : ''
+                              }`}
+                              disabled={!isReconfiguring}
+                            >
                             <Trash2 className="w-5 h-5" />
                           </button>
                         </td>

@@ -124,6 +124,7 @@ class Bot(Base):
     is_trained = Column(Boolean, nullable=False, default=False)
     active_mail_sent= Column(Boolean,nullable=False,default=False)
     is_retrained = Column(Boolean, nullable=False, default=False)
+    error_mail_sent= Column(Boolean,nullable=False,default=False)
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")

@@ -730,8 +730,10 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                       <td className=" px-4 py-2 text-center">
                         <button
                           onClick={() => handleDeleteClick(item.url, item.wordCount || 0)}
-                          className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
-                          disabled={loading || isProcessing}
+                          className={`text-red-600 hover:text-red-900 dark:hover:text-red-400 ${
+                            (!isReconfiguring && !isCreateBotFlow) ? 'opacity-30 cursor-not-allowed' : ''
+                          }`}
+                          disabled={loading || isProcessing || (!isReconfiguring && !isCreateBotFlow)}
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>

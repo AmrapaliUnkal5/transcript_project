@@ -283,3 +283,41 @@ async def get_theme(
         raise HTTPException(status_code=404, detail="Bot not found")
     
     return {"theme_id": bot.theme_id or "default"}
+
+
+def send_bot_error_email(db: Session, user_name: str, user_email: str, bot_name: str, bot_id: int):
+    # First get the bot to check active_mail_sent status
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if not bot:
+        print(f"Bot with ID {bot_id} not found")
+        return
+    
+    # Check if email was already sent
+    if bot.error_mail_sent:
+        print(f"Error email already sent for bot {bot_id}")
+        return
+    
+    print("Sending bot Error email")
+    subject = "Your Chatbot Creation Failed"
+    body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #000;">
+        <p>Hello {user_name},</p>
+
+        <p>We regret to inform you that the creation of your chatbot "{bot_name}" has failed.</p>
+
+        <p>Please login to your account and check what went wrong with your bot configuration.</p>
+
+        <p>You can try recreating the bot or contact support if you need assistance.</p>
+
+        <p>Best regards,<br>
+        Evolra Admin</p>
+    </body>
+    </html>
+    """
+    send_email(user_email, subject, body)
+    
+    # Update the active_mail_sent status
+    bot.error_mail_sent = True
+    db.commit()
+    
