@@ -22,7 +22,6 @@ import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { Theme , THEMES } from '../types/index'; 
 import { Info } from "lucide-react";
-import { MessageRenderer } from "../components/MessageRenderer";
 
 
 interface MessageUsage {
@@ -243,7 +242,6 @@ useEffect(() => {
       message_id?: number;
       reaction?: "like" | "dislike";
       is_greeting?: boolean; 
-      formatted_content?: any;  // Add formatted content
       sources?: Array<{  // Add sources to the message object
       file_name: string;
       source: string;
@@ -814,7 +812,6 @@ useEffect(() => {
       text: data.message,
       message_id: data.message_id,
       is_greeting: data.is_greeting,
-      formatted_content: data.formatted_content, // Add formatted content
       sources: data.sources || [], // Add sources to this message
       showSources: false // Start with sources hidden
     };
@@ -830,30 +827,34 @@ useEffect(() => {
         }));
       }
 
-      // Use faster typing animation for formatted content, normal speed for plain text
-      const hasFormatting = data.formatted_content && data.formatted_content.formatting_type !== 'plain';
-      const baseTypingSpeed = hasFormatting ? 3 : 8; // Very fast for formatted, fast for plain
-      
-      // Use typing animation for all content (but faster for formatted)
-      const thinkingDelay = Math.random() * 500 + 250; // Reduced thinking delay
+      const thinkingDelay = Math.random() * 1000 + 500;
       setTimeout(() => {
         setIsBotTyping(true);
         setWaitingForBotResponse(false);
-        setCurrentBotMessage(data.message.charAt(0)); // Start with first char
+        setCurrentBotMessage(""); // Always start empty
         setFullBotMessage(data.message);
 
+        if (data.message.length === 1) {
+          setCurrentBotMessage(data.message);
+          setIsBotTyping(false);
+          setMessages([...newMessages, botMessage]);
+          setPreviewLoading(false);
+          return;
+        }
+
         let charIndex = 0;
+        const baseTypingSpeed = 25;
         const typingInterval = setInterval(() => {
-          if (charIndex < data.message.length) {
-            setCurrentBotMessage(
-              (prev) => prev + data.message.charAt(charIndex)
-            );
+          setCurrentBotMessage((prev) => {
+            const next = prev + data.message.charAt(charIndex);
             charIndex++;
 
-            if (
-              [".", "!", "?", ",", ":"].includes(
-                data.message.charAt(charIndex - 1)
-              )
+            if (charIndex === data.message.length) {
+              clearInterval(typingInterval);
+              setIsBotTyping(false);
+              setMessages([...newMessages, botMessage]);
+            } else if (
+              [".", "!", "?", ",", ":"].includes(data.message.charAt(charIndex - 1))
             ) {
               clearInterval(typingInterval);
               setTimeout(() => {
@@ -862,23 +863,12 @@ useEffect(() => {
                   data.message,
                   data.message_id,
                   newMessages,
-                  botMessage 
+                  botMessage
                 );
-              }, 50 + Math.random() * 50); // Reduced pause between sentences
+              }, 200 + Math.random() * 200);
             }
-          } else {
-            clearInterval(typingInterval);
-            setIsBotTyping(false);
-            // setMessages([
-            //   ...newMessages,
-            //   {
-            //     sender: "bot",
-            //     text: data.message,
-            //     message_id: data.message_id,               
-            //   },
-            //   botMessage
-            // ]);
-          }
+            return next;
+          });
         }, baseTypingSpeed);
       }, thinkingDelay);
       updateMessageCount();
@@ -896,30 +886,34 @@ useEffect(() => {
     fullMessage: string,
     message_id: number,
     newMessages: Array<{ sender: string; text: string }>,
-    botMessage: { // Add this parameter
-    sender: string;
-    text: string;
-    message_id?: number;
-    is_greeting?: boolean;
-    sources?: Array<{
-      file_name: string;
-      source: string;
-      content_preview: string;
-      website_url: string;
-      url: string;
-    }>;
-    showSources?: boolean;
-  }
+    botMessage: {
+      sender: string;
+      text: string;
+      message_id?: number;
+      is_greeting?: boolean;
+      sources?: Array<{
+        file_name: string;
+        source: string;
+        content_preview: string;
+        website_url: string;
+        url: string;
+      }>;
+      showSources?: boolean;
+    }
   ) => {
     let charIndex = startIndex;
     const baseTypingSpeed = 25;
 
     const typingInterval = setInterval(() => {
-      if (charIndex < fullMessage.length) {
-        setCurrentBotMessage((prev) => prev + fullMessage.charAt(charIndex));
+      setCurrentBotMessage((prev) => {
+        const next = prev + fullMessage.charAt(charIndex);
         charIndex++;
 
-        if (
+        if (charIndex === fullMessage.length) {
+          clearInterval(typingInterval);
+          setIsBotTyping(false);
+          setMessages([...newMessages, botMessage]);
+        } else if (
           [".", "!", "?", ",", ":"].includes(fullMessage.charAt(charIndex - 1))
         ) {
           clearInterval(typingInterval);
@@ -933,17 +927,8 @@ useEffect(() => {
             );
           }, 200 + Math.random() * 200);
         }
-      } else {
-        clearInterval(typingInterval);
-        setIsBotTyping(false);
-        // setMessages([
-        //   ...newMessages,
-        //   { sender: "bot", text: fullMessage, message_id: message_id},
-        //   botMessage
-        // ]);
-        setMessages([...newMessages, botMessage]);
-        
-      }
+        return next;
+      });
     }, baseTypingSpeed);
   };
 
@@ -2217,9 +2202,69 @@ const handleThemeSelect = async (themeId: string) => {
         </div>
       </div>
 
-    </div>
-  </div>
-)}
+          <div>
+            <label
+          className="block mb-1 ml-12 pl-2"
+          style={{
+                fontFamily: "Instrument Sans, sans-serif",
+                fontSize: "14px",
+                fontWeight: 400,
+                color: "#333333",
+                  }}
+              >
+            Button Color
+          </label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="color"
+                value={settings.buttonColor}
+                onChange={(e) => handleColorChangeWithThemeSwitch("buttonColor", e.target.value)}
+                className="w-12 h-12 rounded border"
+              />
+              <input
+                type="text"
+                value={settings.buttonColor}
+                onChange={(e) => handleColorChangeWithThemeSwitch("buttonColor", e.target.value)}
+                placeholder="#0000FF"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                style={{ color: "#333333" }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label
+              className="block mb-1 ml-12 pl-2"
+              style={{
+                  fontFamily: "Instrument Sans, sans-serif",
+                  fontSize: "14px",
+                  fontWeight: 400,
+                  color: "#333333",
+                }}
+                >
+                Button Text Color
+              </label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="color"
+                value={settings.buttonTextColor}
+                onChange={(e) => handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value)}
+                className="w-12 h-12 rounded border"
+              />
+              <input
+                type="text"
+                value={settings.buttonTextColor}
+                onChange={(e) => handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value)}
+                placeholder="#FFFFFF"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                style={{ color: "#333333" }}
+              />
+            </div>
+          </div>
+
+        </div>
+      </div>
+    )}
 {activeTab === "colors" && (
   <div className="border border-[#DFDFDF] rounded-[20px] mt-6 p-5">
     <h2
@@ -2547,10 +2592,7 @@ const handleThemeSelect = async (themeId: string) => {
                             : settings.borderRadius,
                       }}
                     >
-                      <MessageRenderer 
-                        content={msg.text}
-                        formattedContent={msg.formatted_content}
-                      />
+                      <div>{msg.text}</div>
                       <div
                         className="text-xs mt-1 text-right"
                         style={{
