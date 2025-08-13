@@ -2748,12 +2748,20 @@ const handleThemeSelect = async (themeId: string) => {
                               <div className="text-gray-600">File Name: {source.file_name}</div>
                             </>
                       )}
-                        {source.source === 'website' && (
+                        {source.source === 'External Knowledge' && (
+                        <>
+                            <span className="font-semibold">Source Type:</span> External Knowledge
+                            
+                        </>
+                    )}
+
+                     {source.source === 'website' && (
                         <>
                             <span className="font-semibold">Source Type: Website</span>
                             <div className="text-gray-600">URL: {source.website_url}</div>
                         </>
                     )}
+
                         {source.source === 'youtube' && (
                         <>
                             <span className="font-semibold">Source Type: YouTube</span>

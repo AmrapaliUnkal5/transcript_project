@@ -899,6 +899,14 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                               <div>URL: {source.website_url}</div>
                             </>
                           )}
+                          {source.source === 'External Knowledge' && (
+                              <>
+                                  <div>
+                                      <span style={{ fontWeight: "bold" }}>Source Type:</span> External Knowledge
+                                  </div>
+                              </>
+                          )}
+
                           {source.source === 'youtube' && (
                             <>
                               <div style={{ fontWeight: "bold" }}>Source Type: YouTube</div>
