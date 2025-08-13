@@ -719,7 +719,15 @@ deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
   const response = await api.get("/auth/refresh-token");
   return response.data;
 },
+ getZohoSubscriptionStatus: async (userId: number) => {
+  const res = await api.get(`/zoho/statuszoho/${userId}`);
+  return res.data;
+},
 
+getUserAddonStatus: async (userId: number) => {
+  const res = await api.get(`/addons/statusaddon/${userId}`);
+  return res.data;
+},
 
   getUserUsage: async (): Promise<UserUsageResponse> => {
     const response = await api.get('/user/usage');

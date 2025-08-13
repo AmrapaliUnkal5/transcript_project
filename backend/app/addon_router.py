@@ -250,3 +250,29 @@ async def cancel_pending_addon(
         db.rollback()
         logger.error(f"Error cancelling pending addon purchase: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error cancelling pending addon purchase: {str(e)}")
+
+@router.get("/statusaddon/{user_id}")
+def get_user_addon_status(user_id: int, db: Session = Depends(get_db)):
+    """
+    Return the latest active addon status for the given user_id.
+    """
+    # Get latest active addon for this user (order by purchase_date desc)
+    latest_addon = (
+        db.query(UserAddon)
+        .filter(UserAddon.user_id == user_id, UserAddon.is_active == True)
+        .order_by(UserAddon.purchase_date.desc())
+        .first()
+    )
+
+    if not latest_addon:
+        raise HTTPException(status_code=404, detail="No active addon found for this user")
+
+    return {
+        "status": latest_addon.status,              # e.g. "active", "pending", "failed"
+        "addon_id": latest_addon.addon_id,
+        "subscription_id": latest_addon.subscription_id,
+        "purchase_date": latest_addon.purchase_date,
+        "expiry_date": latest_addon.expiry_date,
+        "remaining_count": latest_addon.remaining_count,
+        "initial_count": latest_addon.initial_count,
+    }
