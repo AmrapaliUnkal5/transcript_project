@@ -13,7 +13,7 @@ from app.websocket_manager import manager
 from app.schemas import StartTrainingRequest
 from app.utils.logger import get_module_logger
 from app.utils.vectorization_utils import trigger_vectorization_if_needed
-from app.botsettings import send_bot_activation_email
+from app.botsettings import send_bot_activation_email,send_bot_error_email
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -162,16 +162,33 @@ async def compute_status(bot_id: int, db: Session):
     bot.status = overall_status
     bot.updated_at = datetime.utcnow()
 
-    # Send activation email if bot just became active
-    if overall_status == "Active" and not bot.active_mail_sent:
-        user = db.query(User).filter(User.user_id == bot.user_id).first()
-        if user:
-            
-            send_bot_activation_email(db=db, 
-                                     user_name=user.name, 
-                                     user_email=user.email, 
-                                     bot_name=bot.bot_name, 
-                                     bot_id=bot_id)
+    # Email Logic
+    user = db.query(User).filter(User.user_id == bot.user_id).first()
+    if user:
+        # If bot just became active and active mail hasn't been sent
+        if overall_status == "Active" and not bot.active_mail_sent:
+            send_bot_activation_email(
+                db=db, 
+                user_name=user.name, 
+                user_email=user.email, 
+                bot_name=bot.bot_name, 
+                bot_id=bot_id
+            )
+            bot.active_mail_sent = True
+                    
+        # If bot just entered error state and error mail hasn't been sent
+        elif overall_status == "Error" and not bot.error_mail_sent:
+            send_bot_error_email(
+                db=db,
+                user_name=user.name,
+                user_email=user.email,
+                bot_name=bot.bot_name,
+                bot_id=bot_id
+            )
+            bot.error_mail_sent = True
+                
+    bot.status = overall_status
+    bot.updated_at = datetime.utcnow()
     db.commit()
 
     return {
@@ -360,28 +377,22 @@ def determine_overall_status(file_status: Dict, website_status: Dict, youtube_st
     Determine overall bot status based on individual knowledge source statuses.
     
     Rules:
-    - If ALL knowledge sources have failed (error status), return "error"
-    - If ANY knowledge source is still training (training status), return "training"
-    - Otherwise (all complete or mix of complete and some failed), return "active"
+    - If no content uploaded (total == 0 for all) => Draft
+    - If any training => Training/Retraining
+    - If all uploaded types have status = error => Error
+    - If only uploaded type is error => Error
+    - Otherwise => Active
     """
-    all_failed = (
-        (file_status["status"] == "error") and
-        (website_status["status"] == "error") and
-        (youtube_status["status"] == "error")
-    )
-    
-    if all_failed:
-        return "Error"
-    
-    no_content=(
-        (file_status["total"] == 0) and 
-        (website_status["total"] == 0) and 
-        (youtube_status["total"] == 0)
-    )
 
-    if no_content:
-        return "Draft"
+    total_file = file_status["total"]
+    total_web = website_status["total"]
+    total_yt = youtube_status["total"]
+
+    all_total = total_file + total_web + total_yt
     
+    if all_total == 0:
+        return "Draft"
+        
     # Check if any knowledge source is still training
     any_training = (
         file_status["status"] == "training" or
@@ -394,5 +405,16 @@ def determine_overall_status(file_status: Dict, website_status: Dict, youtube_st
             return "Retraining"
         return "Training"
     
-    # Otherwise, bot is active (has at least one completed knowledge source)
+    uploaded_types = []
+
+    if total_file > 0:
+        uploaded_types.append(file_status["status"])
+    if total_web > 0:
+        uploaded_types.append(website_status["status"])
+    if total_yt > 0:
+        uploaded_types.append(youtube_status["status"])
+
+    if all(status == "error" for status in uploaded_types):
+        return "Error"
+
     return "Active"

@@ -831,8 +831,10 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
                     <td className=" px-4 py-2 text-center">
                       <button
                         onClick={() => handleDeleteClick(item.url)}
-                        className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
-                        disabled={loading || isProcessing}
+                        className={`text-red-600 hover:text-red-900 dark:hover:text-red-400 ${
+                          !isReconfiguring ? 'opacity-30 cursor-not-allowed' : ''
+                        }`}
+                        disabled={loading || isProcessing || !isReconfiguring}
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
