@@ -288,6 +288,10 @@ def start_chat_widget(request_data: StartChatRequest,request: Request, db: Sessi
     if not bot:
         raise HTTPException(status_code=404, detail="Bot not found")
 
+    # ✅ Check bot status - FIRST STEP before creating chat session
+    if bot.status != "Active":
+        raise HTTPException(status_code=403, detail="Bot is not available for chat at the moment.")
+
     user_id = bot.user_id
     session_id = request_data.session_id or str(uuid.uuid4()) 
     # print("widget",user_id)
@@ -379,6 +383,15 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
         raise HTTPException(status_code=404, detail="Chat session not found")
 
     logger.debug("interaction_botid=> %s", interaction.bot_id)
+
+    # ✅ Check bot status - FIRST STEP before any processing
+    bot = db.query(Bot).filter(Bot.bot_id == interaction.bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    # Check if bot is active (ready to chat)
+    if bot.status != "Active":
+        raise HTTPException(status_code=403, detail="Bot is not available for chat at the moment.")
 
     # ✅ Retrieve the user from the DB
     user = db.query(User).filter(User.user_id == interaction.user_id).first()

@@ -157,8 +157,8 @@ async def compute_status(bot_id: int, db: Session):
     overall_status = determine_overall_status(file_status, website_status, youtube_status, bot)
 
     # update bot status
-    bot.is_trained = (overall_status == "active")
-    bot.is_active = (overall_status == "active")
+    bot.is_trained = (overall_status == "Active")
+    bot.is_active = (overall_status == "Active")
     bot.status = overall_status
     bot.updated_at = datetime.utcnow()
 

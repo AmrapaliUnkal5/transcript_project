@@ -97,6 +97,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     //const [showWelcomeBubble] = useState(true);
     const [usageError, setUsageError] = useState("");
     const [isSendDisabled, setIsSendDisabled] = useState(false);
+    const [isBotUnavailable, setIsBotUnavailable] = useState(false);
     const [hasWelcomeBeenShown, setHasWelcomeBeenShown] = useState(false);
     const chatContainerRef = useRef<HTMLDivElement | null>(null);
     const [hasWhiteLabeling, setHasWhiteLabeling] = useState(false);
@@ -329,16 +330,29 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
       try {
         if (!sessionIdRef.current) {
-          const startResponse = await axios.post(
-            `${baseDomain}/widget/start_chat`,
-            { session_id: userIdRef.current },
-            {
-              headers: {
-                Authorization: `Bot ${botId}`,
-              },
-            }
-          );
-          sessionIdRef.current = startResponse.data.interaction_id;
+          try {
+            const startResponse = await axios.post(
+              `${baseDomain}/widget/start_chat`,
+              { session_id: userIdRef.current },
+              {
+                headers: {
+                  Authorization: `Bot ${botId}`,
+                },
+              }
+            );
+            sessionIdRef.current = startResponse.data.interaction_id;
+          } catch (error: any) {
+                    // Check if it's a bot status error (403)
+        if (error.response?.status === 403) {
+          setUsageError("We are facing a technical issue. Kindly reach out to the website admin for assistance.");
+          setIsSendDisabled(true);
+          setIsBotUnavailable(true);
+          setIsBotTyping(false);
+          setCurrentBotMessage("");
+          return;
+        }
+            throw error; // Re-throw other errors to be caught by outer catch
+          }
         }
         console.log("start_chat InteractionId", sessionIdRef.current);
 
@@ -408,6 +422,17 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         }, typingSpeed);
       } catch (error) {
         console.error("Failed to send message:", error);
+        
+                    // Check if it's a bot status error (403)
+            if (error.response?.status === 403) {
+              setUsageError("We are facing a technical issue. Kindly reach out to the website admin for assistance.");
+              setIsSendDisabled(true);
+              setIsBotUnavailable(true);
+              setIsBotTyping(false);
+              setCurrentBotMessage("");
+              return;
+            }
+        
         setMessages((prev) => [
           ...prev,
           { sender: "bot", message: "Sorry, something went wrong." },
@@ -1334,8 +1359,8 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                       >
                           <input
                             type="text"
-                            disabled={lead_generation_enabled && !formSubmitted &&  hasLeadFields}
-                            placeholder="Type a message..."
+                            disabled={lead_generation_enabled && !formSubmitted &&  hasLeadFields || isBotUnavailable}
+                            placeholder={isBotUnavailable ? "We are facing a technical issue ....." : "Type a message..."}
                             style={{
                               flexGrow: 1,
                               padding: "0.5rem 0.75rem",
@@ -1345,7 +1370,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                               fontSize: font_size,
                               borderRadius: border_radius || "20px",
                               cursor:
-                                lead_generation_enabled && !formSubmitted &&  hasLeadFields ? "not-allowed" : "text",
+                                lead_generation_enabled && !formSubmitted &&  hasLeadFields || isBotUnavailable ? "not-allowed" : "text",
                             }}
                             value={inputMessage}
                             onChange={(e) => {
@@ -1355,7 +1380,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                             onKeyDown={(e) => {
                                       if (e.key === "Enter" && inputMessage.trim() &&
                                       !isSendDisabled &&
-                                        !isBotTyping &&  (!lead_generation_enabled || formSubmitted || !hasLeadFields )) {
+                                        !isBotTyping &&  (!lead_generation_enabled || formSubmitted || !hasLeadFields ) && !isBotUnavailable) {
                                         sendMessage();
                                       }
                                     }}
@@ -1370,6 +1395,8 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                                         inputMessage.length > MAX_USER_MESSAGE_LENGTH
                                         ||
                                         (lead_generation_enabled && !formSubmitted && hasLeadFields)
+                                        ||
+                                        isBotUnavailable
                                       }
                               style={{
                                 marginLeft: "0.5rem",
@@ -1380,6 +1407,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                                   isSendDisabled ||
                                   isBotTyping ||
                                   (lead_generation_enabled && !formSubmitted && hasLeadFields)
+                                    || isBotUnavailable
                                     ? "not-allowed"
                                     : "pointer",
                                 opacity:
@@ -1387,6 +1415,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                                   isSendDisabled ||
                                   isBotTyping ||
                                   (lead_generation_enabled && !formSubmitted && hasLeadFields)
+                                    || isBotUnavailable
                                     ? 0.75
                                     : 1,
                               }}
