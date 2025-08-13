@@ -448,19 +448,33 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
     db_user = get_user_by_email(db, email=email)
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    #added this logic similar to /login API
+    # ✅ Check if user is a team member
+    team_member_entry = db.query(TeamMember).filter(
+        TeamMember.member_id == db_user.user_id,
+        TeamMember.invitation_status == "accepted"
+    ).first()
+
+    is_team_member = team_member_entry is not None
+    owner_id = team_member_entry.owner_id if team_member_entry else None
+
+    # ✅ If team member → use owner's subscription
+    subscription_user_id = owner_id if is_team_member else db_user.user_id
+    member_id = db_user.user_id if is_team_member else None
         
     # Get the user's active subscription
     user_subscription = db.query(UserSubscription).filter(
-        UserSubscription.user_id == db_user.user_id,
+        UserSubscription.user_id == subscription_user_id,
         UserSubscription.status.not_in(["pending", "cancelled","failed"])
     ).order_by(UserSubscription.payment_date.desc()).first()
     
     # Get subscription plan ID if available
-    subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else None
+    subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
     
     # Get list of addon plan IDs and message addon
     user_addons = db.query(UserAddon).filter(
-        UserAddon.user_id == db_user.user_id,
+        UserAddon.user_id == subscription_user_id,
         UserAddon.status == "active"
     ).all()
     
@@ -468,7 +482,7 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
     
     # Get message addon (ID 5) details if exists
     message_addon = db.query(UserAddon).filter(
-        UserAddon.user_id == db_user.user_id,
+        UserAddon.user_id == subscription_user_id,
         UserAddon.addon_id == 5,
         UserAddon.is_active == True
     ).order_by(UserAddon.expiry_date.desc()).first()
@@ -478,12 +492,14 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
     # Generate a fresh token with updated user information
     token_data = {"sub": db_user.email,
                  "role": db_user.role, 
-                 "user_id": db_user.user_id,
+                 "user_id": subscription_user_id,
                  "name": db_user.name,  
                  "company_name": db_user.company_name,  
                  "phone_no": db_user.phone_no,
                  "subscription_plan_id": subscription_plan_id,
                  "total_words_used": db_user.total_words_used,
+                 "is_team_member": is_team_member,
+                 "member_id": member_id,
                  "addon_plan_ids": addon_plan_ids,
                  "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
                  "subscription_status": user_subscription.status if user_subscription else "new",
@@ -500,11 +516,13 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
             "role": db_user.role,
             "company_name": db_user.company_name,
             "name": db_user.name,
-            "user_id": db_user.user_id,
+            "user_id": subscription_user_id,
             "phone_no": db_user.phone_no,
             "communication_email": db_user.communication_email,
             "total_words_used": db_user.total_words_used,
             "subscription_plan_id": subscription_plan_id,
+            "is_team_member": is_team_member,
+            "member_id": member_id,
             "addon_plan_ids": addon_plan_ids,
             "message_addon_expiry": message_addon.expiry_date.isoformat() if message_addon and message_addon.expiry_date else 'Not Available',
             "subscription_status": user_subscription.status if user_subscription else "new",

@@ -176,6 +176,10 @@ export const Welcome = () => {
       const addon = getAddonById(addonId);
       return sum + (addon?.additional_message_limit || 0);
     }, 0);
+  const [showSubscriptionErrorModal, setShowSubscriptionErrorModal] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [subscriptionModalMessage, setSubscriptionModalMessage] = useState("");
 
   useEffect(() => {
     // Check subscription status when component mounts
@@ -197,32 +201,201 @@ export const Welcome = () => {
     );
   };
 
-  // Replace the current payment success useEffect with this:
-useEffect(() => {
+  useEffect(() => {
+  
   const params = new URLSearchParams(location.search);
   const paymentSuccess = params.get("payment") === "success";
+  if (!paymentSuccess) return;
 
-  if (paymentSuccess) {
-    const handlePaymentSuccess = async () => {
-      try {
-        setLoading(true);
-        await refreshUserData(); // Refresh user data to get new subscription info
+  console.log("Payment success detected — starting subscription polling...");
+    setIsPolling(true);
 
-        // Clean up the URL
-        const cleanUrl = location.pathname;
-        navigate(cleanUrl, { replace: true });
-      } catch (err) {
-        console.error("Failed to refresh after payment", err);
-        toast.error("Failed to update subscription details. Please refresh the page.");
-      } finally {
-        setLoading(false);
+  // let pollingInterval: NodeJS.Timeout;
+  // let timeout: NodeJS.Timeout;
+  let attempts = 0;
+  const maxAttempts = 12; // 12 attempts * 5 seconds = 60 seconds total
+  const intervalMs = 5000; // 5 seconds between attempts
+
+  // Declare them first so they're in scope for the function
+  const pollingInterval = setInterval(() => {}, intervalMs); // temp placeholder
+  const timeout = setTimeout(() => {}, 0); // temp placeholder
+
+  const checkSubscriptionStatus = async () => {
+    attempts++;
+    console.log(`Polling attempt ${attempts}/${maxAttempts}...`);
+
+    try {
+      if (userId) {
+        const statusResp = await authApi.getZohoSubscriptionStatus(userId);
+        const status = String(statusResp?.status ?? "").toLowerCase();
+        console.log(`Latest subscription status: ${status}`);
+
+        if (status === "active") {
+          // Success case - status is now active
+          clearInterval(pollingInterval);
+          clearTimeout(timeout);
+          await refreshUserData();
+          // Show success toast
+          setSubscriptionModalMessage("Your subscription has been updated successfully!");
+          setShowSubscriptionModal(true);
+          console.log("Succesful saved the status")
+          setIsPolling(false);
+          // Remove the payment=success param from URL
+          setTimeout(() => {
+  navigate(location.pathname, { replace: true });
+}, 100); // small delay so toast can appear
+          return;
+        }
+
+        if (status === "failed") {
+        clearInterval(realInterval);
+        clearTimeout(realTimeout);
+        await refreshUserData();
+        setSubscriptionModalMessage("We couldn't update your subscription at this time. Please try again or contact support.");
+        setShowSubscriptionModal(true);
+        setIsPolling(false);
+        setTimeout(() => {
+  navigate(location.pathname, { replace: true });
+}, 100);
+        return;
       }
-    };
 
-    handlePaymentSuccess();
-  }
-}, [location.search, refreshUserData, navigate, setLoading]);
+      }
+    } catch (err) {
+      console.warn(`Polling API failed (attempt ${attempts})`, err);
+      clearInterval(realInterval);
+      clearTimeout(realTimeout);
+      setSubscriptionModalMessage("We couldn't update your subscription at this time. Please try again or contact support.");
+      setShowSubscriptionModal(true);
+      setIsPolling(false);
+      return;
+    }
 
+    // If we've reached max attempts without success
+    if (attempts >= maxAttempts) {
+      clearInterval(pollingInterval);
+      clearTimeout(timeout);
+      setIsPolling(false);
+      setSubscriptionModalMessage("The subscription update request timed out. Please check your payment status or contact support.");
+      setShowSubscriptionModal(true);
+      // Remove the payment=success param from URL
+      navigate(location.pathname, { replace: true });
+    }
+  };
+
+   // Assign real interval/timeout values
+  clearInterval(pollingInterval);
+  const realInterval = setInterval(checkSubscriptionStatus, intervalMs);
+  const realTimeout = setTimeout(() => {
+    clearInterval(realInterval);
+    setIsPolling(false);
+    setSubscriptionModalMessage("The subscription update request timed out. Please check your payment status or contact support.");
+    setShowSubscriptionModal(true);
+    navigate(location.pathname, { replace: true });
+  }, maxAttempts * intervalMs + 1000);
+
+  // First run immediately
+  checkSubscriptionStatus();
+
+  return () => {
+    clearInterval(realInterval);
+    clearTimeout(realTimeout);
+  };
+}, [location.search, refreshUserData, navigate, userId]);
+
+
+useEffect(() => {
+  const params = new URLSearchParams(location.search);
+  const addonPaymentSuccess = params.get("addonpayment") === "success";
+  if (!addonPaymentSuccess) return;
+
+  console.log("Addon payment success detected — starting addon status polling...");
+  setIsPolling(true);
+
+  let attempts = 0;
+  const maxAttempts = 12; // 12 attempts * 5 seconds = 60 seconds total
+  const intervalMs = 5000; // 5 seconds between attempts
+
+  // Temp placeholders so variables exist in scope
+  let pollingInterval = setInterval(() => {}, intervalMs);
+  let timeout = setTimeout(() => {}, 0);
+
+  const checkAddonStatus = async () => {
+    attempts++;
+    console.log(`Addon polling attempt ${attempts}/${maxAttempts}...`);
+
+    try {
+      if (userId) {
+        // Call your backend API to check addon status
+        const statusResp = await authApi.getUserAddonStatus(userId);
+        // Assume backend returns { status: "active" | "pending" | "failed" | ... }
+        const status = String(statusResp?.status ?? "").toLowerCase();
+        console.log(`Latest addon status: ${status}`);
+
+        if (status === "active") {
+          clearInterval(pollingInterval);
+          clearTimeout(timeout);
+          await refreshUserData();
+          setSubscriptionModalMessage("Your addon has been activated successfully!");
+          setShowSubscriptionModal(true);
+          setIsPolling(false);
+          setTimeout(() => {
+            navigate(location.pathname, { replace: true }); // Remove query param
+          }, 100);
+          return;
+        }
+
+        if (status === "failed") {
+          clearInterval(pollingInterval);
+          clearTimeout(timeout);
+          await refreshUserData();
+          setSubscriptionModalMessage("We couldn't activate your addon at this time. Please try again or contact support.");
+          setShowSubscriptionModal(true);
+          setIsPolling(false);
+          setTimeout(() => {
+            navigate(location.pathname, { replace: true });
+          }, 100);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn(`Addon polling API failed (attempt ${attempts})`, err);
+      clearInterval(pollingInterval);
+      clearTimeout(timeout);
+      setSubscriptionModalMessage("We couldn't update your addon status at this time. Please try again or contact support.");
+      setShowSubscriptionModal(true);
+      setIsPolling(false);
+      return;
+    }
+
+    if (attempts >= maxAttempts) {
+      clearInterval(pollingInterval);
+      clearTimeout(timeout);
+      setIsPolling(false);
+      setSubscriptionModalMessage("The addon activation request timed out. Please check your payment status or contact support.");
+      setShowSubscriptionModal(true);
+      navigate(location.pathname, { replace: true });
+    }
+  };
+
+  clearInterval(pollingInterval);
+  pollingInterval = setInterval(checkAddonStatus, intervalMs);
+  timeout = setTimeout(() => {
+    clearInterval(pollingInterval);
+    setIsPolling(false);
+    setSubscriptionModalMessage("The addon activation request timed out. Please check your payment status or contact support.");
+    setShowSubscriptionModal(true);
+    navigate(location.pathname, { replace: true });
+  }, maxAttempts * intervalMs + 1000);
+
+  // Initial immediate check
+  checkAddonStatus();
+
+  return () => {
+    clearInterval(pollingInterval);
+    clearTimeout(timeout);
+  };
+}, [location.search, refreshUserData, navigate, userId]);
 
   // Combined data loading effect
   useEffect(() => {
@@ -949,6 +1122,39 @@ const storageOptions = {
           </div>
         )}
       </div>
+     {showSubscriptionModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full text-center">
+      <h2 className="text-lg font-semibold mb-4">Subscription Update</h2>
+      <p className="mb-4">{subscriptionModalMessage}</p>
+      <button
+        onClick={() => {
+          setShowSubscriptionModal(false);
+          navigate("/dashboard/welcome", { replace: true });
+        }}
+        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+      >
+        OK
+      </button>
+    </div>
+  </div>
+)}
+
+{isPolling && (
+  <div
+    className="fixed top-0 left-0 w-full h-full flex flex-col items-center justify-center bg-black bg-opacity-50 z-50"
+    role="status"
+    aria-live="polite"
+  >
+    {/* Spinner */}
+    <div className="w-16 h-16 border-4 border-t-transparent border-white rounded-full animate-spin"></div>
+
+    {/* Text */}
+    <p className="mt-4 text-lg font-medium text-white">
+      Processing your subscription...
+    </p>
+  </div>
+)}
 
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8  ">

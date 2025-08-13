@@ -2598,4 +2598,27 @@ async def cancel_pending_subscription(
     except Exception as e:
         db.rollback()
         logger.error(f"Error cancelling pending subscription: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error cancelling pending subscription: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error cancelling pending subscription: {str(e)}")
+
+@router.get("/statuszoho/{user_id}")
+def get_zoho_subscription_status(user_id: int, db: Session = Depends(get_db)):
+    """
+    Return the latest subscription status for the given user_id.
+    """
+    latest_subscription = (
+        db.query(UserSubscription)
+        .filter(UserSubscription.user_id == user_id)
+        .order_by(UserSubscription.payment_date.desc())  # latest payment first
+        .first()
+    )
+
+    if not latest_subscription:
+        raise HTTPException(status_code=404, detail="No subscription found for this user")
+
+    return {
+        "status": latest_subscription.status,
+        "subscription_id": latest_subscription.id,
+        "plan_id": latest_subscription.subscription_plan_id,
+        "payment_date": latest_subscription.payment_date,
+        "expiry_date": latest_subscription.expiry_date
+    }
