@@ -80,7 +80,10 @@ export const FileUpload = () => {
       error_code?:string;
     }[]
   >([]);
-  const [isConfigured, setIsConfigured] = useState(false);
+  // const [isConfigured, setIsConfigured] = useState(false);
+  const [isConfigured, setIsConfigured] = useState(() => {
+    return localStorage.getItem("isConfigured") === "true";
+  });
   const { loading, setLoading } = useLoader();
   const [currentPage, setCurrentPage] = useState(1);
   const videosPerPage = 5;
@@ -643,7 +646,9 @@ export const FileUpload = () => {
     } finally {
       setIsReconfiguring(false);
     }
-    setIsConfigured(true); 
+    // setIsConfigured(true); 
+    setIsConfigured(true);
+    localStorage.setItem("isConfigured", "true");
     setIsReconfiguring(true);
     setActiveTabLock(true);
     toast.info("You can now make changes. Click Retrain when done.");
@@ -688,7 +693,9 @@ export const FileUpload = () => {
     }
     setIsReconfiguring(false);
     setActiveTabLock(false);
+    // setIsConfigured(false);
     setIsConfigured(false);
+    localStorage.removeItem("isConfigured");
   };
   const handleRetrain = async () => {
     if (!selectedBot?.id || !status) return;
