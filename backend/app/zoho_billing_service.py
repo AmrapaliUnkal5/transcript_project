@@ -1007,6 +1007,28 @@ class ZohoBillingService:
         """Get the frontend URL from environment variables with a fallback default"""
         return os.getenv('FRONTEND_URL', 'https://evolra.ai')
 
+    def validate_usd_price_list_setup(self) -> Dict[str, Any]:
+        """Validate USD price list configuration"""
+        usd_price_list_id = os.getenv('ZOHO_USD_PRICE_LIST_ID')
+        fallback_price_list_id = os.getenv('ZOHO_PRICE_LIST_ID')
+        
+        validation_result = {
+            "usd_price_list_configured": bool(usd_price_list_id),
+            "usd_price_list_id": usd_price_list_id,
+            "fallback_price_list_id": fallback_price_list_id,
+            "status": "success" if usd_price_list_id else "warning",
+            "message": ""
+        }
+        
+        if usd_price_list_id:
+            validation_result["message"] = "USD price list is properly configured"
+            logger.info(f"USD price list validation: SUCCESS - Using USD price list {usd_price_list_id}")
+        else:
+            validation_result["message"] = "USD price list not configured - prices will display in base currency (INR)"
+            logger.warning("USD price list validation: WARNING - ZOHO_USD_PRICE_LIST_ID not set")
+        
+        return validation_result
+
 
 
     def get_addon_hosted_page_url(self, subscription_id: str, addon_data: Dict[str, Any]) -> str:
@@ -1025,28 +1047,51 @@ class ZohoBillingService:
             print(f"Subscription ID: {subscription_id}")
             print(f"Add-on data: {addon_data}")
             
-            # Get the price list ID from environment variables
-            price_list_id = os.getenv('ZOHO_PRICE_LIST_ID')
-            print(f"Price List ID: {price_list_id}")
+            # Get the USD price list ID from environment variables
+            # Use USD price list to show all prices in USD globally
+            price_list_id = os.getenv('ZOHO_USD_PRICE_LIST_ID') or os.getenv('ZOHO_PRICE_LIST_ID')
+            print(f"Price List ID (USD): {price_list_id}")
             
-            # Prepare the payload according to Zoho API docs
+            # Prepare the payload according to Zoho API docs for buyonetimeaddon
             payload = {
                 "subscription_id": subscription_id,
-                "addons": addon_data["addons"],
-                "redirect_url": addon_data.get("redirect_url"),
-                "cancel_url": addon_data.get("cancel_url")
+                "addons": addon_data["addons"]
             }
             
-            # Add price list ID if available
+            # Add required URLs
+            if addon_data.get("redirect_url"):
+                payload["redirect_url"] = addon_data["redirect_url"]
+            if addon_data.get("cancel_url"):
+                payload["cancel_url"] = addon_data["cancel_url"]
+            
+            # Add price list ID if available - this is often required for buyonetimeaddon
             if price_list_id:
                 payload["price_list_id"] = price_list_id
-                print(f"Added price list ID to addon checkout payload: {price_list_id}")
+                print(f"Added USD price list ID to addon checkout payload: {price_list_id}")
+                logger.info(f"Using USD price list for addon checkout: {price_list_id}")
             else:
-                print("WARNING: ZOHO_PRICE_LIST_ID not set in environment variables")
+                print("WARNING: ZOHO_USD_PRICE_LIST_ID not set in environment variables")
+                # For buyonetimeaddon, price_list_id might be required
+                logger.warning("USD price list ID is missing - addon prices might display in base currency (INR) instead of USD")
             
-            # Add customer if provided
-            if "customer" in addon_data:
-                payload["customer"] = addon_data["customer"]
+            # Add customer information if provided - required for standalone addon purchases
+            if "customer" in addon_data and addon_data["customer"]:
+                # Ensure customer has all required fields for buyonetimeaddon
+                customer = addon_data["customer"]
+                if customer.get("email") and customer.get("display_name"):
+                    payload["customer"] = {
+                        "display_name": customer.get("display_name"),
+                        "email": customer.get("email")
+                    }
+                    # Add optional fields if available
+                    if customer.get("mobile"):
+                        payload["customer"]["mobile"] = customer.get("mobile")
+                    if customer.get("company_name"):
+                        payload["customer"]["company_name"] = customer.get("company_name")
+                    print(f"Added customer data to payload: {payload['customer']}")
+                else:
+                    print("WARNING: Customer email and display_name are required for buyonetimeaddon")
+                    logger.warning("Missing required customer fields (email, display_name) for buyonetimeaddon")
                 
             logger.info(f"Creating add-on hosted page with data: {payload}")
             url = f"{self.base_url}/hostedpages/buyonetimeaddon"
@@ -1145,8 +1190,9 @@ def format_subscription_data_for_hosted_page(
     # Get the frontend URL from environment variables or use default
     frontend_url = os.getenv('FRONTEND_URL', 'https://evolra.ai')
     
-    # Get the price list ID from environment variables
-    price_list_id = os.getenv('ZOHO_PRICE_LIST_ID')
+    # Get the USD price list ID from environment variables  
+    # Use USD price list to show all prices in USD globally
+    price_list_id = os.getenv('ZOHO_USD_PRICE_LIST_ID') or os.getenv('ZOHO_PRICE_LIST_ID')
     
     # Enhanced debugging logs
     print(f"\n==== DEBUG: Creating Zoho Checkout Payload ====")
@@ -1239,9 +1285,11 @@ def format_subscription_data_for_hosted_page(
     # Add price list ID if available
     if price_list_id:
         subscription_data["price_list_id"] = price_list_id
-        print(f"Added price list ID to checkout payload: {price_list_id}")
+        print(f"Added USD price list ID to checkout payload: {price_list_id}")
+        logger.info(f"Using USD price list for subscription checkout: {price_list_id}")
     else:
-        print("WARNING: ZOHO_PRICE_LIST_ID not set in environment variables")
+        print("WARNING: ZOHO_USD_PRICE_LIST_ID not set in environment variables")
+        logger.warning("USD price list ID is missing - subscription prices might display in base currency (INR) instead of USD")
     
 
     

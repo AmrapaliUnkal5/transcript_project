@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
 import logging
 import os
+import traceback
 from app.schemas import ZohoCheckoutRequest, ZohoCheckoutResponse
 from app.utils.create_access_token import create_access_token
 from fastapi.responses import JSONResponse
@@ -21,6 +22,14 @@ webhook_logger = get_webhook_logger()
 
 # Create a Zoho Billing Service instance
 zoho_service = ZohoBillingService()
+
+# Webhook detection configuration
+ADDON_DETECTION_CONFIG = {
+    "keywords": ["addon", "add-on", "additional", "extra", "premium", "feature"],
+    "item_types": ["addon", "add_on"],
+    "item_categories": ["addon", "add_on"],
+    "small_amount_threshold": 50,  # Adjust based on your addon pricing
+}
 
 # Pydantic models for request/response
 class SyncResponse(BaseModel):
@@ -374,75 +383,302 @@ async def zoho_webhook_handler(request: Request, db: Session = Depends(get_db)):
         
         # Parse the webhook payload
         payload = await request.json()
+
+        print(f"Webhook payload---------=======: {payload}")
+        
+        # Save payload to file for debugging (especially for new subscription format)
+        if "subscription" in payload:
+            try:
+                import json
+                debug_file = "backend/logs/subscription_webhook_payload.txt"
+                with open(debug_file, "a") as f:
+                    f.write(f"\n{datetime.now().isoformat()} - Subscription Webhook Payload:\n")
+                    f.write(json.dumps(payload, indent=2))
+                    f.write("\n" + "="*50 + "\n")
+                webhook_logger.info(f"💾 Saved subscription webhook payload to {debug_file}")
+            except Exception as e:
+                webhook_logger.warning(f"Could not save subscription webhook payload: {str(e)}")
         
         # Enhanced logging for debugging
         event_type = payload.get("event_type")
-        print(f"\n{'='*60}")
-        print(f"ZOHO WEBHOOK RECEIVED: {timestamp}")
-        print(f"Event Type: {event_type}")
-        print(f"Request Method: {request.method}")
-        print(f"Request URL: {request.url}")
-        print(f"Headers: {dict(request.headers)}")
-        print(f"Raw Payload: {payload}")
-        print(f"{'='*60}\n")
         
-        # Log webhook to structured logging system
+        # Extract key information for better logging
+        customer_email = None
+        user_info = None
+        plan_info = None
+        addon_info = None
+        
+        # Extract customer information from different payload structures
+        if "customer" in payload:
+            customer_email = payload["customer"].get("email")
+        elif "payment" in payload:
+            customer_email = payload["payment"].get("email")
+        elif "email" in payload:
+            customer_email = payload.get("email")
+        
+        # Extract subscription/plan information
+        if "subscription" in payload:
+            sub_data = payload["subscription"]
+            plan_info = {
+                "subscription_id": sub_data.get("subscription_id"),
+                "plan_code": sub_data.get("plan", {}).get("plan_code"),
+                "status": sub_data.get("status"),
+                "amount": sub_data.get("amount"),
+                "currency": sub_data.get("currency_code")
+            }
+            
+            # Extract addon information from subscription
+            if "addons" in sub_data and sub_data["addons"]:
+                addon_info = []
+                for addon in sub_data["addons"]:
+                    addon_info.append({
+                        "addon_code": addon.get("addon_code"),
+                        "addon_instance_id": addon.get("addon_instance_id"),
+                        "quantity": addon.get("quantity", 1)
+                    })
+        
+        # Extract addon information from payment/invoice structure
+        if not addon_info:
+            payment_data = payload.get("payment", {})
+            invoice_data = payload.get("invoice", {})
+            line_items = payment_data.get("line_items", []) or invoice_data.get("line_items", [])
+            
+            # Check for upgrade transactions in invoices (separate addon purchases)
+            invoices = payment_data.get("invoices", [])
+            if invoices:
+                for invoice in invoices:
+                    if invoice.get("transaction_type") == "upgrade":
+                        # This is likely an addon purchase
+                        addon_info = [{
+                            "transaction_type": "upgrade",
+                            "invoice_id": invoice.get("invoice_id"),
+                            "subscription_ids": invoice.get("subscription_ids", []),
+                            "amount": invoice.get("invoice_amount")
+                        }]
+                        break
+            
+            # Original line items check
+            if line_items and not addon_info:
+                addon_info = []
+                for item in line_items:
+                    if item.get("item_type", "").lower() in ["addon", "add_on"] or item.get("addon_code"):
+                        addon_info.append({
+                            "addon_code": item.get("addon_code") or item.get("item_code"),
+                            "quantity": item.get("quantity", 1),
+                            "item_type": item.get("item_type")
+                        })
+        
+        # Log comprehensive webhook information
         webhook_logger.info(
-            "Zoho webhook received",
+            f"🔔 ZOHO WEBHOOK RECEIVED - {event_type or 'UNKNOWN_EVENT'}",
             extra={
                 "event_type": event_type,
-                "webhook_url": str(request.url),
-                "method": request.method,
-                "headers": dict(request.headers),
-                "payload": payload,
-                "user_agent": request.headers.get("user-agent"),
-                "content_length": request.headers.get("content-length"),
-                "source_ip": request.headers.get("x-forwarded-for") or request.client.host if request.client else "unknown"
+                "timestamp": timestamp,
+                "customer_email": customer_email,
+                "plan_info": plan_info,
+                "addon_info": addon_info,
+                "webhook_details": {
+                    "url": str(request.url),
+                    "method": request.method,
+                    "user_agent": request.headers.get("user-agent"),
+                    "content_length": request.headers.get("content-length"),
+                    "source_ip": request.headers.get("x-forwarded-for") or request.client.host if request.client else "unknown"
+                },
+                "raw_payload": payload
             }
+        )
+        
+        # Also log in a more readable format for debugging
+        webhook_logger.info(
+            f"📋 WEBHOOK SUMMARY: Event='{event_type}' | Customer='{customer_email}' | "
+            f"Plan='{plan_info.get('plan_code') if plan_info else 'N/A'}' | "
+            f"Addons='{len(addon_info) if addon_info else 0}' | "
+            f"IP='{request.headers.get('x-forwarded-for') or (request.client.host if request.client else 'unknown')}'"
         )
         
         # If event_type is null, try to determine from payload structure
         if event_type is None:
-            print("Event type is null, attempting to determine from payload structure...")
+            webhook_logger.warning("🔍 Event type is null, attempting to auto-detect from payload structure")
             
             # Check if this is a payment-related webhook
-            if "payment" in payload and payload["payment"].get("status") == "success":
-                event_type = "payment_success"
-                print(f"Detected payment success event from payload structure")
-            elif "payment" in payload and payload["payment"].get("status") == "failed":
-                event_type = "payment_failed"
-                print(f"Detected payment failed event from payload structure")
+            if "payment" in payload:
+                payment_data = payload["payment"]
+                payment_status = payment_data.get("status") or payment_data.get("payment_status")
+                
+                # Check for addon purchases vs subscription upgrades
+                invoices = payment_data.get("invoices", [])
+                
+                # Enhanced logic to distinguish addon purchases from subscription upgrades
+                is_addon_purchase = False
+                if invoices:
+                    for invoice in invoices:
+                        transaction_type = invoice.get("transaction_type")
+                        subscription_ids = invoice.get("subscription_ids", [])
+                        invoice_amount = invoice.get("invoice_amount", 0)
+                        
+                        if transaction_type == "upgrade":
+                            # Check multiple indicators for addon vs plan upgrade
+                            line_items = payment_data.get("line_items", [])
+                            
+                            # 1. Check for explicit addon indicators in line items
+                            has_addon_line_items = any(
+                                item.get("item_type") in ADDON_DETECTION_CONFIG["item_types"] or 
+                                item.get("item_category") in ADDON_DETECTION_CONFIG["item_categories"] or
+                                any(keyword in item.get("name", "").lower() for keyword in ADDON_DETECTION_CONFIG["keywords"])
+                                for item in line_items
+                            )
+                            
+                            # 2. Check invoice description for addon keywords
+                            invoice_description = payment_data.get("description", "").lower()
+                            has_addon_description = any(keyword in invoice_description for keyword in 
+                                ADDON_DETECTION_CONFIG["keywords"])
+                            
+                            # 3. Check amount patterns (heuristic: small amounts often indicate addons)
+                            is_small_amount = 0 < invoice_amount < ADDON_DETECTION_CONFIG["small_amount_threshold"]
+                            
+                            # Decision logic
+                            if has_addon_line_items or has_addon_description:
+                                # Strong indicators for addon purchase
+                                is_addon_purchase = True
+                                webhook_logger.info(f"🔌 DETECTION: Identified as addon purchase", extra={
+                                    "has_addon_line_items": has_addon_line_items,
+                                    "has_addon_description": has_addon_description,
+                                    "invoice_amount": invoice_amount
+                                })
+                                break
+                            elif subscription_ids and not has_addon_line_items and not has_addon_description:
+                                # Strong indicators for subscription plan upgrade
+                                is_addon_purchase = False
+                                webhook_logger.info(f"🔄 DETECTION: Identified as subscription upgrade", extra={
+                                    "subscription_ids": subscription_ids,
+                                    "invoice_amount": invoice_amount,
+                                    "no_addon_indicators": True
+                                })
+                            else:
+                                # Ambiguous case - log for manual review
+                                webhook_logger.warning(f"⚠️ DETECTION: Ambiguous upgrade transaction", extra={
+                                    "transaction_type": transaction_type,
+                                    "subscription_ids": subscription_ids,
+                                    "invoice_amount": invoice_amount,
+                                    "line_items_count": len(line_items),
+                                    "manual_review_needed": True
+                                })
+                                # Default to subscription upgrade for safety
+                                is_addon_purchase = False
+                
+                if payment_status == "success" or payment_status == "paid":
+                    if is_addon_purchase:
+                        event_type = "addon_payment_success"
+                        webhook_logger.info("🔌 Auto-detected: addon_payment_success event (upgrade transaction)")
+                    else:
+                        event_type = "payment_success"
+                        webhook_logger.info("✅ Auto-detected: payment_success event from payload structure")
+                elif payment_status == "failed":
+                    if is_addon_purchase:
+                        event_type = "addon_payment_failed" 
+                        webhook_logger.info("❌ Auto-detected: addon_payment_failed event (upgrade transaction)")
+                    else:
+                        event_type = "payment_failed"
+                        webhook_logger.info("❌ Auto-detected: payment_failed event from payload structure")
             elif "subscription" in payload:
                 # Check subscription status to determine event type
                 sub_status = payload.get("subscription", {}).get("status", "").lower()
                 if sub_status == "live" or sub_status == "active":
                     event_type = "subscription_created"
-                    print(f"Detected subscription created event from payload structure")
+                    webhook_logger.info("🆕 Auto-detected: subscription_created event from payload structure")
                 elif sub_status == "cancelled":
                     event_type = "subscription_cancelled"  
-                    print(f"Detected subscription cancelled event from payload structure")
+                    webhook_logger.info("🚫 Auto-detected: subscription_cancelled event from payload structure")
         
-        # Handle different event types
-        if event_type == "subscription_created":
+        # Check if this is a direct subscription webhook (new format) - PRIORITIZE THIS
+        if "subscription" in payload:
+            subscription_status = payload.get("subscription", {}).get("status", "").lower()
+            if subscription_status in ["live", "active"]:
+                event_type = "subscription_active"
+            elif subscription_status == "cancelled":
+                event_type = "subscription_cancelled"
+            else:
+                event_type = "subscription_updated"
+            webhook_logger.info(f"🎯 Auto-detected subscription webhook: {event_type} (status: {subscription_status})")
+        
+        # Handle different event types with detailed logging
+        webhook_logger.info(f"🔄 Processing webhook event: {event_type}")
+        
+        # PRIORITY: Handle subscription webhook format first (this replaces payment webhooks)
+        if event_type in ["subscription_active", "subscription_updated", "subscription_cancelled"] or \
+           (not event_type and "subscription" in payload) or "subscription" in payload:
+            webhook_logger.info(f"🎯 SUBSCRIPTION WEBHOOK: Processing subscription event for {customer_email}")
+            result = await handle_subscription_webhook(payload, db)
+            webhook_logger.info(f"✅ SUBSCRIPTION WEBHOOK result: {result}", extra={"event_result": result})
+            
+        # LEGACY: Keep old handlers for backward compatibility but deprioritize them
+        elif event_type == "subscription_created":
+            webhook_logger.info(f"📦 LEGACY SUBSCRIPTION_CREATED: Processing for {customer_email} with plan {plan_info.get('plan_code') if plan_info else 'N/A'}")
             result = await handle_subscription_created(payload, db)
-            print(f"Subscription created handler result: {result}")
+            webhook_logger.info(f"✅ LEGACY SUBSCRIPTION_CREATED result: {result}", extra={"event_result": result})
+            
         elif event_type == "subscription_cancelled":
+            webhook_logger.info(f"🚫 SUBSCRIPTION_CANCELLED: Processing for {customer_email}")
             result = await handle_subscription_cancelled(payload, db)
-            print(f"Subscription cancelled handler result: {result}")
+            webhook_logger.info(f"✅ SUBSCRIPTION_CANCELLED result: {result}", extra={"event_result": result})
+            
         elif event_type == "subscription_renewed":
+            webhook_logger.info(f"🔄 SUBSCRIPTION_RENEWED: Processing for {customer_email} with plan {plan_info.get('plan_code') if plan_info else 'N/A'}")
             result = await handle_subscription_renewed(payload, db)
-            print(f"Subscription renewed handler result: {result}")
-        elif event_type == "payment_failed" or event_type == "subscription_payment_failed" or event_type == "hostedpage_payment_failed":
-            result = await handle_payment_failed(payload, db)
-            print(f"Payment failed handler result: {result}")
+            webhook_logger.info(f"✅ SUBSCRIPTION_RENEWED result: {result}", extra={"event_result": result})
+            
+        elif event_type in ["payment_failed", "subscription_payment_failed", "hostedpage_payment_failed"]:
+            webhook_logger.warning(f"❌ LEGACY PAYMENT_FAILED: Redirecting to subscription webhook for {customer_email}")
+            # Try to convert payment failed to subscription format and process
+            if "payment" in payload:
+                # Convert payment webhook to subscription format for consistent processing
+                converted_payload = await _convert_payment_to_subscription_format(payload, "failed")
+                if converted_payload:
+                    result = await handle_subscription_webhook(converted_payload, db)
+                else:
+                    result = await handle_payment_failed(payload, db)
+            else:
+                result = await handle_payment_failed(payload, db)
+            webhook_logger.info(f"✅ PAYMENT_FAILED handled: {result}", extra={"event_result": result})
+            
         elif event_type == "payment_success":
-            result = await handle_payment_success(payload, db)
-            print(f"Payment success handler result: {result}")
+            webhook_logger.warning(f"💰 LEGACY PAYMENT_SUCCESS: Redirecting to subscription webhook for {customer_email}")
+            # Try to convert payment success to subscription format and process
+            if "payment" in payload:
+                # Convert payment webhook to subscription format for consistent processing
+                converted_payload = await _convert_payment_to_subscription_format(payload, "active")
+                if converted_payload:
+                    result = await handle_subscription_webhook(converted_payload, db)
+                else:
+                    result = await handle_payment_success(payload, db)
+            else:
+                result = await handle_payment_success(payload, db)
+            webhook_logger.info(f"✅ PAYMENT_SUCCESS result: {result}", extra={"event_result": result})
+            
+        elif event_type in ["invoice_payment_success", "addon_purchased", "addon_payment_success"]:
+            webhook_logger.info(f"🔌 LEGACY ADDON: Redirecting addon events to subscription webhook for {customer_email}")
+            # All addon purchases now come through subscription webhook with addons array
+            if "subscription" in payload:
+                result = await handle_subscription_webhook(payload, db)
+            else:
+                # Legacy addon webhook - try to process with existing handler
+                result = await handle_addon_payment_success(payload, db)
+            webhook_logger.info(f"✅ ADDON_PAYMENT_SUCCESS result: {result}", extra={"event_result": result})
+            
+        elif event_type in ["addon_payment_failed", "invoice_payment_failed"]:
+            webhook_logger.warning(f"❌ LEGACY ADDON FAILED: Processing for {customer_email}")
+            # Legacy addon failure handling
+            result = await handle_addon_payment_failed(payload, db)
+            webhook_logger.info(f"✅ ADDON_PAYMENT_FAILED handled: {result}", extra={"event_result": result})
+            
         else:
-            print(f"Unhandled webhook event type: {event_type}")
+            webhook_logger.warning(f"⚠️ UNHANDLED EVENT: {event_type} for {customer_email}")
+            webhook_logger.warning(f"Unhandled payload structure", extra={"unhandled_payload": payload})
+            result = {"status": "unhandled", "message": f"Event type {event_type} not handled"}
             # Return success even for unhandled events to avoid webhook retries
         
-        print(f"Webhook processing completed successfully for event: {event_type}")
+        webhook_logger.info(f"🎉 WEBHOOK PROCESSING COMPLETED: {event_type} for {customer_email}", 
+                           extra={"final_status": "success", "event_type": event_type, "customer": customer_email})
         
         # Log successful webhook processing
         webhook_logger.info(
@@ -482,6 +718,744 @@ async def test_webhook_connectivity():
         "timestamp": datetime.now().isoformat(),
         "endpoint": "/zoho/webhook"
     }
+
+# Test endpoint to simulate addon payment webhook (legacy - now redirects to subscription webhook)
+@router.post("/webhook/test-addon")
+async def test_addon_webhook(request: Request, db: Session = Depends(get_db)):
+    """Test endpoint to simulate addon payment webhook - now redirects to subscription webhook"""
+    try:
+        payload = await request.json()
+        
+        print(f"Testing addon webhook (redirecting to subscription webhook): {payload}")
+        
+        # All addon processing now goes through subscription webhook
+        if "subscription" in payload:
+            result = await handle_subscription_webhook(payload, db)
+        else:
+            # For backward compatibility, try legacy handler
+            result = await handle_addon_payment_success(payload, db)
+        
+        return {
+            "status": "success",
+            "message": "Test addon webhook processed via subscription webhook",
+            "result": result,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in test addon webhook: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Test failed: {str(e)}",
+            "timestamp": datetime.now().isoformat()
+        }
+
+
+
+# Test endpoint to simulate subscription webhook
+@router.post("/webhook/test-subscription")
+async def test_subscription_webhook(request: Request, db: Session = Depends(get_db)):
+    """Test endpoint to simulate subscription webhook for testing"""
+    try:
+        payload = await request.json()
+        
+        print(f"Testing subscription webhook with payload: {payload}")
+        
+        # Process through the new subscription webhook handler
+        result = await handle_subscription_webhook(payload, db)
+        
+        return {
+            "status": "success",
+            "message": "Test subscription webhook processed",
+            "result": result,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in test subscription webhook: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Test failed: {str(e)}",
+            "timestamp": datetime.now().isoformat()
+        }
+
+
+
+# Helper function to convert payment webhook to subscription webhook format
+async def _convert_payment_to_subscription_format(payload: Dict[str, Any], status: str = "active") -> Dict[str, Any]:
+    """Convert old payment webhook format to subscription webhook format for consistent processing"""
+    try:
+        payment_data = payload.get("payment", {})
+        if not payment_data:
+            return None
+        
+        # Extract basic info
+        customer_id = payment_data.get("customer_id")
+        email = payment_data.get("email")
+        amount = payment_data.get("amount", 0)
+        currency_code = payment_data.get("currency_code", "USD")
+        payment_date = payment_data.get("date")
+        
+        # Extract subscription ID from invoices
+        invoices = payment_data.get("invoices", [])
+        subscription_id = None
+        invoice_id = None
+        plan_code = None
+        
+        if invoices and len(invoices) > 0:
+            first_invoice = invoices[0]
+            invoice_id = first_invoice.get("invoice_id")
+            subscription_ids = first_invoice.get("subscription_ids", [])
+            if subscription_ids:
+                subscription_id = subscription_ids[0]
+        
+        # Try to get plan code from line items or database lookup
+        line_items = payment_data.get("line_items", [])
+        for item in line_items:
+            if item.get("item_type") != "addon":  # Skip addon items
+                # This could be a plan item, try to match it
+                item_name = item.get("name", "")
+                item_code = item.get("item_code", "")
+                # You might need to add logic here to map item codes to plan codes
+                # For now, we'll try to find it in the database
+                break
+        
+        # Create subscription format payload
+        converted_payload = {
+            "subscription": {
+                "subscription_id": subscription_id,
+                "status": status,
+                "amount": amount,
+                "currency_code": currency_code,
+                "created_time": payment_date,
+                "start_date": payment_date,
+                "child_invoice_id": invoice_id,
+                "customer": {
+                    "customer_id": customer_id,
+                    "email": email
+                },
+                "plan": {
+                    "plan_code": plan_code  # This might be None, which is okay
+                },
+                "addons": []  # Will be populated if needed
+            }
+        }
+        
+        webhook_logger.info(f"🔄 Converted payment webhook to subscription format for processing")
+        return converted_payload
+        
+    except Exception as e:
+        webhook_logger.warning(f"Could not convert payment to subscription format: {str(e)}")
+        return None
+
+
+
+# Admin endpoint to check USD price list configuration
+@router.get("/usd-config/check")
+async def check_usd_configuration(
+    current_user: Union[dict, User] = Depends(get_current_user),
+):
+    """Check USD price list configuration status"""
+    try:
+        # Validate admin access
+        if isinstance(current_user, dict):
+            is_admin = current_user.get("role") == "admin"
+        else:
+            is_admin = current_user.role == "admin"
+            
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Check USD configuration
+        zoho_service = ZohoBillingService()
+        validation_result = zoho_service.validate_usd_price_list_setup()
+        
+        return {
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "usd_configuration": validation_result,
+            "instructions": {
+                "if_not_configured": "Set ZOHO_USD_PRICE_LIST_ID environment variable with your USD price list ID from Zoho Billing",
+                "how_to_create": "Create a new price list in Zoho Billing with USD currency and copy its ID"
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking USD configuration: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error checking USD configuration: {str(e)}")
+
+# Admin endpoint to view recent webhook logs
+@router.get("/webhook-logs/recent")
+async def get_recent_webhook_logs(
+    limit: int = 50,
+    current_user: Union[dict, User] = Depends(get_current_user),
+):
+    """Get recent webhook logs (admin only)"""
+    try:
+        # Validate admin access
+        if isinstance(current_user, dict):
+            is_admin = current_user.get("role") == "admin"
+        else:
+            is_admin = current_user.role == "admin"
+            
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Read recent webhook logs
+        webhook_log_path = "backend/logs/webhook.log"
+        recent_logs = []
+        
+        try:
+            with open(webhook_log_path, 'r') as f:
+                # Get last N lines (recent logs)
+                lines = f.readlines()
+                recent_lines = lines[-limit:] if len(lines) > limit else lines
+                
+                for line in recent_lines:
+                    try:
+                        import json
+                        log_entry = json.loads(line.strip())
+                        recent_logs.append(log_entry)
+                    except json.JSONDecodeError:
+                        # Handle non-JSON log lines
+                        recent_logs.append({"raw_message": line.strip()})
+                        
+        except FileNotFoundError:
+            return {
+                "status": "warning",
+                "message": "Webhook log file not found",
+                "logs": [],
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        return {
+            "status": "success",
+            "webhook_logs": recent_logs[-limit:],  # Most recent first
+            "total_entries": len(recent_logs),
+            "log_file": webhook_log_path,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving webhook logs: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving webhook logs: {str(e)}")
+
+# Admin endpoint to get webhook statistics
+@router.get("/webhook-logs/stats")
+async def get_webhook_statistics(
+    current_user: Union[dict, User] = Depends(get_current_user),
+):
+    """Get webhook processing statistics (admin only)"""
+    try:
+        # Validate admin access
+        if isinstance(current_user, dict):
+            is_admin = current_user.get("role") == "admin"
+        else:
+            is_admin = current_user.role == "admin"
+            
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        webhook_log_path = "backend/logs/webhook.log"
+        stats = {
+            "total_webhooks": 0,
+            "successful_processing": 0,
+            "errors": 0,
+            "event_types": {},
+            "recent_activity": []
+        }
+        
+        try:
+            with open(webhook_log_path, 'r') as f:
+                lines = f.readlines()
+                
+                for line in lines:
+                    if "ZOHO WEBHOOK RECEIVED" in line:
+                        stats["total_webhooks"] += 1
+                        
+                        # Extract event type
+                        if " - " in line:
+                            event_part = line.split(" - ")[-1].strip()
+                            event_type = event_part.split()[0] if event_part else "unknown"
+                            stats["event_types"][event_type] = stats["event_types"].get(event_type, 0) + 1
+                    
+                    if "WEBHOOK PROCESSING COMPLETED" in line:
+                        stats["successful_processing"] += 1
+                    
+                    if "ERROR" in line or "❌" in line:
+                        stats["errors"] += 1
+                
+                # Get recent activity (last 10 entries)
+                recent_lines = lines[-10:] if len(lines) > 10 else lines
+                for line in recent_lines:
+                    if any(keyword in line for keyword in ["RECEIVED", "COMPLETED", "ERROR"]):
+                        try:
+                            import json
+                            log_entry = json.loads(line.strip())
+                            stats["recent_activity"].append({
+                                "timestamp": log_entry.get("timestamp"),
+                                "level": log_entry.get("level"),
+                                "message": log_entry.get("message", "")[:100] + "..." if len(log_entry.get("message", "")) > 100 else log_entry.get("message", "")
+                            })
+                        except:
+                            # Handle non-JSON lines
+                            stats["recent_activity"].append({"raw": line.strip()[:100]})
+                            
+        except FileNotFoundError:
+            return {
+                "status": "warning",
+                "message": "Webhook log file not found",
+                "stats": stats,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # Calculate success rate
+        if stats["total_webhooks"] > 0:
+            stats["success_rate"] = round((stats["successful_processing"] / stats["total_webhooks"]) * 100, 2)
+            stats["error_rate"] = round((stats["errors"] / stats["total_webhooks"]) * 100, 2)
+        else:
+            stats["success_rate"] = 0
+            stats["error_rate"] = 0
+        
+        return {
+            "status": "success",
+            "statistics": stats,
+            "log_file": webhook_log_path,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating webhook statistics: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating webhook statistics: {str(e)}")
+
+async def handle_subscription_webhook(payload: Dict[str, Any], db: Session):
+    """Handle subscription webhook events with rich subscription data"""
+    webhook_logger.info("🎯 SUBSCRIPTION WEBHOOK: Processing subscription event", extra={"handler": "handle_subscription_webhook"})
+    
+    try:
+        # Extract subscription and customer details from the new payload structure
+        subscription_data = payload.get("subscription", {})
+        customer_data = subscription_data.get("customer", {})
+        
+        if not subscription_data:
+            webhook_logger.error("❌ SUBSCRIPTION WEBHOOK: No subscription data found in payload")
+            return {"status": "error", "message": "Invalid webhook payload - missing subscription data"}
+        
+        # Extract key identifiers
+        zoho_subscription_id = subscription_data.get("subscription_id")
+        zoho_customer_id = customer_data.get("customer_id")
+        customer_email = customer_data.get("email")
+        subscription_status = subscription_data.get("status", "").lower()
+        plan_data = subscription_data.get("plan", {})
+        plan_code = plan_data.get("plan_code")
+        addons_data = subscription_data.get("addons", [])
+        
+        webhook_logger.info("📋 SUBSCRIPTION WEBHOOK: Extracted data", extra={
+            "zoho_subscription_id": zoho_subscription_id,
+            "zoho_customer_id": zoho_customer_id,
+            "customer_email": customer_email,
+            "subscription_status": subscription_status,
+            "plan_code": plan_code,
+            "addons_count": len(addons_data)
+        })
+        
+        if not zoho_subscription_id or not customer_email or not plan_code:
+            webhook_logger.error("❌ SUBSCRIPTION WEBHOOK: Missing required subscription data", extra={
+                "missing_fields": {
+                    "subscription_id": not zoho_subscription_id,
+                    "email": not customer_email, 
+                    "plan_code": not plan_code
+                }
+            })
+            return {"status": "error", "message": "Invalid webhook payload - missing required fields"}
+        
+        # Find the user by email - try multiple approaches like the payment webhook
+        user = None
+        if customer_email:
+            user = db.query(User).filter(User.email == customer_email).first()
+        
+        # If not found by customer email, try to find by customer ID in existing subscriptions
+        if not user and zoho_customer_id:
+            existing_user_sub = db.query(UserSubscription).filter(
+                UserSubscription.zoho_customer_id == zoho_customer_id
+            ).first()
+            if existing_user_sub:
+                user = db.query(User).filter(User.user_id == existing_user_sub.user_id).first()
+                if user:
+                    webhook_logger.info(f"👤 SUBSCRIPTION WEBHOOK: Found user {user.user_id} via customer ID {zoho_customer_id}")
+        
+        if not user:
+            webhook_logger.error(f"❌ SUBSCRIPTION WEBHOOK: User with email {customer_email} or customer_id {zoho_customer_id} not found in database")
+            return {"status": "error", "message": f"User not found: {customer_email}"}
+        
+        user_id = user.user_id
+        webhook_logger.info(f"👤 SUBSCRIPTION WEBHOOK: Found user {user_id} for email {customer_email}")
+        
+        # Find the plan in our database
+        plan = None
+        if plan_code:
+            plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.zoho_plan_code == plan_code).first()
+        
+        # If plan not found by code, try to find it by looking up existing subscription
+        if not plan and zoho_subscription_id:
+            existing_sub = db.query(UserSubscription).filter(
+                UserSubscription.zoho_subscription_id == zoho_subscription_id
+            ).first()
+            if existing_sub:
+                plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == existing_sub.subscription_plan_id).first()
+                if plan:
+                    webhook_logger.info(f"🔍 SUBSCRIPTION WEBHOOK: Found plan {plan.name} via existing subscription lookup")
+        
+        # If still no plan found, try to find from user's pending subscription
+        if not plan and user_id:
+            pending_sub = db.query(UserSubscription).filter(
+                UserSubscription.user_id == user_id,
+                UserSubscription.status == "pending"
+            ).order_by(UserSubscription.created_at.desc()).first()
+            if pending_sub:
+                plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == pending_sub.subscription_plan_id).first()
+                if plan:
+                    webhook_logger.info(f"🔍 SUBSCRIPTION WEBHOOK: Found plan {plan.name} via pending subscription lookup")
+        
+        if not plan:
+            webhook_logger.error(f"❌ SUBSCRIPTION WEBHOOK: Plan with code {plan_code} not found in database (also tried subscription lookups)")
+            return {"status": "error", "message": f"Plan not found: {plan_code}"}
+        
+        # Extract subscription details
+        amount = subscription_data.get("amount", 0)
+        currency_code = subscription_data.get("currency_code", "USD")
+        created_time = subscription_data.get("created_time")
+        start_date = subscription_data.get("start_date")
+        next_billing_at = subscription_data.get("next_billing_at")
+        current_term_ends_at = subscription_data.get("current_term_ends_at")
+        
+        # Parse dates
+        payment_date = datetime.now()
+        if created_time:
+            try:
+                # Handle different datetime formats from Zoho
+                if 'T' in created_time:
+                    payment_date = datetime.fromisoformat(created_time.replace('Z', '+00:00'))
+                else:
+                    payment_date = datetime.strptime(created_time, '%Y-%m-%d')
+            except Exception as e:
+                webhook_logger.warning(f"Could not parse created_time {created_time}: {str(e)}")
+        elif start_date:
+            try:
+                payment_date = datetime.strptime(start_date, '%Y-%m-%d')
+            except Exception as e:
+                webhook_logger.warning(f"Could not parse start_date {start_date}: {str(e)}")
+        
+        expiry_date = payment_date + timedelta(days=30)  # Default fallback
+        if current_term_ends_at:
+            try:
+                if 'T' in current_term_ends_at:
+                    expiry_date = datetime.fromisoformat(current_term_ends_at.replace('Z', '+00:00'))
+                else:
+                    expiry_date = datetime.strptime(current_term_ends_at, '%Y-%m-%d')
+            except Exception as e:
+                webhook_logger.warning(f"Could not parse current_term_ends_at {current_term_ends_at}: {str(e)}")
+        elif next_billing_at:
+            try:
+                if 'T' in next_billing_at:
+                    expiry_date = datetime.fromisoformat(next_billing_at.replace('Z', '+00:00'))
+                else:
+                    expiry_date = datetime.strptime(next_billing_at, '%Y-%m-%d')
+            except Exception as e:
+                webhook_logger.warning(f"Could not parse next_billing_at {next_billing_at}: {str(e)}")
+        
+        # Handle different subscription statuses
+        if subscription_status in ["live", "active"]:
+            return await _handle_active_subscription(
+                db, user_id, zoho_subscription_id, zoho_customer_id, plan, 
+                payment_date, expiry_date, amount, currency_code, addons_data, subscription_data
+            )
+        elif subscription_status == "cancelled":
+            return await _handle_cancelled_subscription(db, zoho_subscription_id, subscription_data)
+        else:
+            webhook_logger.info(f"🔍 SUBSCRIPTION WEBHOOK: Handling subscription status '{subscription_status}' as active")
+            return await _handle_active_subscription(
+                db, user_id, zoho_subscription_id, zoho_customer_id, plan, 
+                payment_date, expiry_date, amount, currency_code, addons_data, subscription_data
+            )
+            
+    except Exception as e:
+        db.rollback()
+        webhook_logger.error(f"❌ SUBSCRIPTION WEBHOOK ERROR: Failed to process subscription webhook", extra={
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        })
+        return {"status": "error", "message": f"Error processing subscription webhook: {str(e)}"}
+
+async def _handle_active_subscription(db: Session, user_id: int, zoho_subscription_id: str, 
+                                    zoho_customer_id: str, plan: SubscriptionPlan, 
+                                    payment_date: datetime, expiry_date: datetime, 
+                                    amount: float, currency_code: str, addons_data: list, 
+                                    subscription_data: dict):
+    """Helper function to handle active/live subscription creation or update"""
+    
+    webhook_logger.info(f"📦 SUBSCRIPTION WEBHOOK: Processing active subscription for user {user_id}")
+    
+    # Check if this subscription already exists
+    existing_subscription = db.query(UserSubscription).filter(
+        UserSubscription.zoho_subscription_id == zoho_subscription_id
+    ).first()
+    
+    # Check for pending subscription
+    pending_subscription = db.query(UserSubscription).filter(
+        UserSubscription.user_id == user_id,
+        UserSubscription.status == "pending"
+    ).order_by(UserSubscription.created_at.desc()).first()
+    
+    # Check for active subscription (for upgrade scenarios)
+    active_subscription = db.query(UserSubscription).filter(
+        UserSubscription.user_id == user_id,
+        UserSubscription.status == "active"
+    ).order_by(UserSubscription.payment_date.desc()).first()
+    
+    # Extract invoice ID from subscription data
+    invoice_id = subscription_data.get("child_invoice_id") or subscription_data.get("invoice_id")
+    
+    webhook_logger.info(f"🔍 SUBSCRIPTION WEBHOOK: Found - Existing: {existing_subscription is not None}, Pending: {pending_subscription is not None}, Active: {active_subscription is not None}")
+    
+    # Handle upgrade scenario: existing active subscription + pending subscription + different plans
+    if existing_subscription and pending_subscription and existing_subscription.id != pending_subscription.id:
+        if existing_subscription.subscription_plan_id != pending_subscription.subscription_plan_id:
+            # UPGRADE CASE: User upgraded their plan
+            webhook_logger.info(f"🔄 SUBSCRIPTION WEBHOOK: Upgrade detected - activating new plan", extra={
+                "user_id": user_id,
+                "old_subscription_id": existing_subscription.id,
+                "new_subscription_id": pending_subscription.id,
+                "old_plan_id": existing_subscription.subscription_plan_id,
+                "new_plan_id": pending_subscription.subscription_plan_id
+            })
+            
+            # Activate the pending subscription (new plan)
+            pending_subscription.status = "active"
+            pending_subscription.zoho_subscription_id = zoho_subscription_id
+            pending_subscription.zoho_customer_id = zoho_customer_id
+            pending_subscription.payment_date = payment_date
+            pending_subscription.expiry_date = expiry_date
+            pending_subscription.amount = amount
+            pending_subscription.currency = currency_code
+            pending_subscription.updated_at = datetime.now()
+            pending_subscription.notes = "Plan upgraded via subscription webhook"
+            if invoice_id:
+                pending_subscription.zoho_invoice_id = invoice_id
+            
+            # Mark the old subscription as upgraded
+            existing_subscription.status = "upgraded"
+            existing_subscription.updated_at = datetime.now()
+            existing_subscription.notes = f"Upgraded to plan {plan.name} (subscription ID: {pending_subscription.id})"
+            
+            subscription_record = pending_subscription
+            webhook_logger.info(f"✅ SUBSCRIPTION WEBHOOK: Plan upgrade completed - old: {existing_subscription.id}, new: {pending_subscription.id}")
+        else:
+            # Same plan, just update existing
+            existing_subscription.status = "active"
+            existing_subscription.payment_date = payment_date
+            existing_subscription.expiry_date = expiry_date
+            existing_subscription.amount = amount
+            existing_subscription.currency = currency_code
+            existing_subscription.updated_at = datetime.now()
+            existing_subscription.notes = "Updated via subscription webhook"
+            if invoice_id:
+                existing_subscription.zoho_invoice_id = invoice_id
+            
+            subscription_record = existing_subscription
+            webhook_logger.info(f"🔄 SUBSCRIPTION WEBHOOK: Updated existing subscription {existing_subscription.id}")
+            
+    elif existing_subscription:
+        # Update existing subscription (renewal or update)
+        existing_subscription.status = "active"
+        existing_subscription.payment_date = payment_date
+        existing_subscription.expiry_date = expiry_date
+        existing_subscription.amount = amount
+        existing_subscription.currency = currency_code
+        existing_subscription.updated_at = datetime.now()
+        existing_subscription.notes = "Updated via subscription webhook"
+        if invoice_id:
+            existing_subscription.zoho_invoice_id = invoice_id
+        
+        subscription_record = existing_subscription
+        webhook_logger.info(f"🔄 SUBSCRIPTION WEBHOOK: Updated existing subscription {existing_subscription.id}")
+        
+    elif pending_subscription:
+        # Activate pending subscription (first-time or new subscription)
+        pending_subscription.status = "active"
+        pending_subscription.zoho_subscription_id = zoho_subscription_id
+        pending_subscription.zoho_customer_id = zoho_customer_id
+        pending_subscription.subscription_plan_id = plan.id
+        pending_subscription.payment_date = payment_date
+        pending_subscription.expiry_date = expiry_date
+        pending_subscription.amount = amount
+        pending_subscription.currency = currency_code
+        pending_subscription.updated_at = datetime.now()
+        pending_subscription.notes = "Activated via subscription webhook"
+        if invoice_id:
+            pending_subscription.zoho_invoice_id = invoice_id
+        
+        subscription_record = pending_subscription
+        webhook_logger.info(f"✅ SUBSCRIPTION WEBHOOK: Activated pending subscription {pending_subscription.id}")
+        
+    else:
+        # Create new subscription (no existing or pending found)
+        new_subscription = UserSubscription(
+            user_id=user_id,
+            subscription_plan_id=plan.id,
+            status="active",
+            amount=amount,
+            currency=currency_code,
+            payment_date=payment_date,
+            expiry_date=expiry_date,
+            auto_renew=True,
+            zoho_subscription_id=zoho_subscription_id,
+            zoho_customer_id=zoho_customer_id,
+            notes="Created via subscription webhook"
+        )
+        if invoice_id:
+            new_subscription.zoho_invoice_id = invoice_id
+        
+        db.add(new_subscription)
+        db.flush()  # Get the ID without committing
+        subscription_record = new_subscription
+        webhook_logger.info(f"🆕 SUBSCRIPTION WEBHOOK: Created new subscription {new_subscription.id}")
+    
+    # Process addons from the rich subscription data
+    addons_processed = 0
+    if addons_data:
+        webhook_logger.info(f"🔌 SUBSCRIPTION WEBHOOK: Processing {len(addons_data)} addons")
+        
+        for addon_item in addons_data:
+            addon_code = addon_item.get("addon_code")
+            addon_instance_id = addon_item.get("addon_instance_id")
+            addon_quantity = addon_item.get("quantity", 1)
+            addon_name = addon_item.get("name", "")
+            
+            webhook_logger.info(f"🔍 SUBSCRIPTION WEBHOOK: Processing addon item", extra={
+                "addon_code": addon_code,
+                "addon_name": addon_name,
+                "addon_quantity": addon_quantity,
+                "addon_instance_id": addon_instance_id
+            })
+            
+            if not addon_code:
+                webhook_logger.warning("⚠️ SUBSCRIPTION WEBHOOK: Skipping addon without addon_code")
+                continue
+            
+            # Find the addon in our database
+            addon = db.query(Addon).filter(Addon.zoho_addon_code == addon_code).first()
+            if not addon:
+                webhook_logger.warning(f"⚠️ SUBSCRIPTION WEBHOOK: Addon with code {addon_code} not found in database")
+                continue
+            
+            # Check if user already has this addon
+            existing_addon = db.query(UserAddon).filter(
+                UserAddon.user_id == user_id,
+                UserAddon.addon_id == addon.id,
+                UserAddon.status.in_(["active", "pending"])
+            ).order_by(UserAddon.created_at.desc()).first()
+            
+            # Determine expiry date based on addon type
+            if addon.addon_type == "Additional Messages":
+                addon_expiry = payment_date + timedelta(days=5*365)  # Lifetime addon
+            else:
+                addon_expiry = expiry_date  # Expires with subscription
+            
+            if existing_addon:
+                # Update existing addon
+                existing_addon.status = "active"
+                existing_addon.is_active = True
+                existing_addon.subscription_id = subscription_record.id
+                existing_addon.purchase_date = payment_date
+                existing_addon.expiry_date = addon_expiry
+                existing_addon.zoho_addon_instance_id = addon_instance_id
+                existing_addon.updated_at = datetime.now()
+                webhook_logger.info(f"🔄 SUBSCRIPTION WEBHOOK: Updated existing addon {addon.name} for user {user_id}")
+            else:
+                # Create new addon
+                user_addon = UserAddon(
+                    user_id=user_id,
+                    addon_id=addon.id,
+                    subscription_id=subscription_record.id,
+                    purchase_date=payment_date,
+                    expiry_date=addon_expiry,
+                    is_active=True,
+                    auto_renew=addon.is_recurring,
+                    status="active",
+                    zoho_addon_instance_id=addon_instance_id,
+                    initial_count=addon.additional_message_limit or 0,
+                    remaining_count=addon.additional_message_limit or 0
+                )
+                
+                db.add(user_addon)
+                webhook_logger.info(f"🆕 SUBSCRIPTION WEBHOOK: Created new addon {addon.name} for user {user_id}")
+            
+            addons_processed += 1
+    
+    # Commit all changes
+    db.commit()
+    
+    # Create fresh token with updated subscription info
+    create_fresh_user_token(db, user_id)
+    
+    webhook_logger.info(f"✅ SUBSCRIPTION WEBHOOK: Successfully processed subscription for user {user_id}", extra={
+        "user_id": user_id,
+        "subscription_id": subscription_record.id,
+        "zoho_subscription_id": zoho_subscription_id,
+        "addons_processed": addons_processed
+    })
+    
+    return {"status": "success", "message": f"Subscription processed successfully with {addons_processed} addons"}
+
+async def _handle_cancelled_subscription(db: Session, zoho_subscription_id: str, subscription_data: dict):
+    """Helper function to handle subscription cancellation"""
+    
+    webhook_logger.info(f"🚫 SUBSCRIPTION WEBHOOK: Processing subscription cancellation for {zoho_subscription_id}")
+    
+    # Find the subscription in our database
+    subscription = db.query(UserSubscription).filter(
+        UserSubscription.zoho_subscription_id == zoho_subscription_id
+    ).first()
+    
+    if not subscription:
+        webhook_logger.error(f"❌ SUBSCRIPTION WEBHOOK: Subscription {zoho_subscription_id} not found for cancellation")
+        return {"status": "error", "message": f"Subscription {zoho_subscription_id} not found"}
+    
+    # Update subscription status
+    subscription.status = "cancelled"
+    subscription.auto_renew = False
+    subscription.updated_at = datetime.now()
+    subscription.notes = "Cancelled via subscription webhook"
+    
+    user_id = subscription.user_id
+    
+    # Deactivate associated addons
+    user_addons = db.query(UserAddon).filter(
+        UserAddon.user_id == user_id,
+        UserAddon.subscription_id == subscription.id,
+        UserAddon.status == "active"
+    ).all()
+    
+    for addon in user_addons:
+        addon.status = "cancelled"
+        addon.is_active = False
+        addon.updated_at = datetime.now()
+    
+    db.commit()
+    
+    # Create fresh token with updated subscription info
+    create_fresh_user_token(db, user_id)
+    
+    webhook_logger.info(f"✅ SUBSCRIPTION WEBHOOK: Successfully cancelled subscription {zoho_subscription_id} for user {user_id}")
+    
+    return {"status": "success", "message": "Subscription cancelled successfully"}
 
 async def handle_subscription_created(payload: Dict[str, Any], db: Session):
     """Handle subscription created webhook event"""
@@ -595,7 +1569,9 @@ async def handle_subscription_created(payload: Dict[str, Any], db: Session):
                     is_active=True,
                     auto_renew=addon.is_recurring,
                     status="active",
-                    zoho_addon_instance_id=addon_instance_id
+                    zoho_addon_instance_id=addon_instance_id,
+                    initial_count=addon.additional_message_limit or 0,
+                    remaining_count=addon.additional_message_limit or 0
                 )
                 
                 db.add(user_addon)
@@ -785,7 +1761,9 @@ async def handle_subscription_renewed(payload: Dict[str, Any], db: Session):
                     status="active",
                     purchase_date=datetime.now(),
                     expiry_date=expiry_date if addon.addon_type != "Additional Messages" else None,
-                    created_at=datetime.now()
+                    created_at=datetime.now(),
+                    initial_count=addon.additional_message_limit or 0,
+                    remaining_count=addon.additional_message_limit or 0
                 )
                 db.add(new_addon)
                 logger.info(f"Added new add-on {addon.name} (ID: {addon.id}) for user {subscription.user_id}")
@@ -850,7 +1828,7 @@ async def handle_payment_failed(payload: Dict[str, Any], db: Session):
             # Create a fresh token with the updated subscription info
             create_fresh_user_token(db, user_id)
         else:
-            print(f"No pending subscription found for user {user_id} to mark as failed")
+            webhook_logger.info(f"ℹ️ PAYMENT FAILED: No pending subscription found for user {user_id} to mark as failed")
             
     except Exception as e:
         db.rollback()
@@ -877,10 +1855,12 @@ async def handle_payment_success(payload: Dict[str, Any], db: Session):
         invoices = payment_data.get("invoices", [])
         subscription_id = None
         invoice_id = None
+        transaction_type = None
         
         if invoices and len(invoices) > 0:
             first_invoice = invoices[0]
             invoice_id = first_invoice.get("invoice_id")
+            transaction_type = first_invoice.get("transaction_type")
             subscription_ids = first_invoice.get("subscription_ids", [])
             if subscription_ids and len(subscription_ids) > 0:
                 subscription_id = subscription_ids[0]
@@ -890,16 +1870,24 @@ async def handle_payment_success(payload: Dict[str, Any], db: Session):
         print(f"  Email: {email}")
         print(f"  Subscription ID: {subscription_id}")
         print(f"  Invoice ID: {invoice_id}")
+        print(f"  Transaction Type: {transaction_type}")
         print(f"  Payment Status: {payment_data.get('status')}")
         
+        webhook_logger.info("💰 PAYMENT SUCCESS: Processing payment", extra={
+            "customer_id": customer_id,
+            "email": email,
+            "subscription_id": subscription_id,
+            "invoice_id": invoice_id,
+            "transaction_type": transaction_type,
+            "payment_status": payment_data.get('status')
+        })
+        
         if not customer_id:
-            logger.error("Missing customer ID in payment success payload")
-            print("ERROR: Missing customer ID in payment success payload")
+            webhook_logger.error("❌ PAYMENT SUCCESS: Missing customer ID in payment success payload")
             return
             
         if not email:
-            logger.error("Customer email not found in webhook payload")
-            print("ERROR: Customer email not found in webhook payload")
+            webhook_logger.error("❌ PAYMENT SUCCESS: Customer email not found in webhook payload")
             return
             
         # Find the user by email
@@ -928,8 +1916,49 @@ async def handle_payment_success(payload: Dict[str, Any], db: Session):
         print(f"Found pending subscription: {pending_subscription is not None}")
         print(f"Found existing subscription: {existing_subscription is not None}")
         
-        if existing_subscription:
-            # Update existing subscription
+        # Handle subscription upgrade logic properly
+        if existing_subscription and pending_subscription and transaction_type == "upgrade":
+            # UPGRADE CASE: Both existing and pending subscriptions exist
+            # The pending subscription represents the new plan, existing is the old plan
+            webhook_logger.info(f"🔄 UPGRADE DETECTED: Processing subscription upgrade", extra={
+                "user_id": user_id,
+                "existing_subscription_id": existing_subscription.id,
+                "pending_subscription_id": pending_subscription.id,
+                "zoho_subscription_id": subscription_id
+            })
+            
+            # Update the pending subscription (new plan) to active
+            pending_subscription.status = "active"
+            pending_subscription.zoho_subscription_id = subscription_id
+            pending_subscription.zoho_invoice_id = invoice_id
+            pending_subscription.zoho_customer_id = customer_id
+            pending_subscription.payment_date = datetime.now()
+            pending_subscription.updated_at = datetime.now()
+            pending_subscription.notes = "Subscription plan upgraded - Payment successful"
+            
+            # Deactivate the existing subscription (old plan)
+            existing_subscription.status = "upgraded"
+            existing_subscription.updated_at = datetime.now()
+            existing_subscription.notes = f"Upgraded to new plan (subscription ID: {pending_subscription.id})"
+            
+            # Create a fresh token with the updated subscription info
+            create_fresh_user_token(db, user_id)
+            
+            db.commit()
+            
+            print(f"SUCCESS: Processed subscription upgrade for user {user_id}")
+            print(f"  - Activated new subscription (ID: {pending_subscription.id})")
+            print(f"  - Deactivated old subscription (ID: {existing_subscription.id})")
+            
+            webhook_logger.info(f"✅ SUBSCRIPTION UPGRADE: Successfully processed plan upgrade", extra={
+                "user_id": user_id,
+                "new_subscription_id": pending_subscription.id,
+                "old_subscription_id": existing_subscription.id,
+                "zoho_subscription_id": subscription_id
+            })
+            
+        elif existing_subscription and not pending_subscription:
+            # EXISTING SUBSCRIPTION RENEWAL/UPDATE (not an upgrade)
             existing_subscription.status = "active"
             existing_subscription.payment_date = datetime.now()
             existing_subscription.zoho_invoice_id = invoice_id
@@ -943,8 +1972,8 @@ async def handle_payment_success(payload: Dict[str, Any], db: Session):
             print(f"SUCCESS: Updated existing subscription for user {user_id} to active status")
             logger.info(f"Updated existing subscription for user {user_id} to active status")
             
-        elif pending_subscription:
-            # Update the pending subscription
+        elif pending_subscription and not existing_subscription:
+            # NEW SUBSCRIPTION CASE: Only pending subscription exists (first-time subscription)
             pending_subscription.status = "active"
             if subscription_id:
                 pending_subscription.zoho_subscription_id = subscription_id
@@ -964,21 +1993,343 @@ async def handle_payment_success(payload: Dict[str, Any], db: Session):
             logger.info(f"Updated pending subscription for user {user_id} to active status")
             
         else:
-            logger.error(f"No matching subscription found for payment success event. User: {user_id}, Zoho Subscription: {subscription_id}")
-            print(f"ERROR: No matching subscription found for payment success event. User: {user_id}, Zoho Subscription: {subscription_id}")
+            # No subscription found - check if this is a standalone addon purchase
+            webhook_logger.info(f"🔍 PAYMENT SUCCESS: No subscription found - checking if this is a standalone addon purchase")
+            
+            # Try to process as addon-only invoice
+            if invoice_id and not subscription_id:
+                webhook_logger.info(f"💡 PAYMENT SUCCESS: Processing as potential standalone addon purchase (invoice: {invoice_id})")
+                
+                # Get user's active subscription for linking addons
+                active_subscription = db.query(UserSubscription).filter(
+                    UserSubscription.user_id == user_id,
+                    UserSubscription.status == "active"
+                ).order_by(UserSubscription.expiry_date.desc()).first()
+                
+                if active_subscription:
+                    # This could be an addon purchase - delegate to addon handler
+                    webhook_logger.info(f"🔗 PAYMENT SUCCESS: Found active subscription for addon purchase - delegating to addon handler")
+                    addon_result = await handle_addon_payment_success(payload, db)
+                    webhook_logger.info(f"✅ PAYMENT SUCCESS: Addon handler result: {addon_result}")
+                    return
+                else:
+                    webhook_logger.warning(f"⚠️ PAYMENT SUCCESS: No active subscription found for potential addon purchase")
+            
+            webhook_logger.error(f"❌ PAYMENT SUCCESS: No matching subscription found for payment success event. User: {user_id}, Zoho Subscription: {subscription_id}")
             
             # Log all subscriptions for this user for debugging
             all_subs = db.query(UserSubscription).filter(UserSubscription.user_id == user_id).all()
-            print(f"All subscriptions for user {user_id}:")
+            sub_debug_info = []
             for sub in all_subs:
-                print(f"  ID: {sub.id}, Status: {sub.status}, Zoho ID: {sub.zoho_subscription_id}, Created: {sub.created_at}")
+                sub_debug_info.append({
+                    "id": sub.id,
+                    "status": sub.status,
+                    "zoho_id": sub.zoho_subscription_id,
+                    "created": sub.created_at.isoformat() if sub.created_at else None
+                })
+            
+            webhook_logger.debug(f"🔍 PAYMENT SUCCESS DEBUG: All subscriptions for user {user_id}", extra={
+                "user_id": user_id,
+                "subscriptions": sub_debug_info
+            })
             
     except Exception as e:
         db.rollback()
-        logger.error(f"Error handling payment_success event: {str(e)}")
-        print(f"ERROR handling payment success: {str(e)}")
-        import traceback
-        print(f"Full traceback: {traceback.format_exc()}")
+        webhook_logger.error(f"❌ PAYMENT SUCCESS ERROR: Error handling payment_success event", extra={
+            "error": str(e),
+            "user_id": user_id if 'user_id' in locals() else 'unknown',
+            "email": email if 'email' in locals() else 'unknown',
+            "traceback": traceback.format_exc()
+        })
+
+# Add new handlers for standalone addon purchases
+async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
+    """Handle successful addon payment events from Zoho (standalone addon purchases)"""
+    try:
+        webhook_logger.info("🔌 ADDON PAYMENT SUCCESS: Starting processing", extra={"handler": "handle_addon_payment_success"})
+        
+        # Extract data from payload - addon payments have different structure
+        # For standalone addon purchases, the payload might have different structure
+        payment_data = payload.get("payment", {})
+        invoice_data = payload.get("invoice", {})
+        
+        # Try different payload structures
+        if not payment_data and not invoice_data:
+            # Check if this is a direct invoice payment structure
+            if "customer_id" in payload and "email" in payload:
+                payment_data = payload
+            else:
+                webhook_logger.error("❌ ADDON PAYMENT: No payment or invoice data found in webhook payload")
+                return {"status": "error", "message": "Invalid payload structure"}
+        
+        # Extract customer information
+        customer_id = payment_data.get("customer_id") or invoice_data.get("customer_id")
+        email = payment_data.get("email") or invoice_data.get("email") or payload.get("email")
+        
+        # Extract invoice information
+        invoice_id = payment_data.get("invoice_id") or invoice_data.get("invoice_id")
+        
+        # Extract addon information from line items or invoices
+        line_items = payment_data.get("line_items", []) or invoice_data.get("line_items", [])
+        
+        # Also check for upgrade transactions in invoices (for separate addon purchases)
+        invoices = payment_data.get("invoices", [])
+        upgrade_invoices = [inv for inv in invoices if inv.get("transaction_type") == "upgrade"]
+        
+        webhook_logger.info("📋 ADDON PAYMENT: Extracted payment data", extra={
+            "customer_id": customer_id,
+            "email": email,
+            "invoice_id": invoice_id,
+            "line_items_count": len(line_items),
+            "line_items": line_items,
+            "upgrade_invoices_count": len(upgrade_invoices),
+            "upgrade_invoices": upgrade_invoices
+        })
+        
+        if not email:
+            webhook_logger.error("❌ ADDON PAYMENT: Customer email not found in webhook payload")
+            return {"status": "error", "message": "No customer email found"}
+        
+        # Find the user by email
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            webhook_logger.error(f"❌ ADDON PAYMENT: User with email {email} not found in database")
+            return {"status": "error", "message": f"User not found: {email}"}
+        
+        user_id = user.user_id
+        webhook_logger.info(f"👤 ADDON PAYMENT: Found user {user_id} for email {email}")
+        
+        # Get user's active subscription for linking addons
+        subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "active"
+        ).order_by(UserSubscription.expiry_date.desc()).first()
+        
+        if not subscription:
+            webhook_logger.error(f"❌ ADDON PAYMENT: No active subscription found for user {user_id}")
+            return {"status": "error", "message": "No active subscription found"}
+        
+        webhook_logger.info(f"📦 ADDON PAYMENT: Found active subscription {subscription.id} for user {user_id}")
+        
+        # Process addon line items or upgrade invoices
+        addons_created = 0
+        
+        # Handle traditional line items structure
+        for line_item in line_items:
+            item_type = line_item.get("item_type", "").lower()
+            addon_code = line_item.get("item_code") or line_item.get("addon_code")
+            quantity = line_item.get("quantity", 1)
+            
+            # Skip non-addon items
+            if item_type not in ["addon", "add_on"] and not addon_code:
+                continue
+            
+            if not addon_code:
+                webhook_logger.warning(f"⚠️ ADDON PAYMENT: Skipping line item without addon code: {line_item}")
+                continue
+            
+            # Find the addon in our database
+            addon = db.query(Addon).filter(Addon.zoho_addon_code == addon_code).first()
+            if not addon:
+                webhook_logger.warning(f"⚠️ ADDON PAYMENT: Could not find addon with code {addon_code} in database")
+                continue
+            
+            webhook_logger.info(f"🔌 ADDON PAYMENT: Processing addon {addon.name} (code: {addon_code}) for user {user_id}")
+            
+            # Check if user already has this addon (active or pending)
+            existing_addon = db.query(UserAddon).filter(
+                UserAddon.user_id == user_id,
+                UserAddon.addon_id == addon.id,
+                UserAddon.status.in_(["active", "pending"])
+            ).order_by(UserAddon.created_at.desc()).first()
+            
+            current_time = datetime.now()
+            
+            # Determine expiry date based on addon type
+            if addon.addon_type == "Additional Messages":
+                # Set a far future date for lifetime add-ons
+                addon_expiry = current_time + timedelta(days=5*365)
+            else:
+                # Other one-time addons expire with the subscription
+                addon_expiry = subscription.expiry_date
+            
+            if existing_addon:
+                # Update existing addon
+                existing_addon.status = "active"
+                existing_addon.is_active = True
+                existing_addon.purchase_date = current_time
+                existing_addon.expiry_date = addon_expiry
+                existing_addon.updated_at = current_time
+                webhook_logger.info(f"🔄 ADDON PAYMENT: Updated existing addon {addon.name} for user {user_id}")
+            else:
+                # Create new UserAddon record
+                user_addon = UserAddon(
+                    user_id=user_id,
+                    addon_id=addon.id,
+                    subscription_id=subscription.id,
+                    purchase_date=current_time,
+                    expiry_date=addon_expiry,
+                    is_active=True,
+                    auto_renew=addon.is_recurring,
+                    status="active",
+                    initial_count=addon.additional_message_limit or 0,
+                    remaining_count=addon.additional_message_limit or 0
+                )
+                
+                db.add(user_addon)
+                addons_created += 1
+                webhook_logger.info(f"🆕 ADDON PAYMENT: Created new addon {addon.name} for user {user_id}")
+        
+        # Handle upgrade transactions (separate addon purchases without line items)
+        if upgrade_invoices and addons_created == 0:
+            webhook_logger.info(f"🔄 ADDON PAYMENT: Processing {len(upgrade_invoices)} upgrade transactions")
+            
+            for upgrade_inv in upgrade_invoices:
+                invoice_id = upgrade_inv.get("invoice_id")
+                invoice_amount = upgrade_inv.get("invoice_amount", 0)
+                subscription_ids = upgrade_inv.get("subscription_ids", [])
+                
+                webhook_logger.info(f"🔍 ADDON PAYMENT: Processing upgrade invoice {invoice_id} with amount {invoice_amount}")
+                
+                # For upgrade transactions without specific addon details, we need to:
+                # 1. Check if this is a known addon purchase pattern
+                # 2. Or fetch invoice details from Zoho API to get addon information
+                # 3. For now, we'll create a generic addon record and log for manual review
+                
+                # Get all available addons to match by price if possible
+                available_addons = db.query(Addon).filter(Addon.is_active == True).all()
+                matching_addon = None
+                
+                # Try to match by price (basic heuristic)
+                for addon in available_addons:
+                    if abs(float(addon.price) - float(invoice_amount)) < 0.01:  # Price match within 1 cent
+                        matching_addon = addon
+                        webhook_logger.info(f"💰 ADDON PAYMENT: Matched addon {addon.name} by price {addon.price}")
+                        break
+                
+                if matching_addon:
+                    # Create addon record
+                    current_time = datetime.now()
+                    if matching_addon.addon_type == "Additional Messages":
+                        addon_expiry = current_time + timedelta(days=5*365)
+                    else:
+                        addon_expiry = subscription.expiry_date
+                    
+                    # Check for existing addon
+                    existing_addon = db.query(UserAddon).filter(
+                        UserAddon.user_id == user_id,
+                        UserAddon.addon_id == matching_addon.id,
+                        UserAddon.status.in_(["active", "pending"])
+                    ).first()
+                    
+                    if existing_addon:
+                        existing_addon.status = "active"
+                        existing_addon.is_active = True
+                        existing_addon.purchase_date = current_time
+                        existing_addon.expiry_date = addon_expiry
+                        existing_addon.updated_at = current_time
+                        webhook_logger.info(f"🔄 ADDON PAYMENT: Updated existing addon {matching_addon.name} for user {user_id}")
+                    else:
+                        user_addon = UserAddon(
+                            user_id=user_id,
+                            addon_id=matching_addon.id,
+                            subscription_id=subscription.id,
+                            purchase_date=current_time,
+                            expiry_date=addon_expiry,
+                            is_active=True,
+                            auto_renew=matching_addon.is_recurring,
+                            status="active",
+                            initial_count=matching_addon.additional_message_limit or 0,
+                            remaining_count=matching_addon.additional_message_limit or 0
+                        )
+                        db.add(user_addon)
+                        webhook_logger.info(f"🆕 ADDON PAYMENT: Created new addon {matching_addon.name} for user {user_id}")
+                    
+                    addons_created += 1
+                else:
+                    # Log for manual review - couldn't automatically match addon
+                    webhook_logger.warning(f"⚠️ ADDON PAYMENT: Could not automatically match upgrade transaction", extra={
+                        "user_id": user_id,
+                        "email": email,
+                        "invoice_id": invoice_id,
+                        "invoice_amount": invoice_amount,
+                        "subscription_ids": subscription_ids,
+                        "available_addon_prices": [addon.price for addon in available_addons],
+                        "manual_review_required": True
+                    })
+        
+        # Log addon processing summary
+        total_items = len(line_items) + len(upgrade_invoices)
+        webhook_logger.info(f"📊 ADDON PAYMENT: Processed {total_items} items ({len(line_items)} line items + {len(upgrade_invoices)} upgrade invoices), created/updated {addons_created} addons for user {user_id}")
+        
+        # Commit all changes
+        db.commit()
+        
+        # Create a fresh token with updated addon info
+        create_fresh_user_token(db, user_id)
+        
+        webhook_logger.info(f"✅ ADDON PAYMENT SUCCESS: Completed processing {addons_created} addon purchases for user {user_id} ({email})", 
+                           extra={
+                               "user_id": user_id,
+                               "email": email,
+                               "addons_processed": addons_created,
+                               "invoice_id": invoice_id
+                           })
+        
+        return {"status": "success", "message": f"Processed {addons_created} addon purchases"}
+        
+    except Exception as e:
+        db.rollback()
+        webhook_logger.error(f"❌ ADDON PAYMENT ERROR: Failed to process addon payment", extra={
+            "error": str(e),
+            "email": email if 'email' in locals() else 'unknown',
+            "traceback": traceback.format_exc()
+        })
+        return {"status": "error", "message": f"Error processing addon payment: {str(e)}"}
+
+async def handle_addon_payment_failed(payload: Dict[str, Any], db: Session):
+    """Handle failed addon payment events from Zoho"""
+    try:
+        webhook_logger.warning("❌ ADDON PAYMENT FAILED: Starting processing", extra={"handler": "handle_addon_payment_failed"})
+        
+        # Extract customer information
+        payment_data = payload.get("payment", {})
+        invoice_data = payload.get("invoice", {})
+        
+        customer_id = payment_data.get("customer_id") or invoice_data.get("customer_id")
+        email = payment_data.get("email") or invoice_data.get("email") or payload.get("email")
+        
+        if not email:
+            webhook_logger.error("❌ ADDON PAYMENT FAILED: Customer email not found in webhook payload")
+            return {"status": "error", "message": "No customer email found"}
+        
+        # Find the user by email
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            webhook_logger.error(f"❌ ADDON PAYMENT FAILED: User with email {email} not found in database")
+            return {"status": "error", "message": f"User not found: {email}"}
+        
+        user_id = user.user_id
+        
+        # Log the failed payment with details
+        webhook_logger.warning(f"⚠️ ADDON PAYMENT FAILED: Payment failed for user {user_id} ({email})", extra={
+            "user_id": user_id,
+            "email": email,
+            "customer_id": customer_id,
+            "failure_details": payload
+        })
+        
+        # You might want to clean up any pending addon records here
+        # For now, just log the failure
+        
+        return {"status": "success", "message": "Addon payment failure logged"}
+        
+    except Exception as e:
+        webhook_logger.error(f"❌ ADDON PAYMENT FAILED ERROR: Error handling addon payment failure", extra={
+            "error": str(e),
+            "email": email if 'email' in locals() else 'unknown'
+        })
+        return {"status": "error", "message": f"Error processing addon payment failure: {str(e)}"}
 
 # Add a new endpoint to get subscription status for a user
 @router.get("/status/{user_id}", response_model=dict)

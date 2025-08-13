@@ -394,7 +394,7 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
             ).first()
             
             if file_record:
-                logger.info(f"Found file record in database, The status is 'EXTRACTING'")
+                logger.info(f"Found file record in database.")
             else:
                 logger.warning(f"No file record found in database for file_id: {file_id}")
             
@@ -1434,21 +1434,50 @@ def process_file_upload_part2(self, bot_id: int, file_id: str):
         ).first()
 
         if file_record:
-            logger.info(f"Found file record in database, The status is 'EXTRACTING'")
+            logger.info(f"Found file record in database, The status is updated to  Embedding.")
                 # file_record.embedding_status = "pending"
             file_record.status = "Embedding"
             db.commit()
         else:
             logger.warning(f"No file record found in database for file_id: {file_id}")
+        original_filename = file_record.file_name
 
 
         # Load extracted text from file
         extracted_text_path = file_record.file_path
-        if not os.path.exists(extracted_text_path):
-            raise Exception(f"Extracted text file does not exist: {extracted_text_path}")
+        # Check if this is S3 storage
+        is_s3_storage = extracted_text_path.startswith("s3://")
 
-        with open(extracted_text_path, "r", encoding="utf-8") as f:
-            file_content_text = f.read()
+        if is_s3_storage:
+            logger.info(f"Detected S3 storage for extracted text: {extracted_text_path}")
+
+            import boto3
+            from urllib.parse import urlparse
+            from botocore.exceptions import ClientError
+
+            parsed_url = urlparse(extracted_text_path)
+            bucket_name = parsed_url.netloc
+            s3_key = parsed_url.path.lstrip("/")
+
+            s3_client = boto3.client("s3")
+
+            try:
+                s3_client.head_object(Bucket=bucket_name, Key=s3_key)
+            except ClientError as e:
+                if e.response["Error"]["Code"] == "404":
+                    raise Exception(f"Extracted text file does not exist in S3: {extracted_text_path}")
+                raise
+
+            logger.info(f"Reading extracted text content from S3: {extracted_text_path}")
+            response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+            file_content_text = response["Body"].read().decode("utf-8")
+
+        else:
+            # Local file handling
+            if not os.path.exists(extracted_text_path):
+                raise Exception(f"Extracted text file does not exist: {extracted_text_path}")
+            with open(extracted_text_path, "r", encoding="utf-8") as f:
+                file_content_text = f.read()
 
 
         if not file_content_text.strip():
@@ -1500,7 +1529,10 @@ def process_file_upload_part2(self, bot_id: int, file_id: str):
 
             word_count = len(file_content_text.split())
             print("Now the File count is totally",word_count)
-            file_size = os.path.getsize(extracted_text_path)
+            if is_s3_storage:
+                file_size = s3_client.head_object(Bucket=bucket_name, Key=s3_key)["ContentLength"]
+            else:
+                file_size = os.path.getsize(extracted_text_path)
 
             update_bot_word_and_file_count(
                 db=db,
