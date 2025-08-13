@@ -388,10 +388,10 @@ async def validate_and_upload_files(
                 event_type = "DOCUMENT_UPLOADED"
                 if current_user["is_team_member"] == True:
                     logged_in_team_member = current_user["member_id"]
-                    event_data = f'"{original_filename}" begun extraction of text.'# {word_counts_list[i]} words extracted successfully by Team Member :{logged_in_team_member}'
+                    event_data = f'Text extraction started for "{original_filename}".'
                     logger.info(f"👥 DEBUG: Team member upload - member_id: {logged_in_team_member}")
                 else:
-                    event_data = f'"{original_filename}" begun extraction of text.'# {word_counts_list[i]} words extracted successfully.'
+                    event_data = f'Text extraction started for "{original_filename}".'
                     logger.info(f"👤 DEBUG: Regular user upload")
                                   
                 add_notification(

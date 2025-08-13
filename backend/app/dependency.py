@@ -32,6 +32,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         subscription_plan_id: int = payload.get("subscription_plan_id", 1)
         is_team_member:bool = payload.get("is_team_member")
         member_id:int = payload.get("member_id")
+        impersonated_by: int = payload.get("impersonated_by")
 
         if email is None or role is None:
             logger.warning("Token missing required fields", extra={"email_present": email is not None, "role_present": role is not None})
@@ -48,6 +49,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             "subscription_plan_id": subscription_plan_id,
             "is_team_member": is_team_member,
             "member_id" : member_id,
+            "impersonated_by": impersonated_by,
         }
     except JWTError as e:
         logger.error(f"JWT validation error: {str(e)}")

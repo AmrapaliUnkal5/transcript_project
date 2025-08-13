@@ -965,7 +965,11 @@ useEffect(() => {
       if (!userId) return;
       const updatedSettings = {
       ...settings,
-      lead_form_config: settings.lead_generation_enabled ? settings.lead_form_config : [],
+      // Disable lead generation if no fields are selected
+      lead_generation_enabled: settings.lead_generation_enabled && 
+        (settings.lead_form_config?.length ?? 0) > 0,
+      lead_form_config: settings.lead_generation_enabled ? 
+        settings.lead_form_config : [],
        };
       if (isBotExisting && botId) {
         console.log("settings", settings);
@@ -1516,14 +1520,9 @@ const handleThemeSelect = async (themeId: string) => {
           onChange={() => {
             const enabled = !settings.lead_generation_enabled;
             handleChange("lead_generation_enabled", enabled);
-            if (enabled) {
-              const existing = settings.lead_form_config || [];
-              const hasName = existing.some((f) => f.field === "name");
-              if (!hasName) {
-                handleChange("lead_form_config", [...existing, { field: "name", required: false }]);
-              }
-            } else {
-              handleChange("lead_form_config", []);
+            // Initialize with empty array if enabling, don't clear if disabling
+            if (enabled && (!settings.lead_form_config || settings.lead_form_config.length === 0)) {
+              handleChange("lead_form_config", [{ field: "name", required: false }]);
             }
           }}
         />
@@ -1619,9 +1618,6 @@ const handleThemeSelect = async (themeId: string) => {
                             updated.splice(index, 1);
                           }
                           handleChange("lead_form_config", updated);
-                          if (updated.length === 0) {
-                            handleChange("lead_generation_enabled", false);
-                          }
                         }}
                       />
                       <span className="capitalize">{field}</span>

@@ -47,6 +47,7 @@ import Investigation from "./pages/investigation.tsx";
 import OurServices from "./pages/OurService/Index.tsx";
 import About from "./pages/About/index.tsx";
 import LeadsDisplay from "./pages/LeadsDisplay.tsx"
+import SuperAdminLogin from "./pages/SuperAdminLogin.tsx"
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import ReactGA from "react-ga4";
@@ -93,6 +94,7 @@ function App() {
                   path="customersupport"
                   element={<CustomerSupportRequest />}
                 />
+                <Route path="/superadmin-login" element={<SuperAdminLogin />} />
                 <Route path="/contact-us" element={<ContactUs />} />             
                 <Route path="/faq-page" element={<FAQPage />} />
                 <Route path="/terms-of-service" element={<TermsService />} />

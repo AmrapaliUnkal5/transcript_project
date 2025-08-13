@@ -49,7 +49,7 @@ class AdminAuth(AuthenticationBackend):
             return False
 
         # Check if user has admin role
-        if db_user.role != "admin":
+        if db_user.role.lower() not in ("admin", "superadmin"):
             return False
 
         request.session.update({"authenticated": True, "user_email": email})
