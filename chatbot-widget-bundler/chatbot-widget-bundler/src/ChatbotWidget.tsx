@@ -422,8 +422,9 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         }, typingSpeed);
       } catch (error) {
         console.error("Failed to send message:", error);
-        
-                    // Check if it's a bot status error (403)
+
+            // Check if it's a bot status error (403)
+             if (axios.isAxiosError(error)) {
             if (error.response?.status === 403) {
               setUsageError("We are facing a technical issue. Kindly reach out to the website admin for assistance.");
               setIsSendDisabled(true);
@@ -432,6 +433,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
               setCurrentBotMessage("");
               return;
             }
+          }
         
         setMessages((prev) => [
           ...prev,
