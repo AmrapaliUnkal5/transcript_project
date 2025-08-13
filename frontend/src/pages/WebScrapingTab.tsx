@@ -444,7 +444,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                 if (onChangesMade) {
                   onChangesMade();}
               }}
-              className="px-3 py-1 text-black  rounded hover:bg-[#5348CB] font-instrument min-w-[120px] transition-all"
+              className="px-3 py-1 text-black  rounded hover:bg-[#5348CB] font-instrument min-w-[120px] transition-all whitespace-nowrap"
               disabled={loading || isProcessing}
               style={{
                          backgroundColor: selectedNodes.length === nodes.length ? '#e5e7eb' : '#5348CB',
@@ -455,7 +455,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                 </button>
                 <button
                   onClick={() => setSelectedNodes([])}
-                   className={`px-3 py-1 text-sm rounded transition-all font-instrument ${
+                   className={`px-3 py-1 text-sm rounded transition-all font-instrument whitespace-nowrap min-w-[100px] ${
                   selectedNodes.length > 0
                         ? 'bg-[#5348CB] text-white'
                         : 'bg-gray-200 text-black '

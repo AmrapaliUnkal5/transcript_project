@@ -695,6 +695,16 @@ deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
     return response.data;
   },
 
+  impersonate: async (data: { customer_email: string }) => {
+  const res = await api.post("/superadmin/impersonate", data);
+  return res.data;
+},
+
+getAllCustomers: async () => {
+    const res = await api.get("/superadmin/customers");
+    return res.data; // array of emails
+  },
+
   getAdditionalAdminUsersCount: async () => {
   const response = await api.get('/team/admin-users-count');
   return response.data;

@@ -579,3 +579,6 @@ class MarkProcessedResponse(BaseModel):
     files_updated: int
 class StartTrainingRequest(BaseModel):
     bot_id: int
+
+class ImpersonateRequest(BaseModel):
+    customer_email: EmailStr

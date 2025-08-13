@@ -3,6 +3,8 @@ import { Bell, Sun, Moon, Home, CreditCard, Settings, LogOut, HelpCircle, Contac
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { NotificationDropdown } from "../notifications/NotificationDropdown";
+import { Users, LayoutDashboard,Shield  } from "lucide-react";
+
 
 interface HeaderProps {
   user: {
@@ -18,6 +20,8 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null); 
+  const VITE_ADMIN_URL = import.meta.env.VITE_ADMIN_URL;
+
 
   const user = {
     name: authUser?.name || "",
@@ -180,6 +184,43 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
                   My Account
                 </span>
               </button>
+              {authUser?.role === "superadmin" && (
+                  <button
+                    onClick={() => window.open("/superadmin-login", "_blank")}
+                    className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <Users
+                      color={isDark ? "white" : "black"}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      Impersonate
+                    </span>
+                  </button>
+                )}
+
+                {(authUser?.role === "superadmin" || authUser?.role === "admin") && (
+  <button
+    onClick={() => {
+      const url = import.meta.env.VITE_ADMIN_URL || "";
+      if (url) {
+        window.open(url, "_blank");
+      } else {
+        console.error("Admin URL not set in environment variables.");
+      }
+    }}
+    className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+  >
+    <Shield
+      color={isDark ? "white" : "black"}
+      className="w-4 h-4"
+    />
+    <span className="text-sm font-medium text-gray-900 dark:text-white">
+      Admin Panel
+    </span>
+  </button>
+)}
+
               <button
                 onClick={() => {
                   handleLogout();

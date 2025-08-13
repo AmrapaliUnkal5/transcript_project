@@ -61,6 +61,7 @@ from app.saml_auth import router as saml_auth_router
 from app.admin_routes import router as admin_routes_router
 from app.widget_botsettings import router as widget_botsettings_router
 from app.current_billing_metrics import router as billing_metrics_router
+from app.superadmin_router import router as superadmin_router
 from app.celery_app import celery_app
 from app.celery_tasks import process_web_scraping_part1
 from app.captcha_cleanup_thread import captcha_cleaner
@@ -181,6 +182,7 @@ app.include_router(features_router)
 app.include_router(investigation)
 app.include_router(progress)
 app.include_router(grid_refresh_router)
+app.include_router(superadmin_router)
 
 # Start the add-on expiry scheduler
 start_addon_scheduler()
