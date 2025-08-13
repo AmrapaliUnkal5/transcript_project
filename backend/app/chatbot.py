@@ -398,7 +398,7 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
     logger.info(f"🤖 DEBUG: Bot found - Name: {bot.bot_name}, External knowledge: {bot.external_knowledge}, Temperature: {bot.temperature}")
     
     # Get the bot's unanswered message
-    unanswered_message = bot.unanswered_msg if bot.unanswered_msg else "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?"
+    unanswered_message = bot.unanswered_msg if bot.unanswered_msg else "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?"
     logger.info(f"🤖 DEBUG: Unanswered message: '{unanswered_message}'")
 
     # ✅ Check if this is just a greeting message, to save tokens

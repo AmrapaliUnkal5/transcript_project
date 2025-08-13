@@ -18,6 +18,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { authApi, subscriptionApi } from "../services/api";
 import { toast } from "react-toastify";
+import { AddressFormModal, AddressData } from "../components/AddressFormModal";
 
 // Interface for addon selection state
 interface AddonSelectionState {
@@ -276,6 +277,12 @@ export const Subscription = () => {
   const [showPendingNotification, setShowPendingNotification] = useState(false);
   const [effectivePlanId, setEffectivePlanId] = useState<number | null>(null);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+  // Address form modal state
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [pendingCheckoutData, setPendingCheckoutData] = useState<{
+    planId: number;
+    addonIds?: number[];
+  } | null>(null);
 
   useEffect(() => {
     // Check URL params for expired or cancelled status
@@ -481,32 +488,108 @@ export const Subscription = () => {
       return;
     }
 
+    // Check if user has phone number BEFORE showing address form
+    if (!user?.phone_no || user.phone_no.trim() === '') {
+      console.log("DEBUG - Phone number missing, showing phone modal");
+      setShowPhoneModal(true);
+      return;
+    }
+
+    // Get selected addon IDs
+    const addonIds = getSelectedAddonIds(planId);
+
+    // Check if user is an existing customer with a paid plan (plan_id > 1)
+    const isExistingCustomer = currentPlanId && currentPlanId > 1;
+    
+    if (isExistingCustomer) {
+      console.log("DEBUG - Existing customer upgrading plan, skipping address form");
+      // For existing customers, proceed directly to checkout without address form
+      try {
+        setProcessingPlanId(planId);
+        setError(null);
+
+        console.log("DEBUG - Initiating direct checkout for existing customer");
+        console.log(`DEBUG - Plan ID: ${planId}`);
+        console.log(`DEBUG - Selected addon IDs: ${addonIds?.join(", ") || "none"}`);
+
+        // Get checkout URL from backend without address data (existing customer)
+        const checkoutUrl = await createCheckout(planId, addonIds);
+
+        console.log(`DEBUG - Received checkout URL: ${checkoutUrl}`);
+
+        if (!checkoutUrl) {
+          console.error("DEBUG - Empty checkout URL received");
+          throw new Error("Failed to generate checkout URL");
+        }
+
+        // Log success before redirect
+        console.log("DEBUG - Successfully created checkout URL, redirecting to:", checkoutUrl);
+
+        // Short timeout to ensure logs are sent before redirect
+        setTimeout(() => {
+          // Redirect to Zoho's hosted checkout page
+          window.open(checkoutUrl, '_blank');
+        }, 100);
+      } catch (error: any) {
+        console.error("DEBUG - Error creating subscription checkout:", error);
+        
+        // Check if this is the phone number required error
+        if (error.name === "PhoneNumberRequiredError") {
+          setShowPhoneModal(true);
+          return;
+        }
+        
+        let errorMessage = "Failed to set up subscription. Please try again later.";
+        if (error instanceof Error) {
+          errorMessage = `Error: ${error.message}`;
+        }
+        setError(errorMessage);
+      } finally {
+        setProcessingPlanId(null);
+      }
+    } else {
+      console.log("DEBUG - New customer, showing address form");
+      // For new customers, show address form modal
+      setPendingCheckoutData({
+        planId,
+        addonIds: addonIds.length > 0 ? addonIds : undefined
+      });
+      setShowAddressModal(true);
+    }
+  };
+
+  const handleAddressSubmit = async (addressData: AddressData) => {
+    if (!pendingCheckoutData) return;
+
     try {
       // Set the processing plan to show loading state
-      setProcessingPlanId(planId);
+      setProcessingPlanId(pendingCheckoutData.planId);
       setError(null);
-
-      // Get selected addon IDs
-      const addonIds = getSelectedAddonIds(planId);
+      setShowAddressModal(false);
 
       const endpoint = isExpiredPlan ? "renewSubscription" : "createCheckout";
       console.log(
-        `DEBUG - Calling ${endpoint} with planId=${planId}, addonIds=`,
-        addonIds
+        `DEBUG - Calling ${endpoint} with planId=${pendingCheckoutData.planId}, addonIds=`,
+        pendingCheckoutData.addonIds
       );
 
-      console.log("DEBUG - Initiating subscription checkout");
-      console.log(`DEBUG - Plan ID: ${planId}`);
-      console.log(`DEBUG - Selected addon IDs: ${addonIds.join(", ")}`);
+      console.log("DEBUG - Initiating subscription checkout with address data");
+      console.log(`DEBUG - Plan ID: ${pendingCheckoutData.planId}`);
+      console.log(`DEBUG - Selected addon IDs: ${pendingCheckoutData.addonIds?.join(", ") || "none"}`);
+      console.log(`DEBUG - Address data:`, addressData);
 
-      // Get checkout URL from backend
-      console.log(
-        `DEBUG - Calling createCheckout with planId=${planId}, addonIds=`,
-        addonIds
-      );
+      // Prepare address data for API (same address for billing and shipping)
+      const checkoutAddressData = {
+        billingAddress: addressData.billingAddress,
+        shippingAddress: addressData.billingAddress, // Use billing address for shipping too
+        gstin: addressData.gstin || undefined
+      };
+
+      // Get checkout URL from backend with address data
       const checkoutUrl = await createCheckout(
-        planId,
-        addonIds.length > 0 ? addonIds : undefined
+        pendingCheckoutData.planId,
+        pendingCheckoutData.addonIds,
+        checkoutAddressData
       );
 
       console.log(`DEBUG - Received checkout URL: ${checkoutUrl}`);
@@ -521,6 +604,9 @@ export const Subscription = () => {
         "DEBUG - Successfully created checkout URL, redirecting to:",
         checkoutUrl
       );
+
+      // Clear pending checkout data
+      setPendingCheckoutData(null);
 
       // Short timeout to ensure logs are sent before redirect
       setTimeout(() => {
@@ -944,6 +1030,77 @@ export const Subscription = () => {
     }
   };
 
+  // Handle SAML SSO redirect to Zoho Billing
+  const handleManageSubscription = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Please log in to manage your subscription');
+        return;
+      }
+
+      // Make authenticated API call to get SAML redirect
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/'}auth/saml/login`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        // Get the HTML response and extract the form data
+        const htmlContent = await response.text();
+        
+        // Parse the HTML to extract form data
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, 'text/html');
+        const form = doc.getElementById('saml-form') as HTMLFormElement;
+        
+        if (form) {
+          // Extract form action and data
+          const formAction = form.getAttribute('action');
+          const samlResponse = (form.querySelector('input[name="SAMLResponse"]') as HTMLInputElement)?.value;
+          const relayState = (form.querySelector('input[name="RelayState"]') as HTMLInputElement)?.value;
+          
+          // Create a new form in the current window and submit it
+          const newForm = document.createElement('form');
+          newForm.method = 'POST';
+          newForm.action = formAction || '';
+          newForm.style.display = 'none';
+          
+          // Add SAMLResponse field
+          const samlInput = document.createElement('input');
+          samlInput.type = 'hidden';
+          samlInput.name = 'SAMLResponse';
+          samlInput.value = samlResponse || '';
+          newForm.appendChild(samlInput);
+          
+          // Add RelayState field
+          const relayInput = document.createElement('input');
+          relayInput.type = 'hidden';
+          relayInput.name = 'RelayState';
+          relayInput.value = relayState || '';
+          newForm.appendChild(relayInput);
+          
+          // Add form to document and submit
+          document.body.appendChild(newForm);
+          newForm.submit();
+          
+          // Clean up
+          document.body.removeChild(newForm);
+        } else {
+          throw new Error('Invalid SAML response format');
+        }
+      } else {
+        throw new Error('Failed to access billing portal');
+      }
+    } catch (error) {
+      console.error('Error accessing billing portal:', error);
+      toast.error('Failed to access billing portal. Please try again.');
+    }
+  };
+
   // Render the pending subscription notification
   const renderPendingSubscriptionNotification = () => {
     if (!showPendingNotification || !pendingSubscriptionDetails) return null;
@@ -1005,7 +1162,7 @@ export const Subscription = () => {
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md mx-auto text-center">
           <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Phone Number Required</h3>
           <p className="text-gray-700 dark:text-gray-300 mb-6">
-            A phone number is required to subscribe. Please go to your <b>Account</b> page, add your phone number, and then return here to subscribe.
+            You need to update your phone number in your account profile before you can subscribe. Please go to your <b>Account</b> page, add your phone number, and then come back here to complete your subscription.
           </p>
           <button
             onClick={() => {
@@ -1092,6 +1249,18 @@ export const Subscription = () => {
             />
           )}
           <DowngradeWarningDialog />
+          
+          {/* Address Form Modal */}
+          <AddressFormModal
+            isOpen={showAddressModal}
+            onClose={() => {
+              setShowAddressModal(false);
+              setPendingCheckoutData(null);
+              setProcessingPlanId(null);
+            }}
+            onSubmit={handleAddressSubmit}
+            isLoading={processingPlanId !== null}
+          />
         </>
       )}
 
@@ -1109,14 +1278,12 @@ export const Subscription = () => {
               please visit your Zoho Customer Portal.
             </span>
           </div>
-          <a
-            href="https://subscriptions.zoho.in/portal/login"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={handleManageSubscription}
             className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
           >
             Manage Subscription <ExternalLink className="ml-2 h-4 w-4" />
-          </a>
+          </button>
         </div>
       )}
       <PhoneNumberRequiredModal />

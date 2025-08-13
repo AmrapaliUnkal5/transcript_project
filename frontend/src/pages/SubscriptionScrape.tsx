@@ -13,12 +13,14 @@ import { AlertTriangle } from "lucide-react";
 
 interface SubscriptionScrapeProps {
   isReconfiguring: boolean;
+  isConfigured: boolean;
   setRefetchScrapedUrls?: React.Dispatch<React.SetStateAction<(() => void) | undefined>>;
   // Add other props if you have them
 }
 
 const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
   isReconfiguring,
+  isConfigured,
   setRefetchScrapedUrls,
 }) => {
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -456,32 +458,32 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
           /> */}
 
 
-          <input
+<input
   type="text"
   placeholder="Website URL"
   value={websiteUrl}
   onChange={(e) => setWebsiteUrl(e.target.value)}
-  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500  "
+  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
   style={{
     fontFamily: 'Instrument Sans, sans-serif',
   }}
-  disabled={loading || isProcessing}
+  disabled={!isConfigured || loading || isProcessing}
 />
-
-          <button
+        
+<button
   onClick={handleFetchNodes}
   className="ml-2 flex items-center justify-center disabled:opacity-80 disabled:cursor-not-allowed"
   style={{
-    backgroundColor: "#5348CB",
+    backgroundColor: (!websiteUrl || loading || isProcessing) ? "rgb(170, 170, 170)": "#5348CB",
     fontFamily: 'Instrument Sans, sans-serif',
     fontSize: '12px',
     fontWeight: 600,
     color: 'white',
     minWidth: '102px',
     width: '140px',
-    height: '40px', 
+    height: '40px',
     textAlign: 'center',
-    borderRadius: '0.375rem', // same as rounded-md
+    borderRadius: '0.375rem',
   }}
   disabled={!websiteUrl || loading || isProcessing}
 >

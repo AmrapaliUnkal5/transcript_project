@@ -22,6 +22,7 @@ import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { Theme , THEMES } from '../types/index'; 
 import { Info } from "lucide-react";
+import { MessageRenderer } from "../components/MessageRenderer";
 
 
 interface MessageUsage {
@@ -194,6 +195,42 @@ export const ChatbotCustomization = () => {
   const userId = user?.user_id;
   const navigate = useNavigate();
   const { selectedBot, setSelectedBot } = useBot(); // Get setSelectedBot from context
+  
+  // === External Knowledge Sync ===
+const [externalKnowledge, setExternalKnowledge] = useState<boolean>(false);
+
+useEffect(() => {
+  if (selectedBot?.external_knowledge !== undefined) {
+    setExternalKnowledge(selectedBot.external_knowledge);
+  }
+}, [selectedBot?.external_knowledge]);
+
+useEffect(() => {
+  const fetchExternalKnowledgeStatus = async () => {
+    if (!selectedBot?.id) return;
+
+    try {
+      const response = await authApi.getBotExternalKnowledge(selectedBot.id);
+      if (response?.success) {
+        setExternalKnowledge(response.external_knowledge);
+
+        if (selectedBot.external_knowledge !== response.external_knowledge) {
+          setSelectedBot((prev) =>
+            prev
+              ? { ...prev, external_knowledge: response.external_knowledge }
+              : null
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching external knowledge status:", error);
+    }
+  };
+
+  fetchExternalKnowledgeStatus();
+}, [selectedBot?.id]);
+
+  
   if (!userId) {
     //alert("User ID is missing. Please log in again.");
   }
@@ -206,6 +243,7 @@ export const ChatbotCustomization = () => {
       message_id?: number;
       reaction?: "like" | "dislike";
       is_greeting?: boolean; 
+      formatted_content?: any;  // Add formatted content
       sources?: Array<{  // Add sources to the message object
       file_name: string;
       source: string;
@@ -306,11 +344,12 @@ export const ChatbotCustomization = () => {
     lead_generation_enabled: false,
     lead_form_config: [{ field: "name", required: false },{ field: "phone", required: false },{ field: "email", required: false },{ field: "address", required: false }],
     showSources: false, 
-    unansweredMsg: "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?",
+    unansweredMsg: "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?",
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
   const [botId, setBotId] = useState<number | null>(null);
+  const [botStatus, setBotStatus] = useState<string>("");
   const [waitingForBotResponse, setWaitingForBotResponse] = useState(false);
   const headerStyle: React.CSSProperties = {
     backgroundColor: settings.headerBgColor || "#007bff",
@@ -454,6 +493,9 @@ const hasLeadFields = (settings?.lead_form_config  ?? []).length > 0;
         if (response) {
           setBotId(selectedBot.id);
           setIsBotExisting(true);
+          
+          // Set bot status from API response
+          setBotStatus(response.status || "");
 
           // Set the selected theme from database
         setSelectedTheme(response.theme_id || 'none');
@@ -488,7 +530,7 @@ const hasLeadFields = (settings?.lead_form_config  ?? []).length > 0;
             lead_generation_enabled: response.lead_generation_enabled ?? false,
             lead_form_config: response.lead_form_config || [],
             showSources: response.show_sources ?? false,
-            unansweredMsg: response.unanswered_msg || "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?",
+            unansweredMsg: response.unanswered_msg || "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?",
           });
         }
       } catch (error) {
@@ -718,12 +760,24 @@ useEffect(() => {
       "messageUsage.effectiveRemaining=>",
       messageUsage.effectiveRemaining
     );
+    console.log("botStatus=>", botStatus);
+    
+    // Check if bot is active
+    if (botStatus !== "Active") {
+      return false;
+    }
+    
     return messageUsage.effectiveRemaining > 0;
     //return (messageUsage.baseRemaining + messageUsage.addonRemaining) > 0;
   };
 
   const sendMessage = async () => {
 
+    // Check if bot is active
+    if (botStatus !== "Active") {
+      toast.error("Bot is currently not active. Please activate your bot to processed further.");
+      return;
+    }
    
     // First check if we can send (either base or addon messages available)
     if (!canSendMessage()) {
@@ -776,6 +830,7 @@ useEffect(() => {
       text: data.message,
       message_id: data.message_id,
       is_greeting: data.is_greeting,
+      formatted_content: data.formatted_content, // Add formatted content
       sources: data.sources || [], // Add sources to this message
       showSources: false // Start with sources hidden
     };
@@ -791,17 +846,19 @@ useEffect(() => {
         }));
       }
 
-      const thinkingDelay = Math.random() * 1000 + 500;
+      // Use faster typing animation for formatted content, normal speed for plain text
+      const hasFormatting = data.formatted_content && data.formatted_content.formatting_type !== 'plain';
+      const baseTypingSpeed = hasFormatting ? 3 : 8; // Very fast for formatted, fast for plain
+      
+      // Use typing animation for all content (but faster for formatted)
+      const thinkingDelay = Math.random() * 500 + 250; // Reduced thinking delay
       setTimeout(() => {
-        //setIsBotTyping(true);
         setIsBotTyping(true);
         setWaitingForBotResponse(false);
-        //setCurrentBotMessage("");
         setCurrentBotMessage(data.message.charAt(0)); // Start with first char
         setFullBotMessage(data.message);
 
         let charIndex = 0;
-        const baseTypingSpeed = 25;
         const typingInterval = setInterval(() => {
           if (charIndex < data.message.length) {
             setCurrentBotMessage(
@@ -823,7 +880,7 @@ useEffect(() => {
                   newMessages,
                   botMessage 
                 );
-              }, 200 + Math.random() * 200);
+              }, 50 + Math.random() * 50); // Reduced pause between sentences
             }
           } else {
             clearInterval(typingInterval);
@@ -1339,41 +1396,6 @@ const handleThemeSelect = async (themeId: string) => {
   }
 };
 
- // we will use this for external knowledge
-
- const [externalKnowledge, setExternalKnowledge] = useState<boolean>(
-  selectedBot?.external_knowledge || false
-);
-
-
-useEffect(() => {
-  const fetchExternalKnowledgeStatus = async () => {
-    if (selectedBot?.id) {
-      try {
-        const response = await authApi.getBotExternalKnowledge(selectedBot.id);
-
-        if (response?.success) {
-          setExternalKnowledge(response.external_knowledge);
-
-          if (selectedBot.external_knowledge !== response.external_knowledge) {
-            setSelectedBot((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    external_knowledge: response.external_knowledge,
-                  }
-                : null
-            );
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching external knowledge status:", error);
-      }
-    }
-  };
-
-  fetchExternalKnowledgeStatus();
-}, [selectedBot?.id]);
 
 
 
@@ -2211,66 +2233,6 @@ useEffect(() => {
         </div>
       </div>
 
-      <div>
-         <label
-      className="block mb-1 ml-12 pl-2"
-       style={{
-            fontFamily: "Instrument Sans, sans-serif",
-            fontSize: "14px",
-            fontWeight: 400,
-            color: "#333333",
-              }}
-          >
-        Button Color
-       </label>
-        <div className="flex items-center space-x-2">
-          <input
-            type="color"
-            value={settings.buttonColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonColor", e.target.value)}
-            className="w-12 h-12 rounded border"
-          />
-          <input
-            type="text"
-            value={settings.buttonColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonColor", e.target.value)}
-            placeholder="#0000FF"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-             style={{ color: "#333333" }}
-          />
-        </div>
-      </div>
-
-      <div>
-         <label
-          className="block mb-1 ml-12 pl-2"
-          style={{
-              fontFamily: "Instrument Sans, sans-serif",
-              fontSize: "14px",
-              fontWeight: 400,
-              color: "#333333",
-            }}
-            >
-             Button Text Color
-           </label>
-        <div className="flex items-center space-x-2">
-          <input
-            type="color"
-            value={settings.buttonTextColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value)}
-            className="w-12 h-12 rounded border"
-          />
-          <input
-            type="text"
-            value={settings.buttonTextColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value)}
-            placeholder="#FFFFFF"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-             style={{ color: "#333333" }}
-          />
-        </div>
-      </div>
-
     </div>
   </div>
 )}
@@ -2528,14 +2490,29 @@ useEffect(() => {
                     }}
                   />
                 )}
-                <h2
-                  className="text-lg font-semibold truncate max-w-[150px] whitespace-nowrap overflow-hidden"
-                  style={{fontFamily: "Instrument Sans, sans-serif", color: settings.headerTextColor }}
-                  title={settings.name} // Tooltip to show full name on hover
-                >
-                  {settings.name}{" "}
-                  {/* <span className="text-xs ml-2 opacity-70">(preview)</span> */}
-                </h2>
+                <div className="flex flex-col">
+                  <h2
+                    className="text-lg font-semibold truncate max-w-[150px] whitespace-nowrap overflow-hidden"
+                    style={{fontFamily: "Instrument Sans, sans-serif", color: settings.headerTextColor }}
+                    title={settings.name} // Tooltip to show full name on hover
+                  >
+                    {settings.name}{" "}
+                    {/* <span className="text-xs ml-2 opacity-70">(preview)</span> */}
+                  </h2>
+                  <div className="flex items-center gap-1">
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        botStatus === "Active" ? 'bg-green-400' : 'bg-red-400'
+                      }`}
+                    ></div>
+                    <span
+                      className="text-xs opacity-70"
+                      style={{ color: settings.headerTextColor }}
+                    >
+                      {botStatus === "Active" ? 'Active' : 'Not Active'}
+                    </span>
+                  </div>
+                </div>
               </div>
               <div className="flex items-center space-x-4 ">
                 <div className="flex flex-col space-y-1 text-sm bg-opacity-20 bg-white px-3 py-2 rounded-lg ">
@@ -2575,6 +2552,41 @@ useEffect(() => {
             >
               {/* Content directly starts with messages now */}
               <div className="flex-1"></div>
+              
+              {/* Show bot inactive message if bot is not active */}
+              {botStatus !== "Active" && (
+                <div
+                  className="mr-auto p-3 rounded-lg max-w-[80%] mb-4"
+                  style={{
+                    backgroundColor: "#fef2f2",
+                    color: "#dc2626",
+                    fontSize: settings.fontSize,
+                    fontFamily: settings.chatFontFamily || settings.fontStyle,
+                    borderRadius:
+                      settings.borderRadius === "rounded-full"
+                        ? "20px"
+                        : settings.borderRadius,
+                    border: "1px solid #fecaca",
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span>Bot is currently not active. Please activate your bot to processed further.</span>
+                  </div>
+                  <div
+                    className="text-xs mt-1 text-right"
+                    style={{ color: "#dc2626" }}
+                  >
+                    {new Date().toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                </div>
+              )}
+              
               {messages.length > 0 ? (
                 messages.map((msg, index) => (
                   <div key={index} className="mb-4">
@@ -2601,7 +2613,10 @@ useEffect(() => {
                             : settings.borderRadius,
                       }}
                     >
-                      <div>{msg.text}</div>
+                      <MessageRenderer 
+                        content={msg.text}
+                        formattedContent={msg.formatted_content}
+                      />
                       <div
                         className="text-xs mt-1 text-right"
                         style={{
@@ -3069,7 +3084,9 @@ useEffect(() => {
                         : settings.borderRadius,
                   }}
                   placeholder={
-                    !canSendMessage()
+                    botStatus !== "Active"
+                      ? "Bot is currently not active. Please activate your bot to processed further."
+                      : !canSendMessage()
                       ? "We are facing technical issue. Kindly reach out to website admin for assistance"
                       : "Type your message..."
                   }
@@ -3082,6 +3099,7 @@ useEffect(() => {
                     if (
                       e.key === "Enter" &&
                       inputMessage.trim() &&
+                      botStatus === "Active" &&
                       canSendMessage() &&
                       !waitingForBotResponse &&
                       !isBotTyping &&
@@ -3090,7 +3108,7 @@ useEffect(() => {
                       sendMessage();
                     }
                   }}
-                  disabled={!canSendMessage() ||
+                  disabled={botStatus !== "Active" || !canSendMessage() ||
               (settings.lead_generation_enabled && hasLeadFields && !formSubmitted)}
                 />
                 <button
@@ -3106,6 +3124,7 @@ useEffect(() => {
                   onClick={sendMessage}
                   disabled={
                     !inputMessage.trim() ||
+                    botStatus !== "Active" ||
                     !canSendMessage() ||
                     waitingForBotResponse ||
                     isBotTyping ||

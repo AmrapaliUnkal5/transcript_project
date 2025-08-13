@@ -63,7 +63,7 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
   const [scrapedWebsiteUrl, setScrapedWebsiteUrl] = useState<string | null>(
     null
   );
-  const [isProcessing, setIsProcessing] = useState(false);
+   const [isProcessing, setIsProcessing] = useState(false);
   
   
   const location = useLocation();
@@ -126,7 +126,7 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
       console.error("Failed to fetch scraped URLs:", error);
       setScrapedUrls([]);
     } finally {
-      setLoading(false);
+       setLoading(false);
       setIsProcessing(false);
     }
   }, [selectedBot?.id]);
@@ -167,7 +167,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
       toast.error("Failed to delete URL.");
       console.error("Delete Error:", error);
     } finally {
-      setLoading(false);
+       setLoading(false);
       setIsModalOpen(false); // Close modal
       setUrlToDelete(null);
       setWordCountToDelete(0);
@@ -224,7 +224,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
       if (!selectedBot?.id) {
         console.error("Bot ID is missing.");
         toast.error("Bot ID is missing. Please select a bot first.");
-        setIsProcessing(false);
+         setIsProcessing(false);
         setLoading(false);
         return;
       }
@@ -441,6 +441,8 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                   onClick={() => {
                 const filtered = getFilteredNodes();
                 setSelectedNodes(filtered);
+                if (onChangesMade) {
+                  onChangesMade();}
               }}
               className="px-3 py-1 text-black  rounded hover:bg-[#5348CB] font-instrument min-w-[120px] transition-all"
               disabled={loading || isProcessing}
@@ -542,6 +544,19 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                 <div className="flex">{renderPaginationButtons()}</div>
               </div>
             )}
+            {/* Add Start Scraping button conditionally */}
+            {(!isCreateBotFlow) && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={handleScrape}
+                  disabled={selectedNodes.length === 0 || loading || isProcessing}
+                  className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Start Scraping
+                </button>
+              </div>
+            )}
+
           </div>
         )}
 

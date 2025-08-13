@@ -109,6 +109,7 @@ export const CreateBot = () => {
   //const [currentStep, setCurrentStep] = useState(0);
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [files, setFiles] = useState<FileWithCounts[]>([]);
+  const[website,scrapedUrls]=useState<FileWithCounts[]>([]);
   const [botName, setBotName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { loading, setLoading } = useLoader();
@@ -123,7 +124,6 @@ export const CreateBot = () => {
   const user = userData ? JSON.parse(userData) : null;
   const { getPlanById } = useSubscriptionPlans();
   const userPlan = getPlanById(user?.subscription_plan_id);
-  console.log("userPlan====>", userPlan);
   const [hasYouTubeVideos, setHasYouTubeVideos] = useState(false);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [isLoadingSaveWeb, setIsLoadingSaveWeb] = useState(false);
@@ -140,7 +140,6 @@ export const CreateBot = () => {
 // Initialize currentStep based on URL
   const [currentStep, setCurrentStep] = useState(urlStep ? parseInt(urlStep) : 0);
   const [bots, setBots] = useState<Bot[]>([]);
-
   const [processingMessage, setProcessingMessage] = useState(
     "Getting things ready for you..."
   );
@@ -242,8 +241,12 @@ useEffect(() => {
       console.log("status of all=>",files.length > 0 || 
         youtubeVideos.length > 0 || 
         scrapedUrls.length > 0)
+      if (youtubeVideos.length > 0){
       setHasYouTubeContent(true)
+      }
+      if (scrapedUrls.length > 0){
       setHasWebsiteContent(true)
+      }
     } catch (error) {
       console.error("Error checking existing content:", error);
     }
@@ -529,7 +532,7 @@ useEffect(() => {
           id: Math.random().toString(36).substr(2, 9), // Temp ID until saved
           name: file.name,
           type: file.type,
-          size: file.size,
+          size: 0,
           uploadDate: new Date(),
           url: URL.createObjectURL(file),
           file: file,
@@ -821,7 +824,7 @@ const handleDelete = async (id: string) => {
       toast.error("Please save your changes before proceeding");
       return;
     }
-      if (hasWebsiteContent  || files.length > 0 || hasYouTubeContent) {
+    if (hasWebsiteContent  || files.length > 0 || hasYouTubeContent) {
         setCurrentStep(currentStep + 1);
       } else {
         toast.error("Please add at least one knowledge source (website, files, or YouTube videos)");
@@ -954,7 +957,8 @@ const handleSaveFiles = async () => {
         id: file.file_id.toString(),
         name: file.file_name,
         type: file.file_type,
-        size: file.original_file_size_bytes || parseFileSizeToBytes(file.file_size),
+        size: 0,
+        //file.original_file_size_bytes || parseFileSizeToBytes(file.file_size),
         uploadDate: new Date(file.upload_date),
         url: file.file_path,
         wordCount: file.word_count,
@@ -1430,7 +1434,7 @@ const renderStepContent = () => {
                     isCreateBotFlow={true}
                   />
                  <div className="flex justify-start mt-4">
-                  <button
+                  {/* <button
                     onClick={handleSaveWebContent}
                     disabled={!hasWebChanges || isLoadingSaveWeb}
                     className={`px-4 py-2 rounded-md text-white ${
@@ -1439,6 +1443,22 @@ const renderStepContent = () => {
                   >
                     {isLoadingSaveWeb ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
                     Save
+                  </button> */}
+                  <button
+                  onClick={handleSaveWebContent}
+                  disabled={!hasWebChanges || isLoadingSaveWeb || selectedNodes.length === 0}
+                  className={`px-4 py-2 rounded-md ${
+                  hasWebChanges && selectedNodes.length > 0
+                  ? 'bg-[#5348CB] hover:bg-[#4338a1] text-white'
+                  : 'bg-gray-400 text-black cursor-not-allowed'
+                  }`}>
+                  {isLoadingSaveWeb ? (
+                  <>
+                  <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                  Saving...
+                  </>
+                   ) : (
+                   'Save')}
                   </button>
                 </div>
               </div>

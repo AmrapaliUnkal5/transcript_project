@@ -80,6 +80,10 @@ export const FileUpload = () => {
       error_code?:string;
     }[]
   >([]);
+  // const [isConfigured, setIsConfigured] = useState(false);
+  const [isConfigured, setIsConfigured] = useState(() => {
+    return localStorage.getItem("isConfigured") === "true";
+  });
   const { loading, setLoading } = useLoader();
   const [currentPage, setCurrentPage] = useState(1);
   const videosPerPage = 5;
@@ -199,6 +203,9 @@ export const FileUpload = () => {
   const handleCancelClose = () => {
     setShowCancelWarning(false);
   };
+  const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
+  const [nodes, setNodes] = useState<string[]>([]);
+  const [hasWebChanges, setHasWebChanges] = useState(false);
 
   useEffect(() => {
     if (status?.overall_status === "reconfiguring") {
@@ -639,6 +646,9 @@ export const FileUpload = () => {
     } finally {
       setIsReconfiguring(false);
     }
+    // setIsConfigured(true); 
+    setIsConfigured(true);
+    localStorage.setItem("isConfigured", "true");
     setIsReconfiguring(true);
     setActiveTabLock(true);
     toast.info("You can now make changes. Click Retrain when done.");
@@ -683,10 +693,14 @@ export const FileUpload = () => {
     }
     setIsReconfiguring(false);
     setActiveTabLock(false);
+    // setIsConfigured(false);
+    setIsConfigured(false);
+    localStorage.removeItem("isConfigured");
   };
   const handleRetrain = async () => {
     if (!selectedBot?.id || !status) return;
     try {
+      setIsConfigured(false)
       setIsRetraining(true);
 
       // 1. First reset reconfiguring state to allow WS updates
@@ -1008,7 +1022,7 @@ useEffect(() => {
             id: Math.random().toString(36).substr(2, 9),
             name: file.name,
             type: file.type,
-            size: file.size,
+            size: 0,
             displaySize: formatBytesToHumanReadable(file.size),
             uploadDate: new Date(),
             url: URL.createObjectURL(file),
@@ -1239,7 +1253,7 @@ useEffect(() => {
       refreshStatus={refreshStatus}
     />
       <ToastContainer />
-      {loading && <Loader />}
+      {/* {loading && <Loader />} */}
 
      {/* Tabs Section */}
 
@@ -1364,8 +1378,16 @@ useEffect(() => {
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3">
                 Website Scraping
               </h1>
-              <WebScrapingTab isReconfiguring={isReconfiguring}
-                isCreateBotFlow={false} setRefetchScrapedUrls={setRefetchScrapedUrls}  />
+              <WebScrapingTab
+              isReconfiguring={isReconfiguring}
+              isCreateBotFlow={false}
+              setRefetchScrapedUrls={setRefetchScrapedUrls}
+              selectedNodes={selectedNodes}
+              setSelectedNodes={setSelectedNodes}
+              nodes={nodes}
+              setNodes={setNodes}
+              onChangesMade={() => setHasWebChanges(true)}
+/>
             </div>
           )}
 
@@ -1376,7 +1398,7 @@ useEffect(() => {
               {/* <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3 border-b border-pink-500">
               Enter the Website URL
             </h1> */}
-              <SubscriptionScrape isReconfiguring={isReconfiguring} setRefetchScrapedUrls={setRefetchScrapedUrls} />
+              <SubscriptionScrape isReconfiguring={isReconfiguring}    isConfigured={isConfigured}  setRefetchScrapedUrls={setRefetchScrapedUrls} />
             </div>
           )}
         {/* Files Tab Content */}
@@ -1419,7 +1441,7 @@ useEffect(() => {
               style={{ backgroundColor: "#F8FDFF" }}
 
             >
-              <input {...getInputProps()} disabled={!isReconfiguring} />
+              {/* <input {...getInputProps()} disabled={!isReconfiguring} />
               {isProcessingFiles && (
                 <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center rounded-lg ">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
@@ -1428,8 +1450,20 @@ useEffect(() => {
                     This may take a moment...
                   </p>
                 </div>
-              )}
-              {/* <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" /> */}
+              )} */}
+             <input {...getInputProps()} disabled={!isConfigured} />
+                {!isConfigured && (
+                <div className="absolute inset-0 z-30 cursor-not-allowed" style={{ pointerEvents: 'all' }} />
+                  )}
+              {isProcessingFiles && (
+              <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center rounded-lg ">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
+              <p className="text-gray-600">{processingMessage}</p>
+              <p className="text-xs text-gray-500 mt-1">
+              This may take a moment...
+              </p>
+              </div>
+              )}    
               <img
                 src="/images/dummy/folder.png"
                 alt="Upload Icon"
@@ -1729,6 +1763,7 @@ useEffect(() => {
               isReconfiguring={isReconfiguring}
               maxVideos={remainingVideos}
               refreshKey={refreshKey}
+              isConfigured={isConfigured}
               setIsVideoSelected={setIsVideoSelected}
             />
 

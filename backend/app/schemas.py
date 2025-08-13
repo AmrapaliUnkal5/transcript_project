@@ -136,7 +136,7 @@ class BotBase(BaseModel):
     lead_generation_enabled: Optional[bool] = False
     lead_form_config: Optional[List[LeadFormField]] = []
     show_sources: Optional[bool] = False
-    unanswered_msg:Optional[str] = "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?"
+    unanswered_msg:Optional[str] = "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?"
 
 class BotCreate(BotBase):
     pass  
@@ -395,6 +395,10 @@ class FAQResponse(BaseModel):
 class ZohoCheckoutRequest(BaseModel):
     plan_id: int
     addon_ids: Optional[List[int]] = None
+    # Address information for Zoho checkout (not stored in our DB)
+    billing_address: Optional[dict] = None
+    shipping_address: Optional[dict] = None
+    gstin: Optional[str] = None
 
 class ZohoCheckoutResponse(BaseModel):
     checkout_url: str

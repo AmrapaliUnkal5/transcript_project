@@ -381,7 +381,7 @@ class LLMManager:
         # Store the user_id and bot_id for addon feature checking and logging
         self.user_id = user_id
         self.bot_id = bot_id
-        self.unanswered_message = unanswered_message or "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge.Is there something else I can help with?"
+        self.unanswered_message = unanswered_message or "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?"
         
         db = SessionLocal()
         try:
@@ -650,6 +650,13 @@ class LLMManager:
                 # Create system message based on external_knowledge flag
                 system_content = (
                     "You are a helpful assistant. Answer the user's question based on the provided context. "
+                    "Format your response appropriately based on the question type:\n"
+                    "- For lists or multiple points: Use bullet points with '• ' (bullet space) or '- ' (dash space)\n"
+                    "- For step-by-step instructions: Use numbered lists with '1. ', '2. ', etc.\n"
+                    "- For comparisons or data: Use markdown table format with | columns |\n"
+                    "- For code examples: Use ```language code blocks\n"
+                    "- For emphasis: Use **bold** text\n"
+                    "Keep formatting consistent and clear. "
                     "Respond in no more than 15 short, clear sentences. "
                     "If the context doesn't contain relevant information, "
                 )

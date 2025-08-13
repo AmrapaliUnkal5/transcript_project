@@ -1831,8 +1831,8 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list):
                                             extra={"bot_id": bot_id, "url": url})
                         add_document(bot_id, text=chunk, metadata=chunk_metadata)
 
-                    total_words_embedded += len(node.nodes_text.split())
-                    print("count of words embeded in website", total_words_embedded)
+                total_words_embedded += len(node.nodes_text.split())
+                print("count of words embeded in website", total_words_embedded)
                 logger.info(f"Successfully added document chunks to vector DB",
                                   extra={"bot_id": bot_id, "url": url,
                                         "document_id": website_id, "chunk_count": len(text_chunks)})
