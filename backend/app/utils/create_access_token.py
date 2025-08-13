@@ -20,6 +20,12 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     - Encoded JWT token string.
     """
     to_encode = data.copy()
+    
+    # Clean datetime objects to ensure JSON serialization compatibility
+    for key, value in to_encode.items():
+        if isinstance(value, datetime):
+            to_encode[key] = value.isoformat()
+    
     logger.debug("encode_data= %s", to_encode)
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
     to_encode.update({"exp": expire})

@@ -104,7 +104,9 @@ class AddonService:
             expiry_date=expiry_date,
             is_active=True,
             auto_renew=addon.is_recurring,
-            status="active"
+            status="active",
+            initial_count=addon.additional_message_limit or 0,
+            remaining_count=addon.additional_message_limit or 0
         )
         
         db.add(user_addon)
@@ -232,6 +234,58 @@ class AddonService:
             raise ValueError("Failed to generate checkout URL")
         
         print(f"Checkout URL generated: {checkout_url}")
+        
+        # Create a pending UserAddon record to track the purchase attempt
+        try:
+            current_time = datetime.now()
+            
+            # Determine expiry date based on addon type
+            if addon.addon_type == "Additional Messages":
+                # Set a far future date for lifetime add-ons
+                addon_expiry = current_time + timedelta(days=5*365)
+            else:
+                # Other one-time addons expire with the subscription
+                addon_expiry = subscription.expiry_date
+            
+            # Check if there's already a pending record for this addon
+            existing_pending = db.query(UserAddon).filter(
+                UserAddon.user_id == user_id,
+                UserAddon.addon_id == addon_id,
+                UserAddon.status == "pending"
+            ).first()
+            
+            if existing_pending:
+                # Update the existing pending record
+                existing_pending.updated_at = current_time
+                existing_pending.expiry_date = addon_expiry
+                print(f"Updated existing pending addon record for user {user_id}, addon {addon_id}")
+            else:
+                # Create new pending UserAddon record
+                pending_addon = UserAddon(
+                    user_id=user_id,
+                    addon_id=addon_id,
+                    subscription_id=subscription.id,
+                    purchase_date=current_time,
+                    expiry_date=addon_expiry,
+                    is_active=False,  # Not active until payment succeeds
+                    auto_renew=addon.is_recurring,
+                    status="pending",  # Mark as pending until webhook confirms payment
+                    initial_count=addon.additional_message_limit or 0,
+                    remaining_count=0  # Set to 0 until activated
+                )
+                
+                db.add(pending_addon)
+                print(f"Created pending addon record for user {user_id}, addon {addon_id}")
+            
+            db.commit()
+            print(f"Successfully created/updated pending addon record")
+            
+        except Exception as e:
+            db.rollback()
+            print(f"WARNING: Could not create pending addon record: {str(e)}")
+            logger.warning(f"Could not create pending addon record: {str(e)}")
+            # Continue anyway - this is not critical for checkout URL generation
+        
         return checkout_url
     
     @staticmethod
