@@ -436,6 +436,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
         }
     )
   
+    print ("bot_reply_dict for debugging=>",bot_reply_dict)
     document_sources = []
     
     # Only show sources if:
@@ -443,18 +444,28 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     # 2. Not a default "no answer" response
     # 3. We have similar docs
     if (not is_greeting(request.message_text) and 
-       not bot_reply_dict.get("is_default_response", False) and
-       similar_docs):
-        
-        highest_score_doc = max(similar_docs, key=lambda x: x.get('score', 0))
-        metadata = highest_score_doc.get('metadata', {})
-        
-        document_sources.append({
-            'source': metadata.get('source', 'Unknown source'),
-            'file_name': metadata.get('file_name', 'Unknown source'),
-            'website_url': metadata.get('website_url', 'Unknown source'),
-            'url': metadata.get('url', 'Unknown source')
-        })
+   not bot_reply_dict.get("is_default_response", False) and
+   (similar_docs or bot_reply_dict.get("used_external", False))):
+    
+        if bot_reply_dict.get("used_external", False):
+            # If external knowledge was used, add that as a source
+            document_sources.append({
+                'source': 'External Knowledge',
+                'file_name': 'General Knowledge',
+                'website_url': '',
+                'url': ''
+            })
+        elif similar_docs:
+            # Otherwise use the highest scoring document
+            highest_score_doc = max(similar_docs, key=lambda x: x.get('score', 0))
+            metadata = highest_score_doc.get('metadata', {})
+            
+            document_sources.append({
+                'source': metadata.get('source', 'Unknown source'),
+                'file_name': metadata.get('file_name', 'Unknown source'),
+                'website_url': metadata.get('website_url', 'Unknown source'),
+                'url': metadata.get('url', 'Unknown source')
+            })
 
     return {
         "message": bot_reply_text,

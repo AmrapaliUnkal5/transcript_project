@@ -491,12 +491,15 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
             logger.info(f"🤖 DEBUG: Added unanswered message instruction to context")
         
         # Pass the formatted history to the LLM
-        logger.info(f"🤖 DEBUG: Calling LLM with context length: {len(context)}, history length: {len(formatted_history)}")
-        bot_reply = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, 
+        bot_reply_dict  = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, 
                                temperature=temperature, chat_history=formatted_history)
         
-        logger.info(f"✅ DEBUG: Generated response successfully", 
-                   extra={"bot_id": bot_id, "response_length": len(bot_reply) if bot_reply else 0})
+        # Extract the actual response string and external knowledge flag
+        bot_reply_text = bot_reply_dict["message"]
+        used_external = bot_reply_dict.get("used_external", False)
+        
+        logger.info(f"Generated response successfully", 
+                   extra={"bot_id": bot_id, "response_length": len(bot_reply_text ) if bot_reply_text  else 0})
 
         # Store conversation
         # user_msg = ChatMessage(interaction_id=interaction.interaction_id, sender="user", message_text=user_message)
@@ -506,20 +509,19 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         
         # Update memory with the new messages
         memory.chat_memory.add_user_message(user_message)
-        memory.chat_memory.add_ai_message(bot_reply)
-        logger.debug(f"🧠 DEBUG: Updated memory with new messages")
+        memory.chat_memory.add_ai_message(bot_reply_text )
         
         logger.debug(f"💾 DEBUG: Stored conversation in database", 
                     extra={"bot_id": bot_id, "interaction_id": interaction.interaction_id})
 
         # when it can't answer, making this detection more reliable
-        is_default_response = unanswered_message.lower() in bot_reply.lower()
-        logger.info(f"🤖 DEBUG: Default response detection: {is_default_response}")
+        is_default_response = unanswered_message.lower() in bot_reply_text .lower()
 
         return {
-            "bot_reply": bot_reply,
-            "is_default_response": is_default_response,
-            "not_answered": is_default_response
+            "bot_reply": bot_reply_text ,
+            "is_default_response": bot_reply_dict.get("is_default_response", is_default_response),
+            "not_answered": bot_reply_dict.get("not_answered", is_default_response),
+            "used_external": bot_reply_dict.get("used_external", False)
         }
     except Exception as e:
         logger.exception(f"❌ DEBUG: Error generating response", 

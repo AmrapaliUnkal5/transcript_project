@@ -1,4 +1,5 @@
 # app/llm_manager.py
+import re
 import openai
 import os
 from openai import OpenAI
@@ -640,7 +641,8 @@ class LLMManager:
                     })
                     return {
                                 "message": "Multilingual support is not enabled for your account. Please contact the website admin to enable multilingual support.",
-                                "not_answered": True
+                                "not_answered": True,
+                                "is_default_response": True
                             }
             finally:
                 db.close()
@@ -662,7 +664,13 @@ class LLMManager:
                 )
                 
                 if use_external_knowledge:
-                    system_content += "you can use your general knowledge to provide a helpful response."
+                   
+                    system_content += (
+                    "you can use your general knowledge to provide a helpful response. "
+                    "IMPORTANT: If ANY part of the answer comes from outside the context (even basic facts), you MUST add "
+                    "'[EXT_KNOWLEDGE_USED]' at the VERY END of your response. "
+                    "This tag is ONLY for internal use and MUST NOT affect your answer."
+                )
                     logger.debug("External knowledge mode: Will use general knowledge if context is insufficient")
                 else:
                     system_content += f"respond with exactly: \"{self.unanswered_message}\". Do not use external knowledge under any circumstances."
@@ -729,6 +737,17 @@ class LLMManager:
                 llm_duration = int((time.time() - llm_request_start) * 1000)
                 
                 response_content = response.choices[0].message.content
+
+                # Debug prints (ALWAYS show for troubleshooting)
+                print("\n=== DEBUG: RAW LLM RESPONSE ===")
+                print(response_content)  # Show exactly what the LLM returned
+
+                # Check for flag (case-insensitive)
+                used_external = "[ext_knowledge_used]" in response_content.lower()
+                print(f"External knowledge flag detected: {used_external}")
+
+                # Clean response (remove flag if present)
+                clean_response = re.sub(r'\[ext_knowledge_used\]', '', response_content, flags=re.IGNORECASE).strip()
                 
                 # ✅ Extract token usage if available
                 token_usage = None
@@ -746,9 +765,9 @@ class LLMManager:
                     model_name=model_name,
                     provider=provider,
                     duration_ms=llm_duration,
-                    response_length=len(response_content),
+                    response_length=len(clean_response),
                     success=True,
-                    response=response_content,
+                    response=clean_response,
                     token_usage=token_usage,
                     extra={
                         "finish_reason": response.choices[0].finish_reason if response.choices else None,
@@ -756,7 +775,10 @@ class LLMManager:
                     }
                 )
                 
-                return response_content
+                return {
+                    "message": clean_response,
+                    "used_external": used_external
+                }
                 
             elif provider == "huggingface":
                 # HuggingFaceLLM handles the API call
