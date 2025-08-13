@@ -22,6 +22,7 @@ import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { Theme , THEMES } from '../types/index'; 
 import { Info } from "lucide-react";
+import { MessageRenderer } from "../components/MessageRenderer";
 
 
 interface MessageUsage {
@@ -242,6 +243,7 @@ useEffect(() => {
       message_id?: number;
       reaction?: "like" | "dislike";
       is_greeting?: boolean; 
+      formatted_content?: any;  // Add formatted content
       sources?: Array<{  // Add sources to the message object
       file_name: string;
       source: string;
@@ -828,6 +830,7 @@ useEffect(() => {
       text: data.message,
       message_id: data.message_id,
       is_greeting: data.is_greeting,
+      formatted_content: data.formatted_content, // Add formatted content
       sources: data.sources || [], // Add sources to this message
       showSources: false // Start with sources hidden
     };
@@ -843,17 +846,19 @@ useEffect(() => {
         }));
       }
 
-      const thinkingDelay = Math.random() * 1000 + 500;
+      // Use faster typing animation for formatted content, normal speed for plain text
+      const hasFormatting = data.formatted_content && data.formatted_content.formatting_type !== 'plain';
+      const baseTypingSpeed = hasFormatting ? 3 : 8; // Very fast for formatted, fast for plain
+      
+      // Use typing animation for all content (but faster for formatted)
+      const thinkingDelay = Math.random() * 500 + 250; // Reduced thinking delay
       setTimeout(() => {
-        //setIsBotTyping(true);
         setIsBotTyping(true);
         setWaitingForBotResponse(false);
-        //setCurrentBotMessage("");
         setCurrentBotMessage(data.message.charAt(0)); // Start with first char
         setFullBotMessage(data.message);
 
         let charIndex = 0;
-        const baseTypingSpeed = 25;
         const typingInterval = setInterval(() => {
           if (charIndex < data.message.length) {
             setCurrentBotMessage(
@@ -875,7 +880,7 @@ useEffect(() => {
                   newMessages,
                   botMessage 
                 );
-              }, 200 + Math.random() * 200);
+              }, 50 + Math.random() * 50); // Reduced pause between sentences
             }
           } else {
             clearInterval(typingInterval);
@@ -2228,66 +2233,6 @@ const handleThemeSelect = async (themeId: string) => {
         </div>
       </div>
 
-      <div>
-         <label
-      className="block mb-1 ml-12 pl-2"
-       style={{
-            fontFamily: "Instrument Sans, sans-serif",
-            fontSize: "14px",
-            fontWeight: 400,
-            color: "#333333",
-              }}
-          >
-        Button Color
-       </label>
-        <div className="flex items-center space-x-2">
-          <input
-            type="color"
-            value={settings.buttonColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonColor", e.target.value)}
-            className="w-12 h-12 rounded border"
-          />
-          <input
-            type="text"
-            value={settings.buttonColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonColor", e.target.value)}
-            placeholder="#0000FF"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-             style={{ color: "#333333" }}
-          />
-        </div>
-      </div>
-
-      <div>
-         <label
-          className="block mb-1 ml-12 pl-2"
-          style={{
-              fontFamily: "Instrument Sans, sans-serif",
-              fontSize: "14px",
-              fontWeight: 400,
-              color: "#333333",
-            }}
-            >
-             Button Text Color
-           </label>
-        <div className="flex items-center space-x-2">
-          <input
-            type="color"
-            value={settings.buttonTextColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value)}
-            className="w-12 h-12 rounded border"
-          />
-          <input
-            type="text"
-            value={settings.buttonTextColor}
-            onChange={(e) => handleColorChangeWithThemeSwitch("buttonTextColor", e.target.value)}
-            placeholder="#FFFFFF"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-             style={{ color: "#333333" }}
-          />
-        </div>
-      </div>
-
     </div>
   </div>
 )}
@@ -2668,7 +2613,10 @@ const handleThemeSelect = async (themeId: string) => {
                             : settings.borderRadius,
                       }}
                     >
-                      <div>{msg.text}</div>
+                      <MessageRenderer 
+                        content={msg.text}
+                        formattedContent={msg.formatted_content}
+                      />
                       <div
                         className="text-xs mt-1 text-right"
                         style={{

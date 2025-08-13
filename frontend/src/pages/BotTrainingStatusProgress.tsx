@@ -73,7 +73,7 @@ export const BotTrainingStatusProgress: React.FC<BotTrainingStatusProgressProps>
     switch (status.toLowerCase()) {
       case 'Error': return '#e41515ff';
       case 'training': return '#8b5cf6';
-      case 'reconfiguring': return '#8b5cf6';
+      case 'reconfiguring': return '#d1d5db';
       case 'pending': return '#3b82f6';
       default: return '#22c55e';
     }
@@ -216,12 +216,80 @@ export const BotTrainingStatusProgress: React.FC<BotTrainingStatusProgressProps>
 
           return (
             //upper line of donut tile
-              <div key={type} className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 shadow-sm border border-gray-200/50 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden text-xs">
+          //   <div key={type} className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 shadow-sm border border-gray-200/50 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden text-xs ">
+           <div
+            key={type}
+            className={`
+            bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 shadow-sm
+            ${isTraining ? 'border-4 border-blue-500' : 'border border-gray-200/50'}
+            hover:shadow-md transition-all duration-300 transform hover:-translate-y-1
+            relative overflow-hidden text-xs
+            `}>
 
+
+
+
+          {isTraining && (
+           <div className="absolute inset-0 flex items-center justify-center z-10">
+              <svg className="animate-spin h-8 w-8 text-blue-500" viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+                fill="none"
+              />
+            <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+            />
+            </svg>
+            </div>
+            )}
+
+
+
+
+
+
+
+
+          <div
+            className={`
+             absolute right-2 w-10 h-10 z-20
+             ${isReconfiguring ? 'top-3' : 'top-3'}
+             `}
+                  >
+            <div className="relative w-full h-full">
+             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="28" fill="none" stroke="#e5e7eb" strokeWidth="6" />
+              <circle
+                cx="32"
+                cy="32"
+                r="28"
+                fill="none"
+                stroke={getProgressColor(progress.status)}
+                strokeWidth="6"
+                strokeDasharray={`${percentage * 1.759} 175.9`}
+                strokeLinecap="round"
+                className="transition-all duration-1000 ease-out"
+                 />
+               </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+             <span className="text-[10px] font-bold text-gray-700">{percentage}%</span>
+            </div>
+          </div>
+        </div>
+
+
+              
               <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${isAllFailed ? 'from-red-500 to-red-700': 
-              isTraining ? 'from-purple-400 to-purple-500':
-              isReconfiguring ? 'from-gray-100 to-gray-200 relative overflow-hidden' :
-              isPending ? 'from-blue-500 to-cyan-500': 
+              isTraining ? 'from-blue-400 to-blue-500':
+              isReconfiguring ? 'from-gray-100 to-gray-200' :
+              isPending ? 'from-gray-300 to-gray-400 ': //from-blue-500 to-cyan-500 
               isAnyFailed ? 'from-amber-400 to-amber-500':
                'from-green-400 to-green-600'
                 }`} />
@@ -232,12 +300,12 @@ export const BotTrainingStatusProgress: React.FC<BotTrainingStatusProgressProps>
                 <span className="font-semibold text-gray-700 uppercase tracking-wide">
                   {type === 'youtube' ? 'YouTube' : type}
                 </span>
-                <div className="w-2 h-2 rounded-full shadow" style={{ background: isTraining ? '#8b5cf6': isReconfiguring ? '#e0dfe1ff' : 'linear-gradient(to right, #22c55e, #16a34a)' }} />
+                <div />
               </div>
 
               <div className="flex items-center justify-between mb-2">
                 <div className="text-xl font-bold text-gray-800">{progress.completed}/{progress.total}</div>
-                <div className="text-sm font-semibold text-gray-600">{percentage}%</div>
+                {/* <div className="text-sm font-semibold text-gray-600">{percentage}%</div> */}
               </div>
 
                 <div className="flex items-center justify-between mb-1" style={{ minHeight: '1rem' }}>
@@ -249,7 +317,7 @@ export const BotTrainingStatusProgress: React.FC<BotTrainingStatusProgressProps>
                 </div>
 
 
-              <div className="flex justify-center mb-2">
+              {/* <div className="flex justify-center mb-2">
                 <div className="relative w-12 h-12">
                   <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 64 64">
                     <circle cx="32" cy="32" r="28" fill="none" stroke="#e5e7eb" strokeWidth="6" />
@@ -259,7 +327,7 @@ export const BotTrainingStatusProgress: React.FC<BotTrainingStatusProgressProps>
                     <span className="text-[10px] font-bold text-gray-700">{percentage}%</span>
                   </div>
                 </div>
-              </div>
+              </div> */}
 
              <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden mt-2 shadow-inner">
 
@@ -307,6 +375,9 @@ export const BotTrainingStatusProgress: React.FC<BotTrainingStatusProgressProps>
               Reconfiguring system...
             </span>
           </div>
+          <div className="text-xs font-medium text-purple-600 mt-2">
+      Click <span className="font-semibold">‘Retrain’</span> to process your upload
+    </div>
         </div>
       )}
     </div>
