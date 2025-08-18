@@ -138,7 +138,7 @@ async def google_auth(request: Request, payload: TokenPayload, db: Session = Dep
 
         # Generate access token
         token_data = {"sub": user.email, 
-                      "role":"client",
+                      "role":user.role,
                        "user_id": user.user_id,
                        "name": user.name,
                        "avatar_url": resolve_file_url(user.avatar_url),
