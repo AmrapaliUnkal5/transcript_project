@@ -105,6 +105,7 @@ export interface BotSettings {
   lead_form_config?: Array<{field: "name" | "email" | "phone" | "address";required: boolean;}>;
   showSources: boolean;
   unansweredMsg: string;
+  external_knowledge: boolean,
 }
 
 export interface ApiFile {
