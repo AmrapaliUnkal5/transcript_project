@@ -60,6 +60,7 @@ export const Settings = () => {
       auto_renew: false,
       status: "",
     },
+    addons: [],
   });
 
   useEffect(() => {
@@ -87,6 +88,7 @@ export const Settings = () => {
               auto_renew: response.subscription?.auto_renew || false,
               status: response.subscription?.status || "active",
             },
+            addons: response.addons ?? [],
           }));
           
           // Check if user has a social login provider (Google or Facebook)
@@ -718,6 +720,91 @@ export const Settings = () => {
             </div>
           </div>
         </div>
+
+                <div className="md:col-span-2 mt-6">
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <h2 className="text-lg font-semibold mb-4 text-black">
+              Active Addons
+            </h2>
+
+            {settings.addons && settings.addons.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full border border-gray-200 divide-y divide-gray-200">
+                  <thead className="bg-gray-100 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
+                        S.No.
+                      </th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Addon Name
+                      </th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Status
+                      </th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Purchase Date
+                      </th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Expiry Date
+                      </th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Auto Renew
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {settings.addons.map((addon: any, index: number) => (
+                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                          {index + 1}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                          {addon.addon_name}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              addon.status === "active"
+                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                                : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                            }`}
+                          >
+                            {addon.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                          {addon.purchase_date
+                            ? new Date(addon.purchase_date).toLocaleDateString("en-GB", {
+                                day: "2-digit",
+                                month: "long",
+                                year: "numeric",
+                              })
+                            : "N/A"}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                          {addon.expiry_date
+                            ? new Date(addon.expiry_date).toLocaleDateString("en-GB", {
+                                day: "2-digit",
+                                month: "long",
+                                year: "numeric",
+                              })
+                            : "N/A"}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                          {addon.auto_renew ? "Yes" : "No"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400">No active addons.</p>
+            )}
+          </div>
+        </div>
+
+
 
         {/* Change Password Section - Only show for non-social login users */}
         {!isSocialLogin && (

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, desc
 from app.database import get_db
 from app.utils.create_access_token import create_access_token
-from .models import Base, User, UserAuthProvider,SubscriptionPlan,UserSubscription, Bot, Interaction, ChatMessage, TeamMember, File, YouTubeVideo, ScrapedNode, InteractionReaction, WebsiteDB, UserAddon, Notification, WordCloudData, BotSlug, Lead
+from .models import Base, User, UserAuthProvider,SubscriptionPlan,UserSubscription, Bot, Interaction, ChatMessage, TeamMember, File, YouTubeVideo, ScrapedNode, InteractionReaction, WebsiteDB, UserAddon, Notification, WordCloudData, BotSlug, Lead, Addon
 from app.schemas import UserOut,UserUpdate, ChangePasswordRequest, LeadOut
 from app.dependency import get_current_user
 from app.utils.verify_password import verify_password
@@ -72,6 +72,30 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
             "auto_renew": "",
             "status": "Active"
         }
+
+    # Get all active addons for the current user
+    active_addons = (
+    db.query(UserAddon)
+    .outerjoin(Addon, UserAddon.addon_id == Addon.id)
+    .filter(
+        UserAddon.user_id == current_user["user_id"],
+        UserAddon.is_active == True,
+        UserAddon.status == "active"
+    )
+    .all()
+)
+
+    # Prepare response data
+    addons_data = [
+        {
+            "addon_name": ua.addon.name,        # from Addon table
+            "status": ua.status,                # from UserAddon table
+            "purchase_date": ua.purchase_date,  # fallback in case quantity isn’t tracked
+            "expiry_date": ua.expiry_date,
+            "auto_renew": ua.auto_renew,
+        }
+        for ua in active_addons
+    ]
     
     # Get user's authentication providers
     auth_providers = []
@@ -90,6 +114,7 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
         "company_name": user.company_name,  #  Ensure this is included
         "communication_email": user.communication_email,  # Ensure this is included
         "subscription": subscription_data,
+        "addons": addons_data,
         "auth_providers": auth_providers,
         "avatar_url": user.avatar_url, 
     }
