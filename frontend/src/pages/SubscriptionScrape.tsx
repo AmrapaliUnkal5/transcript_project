@@ -15,6 +15,7 @@ interface SubscriptionScrapeProps {
   isReconfiguring: boolean;
   isConfigured: boolean;
   setRefetchScrapedUrls?: React.Dispatch<React.SetStateAction<(() => void) | undefined>>;
+  onScrapeButtonVisibility?: (isVisible: boolean) => void;
   // Add other props if you have them
 }
 
@@ -22,6 +23,7 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
   isReconfiguring,
   isConfigured,
   setRefetchScrapedUrls,
+  onScrapeButtonVisibility
 }) => {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [nodes, setNodes] = useState<string[]>([]);
@@ -136,6 +138,12 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
       fetchScrapedUrls();
     }
   }, [selectedBot?.id]);
+
+  useEffect(() => {
+    if (onScrapeButtonVisibility) {
+      onScrapeButtonVisibility(nodes.length > 0 && selectedNodes.length > 0 && !isProcessing);
+    }
+  }, [nodes.length, selectedNodes.length, isProcessing, onScrapeButtonVisibility]);
 
   // Handle delete confirmation
   const handleDeleteClick = (url: string) => {
