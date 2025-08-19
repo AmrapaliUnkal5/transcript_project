@@ -30,7 +30,7 @@ interface WebScrapingTabProps {
  isCreateBotFlow?:boolean;
  disableActions2?:boolean;
  setRefetchScrapedUrls?: React.Dispatch<React.SetStateAction<(() => void) | undefined>>;
-
+ onScrapeButtonVisibility?: (isVisible: boolean) => void;
 }
 
 const WebScrapingTab: React.FC<WebScrapingTabProps> = ({ 
@@ -48,6 +48,7 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
   disableActions = false,
   disableActions2 = false,
   setRefetchScrapedUrls,
+  onScrapeButtonVisibility,
 }) => {
   
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -71,6 +72,12 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
   
   // Check if we're in create bot flow
   const isCreateBotFlow = location.pathname.includes('/dashboard/create-bot');
+
+  useEffect(() => {
+    if (onScrapeButtonVisibility) {
+      onScrapeButtonVisibility(nodes.length > 0 && selectedNodes.length > 0 && !isProcessing);
+    }
+  }, [nodes.length, selectedNodes.length, isProcessing, onScrapeButtonVisibility]);
   
   // Reset toast flag when component unmounts or when not in create bot flow
   useEffect(() => {

@@ -94,6 +94,7 @@ export const FileUpload = () => {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isScrapeButtonVisible, setIsScrapeButtonVisible] = useState(false);
   const [processingMessage, setProcessingMessage] = useState(
     "Getting things ready for you..."
   );
@@ -655,6 +656,13 @@ export const FileUpload = () => {
   };
 
   const handleCancel = async () => {
+    console.log("hasWebChanges=>",hasWebChanges)
+    if ((!isSaveDisabled && newFiles.length > 0) || 
+      isVideoSelected || 
+      hasWebChanges||isScrapeButtonVisible) {
+    toast.error("You have unsaved changes. Please save them before canceling.");
+    return;
+  }
     if (!selectedBot?.id || !status) return;
     try {
       // Update bot status to "Reconfiguring" and set is_active to false
@@ -697,7 +705,14 @@ export const FileUpload = () => {
     setIsConfigured(false);
     localStorage.removeItem("isConfigured");
   };
+
   const handleRetrain = async () => {
+    if ((!isSaveDisabled && newFiles.length > 0) || 
+      isVideoSelected || 
+      hasWebChanges|| isScrapeButtonVisible) {
+    toast.error("You have unsaved changes. Please save them before retraining.");
+    return;
+  }
     if (!selectedBot?.id || !status) return;
     try {
       setIsConfigured(false)
@@ -1396,6 +1411,7 @@ useEffect(() => {
               nodes={nodes}
               setNodes={setNodes}
               onChangesMade={() => setHasWebChanges(true)}
+              onScrapeButtonVisibility={(isVisible) => setIsScrapeButtonVisible(isVisible)}
 />
             </div>
           )}
@@ -1407,7 +1423,8 @@ useEffect(() => {
               {/* <h1 className="text-2xl font-bold text-gray-900 dark:text-white p-3 border-b border-pink-500">
               Enter the Website URL
             </h1> */}
-              <SubscriptionScrape isReconfiguring={isReconfiguring}    isConfigured={isConfigured}  setRefetchScrapedUrls={setRefetchScrapedUrls} />
+              <SubscriptionScrape isReconfiguring={isReconfiguring}    isConfigured={isConfigured}  setRefetchScrapedUrls={setRefetchScrapedUrls}
+              onScrapeButtonVisibility={(isVisible) => setIsScrapeButtonVisible(isVisible)} />
             </div>
           )}
         {/* Files Tab Content */}
