@@ -16,7 +16,7 @@ from fastapi import Depends
 from app.fetchsubscripitonplans import get_subscription_plan_by_id,get_subscription_plan_by_id_sync
 from app.schemas import UserOut
 from app.database import get_db
-from app.models import Bot, User,UserSubscription
+from app.models import File as FileModel, Bot, User,UserSubscription
 from sqlalchemy.orm import Session
 from app.utils.file_size_validations_utils import get_current_usage, get_current_usage_sync
 
@@ -494,13 +494,33 @@ def update_bot_word_and_file_count(db, bot_id: int, word_count: int, file_size: 
     user = db.query(User).filter(User.user_id == bot.user_id).first()
     if not user:
         raise Exception("User not found")
+    user_id = user.user_id
     print("bot word count",bot.word_count)
 
     bot.word_count = (bot.word_count or 0) + word_count
 
-    if file_size is not None:
-        bot.file_size = (bot.file_size or 0) + file_size
-        user.total_file_size = (user.total_file_size or 0) + file_size
+      # ✅ Calculate bot storage usage
+    bot_file_size = (
+        db.query(func.coalesce(func.sum(FileModel.original_file_size_bytes), 0))
+        .filter(FileModel.bot_id == bot_id, FileModel.status == "Success")
+        .scalar()
+    )
+    bot.file_size = bot_file_size
+    db.add(bot)
+
+    # ✅ Calculate user total file size (all active bots)
+    user_total_file_size = (
+        db.query(func.coalesce(func.sum(FileModel.original_file_size_bytes), 0))
+        .join(Bot, FileModel.bot_id == Bot.bot_id)
+        .filter(
+            Bot.user_id == user_id,
+            Bot.status != "Deleted",   #  ignore deleted bots
+            FileModel.status == "Success"
+        )
+        .scalar()
+    )
+    user.total_file_size = user_total_file_size
+    db.add(user)
 
     user.total_words_used = (user.total_words_used or 0) + word_count
     print("user.total_words_used",user.total_words_used)
@@ -537,7 +557,7 @@ def validate_cumulative_word_count_sync_for_celery(
     db: Session
 ):
     """Validate that adding new words won't exceed plan limit"""
-    user = db.query(UserSubscription).filter(UserSubscription.user_id == current_user["user_id"]).first()
+    user = db.query(UserSubscription).filter(UserSubscription.user_id == current_user["user_id"],UserSubscription.status == "active" ).first()
     if not user:
         raise Exception("User or subscription plan not found")
 
