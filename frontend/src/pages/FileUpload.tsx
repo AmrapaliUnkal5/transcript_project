@@ -1321,7 +1321,7 @@ useEffect(() => {
             className={`px-4 py-2 rounded-md transition-colors ${
               status?.overall_status === "reconfiguring" || 
               isReconfiguring ||
-              status?.overall_status === "training" || 
+              status?.overall_status === "Training" || 
               status?.overall_status === "Retraining"
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-[#5348CB] text-white hover:bg-[#4339b6]"
@@ -1329,7 +1329,7 @@ useEffect(() => {
             disabled={
               status?.overall_status === "reconfiguring" || 
               isReconfiguring ||
-              status?.overall_status === "training" || 
+              status?.overall_status === "Training" || 
               status?.overall_status === "Retraining"
             }
           >

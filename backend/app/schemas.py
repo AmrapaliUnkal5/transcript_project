@@ -137,7 +137,8 @@ class BotBase(BaseModel):
     lead_form_config: Optional[List[LeadFormField]] = []
     show_sources: Optional[bool] = False
     unanswered_msg:Optional[str] = "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?"
-
+    external_knowledge: Optional[bool] = False
+    
 class BotCreate(BotBase):
     pass  
 
@@ -159,6 +160,7 @@ class BotResponse(BotBase):
     theme_id: Optional[str]
     show_sources: Optional[bool] 
     unanswered_msg: Optional[str]
+    external_knowledge: Optional[bool] 
 
     class Config:
         from_attributes = True  

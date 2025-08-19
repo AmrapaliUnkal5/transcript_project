@@ -84,6 +84,7 @@ const saveBotSettings = async (
     lead_form_config: settings.lead_form_config,
     show_sources: settings.showSources, 
     unanswered_msg: settings.unansweredMsg,
+    external_knowledge: settings.external_knowledge,
   };
 
   try {
@@ -137,6 +138,7 @@ const updateBotSettings = async (
     lead_form_config: settings.lead_form_config,
     show_sources: settings.showSources, 
     unanswered_msg: settings.unansweredMsg,
+    external_knowledge: settings.external_knowledge,
   };
 
   try {
@@ -185,6 +187,7 @@ export interface BotSettings {
   lead_form_config?: Array<{field: "name" | "email" | "phone" | "address";required: boolean;}>;
   showSources: boolean; 
   unansweredMsg: string;
+  external_knowledge: boolean;
 }
 
 export const ChatbotCustomization = () => {
@@ -343,6 +346,7 @@ useEffect(() => {
     lead_form_config: [{ field: "name", required: false },{ field: "phone", required: false },{ field: "email", required: false },{ field: "address", required: false }],
     showSources: false, 
     unansweredMsg: "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?",
+    external_knowledge: false,
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
@@ -529,6 +533,7 @@ const hasLeadFields = (settings?.lead_form_config  ?? []).length > 0;
             lead_form_config: response.lead_form_config || [],
             showSources: response.show_sources ?? false,
             unansweredMsg: response.unanswered_msg || "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?",
+            external_knowledge: response.external_knowledge ?? false,
           });
         }
       } catch (error) {
@@ -1540,47 +1545,8 @@ const handleThemeSelect = async (themeId: string) => {
     </p>
   </div>
   <Toggle
-    checked={externalKnowledge}
-    onChange={async () => {
-      if (!selectedBot?.id) {
-        toast.error("No bot selected");
-        return;
-      }
-
-      const newValue = !externalKnowledge;
-
-      try {
-        setLoading(true);
-        const response = await authApi.updateBotExternalKnowledge(
-          selectedBot.id,
-          newValue
-        );
-
-        if (response?.success) {
-          setExternalKnowledge(response.external_knowledge);
-          setSelectedBot((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  external_knowledge: response.external_knowledge,
-                }
-              : null
-          );
-          toast.success(
-            `Knowledge source ${
-              response.external_knowledge ? "enabled" : "disabled"
-            }`
-          );
-        } else {
-          throw new Error("Failed to update setting");
-        }
-      } catch (error) {
-        console.error("Error updating external knowledge:", error);
-        toast.error("Failed to update knowledge source setting");
-      } finally {
-        setLoading(false);
-      }
-    }}
+    checked={settings.external_knowledge || false}
+    onChange={() => handleChange("external_knowledge", !settings.external_knowledge)}
   />
 </div>
 
