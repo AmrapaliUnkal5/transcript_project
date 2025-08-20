@@ -1514,6 +1514,22 @@ const handleThemeSelect = async (themeId: string) => {
         />
       </div>
 
+      {/* External Knowledge Toggle */}
+
+     
+              <div className="flex items-center justify-between">
+              <div>
+              <label className="block font-semibold">Knowledge Source</label>
+              <p className="text-sm text-gray-500">
+              When enabled, external knowledge helps answer questions beyond your provided content.
+              </p>
+            </div>
+            <Toggle
+              checked={settings.external_knowledge || false}
+              onChange={() => handleChange("external_knowledge", !settings.external_knowledge)}
+            />
+          </div>
+
       {/* Lead Generation Toggle */}
       <div className="flex items-center justify-between">
         <div>
@@ -1532,25 +1548,7 @@ const handleThemeSelect = async (themeId: string) => {
           }}
         />
       </div>
-
-
-           {/* External Knowledge Toggle */}
-
-     
-              <div className="flex items-center justify-between">
-     <div>
-    <label className="block font-semibold">Knowledge Source</label>
-    <p className="text-sm text-gray-500">
-     When enabled, external knowledge helps answer questions beyond your provided content.
-    </p>
-  </div>
-  <Toggle
-    checked={settings.external_knowledge || false}
-    onChange={() => handleChange("external_knowledge", !settings.external_knowledge)}
-  />
-</div>
-
-
+       
       {/* Lead Form Fields */}
       {settings.lead_generation_enabled && (
         <div className="mt-2">
