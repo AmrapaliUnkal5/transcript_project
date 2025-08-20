@@ -516,7 +516,7 @@ def start_training(
     if videos_to_vectorize:
         logger.info(f"🎯 DEBUG: Found {len(videos_to_vectorize)} videos to vectorize for bot {bot_id}")
         for i, video in enumerate(videos_to_vectorize):
-            logger.info(f"🎯 DEBUG: Video {i+1}/{len(videos_to_vectorize)} - ID: {video.id}, Title: {video.title}, Status: {video.status}")
+            logger.info(f"🎯 DEBUG: Video {i+1}/{len(videos_to_vectorize)} - ID: {video.id}, Title: {video.video_title}, Status: {video.status}")
             video.status = "Embedding"
             db.add(video)
         db.commit()
