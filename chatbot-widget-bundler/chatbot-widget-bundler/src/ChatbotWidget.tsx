@@ -115,6 +115,17 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     // At top level of your component
     const userIdRef = useRef<string | null>(null);
 //This is to create the unique userId for first and save in his local storage, it will be saved in his
+
+    useEffect(() => {
+    const chat = chatContainerRef.current;
+    if (!chat) return;
+
+    // Always scroll to bottom when bot is typing
+    if (isBotTyping) {
+      chat.scrollTop = chat.scrollHeight;
+    }
+  }, [isBotTyping, currentBotMessage]);
+
     useEffect(() => {
       let storedUserId = localStorage.getItem("botUserId");
       if (!storedUserId) {

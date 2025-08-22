@@ -134,6 +134,11 @@ const Investigation = () => {
             border-radius: 4px;
             border-left: 4px solid #5348CB;
           }
+          .content {
+          white-space: normal;   
+          word-wrap: break-word; 
+          line-height: 1.3;      
+        }
         </style>
       </head>
       <body>
@@ -143,7 +148,7 @@ const Investigation = () => {
             <a href="${url}" download="${title}.txt" class="download-btn">Download</a>
           </div>
           <h2>${title}</h2>
-          <pre>${content || "No content available"}</pre>
+          <div class="content">${content || "No content available"}</div>
         </div>
       </body>
     </html>
