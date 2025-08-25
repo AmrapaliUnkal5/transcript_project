@@ -171,19 +171,7 @@ export const FileUpload = () => {
     (totalStorageUsed / userUsage.storageLimit) * 100
   );
 
-  // Calculate total pages
-  const totalPages = Math.ceil(youtubeVideos.length / videosPerPage);
 
-  // Get current page videos
-  const indexOfLastVideo = currentPage * videosPerPage;
-  const indexOfFirstVideo = indexOfLastVideo - videosPerPage;
-  const currentVideos = youtubeVideos.slice(
-    indexOfFirstVideo,
-    indexOfLastVideo
-  );
-
-  // Generate page numbers
-  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
   const [activeTab, setActiveTab] = useState(
     user.subscription_plan_id === 1 || user.subscription_plan_id === 2
       ? "websitescraping"
@@ -380,7 +368,9 @@ export const FileUpload = () => {
 
             // Clear selected videos since they're being processed
             localStorage.removeItem("selected_videos");
+            localStorage.removeItem("youtube_video_urls");
             setRefreshKey((prev) => prev + 1);
+            window.dispatchEvent(new Event("resetYouTubeUploader"));
 
             if (selectedBot?.status === "In Progress") {
               await authApi.updateBotStatusActive(selectedBot.id, {
@@ -400,67 +390,70 @@ export const FileUpload = () => {
           }
 
           // Handle traditional synchronous response (for backward compatibility)
-          if (responseyoutube && Object.keys(responseyoutube).length > 0) {
-            const successCount = responseyoutube.stored_videos?.length || 0;
-            console.log("successCount", successCount);
-            const failedCount = responseyoutube.failed_videos?.length || 0;
+          // if (responseyoutube && Object.keys(responseyoutube).length > 0) {
+          //   const successCount = responseyoutube.stored_videos?.length || 0;
+          //   console.log("successCount", successCount);
+          //   const failedCount = responseyoutube.failed_videos?.length || 0;
 
-            if (successCount > 0 && failedCount === 0) {
-              // All successful
-              toast.success(`${successCount} video(s) uploaded successfully!`);
-            } else if (successCount > 0 && failedCount > 0) {
-              // Some success, some failed
-              const failedDetails = responseyoutube.failed_videos
-                .map(
-                  (video: Video1, index: number) =>
-                    `${index + 1}. ${video.video_url} - ${video.reason}`
-                )
-                .join("\n");
+          //   if (successCount > 0 && failedCount === 0) {
+          //     // All successful
+          //     toast.success(`${successCount} video(s) uploaded successfully!`);
+          //   } else if (successCount > 0 && failedCount > 0) {
+          //     // Some success, some failed
+          //     const failedDetails = responseyoutube.failed_videos
+          //       .map(
+          //         (video: Video1, index: number) =>
+          //           `${index + 1}. ${video.video_url} - ${video.reason}`
+          //       )
+          //       .join("\n");
 
-              toast.success(`${successCount} video(s) uploaded successfully!`);
-              toast.warning(
-                `However, ${failedCount} video(s) failed to upload:\n\n${failedDetails}`
-              );
-            } else if (successCount === 0 && failedCount > 0) {
-              // All failed
-              const failedDetails = responseyoutube.failed_videos
-                .map(
-                  (video: Video1, index: number) =>
-                    `${index + 1}. ${video.video_url} - ${video.reason}`
-                )
-                .join("\n");
+          //     toast.success(`${successCount} video(s) uploaded successfully!`);
+          //     toast.warning(
+          //       `However, ${failedCount} video(s) failed to upload:\n\n${failedDetails}`
+          //     );
+          //   } else if (successCount === 0 && failedCount > 0) {
+          //     // All failed
+          //     const failedDetails = responseyoutube.failed_videos
+          //       .map(
+          //         (video: Video1, index: number) =>
+          //           `${index + 1}. ${video.video_url} - ${video.reason}`
+          //       )
+          //       .join("\n");
 
-              toast.error(
-                `All ${failedCount} video(s) failed to upload:\n\n${failedDetails}`
-              );
-            }
-          }
+          //     toast.error(
+          //       `All ${failedCount} video(s) failed to upload:\n\n${failedDetails}`
+          //     );
+          //   }
+          // }
           // ✅ Remove processed videos from local storage
-          console.log(
-            "responseyoutube.stored_videos",
-            responseyoutube.stored_videos
-          );
-          const storedVideos = Array.isArray(responseyoutube.stored_videos)
-            ? responseyoutube.stored_videos.map(
-              (video: Video1) => video.video_url
-            )
-            : [];
-          // ✅ Remove processed videos from local storage
-          const remainingVideos = parsedSelectedVideos.filter(
-            (video: Video1) => !responseyoutube.stored_videos.includes(video)
-          );
-          const toshow = allvideosconst.filter(
-            (video: Video1) => !storedVideos.includes(video)
-          );
-          localStorage.setItem("youtube_video_urls", JSON.stringify(toshow));
-          localStorage.removeItem("selected_videos");
+          // console.log(
+          //   "responseyoutube.stored_videos",
+          //   responseyoutube.stored_videos
+          // );
+          // const storedVideos = Array.isArray(responseyoutube.stored_videos)
+          //   ? responseyoutube.stored_videos.map(
+          //     (video: Video1) => video.video_url
+          //   )
+          //   : [];
+          // // ✅ Remove processed videos from local storage
+          // const remainingVideos = parsedSelectedVideos.filter(
+          //   (video: Video1) => !responseyoutube.stored_videos.includes(video)
+          // );
+          // const toshow = allvideosconst.filter(
+          //   (video: Video1) => !storedVideos.includes(video)
+          // );
+          // localStorage.setItem("youtube_video_urls", JSON.stringify(toshow));
+          // localStorage.removeItem("selected_videos");
 
-          console.log("Remaining videos after filtering:", remainingVideos);
-          console.log("storedVideos", storedVideos);
+          // console.log("Remaining videos after filtering:", remainingVideos);
+          // console.log("storedVideos", storedVideos);
 
           fetchYouTubeVideos();
           // ✅ Refresh YouTubeUploader component
+          localStorage.removeItem("selected_videos");
+          localStorage.removeItem("youtube_video_urls");
           setRefreshKey((prev) => prev + 1);
+          window.dispatchEvent(new Event("resetYouTubeUploader"));
           if (selectedBot?.status === "In Progress") {
             await authApi.updateBotStatusActive(selectedBot.id, {
               status: "Active",
@@ -1909,14 +1902,14 @@ useEffect(() => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {currentVideos.map((videoUrl, index) => (
+                    {youtubeVideos.map((videoUrl, index) => (
                       <tr
                         key={index}
                         className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="text-sm text-gray-900 dark:text-white">
-                            {indexOfFirstVideo + index + 1}
+                            {index + 1}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1982,21 +1975,7 @@ useEffect(() => {
                   </tbody>
                 </table>
               </div>
-              {/* Pagination Controls */}
-              <div className="flex justify-center p-4 space-x-2">
-                {pageNumbers.map((number) => (
-                  <button
-                    key={number}
-                    onClick={() => setCurrentPage(number)}
-                    className={`px-4 py-2 rounded-lg ${currentPage === number
-                        ? "bg-blue-500 text-white"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      }`}
-                  >
-                    {number}
-                  </button>
-                ))}
-              </div>
+
             </div>
             <div className="mt-4">
               <button
