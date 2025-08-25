@@ -755,6 +755,14 @@ export const FileUpload = () => {
       } else {
         toast.error("Failed to start Retraining");
       }
+      // Step 3: Start training via Celery
+      const celeryStartResponse = await authApi.startTraining(selectedBot.id);
+
+      if (!celeryStartResponse.success) {
+
+          toast.error("Failed to trigger training");
+          return;
+            }
 
     } catch (error) {
       toast.error("Retraining failed");

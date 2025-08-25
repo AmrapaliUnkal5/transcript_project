@@ -337,6 +337,28 @@ def process_youtube_videos_part1(self, bot_id: int, video_urls: List[str]):
 
     # for v in valid_videos:
     #     save_video_metadata(db, bot_id, v["url"], v["transcript"], v["metadata"])
+    # ✅ Trigger YouTube Celery2 only for videos marked for training
+    videos_to_vectorize = (
+    db.query(YouTubeVideo)
+    .filter(
+        YouTubeVideo.bot_id == bot_id,
+        YouTubeVideo.status == "Extracted",
+        YouTubeVideo.transcript.isnot(None),
+        YouTubeVideo.is_deleted == False,
+        YouTubeVideo.processed_with_training == True   # 👈 required
+    )
+    .with_for_update(skip_locked=True)  # 👈 prevents race condition
+    .all()
+)
+
+    if videos_to_vectorize:
+        for v in videos_to_vectorize:
+            v.status = "Embedding"
+            db.add(v)
+        db.commit()
+
+        video_ids = [v.id for v in videos_to_vectorize]
+        process_youtube_videos_part2.delay(bot_id, video_ids)
 
     return {
         "status": "completed",
@@ -1329,6 +1351,24 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                     logger.error(f"Error sending notification: {str(notify_error)}")
                 
                 logger.info(f"✅ File processing -part 1 Complete for  {original_filename}")
+                logger.info(f"✅ Checking if we can start part2 for  {original_filename}")
+                # 2. If training/retraining has been requested, chain into part2
+                if file_record.processed_with_training:
+                    locked_file = (
+                        db.query(File)
+                        .filter(
+                            File.file_id == file_record.file_id,
+                            File.status == "Extracted"
+                        )
+                        .with_for_update(skip_locked=True)
+                        .first()
+                    )
+
+                    if locked_file:  # only if we successfully locked it
+                        locked_file.status = "Embedding"
+                        db.add(locked_file)
+                        db.commit()
+                        process_file_upload_part2.delay(bot_id, locked_file.unique_file_name)
                 
                 return {
                     "status": "complete",
@@ -1759,7 +1799,28 @@ def process_web_scraping_part1(self, bot_id: int, url_list: list):
             logger.info(f"✅ Sent completion notification for bot {bot_id}")
         except Exception as notify_err:
             logger.exception(f"❌ Failed to send completion notification: {str(notify_err)}")
-        
+
+        # ✅ Trigger Webscraping Celery2 only for nodes marked for training
+        nodes_to_vectorize = (
+            db.query(ScrapedNode)
+            .filter(
+                ScrapedNode.bot_id == bot_id,
+                ScrapedNode.status == "Extracted",
+                ScrapedNode.nodes_text.isnot(None),
+                ScrapedNode.is_deleted == False,
+                ScrapedNode.processed_with_training == True   # 👈 required
+            )
+            .with_for_update(skip_locked=True)  # 👈 prevents race condition
+            .all()
+        )
+
+        if nodes_to_vectorize:
+            for n in nodes_to_vectorize:
+                n.status = "Embedding"
+                db.add(n)
+            db.commit()
+
+            process_web_scraping_part2.delay(bot_id, [n.id for n in nodes_to_vectorize])
         # Return results
         return {
             "status": "complete",
