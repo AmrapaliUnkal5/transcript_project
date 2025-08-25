@@ -420,43 +420,94 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
   // Check if GSTIN should be enabled (only for India)
   const isGstinEnabled = formData.billingAddress.country === 'IN';
 
-  const handleInputChange = (
-    field: string,
-    value: string
-  ) => {
-    setFormData(prev => {
-      const newBillingAddress = {
-        ...prev.billingAddress,
-        [field]: value
+ const validateField = (field: string, value: string, country?: string): string => {
+  switch (field) {
+    case 'firstName':
+    case 'lastName':
+      if (!value.trim()) return `${field === 'firstName' ? 'First' : 'Last'} name is required`;
+      if (!/^[A-Za-zÀ-ÿ'\-\s]+$/.test(value)) return 'Only letters are allowed';
+      break;
+
+    case 'address1':
+      if (!value.trim()) return 'Address Line 1 is required';
+      if (value.length < 5) return 'Address Line 1 is too short';
+      break;
+
+    case 'address2':
+      // ✅ Optional, only validate if user enters something
+      if (value && value.length < 3) return 'Address Line 2 is too short';
+      break;
+
+    case 'city':
+      if (!value.trim()) return 'City is required';
+      if (!/^[A-Za-zÀ-ÿ'\-\s\.]{2,}$/.test(value)) return 'Invalid city name';
+      break;
+
+    case 'zipCode':
+      if (!value.trim()) return 'ZIP/Postal code is required';
+      const postalCodePatterns: { [key: string]: RegExp } = {
+        US: /^\d{5}(-\d{4})?$/,                      // USA
+        CA: /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, // Canada
+        GB: /^[A-Za-z]{1,2}\d[A-Za-z\d]? ?\d[A-Za-z]{2}$/, // UK
+        DE: /^\d{5}$/,                               // Germany
+        FR: /^\d{5}$/,                               // France
+        AU: /^\d{4}$/,                               // Australia
+        IN: /^\d{6}$/,                               // India
+        DEFAULT: /^[A-Za-z0-9\- ]{3,10}$/            // Fallback
       };
-      
-      // Clear state when country changes to ensure valid state-country combination
-      if (field === 'country') {
-        newBillingAddress.state = '';
-      }
-      
-      return {
-        ...prev,
-        billingAddress: newBillingAddress
-      };
-    });
-    
-    // Clear error when user starts typing
-    if (errors[`billingAddress.${field}`]) {
-      setErrors(prev => ({
-        ...prev,
-        [`billingAddress.${field}`]: ''
-      }));
+      const regex = postalCodePatterns[country || 'DEFAULT'] || postalCodePatterns.DEFAULT;
+      if (!regex.test(value)) return `Invalid postal code for ${country}`;
+      break;
+  }
+  return '';
+};
+
+  const handleInputChange = (field: string, value: string) => {
+  setFormData(prev => {
+    const newBillingAddress = {
+      ...prev.billingAddress,
+      [field]: value
+    };
+
+    // Clear state when country changes to ensure valid state-country combination
+    if (field === 'country') {
+      newBillingAddress.state = '';
     }
-    
-    // Clear state error when country changes
-    if (field === 'country' && errors['billingAddress.state']) {
-      setErrors(prev => ({
-        ...prev,
-        'billingAddress.state': ''
-      }));
-    }
-  };
+
+    return {
+      ...prev,
+      billingAddress: newBillingAddress
+    };
+  });
+
+  // Clear error when user starts typing
+  if (errors[`billingAddress.${field}`]) {
+    setErrors(prev => ({
+      ...prev,
+      [`billingAddress.${field}`]: ''
+    }));
+  }
+
+  // Clear state error when country changes
+  if (field === 'country' && errors['billingAddress.state']) {
+    setErrors(prev => ({
+      ...prev,
+      'billingAddress.state': ''
+    }));
+  }
+  //  Run real-time validation 
+  const error = validateField(
+    field,
+    value,
+    field === 'zipCode' ? formData.billingAddress.country : undefined
+  );
+  if (error) {
+    setErrors(prev => ({
+      ...prev,
+      [`billingAddress.${field}`]: error
+    }));
+  }
+};
 
   const handleGstinChange = (value: string) => {
     setFormData(prev => ({
@@ -680,7 +731,7 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">
