@@ -31,7 +31,7 @@ from app.word_count_validation import validate_cumulative_word_count, update_bot
 from .crud import update_user_word_count
 from app.notifications import add_notification
 from app.vector_db import delete_document_from_chroma
-from app.celery_tasks import process_file_upload_part1, process_file_upload_part2, process_youtube_videos_part2, process_web_scraping_part2
+from app.celery_tasks import process_file_upload_part1, process_file_upload_part2, process_youtube_videos_part2, process_web_scraping_part2, monitor_bot_training_status
 from app.utils.file_storage import delete_file as delete_file_storage
 from app.config import settings
 from app.utils.logger import get_module_logger
@@ -569,6 +569,8 @@ def start_training(
     total_items = len(files_to_vectorize) + len(videos_to_vectorize) + len(scraped_nodes_to_vectorize)
     logger.info(f"🏁 DEBUG: Training started successfully - Total items to vectorize: {total_items}")
     logger.info(f"📊 DEBUG: Breakdown - Files: {len(files_to_vectorize)}, Videos: {len(videos_to_vectorize)}, Web pages: {len(scraped_nodes_to_vectorize)}")
+
+    monitor_bot_training_status.delay(bot_id)
 
     return {
         "message": f"Training started. Vectorization tasks triggered for "

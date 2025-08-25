@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useBot } from '../context/BotContext';
 import { BotTrainingStatus } from './api';
+import { authApi } from './api';
 
 interface BotStatus {
   overall_status: string;
@@ -52,6 +53,10 @@ export const useBotStatusWebSocket = (
       socket.onopen = () => {
         socket!.send(selectedBot.id.toString());
         setIsConnected(true);
+        // Fetch latest status from backend on connect
+        authApi.getBotTrainingStatus(selectedBot.id)
+          .then(setStatus)
+          .catch((error) => console.error('Error fetching bot status:', error));
       };
       socket.onmessage = (event) => {
         try {

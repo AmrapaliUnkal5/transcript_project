@@ -26,7 +26,7 @@ The tasks are designed to support immediate user feedback by:
 from typing import List
 from app.celery_app import celery_app
 from app.youtube import store_videos_in_chroma, send_failure_notification
-from app.database import get_db
+from app.database import get_db,SessionLocal
 from app.models import YouTubeVideo, User, Bot, File, SubscriptionPlan, UserSubscription, EmbeddingModel, ScrapedNode
 from sqlalchemy.orm import Session
 import logging
@@ -46,6 +46,10 @@ from app.utils.upload_knowledge_utils import chunk_text
 from app.config import settings
 from app.utils.file_storage import save_file, get_file_url, delete_file as delete_file_storage, FileStorageError
 # from app.grid_refresh_ws import broadcast_grid_refresh
+from app.progress import get_file_status, get_website_status, get_youtube_status, determine_overall_status, compute_status
+from app.utils.email_notifications import send_bot_activation_email, send_bot_error_email
+import time
+from datetime import datetime
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -1959,3 +1963,69 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list):
     except Exception as e:
         logger.exception(f"❌ Error in vectorizing scraped nodes for bot {bot_id}: {str(e)}")
         raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
+
+@celery_app.task(bind=True, name='monitor_bot_training_status', max_retries=3)
+def monitor_bot_training_status(self, bot_id: int):
+    """
+    Celery task to monitor bot training status, update status to 'active' or 'error', and send email if not already sent.
+    """
+    
+    db = SessionLocal()
+    try:
+        while True:
+            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+            if not bot:
+                db.close()
+                return
+
+            # Compute current status using shared progress logic (async)
+            try:
+                status_data = asyncio.run(compute_status(bot_id, db))
+            except RuntimeError:
+                # If an event loop already exists (rare in Celery), create a new one
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                status_data = loop.run_until_complete(compute_status(bot_id, db))
+                loop.close()
+
+            overall_status = status_data.get("overall_status")
+           
+            # If still training, sleep and check again
+            if overall_status in ["Training", "Retraining"]:
+                db.commit()
+                time.sleep(5)
+                continue
+
+            # Update bot status and send email if needed
+            bot.is_trained = (overall_status == "Active")
+            bot.is_active = (overall_status == "Active")
+            bot.status = overall_status
+            bot.updated_at = datetime.utcnow()
+
+            user = db.query(User).filter(User.user_id == bot.user_id).first()
+            if user:
+                if overall_status == "Active" and not bot.active_mail_sent:
+                    send_bot_activation_email(
+                        db=db,
+                        user_name=user.name,
+                        user_email=user.email,
+                        bot_name=bot.bot_name,
+                        bot_id=bot_id
+                    )
+                    bot.active_mail_sent = True
+                elif overall_status == "Error" and not bot.error_mail_sent:
+                    send_bot_error_email(
+                        db=db,
+                        user_name=user.name,
+                        user_email=user.email,
+                        bot_name=bot.bot_name,
+                        bot_id=bot_id
+                    )
+                    bot.error_mail_sent = True
+
+            db.commit()
+            break
+    except Exception as e:
+        db.rollback()
+    finally:
+        db.close()

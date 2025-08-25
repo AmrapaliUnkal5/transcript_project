@@ -13,7 +13,6 @@ from app.websocket_manager import manager
 from app.schemas import StartTrainingRequest
 from app.utils.logger import get_module_logger
 from app.utils.vectorization_utils import trigger_vectorization_if_needed
-from app.botsettings import send_bot_activation_email,send_bot_error_email
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -153,41 +152,6 @@ async def compute_status(bot_id: int, db: Session):
 
     overall_status = determine_overall_status(file_status, website_status, youtube_status, bot)
 
-    # update bot status
-    bot.is_trained = (overall_status == "Active")
-    bot.is_active = (overall_status == "Active")
-    bot.status = overall_status
-    bot.updated_at = datetime.utcnow()
-
-    # Email Logic
-    user = db.query(User).filter(User.user_id == bot.user_id).first()
-    if user:
-        # If bot just became active and active mail hasn't been sent
-        if overall_status == "Active" and not bot.active_mail_sent:
-            send_bot_activation_email(
-                db=db, 
-                user_name=user.name, 
-                user_email=user.email, 
-                bot_name=bot.bot_name, 
-                bot_id=bot_id
-            )
-            bot.active_mail_sent = True
-                    
-        # If bot just entered error state and error mail hasn't been sent
-        elif overall_status == "Error" and not bot.error_mail_sent:
-            send_bot_error_email(
-                db=db,
-                user_name=user.name,
-                user_email=user.email,
-                bot_name=bot.bot_name,
-                bot_id=bot_id
-            )
-            bot.error_mail_sent = True
-                
-    bot.status = overall_status
-    bot.updated_at = datetime.utcnow()
-    db.commit()
-
     return {
         "overall_status": overall_status,
         "progress": {
@@ -195,7 +159,7 @@ async def compute_status(bot_id: int, db: Session):
             "websites": website_status,
             "youtube": youtube_status
         },
-        "is_trained": bot.is_trained
+        "is_trained": (overall_status == "Active")
     }
 
 @router.get("/checkstatus/{bot_id}")
