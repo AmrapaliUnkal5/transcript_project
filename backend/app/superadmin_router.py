@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .dependency import get_current_user
 from app.schemas import ImpersonateRequest
-from .models import User,TeamMember,UserSubscription,UserAddon
+from .models import User,TeamMember,UserSubscription,UserAddon, UserAuthProvider
 from sqlalchemy import and_, or_
 from app.utils.create_access_token import create_access_token
 from app.utils.file_storage import resolve_file_url
@@ -114,7 +114,7 @@ def get_all_customers(
     if current_user["role"] != "superadmin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    customers = (
+    normal_users = (
     db.query(User)
     .filter(
         
@@ -125,4 +125,18 @@ def get_all_customers(
     .all()
 )
 
-    return [customer.email for customer in customers]
+    # Query users who logged in via Gmail/Google
+    google_users  = (
+        db.query(User)
+        .join(UserAuthProvider, User.user_id == UserAuthProvider.user_id)
+        .filter(
+
+            User.user_id != current_user["user_id"]  # exclude self
+        )
+        .all()
+    )
+
+    # Merge both sets, avoid duplicates
+    all_customers = {user.email for user in normal_users + google_users}
+
+    return sorted(all_customers)
