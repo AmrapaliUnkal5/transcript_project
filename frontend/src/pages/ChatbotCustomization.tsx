@@ -201,6 +201,7 @@ export const ChatbotCustomization = () => {
   // === External Knowledge Sync ===
 const [externalKnowledge, setExternalKnowledge] = useState<boolean>(false);
 
+
 useEffect(() => {
   if (selectedBot?.external_knowledge !== undefined) {
     setExternalKnowledge(selectedBot.external_knowledge);
@@ -384,6 +385,17 @@ const [showCustomize, setShowCustomize] = useState(false);
 const [customizedThemes, setCustomizedThemes] = useState<Record<string, Partial<BotSettings>>>({});
 const [selectedPredefinedIcon, setSelectedPredefinedIcon] = useState<string | null>(null);
 const hasLeadFields = (settings?.lead_form_config  ?? []).length > 0;
+
+
+useEffect(() => {
+  const chat = chatContainerRef.current;
+  if (!chat) return;
+
+  // Always scroll to bottom when bot is typing
+  if (isBotTyping) {
+    chat.scrollTop = chat.scrollHeight;
+  }
+}, [isBotTyping, currentBotMessage]);
 
   useEffect(() => {
     interactionIdRef.current = interactionId;
