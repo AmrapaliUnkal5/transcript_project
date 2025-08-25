@@ -79,9 +79,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 status_data["progress"]["youtube"].get("extracted", 0) > 0 or
                 status_data["progress"]["websites"].get("extracted", 0) > 0
             )
-            if any_extracted and status_data["overall_status"].lower() in ["training", "retraining"]:
-                    logger.info(f"Triggering vectorization for bot {bot_id} via websocket polling")
-                    await trigger_vectorization_if_needed(bot_id, db)
             
             db.close()
             await asyncio.sleep(3)

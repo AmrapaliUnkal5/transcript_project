@@ -485,10 +485,12 @@ def start_training(
 
     # ✅ Step 1: Fetch eligible files for vectorization
     logger.info(f"📄 DEBUG: Fetching files with status 'Extracted' for bot_id: {bot_id}")
-    files_to_vectorize = db.query(FileModel).filter(
-        FileModel.bot_id == bot_id,
-        FileModel.status == "Extracted"
-    ).all()
+    files_to_vectorize = (
+        db.query(FileModel)
+        .filter(FileModel.bot_id == bot_id, FileModel.status == "Extracted",FileModel.processed_with_training == True)
+        .with_for_update(skip_locked=True)
+        .all()
+    )
 
     if files_to_vectorize:
         logger.info(f"📄 DEBUG: Found {len(files_to_vectorize)} files to vectorize for bot {bot_id}")
@@ -496,9 +498,10 @@ def start_training(
             logger.info(f"📄 DEBUG: File {i+1}/{len(files_to_vectorize)} - ID: {file.file_id}, Name: {file.file_name}, Status: {file.status}")
             file.status = "Embedding"  # update status before dispatch
             db.add(file)
+        db.commit() # commit status change before dispatch
+        for file in files_to_vectorize:
             logger.info(f"🔄 DEBUG: Dispatching Celery task for file: {file.unique_file_name}")
             process_file_upload_part2.delay(bot_id, file.unique_file_name)
-        db.commit()
         logger.info(f"✅ DEBUG: Updated {len(files_to_vectorize)} files to 'Embedding' status")
     else:
         logger.info(f"🚫 DEBUG: No files pending vectorization for bot {bot_id}")
@@ -506,12 +509,18 @@ def start_training(
 
     # ✅ Step 3: Vectorize eligible YouTube videos
     logger.info(f"🎯 DEBUG: Fetching YouTube videos with status 'Extracted' for bot_id: {bot_id}")
-    videos_to_vectorize = db.query(YouTubeVideo).filter(
-        YouTubeVideo.bot_id == bot_id,
-        YouTubeVideo.status == "Extracted",
-        YouTubeVideo.transcript.isnot(None),
-        YouTubeVideo.is_deleted == False
-    ).all()
+    videos_to_vectorize = (
+        db.query(YouTubeVideo)
+        .filter(
+            YouTubeVideo.bot_id == bot_id,
+            YouTubeVideo.status == "Extracted",
+            YouTubeVideo.transcript.isnot(None),
+            YouTubeVideo.is_deleted == False,
+            YouTubeVideo.processed_with_training == True
+        )
+        .with_for_update(skip_locked=True)
+        .all()
+    )
 
     if videos_to_vectorize:
         logger.info(f"🎯 DEBUG: Found {len(videos_to_vectorize)} videos to vectorize for bot {bot_id}")
@@ -529,12 +538,18 @@ def start_training(
     
     # ✅ Step 3: Vectorize eligible Scraped Nodes
     logger.info(f"🌐 DEBUG: Fetching scraped nodes with status 'Extracted' for bot_id: {bot_id}")
-    scraped_nodes_to_vectorize = db.query(ScrapedNode).filter(
-        ScrapedNode.bot_id == bot_id,
-        ScrapedNode.status == "Extracted",
-        ScrapedNode.nodes_text.isnot(None),
-        ScrapedNode.is_deleted == False
-    ).all()
+    scraped_nodes_to_vectorize = (
+        db.query(ScrapedNode)
+        .filter(
+            ScrapedNode.bot_id == bot_id,
+            ScrapedNode.status == "Extracted",
+            ScrapedNode.nodes_text.isnot(None),
+            ScrapedNode.is_deleted == False,
+            ScrapedNode.processed_with_training == True
+        )
+        .with_for_update(skip_locked=True)
+        .all()
+    )
 
     if scraped_nodes_to_vectorize:
         logger.info(f"🌐 DEBUG: Found {len(scraped_nodes_to_vectorize)} scraped web pages to vectorize for bot {bot_id}")
