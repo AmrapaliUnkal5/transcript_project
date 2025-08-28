@@ -110,7 +110,9 @@ export const FileUpload = () => {
     video_url: string;
     reason: string;
   };
-
+  const youtubeResetRef = useRef<(() => void) | null>(null);
+  const webScrapingResetRef = useRef<(() => void) | null>(null);
+  const subscriptionResetRef = useRef<(() => void) | null>(null);
   const userData = localStorage.getItem("user");
   const user = userData ? JSON.parse(userData) : null;
   const { getPlanById } = useSubscriptionPlans();
@@ -184,10 +186,61 @@ export const FileUpload = () => {
     setShowCancelWarning(true);
   };
 
+  const handleYouTubeReset = (resetFunc: () => void) => {
+    youtubeResetRef.current = resetFunc;
+  };
+
+  const handleWebScrapingReset = (resetFunc: () => void) => {
+    webScrapingResetRef.current = resetFunc;
+  };
+
+  // Handler for Subscription reset
+  const handleSubscriptionReset = (resetFunc: () => void) => {
+    subscriptionResetRef.current = resetFunc;
+  };
+
   const handleCancelConfirm = async () => {
     setShowCancelWarning(false);
-    await handleCancel(); 
-  };
+     try {
+    // Show loading state
+    setLoading(true);
+    
+    // Perform the cancel operation
+    await handleCancel();
+    
+    // MANUAL REFRESH: Force refresh all data sources
+    await fetchFiles(); // Refresh files grid
+    
+    
+     // NEW: Reset YouTube component state
+      if (youtubeResetRef.current) {
+        youtubeResetRef.current();
+      }
+
+      if (webScrapingResetRef.current) {
+        webScrapingResetRef.current();
+      }
+      
+      // NEW: Reset Subscription component state
+      if (subscriptionResetRef.current) {
+        subscriptionResetRef.current();
+      }
+
+    // Reset any local state
+    setNewFiles([]); // Clear unsaved files
+    setIsVideoSelected(false); // Reset YouTube selection
+    setHasWebChanges(false); // Reset web changes flag
+    setIsScrapeButtonVisible(false); // Hide scrape button
+    
+    toast.success("Cancellation completed successfully");
+    
+  } catch (error) {
+    console.error("Error during cancellation:", error);
+    toast.error("Failed to complete cancellation");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleCancelClose = () => {
     setShowCancelWarning(false);
@@ -649,13 +702,13 @@ export const FileUpload = () => {
   };
 
   const handleCancel = async () => {
-    console.log("hasWebChanges=>",hasWebChanges)
-    if ((!isSaveDisabled && newFiles.length > 0) || 
-      isVideoSelected || 
-      isScrapeButtonVisible) {
-    toast.error("You have unsaved changes. Please save them before canceling.");
-    return;
-  }
+  //   console.log("hasWebChanges=>",hasWebChanges)
+  //   if ((!isSaveDisabled && newFiles.length > 0) || 
+  //     isVideoSelected || 
+  //     hasWebChanges||isScrapeButtonVisible) {
+  //   toast.error("You have unsaved changes. Please save them before canceling.");
+  //   return;
+  // }
     if (!selectedBot?.id || !status) return;
     try {
       // Update bot status to "Reconfiguring" and set is_active to false
@@ -1413,6 +1466,7 @@ useEffect(() => {
               setNodes={setNodes}
               onChangesMade={() => setHasWebChanges(true)}
               onScrapeButtonVisibility={(isVisible) => setIsScrapeButtonVisible(isVisible)}
+              onReset={handleWebScrapingReset}
 />
             </div>
           )}
@@ -1425,7 +1479,7 @@ useEffect(() => {
               Enter the Website URL
             </h1> */}
               <SubscriptionScrape isReconfiguring={isReconfiguring}    isConfigured={isConfigured}  setRefetchScrapedUrls={setRefetchScrapedUrls}
-              onScrapeButtonVisibility={(isVisible) => setIsScrapeButtonVisible(isVisible)} />
+              onScrapeButtonVisibility={(isVisible) => setIsScrapeButtonVisible(isVisible)} onReset={handleWebScrapingReset}/>
             </div>
           )}
         {/* Files Tab Content */}
@@ -1795,6 +1849,7 @@ useEffect(() => {
               refreshKey={refreshKey}
               isConfigured={isConfigured}
               setIsVideoSelected={setIsVideoSelected}
+              onReset={handleYouTubeReset} 
             />
 
             <div className="p-2" >

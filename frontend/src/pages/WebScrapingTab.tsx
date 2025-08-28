@@ -31,6 +31,7 @@ interface WebScrapingTabProps {
  disableActions2?:boolean;
  setRefetchScrapedUrls?: React.Dispatch<React.SetStateAction<(() => void) | undefined>>;
  onScrapeButtonVisibility?: (isVisible: boolean) => void;
+ onReset?: (resetFunc: () => void) => void;
 }
 
 const WebScrapingTab: React.FC<WebScrapingTabProps> = ({ 
@@ -49,6 +50,7 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
   disableActions2 = false,
   setRefetchScrapedUrls,
   onScrapeButtonVisibility,
+  onReset = () => {},
 }) => {
   
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -151,7 +153,21 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
   }
 }, [fetchScrapedUrls, setRefetchScrapedUrls]);
 
-  const handleDeleteClick = (url: string, wordCount: number) => {
+const resetInternalState = () => {
+    // Reset selected nodes and URLs
+    setSelectedNodes([]);
+    setNodes([]);
+    setWebsiteUrl("");
+  };
+
+  // Expose reset function to parent
+  useEffect(() => {
+    if (onReset) {
+      onReset(resetInternalState);
+    }
+  }, [onReset]);
+
+    const handleDeleteClick = (url: string, wordCount: number) => {
   setUrlToDelete(url);
   setWordCountToDelete(wordCount); // Set the word count
   setIsModalOpen(true);

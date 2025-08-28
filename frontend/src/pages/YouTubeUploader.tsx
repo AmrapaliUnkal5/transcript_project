@@ -14,6 +14,7 @@ interface YouTubeUploaderProps {
   isReconfiguring?: boolean;
   disableActions?: boolean;  
   isConfigured: boolean;
+  onReset?: (resetFunc: () => void) => void;
 }
 
 const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
@@ -24,6 +25,7 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
   onChangesMade,
   isReconfiguring = false, // Default to false
   disableActions = false,
+  onReset=() => {},
 }) => {
   const { selectedBot } = useBot(); // Use BotContext
   const [youtubeUrl, setYoutubeUrl] = useState("");
@@ -166,6 +168,26 @@ const YouTubeUploader: React.FC<YouTubeUploaderProps> = ({
       setLoading(false);
     }
   };
+
+  const resetInternalState = () => {
+    // Clear any local storage
+    localStorage.removeItem("youtube_video_urls");
+    localStorage.removeItem("selected_videos");
+    
+    // Reset any internal state variables
+    setSelectedVideos([]);
+    setVideoUrls([]);
+    // Add any other state resets needed
+  };
+
+  // Expose reset function to parent via useEffect
+  useEffect(() => {
+    if (onReset) {
+      onReset(resetInternalState);
+    }
+  }, [onReset]);
+
+
 
   const handleSelectVideo = (videoUrl: string) => {
     
