@@ -290,6 +290,14 @@ export const Subscription = () => {
     setIsExpiredPlan(params.get("isExpired") === "true");
   }, []);
 
+  // Also derive expired state from user's subscription status to ensure button enables for renewals
+  useEffect(() => {
+    const status = user?.subscription_status?.toLowerCase();
+    if (status === "expired" || status === "cancelled") {
+      setIsExpiredPlan(true);
+    }
+  }, [user?.subscription_status]);
+
   useEffect(() => {
     // Reload plans when component mounts to ensure fresh data
     loadPlans();
