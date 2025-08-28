@@ -270,6 +270,7 @@ useEffect(() => {
   const [reactionGiven, setReactionGiven] = useState(false);
   const [reaction, setReaction] = useState<"like" | "dislike" | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const suppressAutoScrollRef = useRef<boolean>(false);
   const { plans, addons, getPlanById } = useSubscriptionPlans();
   //const [planLimit, setPlanLimit] = useState(0);
   const [pendingAddonMessages, setPendingAddonMessages] = useState(0);
@@ -392,7 +393,7 @@ useEffect(() => {
   if (!chat) return;
 
   // Always scroll to bottom when bot is typing
-  if (isBotTyping) {
+  if (isBotTyping && !suppressAutoScrollRef.current) {
     chat.scrollTop = chat.scrollHeight;
   }
 }, [isBotTyping, currentBotMessage]);
@@ -419,16 +420,16 @@ useEffect(() => {
     };
   }, []);
 
-  useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop =
-        chatContainerRef.current.scrollHeight;
-    }
-  }, [messages, isBotTyping]);
+  // Removed forced scroll-to-bottom on any message change to prevent jumping
+  // when the user is interacting with earlier messages (e.g., liking).
 
   useEffect(() => {
     const chat = chatContainerRef.current;
     if (!chat) return;
+
+    if (suppressAutoScrollRef.current) {
+      return;
+    }
 
     const isAtBottom = chat.scrollHeight - chat.scrollTop === chat.clientHeight;
 
@@ -687,6 +688,8 @@ useEffect(() => {
     if (!messageId || !interactionId || !userId || !botId) return;
 
     try {
+      // Temporarily suppress auto-scroll while reacting to an older message
+      suppressAutoScrollRef.current = true;
       await authApi.submitReaction({
         interaction_id: interactionId,
         session_id: `${userId}-${index}`,
@@ -705,6 +708,11 @@ useEffect(() => {
       );
     } catch (error) {
       console.error("Failed to submit reaction:", error);
+    } finally {
+      // Re-enable auto-scroll shortly after the reaction settles
+      setTimeout(() => {
+        suppressAutoScrollRef.current = false;
+      }, 500);
     }
   };
 
@@ -790,7 +798,7 @@ useEffect(() => {
 
     // Check if bot is active
     if (botStatus !== "Active") {
-      toast.error("Bot is currently not active. Please activate your bot to processed further.");
+      toast.error("Bot is currently not active. Please activate your bot to proceed further.");
       return;
     }
    
@@ -2590,7 +2598,7 @@ const handleThemeSelect = async (themeId: string) => {
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
-                    <span>Bot is currently not active. Please activate your bot to processed further.</span>
+                    <span>Bot is currently not active. Please activate your bot to proceed further.</span>
                   </div>
                   <div
                     className="text-xs mt-1 text-right"
@@ -3107,7 +3115,7 @@ const handleThemeSelect = async (themeId: string) => {
                   }}
                   placeholder={
                     botStatus !== "Active"
-                      ? "Bot is currently not active. Please activate your bot to processed further."
+                      ? "Bot is currently not active. Please activate your bot to proceed further."
                       : !canSendMessage()
                       ? "We are facing technical issue. Kindly reach out to website admin for assistance"
                       : "Type your message..."
