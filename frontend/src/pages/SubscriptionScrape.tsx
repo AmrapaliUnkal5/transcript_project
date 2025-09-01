@@ -6,7 +6,7 @@ import { useBot } from "../context/BotContext";
 //import { toast } from "react-toastify";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 //import Loader from "../components/Loader";
-import { Trash2, Info } from "lucide-react";
+import { Trash2, Info,Search,Filter } from "lucide-react";
 import { toast } from "react-toastify";
 import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
 import { AlertTriangle } from "lucide-react";
@@ -58,6 +58,23 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
   };
   const { getPlanById } = useSubscriptionPlans();
   const [searchTerm, setSearchTerm] = useState("");
+  const [scrapedSearchTerm, setScrapedSearchTerm] = useState("");
+  const [scrapedStatusFilter, setScrapedStatusFilter] = useState("all");
+
+  const filteredScrapedUrls = React.useMemo(() => {
+  return scrapedUrls.filter((item) => {
+    const matchesSearch =
+      (item.title || "").toLowerCase().includes(scrapedSearchTerm.toLowerCase()) ||
+      (item.url || "").toLowerCase().includes(scrapedSearchTerm.toLowerCase());
+
+    const matchesStatus =
+      scrapedStatusFilter === "all" ||
+      (item.status || "").toLowerCase() === scrapedStatusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+}, [scrapedUrls, scrapedSearchTerm, scrapedStatusFilter]);
+
 
   // const getWebsiteLimit = (planId: number): number => {
   //   if (planId === 4) return Infinity; // Unlimited
@@ -651,6 +668,37 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
 </h2>
 
           </div>
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            {/* Search Box */}
+            <div className="relative flex-1 min-w-[220px] max-w-sm">
+              <input
+                value={scrapedSearchTerm}
+                onChange={(e) => setScrapedSearchTerm(e.target.value)}
+                placeholder="Search by title or URL"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-10 py-2 text-sm outline-none"
+              />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-70" />
+            </div>
+
+            {/* Status Filter */}
+            <div className="relative">
+              <select
+                value={scrapedStatusFilter}
+                onChange={(e) => setScrapedStatusFilter(e.target.value)}
+                className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-8 py-2 text-sm"
+              >
+                <option value="all">All </option>
+                {Array.from(new Set(scrapedUrls.map(f => (f.status || "").toLowerCase())))
+                  .filter(Boolean)
+                  .map((status) => (
+                    <option key={status} value={status}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </option>
+                  ))}
+              </select>
+              <Filter className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 opacity-70 pointer-events-none" />
+            </div>
+          </div>
           <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md "
   style={{
     border: '1px solid #DFDFDF',
@@ -764,7 +812,8 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
 </thead>
 
               <tbody>
-                {scrapedUrls.map((item, index) => (
+                 {filteredScrapedUrls && filteredScrapedUrls.length > 0 ? (
+                  filteredScrapedUrls.map((item, index) => (
                   <tr
                     key={item.id}
                     className="text-gray-700 "
@@ -848,8 +897,17 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
                       </button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                ))) : (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                        {scrapedSearchTerm !== "" || scrapedStatusFilter !== "all"
+                          ? "No websites match your search criteria. Try adjusting your filters."
+                          : "No websites found. Add some URLs to get started."
+                        }
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
             </table>
           </div>
         </div>
