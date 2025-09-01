@@ -55,6 +55,42 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
+def check_if_bot_training_complete(bot_id: int, db: Session) -> bool:
+    """
+    Check if all training items (files, videos, websites) for a bot are complete.
+    Returns True if all items are either Success or Failed, False otherwise.
+    """
+    try:
+        # Check files
+        pending_files = db.query(File).filter(
+            File.bot_id == bot_id,
+            File.status.in_(["Extracting", "Extracted", "Embedding"])
+        ).count()
+        
+        # Check YouTube videos
+        pending_videos = db.query(YouTubeVideo).filter(
+            YouTubeVideo.bot_id == bot_id,
+            YouTubeVideo.is_deleted == False,
+            YouTubeVideo.status.in_(["Extracting", "Extracted", "Embedding"])
+        ).count()
+        
+        # Check scraped websites
+        pending_websites = db.query(ScrapedNode).filter(
+            ScrapedNode.bot_id == bot_id,
+            ScrapedNode.is_deleted == False,
+            ScrapedNode.status.in_(["Extracting", "Extracted", "Embedding"])
+        ).count()
+        
+        # Return True if no pending items
+        total_pending = pending_files + pending_videos + pending_websites
+        print("total_pending=>",total_pending)
+        logger.info(f"Bot {bot_id} training status - Pending: Files={pending_files}, Videos={pending_videos}, Websites={pending_websites}, Total={total_pending}")
+        return total_pending == 0
+        
+    except Exception as e:
+        logger.error(f"Error checking bot training status: {str(e)}")
+        return False
+
 
 @celery_app.task(bind=True, name='reembed_bots_for_subscription_plan', max_retries=3)
 def reembed_bots_for_subscription_plan(self, subscription_plan_id: int, old_embedding_model_id: int, new_embedding_model_id: int):
@@ -1600,6 +1636,14 @@ def process_file_upload_part2(self, bot_id: int, file_id: str):
         except Exception as notify_error:
             logger.error(f"Error sending notification: {str(notify_error)}")
 
+        # Check if all training is complete for this bot
+        if check_if_bot_training_complete(bot_id, db):
+            print("check_if_bot_training_complete=>",check_if_bot_training_complete)
+            logger.info(f"All training complete for bot {bot_id}, starting monitoring")
+            monitor_bot_training_status.delay(bot_id)
+
+        return {"status": "completed", "bot_id": bot_id, "file_id": file_id}
+
 
     except Exception as e:
         logger.exception(f"❌ Vectorization failed for file_id {file_id}: {str(e)}")
@@ -1701,6 +1745,11 @@ def process_youtube_videos_part2(self, bot_id: int, video_ids: List[int]):
                     db, bot_id, video.video_url,
                     f"Embedding failed for video '{video.video_title}': {str(e)}"
                 )
+
+        # Check if all training is complete for this bot
+        if check_if_bot_training_complete(bot_id, db):
+            logger.info(f"All training complete for bot {bot_id}, starting monitoring")
+            monitor_bot_training_status.delay(bot_id)
 
         return {
             "status": "completed",
@@ -1958,6 +2007,11 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list):
                             "words_added": total_words_embedded
                         }
                     )
+        # Check if all training is complete for this bot
+        if check_if_bot_training_complete(bot_id, db):
+            logger.info(f"All training complete for bot {bot_id}, starting monitoring")
+            monitor_bot_training_status.delay(bot_id)
+
         return {"status": "completed", "message": "Vectorization complete", "bot_id": bot_id}
 
     except Exception as e:
