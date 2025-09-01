@@ -570,8 +570,6 @@ def start_training(
     logger.info(f"🏁 DEBUG: Training started successfully - Total items to vectorize: {total_items}")
     logger.info(f"📊 DEBUG: Breakdown - Files: {len(files_to_vectorize)}, Videos: {len(videos_to_vectorize)}, Web pages: {len(scraped_nodes_to_vectorize)}")
 
-    monitor_bot_training_status.delay(bot_id)
-
     return {
         "message": f"Training started. Vectorization tasks triggered for "
                    f"{len(files_to_vectorize)} files, {len(videos_to_vectorize)} videos, and "
