@@ -254,6 +254,7 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
       setScrapedWebsiteUrl(new URL(websiteUrl).origin);
       setCurrentPage(1); // Reset pagination
       setSelectedNodes([]); // Clear selection
+      setNodes([])
       
       // Store a flag in localStorage to indicate scraping is in progress
       localStorage.setItem("isScraped", "1");
@@ -552,14 +553,14 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
               </div>
             )}
             {/* Add Start Scraping button conditionally */}
-            {(!isCreateBotFlow) && (
-              <div className="mt-4 flex justify-end">
+            {(!isCreateBotFlow) && selectedNodes.length > 0 && !isProcessing &&(
+              <div className="mt-4 flex justify-start">
                 <button
                   onClick={handleScrape}
-                  disabled={selectedNodes.length === 0 || loading || isProcessing}
+                  disabled={loading || isProcessing}
                   className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Start Scraping
+                  Scrape Selected Pages
                 </button>
               </div>
             )}

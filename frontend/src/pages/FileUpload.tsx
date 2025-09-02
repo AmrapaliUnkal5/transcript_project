@@ -702,7 +702,7 @@ export const FileUpload = () => {
   const handleRetrain = async () => {
     if ((!isSaveDisabled && newFiles.length > 0) || 
       isVideoSelected || 
-      hasWebChanges|| isScrapeButtonVisible) {
+      isScrapeButtonVisible) {
     toast.error("You have unsaved changes. Please save them before retraining.");
     return;
   }
