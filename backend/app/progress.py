@@ -151,6 +151,15 @@ async def compute_status(bot_id: int, db: Session):
     youtube_status = await get_youtube_status(bot_id, db)
 
     overall_status = determine_overall_status(file_status, website_status, youtube_status, bot)
+    
+    if (bot.status != overall_status):
+        
+        bot.is_trained = (overall_status == "Active")
+        bot.is_active = (overall_status == "Active")
+        bot.status = overall_status
+        bot.updated_at = datetime.utcnow()
+        db.commit()
+    
 
     return {
         "overall_status": overall_status,
