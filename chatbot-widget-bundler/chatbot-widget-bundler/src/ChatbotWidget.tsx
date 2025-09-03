@@ -100,6 +100,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     const [isBotUnavailable, setIsBotUnavailable] = useState(false);
     const [hasWelcomeBeenShown, setHasWelcomeBeenShown] = useState(false);
     const chatContainerRef = useRef<HTMLDivElement | null>(null);
+    const suppressAutoScrollRef = useRef<boolean>(false);
     const [hasWhiteLabeling, setHasWhiteLabeling] = useState(false);
 
       //for capturing user data
@@ -120,8 +121,8 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     const chat = chatContainerRef.current;
     if (!chat) return;
 
-    // Always scroll to bottom when bot is typing
-    if (isBotTyping) {
+    // Always scroll to bottom when bot is typing unless suppressed by user interaction
+    if (isBotTyping && !suppressAutoScrollRef.current) {
       chat.scrollTop = chat.scrollHeight;
     }
   }, [isBotTyping, currentBotMessage]);
@@ -255,11 +256,12 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
     }, []);
 
     useEffect(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-        });
+      if (suppressAutoScrollRef.current) return;
+      const chat = chatContainerRef.current;
+      if (!chat) return;
+      const isAtBottom = chat.scrollHeight - chat.scrollTop === chat.clientHeight;
+      if (isAtBottom || isBotTyping) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
     }, [messages, isBotTyping]);
 
@@ -455,7 +457,13 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       }
     };
     useEffect(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      if (suppressAutoScrollRef.current) return;
+      const chat = chatContainerRef.current;
+      if (!chat) return;
+      const isAtBottom = chat.scrollHeight - chat.scrollTop === chat.clientHeight;
+      if (isAtBottom) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
     }, [messages]);
 
     const handleReaction = async (type: "like" | "dislike", index: number) => {
@@ -478,6 +486,8 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
       //if (!interaction_id || !botId) return;
 
       try {
+        // Temporarily suppress auto-scroll during reaction to avoid jumping away
+        suppressAutoScrollRef.current = true;
         const response1 = await fetch(
           `${baseDomain}/widget/interactions/reaction`,
           {
@@ -517,6 +527,11 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
         );
       } catch (error) {
         console.error("Failed to submit reaction:", error);
+      } finally {
+        // Re-enable auto-scroll shortly after reaction completes
+        setTimeout(() => {
+          suppressAutoScrollRef.current = false;
+        }, 500);
       }
     };
 
