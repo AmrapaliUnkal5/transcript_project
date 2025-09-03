@@ -652,7 +652,7 @@ export const FileUpload = () => {
     console.log("hasWebChanges=>",hasWebChanges)
     if ((!isSaveDisabled && newFiles.length > 0) || 
       isVideoSelected || 
-      hasWebChanges||isScrapeButtonVisible) {
+      isScrapeButtonVisible) {
     toast.error("You have unsaved changes. Please save them before canceling.");
     return;
   }
