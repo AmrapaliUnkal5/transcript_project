@@ -9,6 +9,8 @@ import { AlertTriangle } from "lucide-react";
 import { Trash2, Info } from "lucide-react";
 import { toast } from "react-toastify";
 import { useLocation } from 'react-router-dom';
+import { Search, Filter } from "lucide-react";
+
 
 // Fix NodeJS type
 type Timeout = ReturnType<typeof setTimeout>;
@@ -74,6 +76,9 @@ const WebScrapingTab: React.FC<WebScrapingTabProps> = ({
   
   // Check if we're in create bot flow
   const isCreateBotFlow = location.pathname.includes('/dashboard/create-bot');
+  const [scrapedSearchTerm, setScrapedSearchTerm] = useState("");
+  const [scrapedStatusFilter, setScrapedStatusFilter] = useState("all");
+  
 
   useEffect(() => {
     if (onScrapeButtonVisibility) {
@@ -174,6 +179,19 @@ const resetInternalState = () => {
 };
   // Add new state
 const [wordCountToDelete, setWordCountToDelete] = useState(0);
+const filteredScrapedUrls = React.useMemo(() => {
+  return scrapedUrls.filter((item) => {
+    const matchesSearch =
+      (item.title || "").toLowerCase().includes(scrapedSearchTerm.toLowerCase()) ||
+      (item.url || "").toLowerCase().includes(scrapedSearchTerm.toLowerCase());
+
+    const matchesStatus =
+      scrapedStatusFilter === "all" ||
+      (item.status || "").toLowerCase() === scrapedStatusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+}, [scrapedUrls, scrapedSearchTerm, scrapedStatusFilter]);
 
 
   // Handle actual delete
@@ -583,6 +601,42 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
 
           </div>
         )}
+       {!isCreateBotFlow && scrapedUrls.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              {/* Search Box */}
+              <div className="relative flex-1 min-w-[220px] max-w-sm">
+                <input
+                  value={scrapedSearchTerm}
+                  onChange={(e) => setScrapedSearchTerm(e.target.value)}
+                  placeholder="Search by title or URL"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700
+                            bg-white dark:bg-gray-900 px-10 py-2 text-sm outline-none"
+                />
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-70" />
+              </div>
+
+              {/* Status Filter */}
+              <div className="relative">
+                <select
+                  value={scrapedStatusFilter}
+                  onChange={(e) => setScrapedStatusFilter(e.target.value)}
+                  className="rounded-md border border-gray-300 dark:border-gray-700
+                            bg-white dark:bg-gray-900 px-8 py-2 text-sm"
+                >
+                  <option value="all">All</option>
+                  {Array.from(new Set(scrapedUrls.map(f => (f.status || "").toLowerCase())))
+                    .filter(Boolean)
+                    .map((status) => (
+                      <option key={status} value={status}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </option>
+                    ))}
+                </select>
+                <Filter className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 opacity-70 pointer-events-none" />
+              </div>
+            </div>
+          )}
+
 
         {scrapedUrls.length > 0 && (
           <div className="mt-6">
@@ -680,7 +734,8 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                   </tr>
                 </thead>
                 <tbody>
-                  {scrapedUrls.map((item, index) => (
+                  {filteredScrapedUrls && filteredScrapedUrls.length > 0 ? (
+                  filteredScrapedUrls.map((item, index) => (
                     <tr
                       key={item.id}
                       className="text-gray-700 dark:text-gray-300"
@@ -763,7 +818,16 @@ const [wordCountToDelete, setWordCountToDelete] = useState(0);
                         </button>
                       </td>
                     </tr>
-                  ))}
+                  ))) : (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                        {scrapedSearchTerm !== "" || scrapedStatusFilter !== "all"
+                          ? "No websites match your search criteria. Try adjusting your filters."
+                          : "No websites found. Add some URLs to get started."
+                        }
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

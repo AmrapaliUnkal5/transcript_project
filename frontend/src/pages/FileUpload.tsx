@@ -7,6 +7,8 @@ import {
   Eye,
   Loader2,
   Lock,
+  Search,
+  Filter,
 } from "lucide-react";
 import type { FileUploadInterface } from "../types";
 import { authApi, BotTrainingStatus } from "../services/api";
@@ -162,6 +164,7 @@ export const FileUpload = () => {
   );
   const totalStorageUsed =
     userUsage.globalStorageUsed ;
+  console.log("userUsage.planLimit", userUsage.planLimit)
 
   console.log("totalStorageUsed=>", totalStorageUsed);
   const remainingStorage = Math.max(
@@ -248,6 +251,11 @@ export const FileUpload = () => {
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [nodes, setNodes] = useState<string[]>([]);
   const [hasWebChanges, setHasWebChanges] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [fileSearchTerm, setFileSearchTerm] = useState("");
+  const [fileStatusFilter, setFileStatusFilter] = useState("all");
+
 
   useEffect(() => {
     if (status?.overall_status === "reconfiguring") {
@@ -1297,6 +1305,38 @@ useEffect(() => {
     }
   };
 
+  const filteredYoutubeVideos = React.useMemo(() => {
+  return youtubeVideos.filter((video) => {
+    const matchesSearch =
+      (video.video_title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (video.video_url || "").toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === "all" ||
+      (video.status || "").toLowerCase() === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+}, [youtubeVideos, searchTerm, statusFilter]);
+
+const filteredFiles = React.useMemo(() => {
+  const list = allFiles || [];
+  return list.filter((file) => {
+    const q = (fileSearchTerm || "").toLowerCase();
+    const matchesSearch =
+      (file.name || "").toLowerCase().includes(q) ||
+      (file.url || "").toLowerCase().includes(q);
+
+    const matchesStatus =
+      fileStatusFilter === "all" ||
+      ((file.status || "").toLowerCase() === fileStatusFilter);
+
+    return matchesSearch && matchesStatus;
+  });
+}, [allFiles, fileSearchTerm, fileStatusFilter]);
+
+
+
   if (!selectedBot) {
     return (
       <div className="flex flex-col items-center justify-center text-center p-8 space-y-4">
@@ -1696,13 +1736,45 @@ useEffect(() => {
               </div>
 
             </div>
-            {/* Files Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden ">
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="p-4  border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Uploaded Files
                 </h2>
               </div>
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+                      {/* File Search */}
+                      <div className="relative flex-1 min-w-[220px] max-w-sm">
+                        <input
+                          value={fileSearchTerm}
+                          onChange={(e) => setFileSearchTerm(e.target.value)}
+                          placeholder="Search files by name"
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-10 py-2 text-sm outline-none"
+                        />
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-70" />
+                      </div>
+
+                      {/* File Status Dropdown (dynamic) */}
+                      <div className="relative">
+                        <select
+                          value={fileStatusFilter}
+                          onChange={(e) => setFileStatusFilter(e.target.value)}
+                          className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-8 py-2 text-sm"
+                        >
+                          <option value="all">All </option>
+                          {Array.from(new Set((allFiles || []).map(f => (f.status || "").toLowerCase())))
+                            .filter(Boolean)
+                            .map((status) => (
+                              <option key={status} value={status}>
+                                {status.charAt(0).toUpperCase() + status.slice(1)}
+                              </option>
+                            ))}
+                        </select>
+                        <Filter className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 opacity-70 pointer-events-none" />
+                      </div>
+                    </div>
+            {/* Files Table */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden ">
+
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -1731,7 +1803,9 @@ useEffect(() => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {allFiles.map((file) => (
+                    {filteredFiles && filteredFiles.length > 0 ? (
+                       filteredFiles.map((file, index) => (
+
                       <tr
                         key={file.id}
                         className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
@@ -1797,8 +1871,17 @@ useEffect(() => {
                           </button>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
+                    ))) : (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                        {fileSearchTerm !== "" || fileStatusFilter !== "all"
+                          ? "No files match your search criteria. Try adjusting your filters."
+                          : "No files found. Upload some files to get started."
+                        }
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
                 </table>
               </div>
             </div>
@@ -1858,6 +1941,38 @@ useEffect(() => {
               </h2>
 
             </div>
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  {/* Search input */}
+                  <div className="relative flex-1 min-w-[220px] max-w-sm">
+                    <input
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search by title or URL"
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-10 py-2 text-sm outline-none"
+                    />
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-70" />
+                  </div>
+
+                  {/* Status dropdown (dynamic options from youtubeVideos) */}
+                  <div className="relative">
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-8 py-2 text-sm"
+                    >
+                      <option value="all">All </option>
+                      {Array.from(new Set(youtubeVideos.map(v => (v.status || "").toLowerCase())))
+                        .filter(Boolean)
+                        .map((status) => (
+                          <option key={status} value={status}>
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </option>
+                        ))}
+                    </select>
+                    <Filter className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 opacity-70 pointer-events-none" />
+                  </div>
+                </div>
+
             <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md "
               style={{
 
@@ -1957,7 +2072,8 @@ useEffect(() => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {youtubeVideos.map((videoUrl, index) => (
+                    {filteredYoutubeVideos && filteredYoutubeVideos.length > 0 ? (
+      filteredYoutubeVideos.map((videoUrl, index) => (
                       <tr
                         key={index}
                         className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
@@ -2026,8 +2142,16 @@ useEffect(() => {
                           </button>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
+                    ))) : (
+                      (searchTerm !== "" || statusFilter !== "all") && (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                            No videos match your search criteria. Try adjusting your filters.
+                          </td>
+                        </tr>
+                      )
+                    )}
+                    </tbody>
                 </table>
               </div>
 
