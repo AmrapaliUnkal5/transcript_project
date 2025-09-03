@@ -29,6 +29,7 @@ import { useBotStatusWebSocket } from '../services/useBotStatusWebSocket';
 import { BotTrainingStatusProgress } from "./BotTrainingStatusProgress";
 import { useGridRefreshWebSocket } from "../services/useGridRefreshWebSocket";
 import { AlertTriangle } from "lucide-react";
+import UsageSummary from "../components/UsageSummary";
 
 const YouTubeUpgradeMessage = ({ requiredPlan = "Growth" }) => {
   return (
@@ -175,6 +176,9 @@ export const FileUpload = () => {
     100,
     (totalStorageUsed / userUsage.storageLimit) * 100
   );
+    // 75–90% -> orange, >90% -> red, else your gradient
+  const getUsageBarBg = (pct: number) =>
+  pct >= 90 ? "#ef4444" : pct >= 75 ? "#f59e0b" : "linear-gradient(to right, #665AD7, #9D9CFF)";
 
 
   const [activeTab, setActiveTab] = useState(
@@ -931,9 +935,21 @@ useEffect(() => {
   if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
 
   debounceTimeout.current = setTimeout(() => {
-    if (shouldFetchFiles) fetchFiles();
-    if (shouldFetchYouTube) fetchYouTubeVideos();
-    if (shouldFetchWebsites && refetchScrapedUrls) refetchScrapedUrls();
+    if (shouldFetchFiles) {
+      fetchFiles();
+      // Refresh user usage when files are updated
+      refreshUserUsage();
+    }
+    if (shouldFetchYouTube) {
+      fetchYouTubeVideos();
+      // Refresh user usage when YouTube videos are updated
+      refreshUserUsage();
+    }
+    if (shouldFetchWebsites && refetchScrapedUrls) {
+      refetchScrapedUrls();
+      // Refresh user usage when websites are updated
+      refreshUserUsage();
+    }
   }, 1000);
 
   return () => {
@@ -948,6 +964,26 @@ useEffect(() => {
   useEffect(() => {
     fetchFiles();
   }, [selectedBot?.id]);
+
+  // Add this function to refresh user usage
+const refreshUserUsage = async () => {
+  try {
+    const apiUsage: UserUsageResponse = await authApi.getUserUsage();
+    setUserUsage(prev => ({
+      ...prev,
+      globalWordsUsed: apiUsage.totalWordsUsed,
+      globalStorageUsed: apiUsage.totalStorageUsed || 0,
+    }));
+
+    // Also update localStorage to trigger updates in other components
+    localStorage.setItem('userUsageUpdate', JSON.stringify({
+      globalWordsUsed: apiUsage.totalWordsUsed,
+      globalStorageUsed: apiUsage.totalStorageUsed || 0,
+    }));
+  } catch (error) {
+    console.error("Failed to refresh user usage", error);
+  }
+};
 
   const processWordCounts = async (filesToProcess: File[]) => {
     const formData = new FormData();
@@ -1365,6 +1401,20 @@ const filteredFiles = React.useMemo(() => {
       {/* {loading && <Loader />} */}
 
      {/* Tabs Section */}
+     <UsageSummary
+  usagePercentage={usagePercentage}
+  totalWordsUsed={totalWordsUsed}
+  planLimit={userUsage.planLimit}
+  currentSessionWords={userUsage.currentSessionWords}
+  storageUsagePercentage={storageUsagePercentage}
+  totalStorageUsed={totalStorageUsed}
+  storageLimit={userUsage.storageLimit}
+  currentSessionStorage={userUsage.currentSessionStorage}
+  formatBytesToHumanReadable={formatBytesToHumanReadable}
+  // Add these new props for dynamic updates
+
+  setUserUsage={setUserUsage}
+/>
 
       <div className="flex justify-between items-center w-full border-b border-gray-300 dark:border-gray-700">
 
@@ -1618,124 +1668,6 @@ const filteredFiles = React.useMemo(() => {
               </p>
             </div>
 
-            <div className="flex flex-wrap justify-between gap-4  ">
-              <div className="flex-[0_0_48%] py-4 bg-white dark:bg-gray-700 rounded-lg ">
-                {/* Title */}
-                <div>
-                  <span
-                    className="text-gray-700 dark:text-gray-300"
-                    style={{
-                      fontFamily: "Instrument Sans, sans-serif",
-                      fontSize: "18px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Word Usage
-                  </span>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600 mt-2">
-                  <div
-                    className="h-2.5 rounded-full"
-                    style={{
-                      width: `${usagePercentage}%`,
-                      background:
-                        remainingWords <= 0
-                          ? "#ef4444"
-                          : remainingWords < userUsage.planLimit * 0.2
-                            ? "#f59e0b"
-                            : "linear-gradient(to right, #665AD7, #9D9CFF)",
-                    }}
-                  ></div>
-                </div>
-
-                {/* Usage Text Below Bar */}
-                <div className="mt-1 text-sm text-gray-500">
-                  {totalWordsUsed.toLocaleString()} / {userUsage.planLimit.toLocaleString()}
-                  {userUsage.currentSessionWords > 0 && (
-                    <span className="ml-2">
-                      (Current Bot: {userUsage.currentSessionWords.toLocaleString()})
-                    </span>
-                  )}
-                </div>
-
-                {/* Warnings */}
-                {remainingWords <= 0 ? (
-                  <div className="mt-2 text-xs text-red-500 dark:text-red-400">
-                    <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-                    You've reached your word limit! Remove files or upgrade your plan.
-                  </div>
-                ) : remainingWords < userUsage.planLimit * 0.2 ? (
-                  <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
-                    <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-                    Approaching word limit ({Math.round(usagePercentage)}% used)
-                  </div>
-                ) : null}
-              </div>
-              <div className="flex-[0_0_48%] py-4 bg-white dark:bg-gray-700 rounded-lg">
-                {/* Title */}
-                <div>
-                  <span
-                    className="text-gray-700 dark:text-gray-300"
-                    style={{
-                      fontFamily: "Instrument Sans, sans-serif",
-                      fontSize: "18px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Storage
-                  </span>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600 mt-2">
-                  <div
-                    className="h-2.5 rounded-full"
-                    style={{
-                      width: `${storageUsagePercentage}%`,
-                      background:
-                        remainingStorage <= 0
-                          ? "#ef4444"
-                          : remainingStorage < userUsage.storageLimit * 0.2
-                            ? "#f59e0b"
-                            : "linear-gradient(to right, #665AD7, #9D9CFF)",
-                    }}
-                  ></div>
-                </div>
-
-                {/* Usage Text Below Bar */}
-                <div className="text-gray-700 dark:text-gray-300"
-                  style={{
-                    fontFamily: "Instrument Sans, sans-serif",
-                    fontSize: "12px",
-                    fontWeight: 400,
-                  }}>
-                  {formatBytesToHumanReadable(totalStorageUsed)} /{" "}
-                  {formatBytesToHumanReadable(userUsage.storageLimit)}
-                  {userUsage.currentSessionStorage > 0 && (
-                    <span className="ml-2">
-                      (This session:{" "}
-                      {formatBytesToHumanReadable(userUsage.currentSessionStorage)})
-                    </span>
-                  )}
-                </div>
-
-                {/* Warning or Info */}
-                {remainingStorage <= 0 ? (
-                  <div className="mt-2 text-sm font-medium text-red-500 dark:text-red-400 text-left">
-                    <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-                    You've reached your storage limit! Remove files or upgrade your plan.
-                  </div>
-                ) : remainingStorage < userUsage.storageLimit * 0.2 ? (
-                  <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
-                    <ExclamationTriangleIcon className="inline w-4 h-4 mr-1" />
-                    Approaching storage limit ({Math.round(storageUsagePercentage)}% used)
-                  </div>
-                ) : null}
-              </div>
-
-            </div>
               <div className="p-4  border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Uploaded Files

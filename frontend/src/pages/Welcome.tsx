@@ -520,12 +520,6 @@ useEffect(() => {
   const total_message_limit = usageMetrics.message_limits.total;
   console.log("total_message_limit=>", total_message_limit);
 
-  const usedBytes = convertToBytes(usageMetrics.total_storage_used);
-  const limitBytes = convertToBytes(storagelimit);
-  const storageUsagePercent = Math.min(
-    (usedBytes / limitBytes) * 100,
-    100
-  ).toFixed(2);
   function convertToBytes(sizeStr: string): number {
     if (!sizeStr) return 0;
 
@@ -652,6 +646,18 @@ const handleBotClick = (bot: any) => {
     });
   }
 };
+// Add this helper function to calculate usage percentage
+  const calculateUsagePercentage = (used: number, total: number): number => {
+    if (total <= 0) return 0;
+    return (used / total) * 100;
+  };
+
+  // Add this function to determine color based on usage percentage
+  const getUsageColor = (percentage: number): string => {
+    if (percentage >= 95) return "#EF4444"; // Red for >95%
+    if (percentage >= 80) return "#F59E0B"; // Orange for 80-95%
+    return "#8b5cf6"; // Keep existing purple for <80%
+  };
 
   // Function to get bot name by bot ID
   const getBotNameById = (botId: number) => {
@@ -846,14 +852,15 @@ const handleBotClick = (bot: any) => {
   const chatUsed = usageMetrics.chat_messages_used || 0;
   const chatLimit = total_message_limit || 1; // prevent divide-by-zero
 
-  const chatUsedPercent = Math.round((chatUsed / chatLimit) * 100);
+  const chatUsagePercent = calculateUsagePercentage(chatUsed, chatLimit);
+  const chatColor = getUsageColor(chatUsagePercent);
 
   const chatData = {
     labels: ["Used", "Remaining"],
     datasets: [
       {
         data: [chatUsed, chatLimit - chatUsed],
-        backgroundColor: ["#8b5cf6", "#e5e7eb"], // green + light gray
+        backgroundColor: [chatColor, "#e5e7eb"], // new color code
         borderWidth: 0,
       },
     ],
@@ -875,13 +882,15 @@ const handleBotClick = (bot: any) => {
 
   const wordsUsed = usageMetrics.total_words_used || 0;
   const wordLimit = maxWordsAllowed || 1; // to prevent divide-by-zero
+  const wordUsagePercent = calculateUsagePercentage(wordsUsed, wordLimit);
+  const wordColor = getUsageColor(wordUsagePercent);
 
   const wordData = {
     labels: ["Used", "Remaining"],
     datasets: [
       {
         data: [wordsUsed, wordLimit - wordsUsed],
-        backgroundColor: ["#8b5cf6", "#e5e7eb"], // green + light gray
+        backgroundColor: [wordColor, "#e5e7eb"], // new color code
         borderWidth: 0,
       },
     ],
@@ -904,6 +913,8 @@ const handleBotClick = (bot: any) => {
 
 const storageUsedBytes = convertToBytes(usageMetrics.total_storage_used);
 const storageLimitBytes = convertToBytes(storagelimit);
+const storageUsagePercent = calculateUsagePercentage(storageUsedBytes, storageLimitBytes);
+const storageColor = getUsageColor(storageUsagePercent);
 
 const formatStoragePrecise = (bytes: number) => {
   if (bytes >= 1024 ** 4) return `${(bytes / 1024 ** 4).toFixed(2)} TB`;
@@ -919,7 +930,7 @@ const storageData = {
   datasets: [
     {
       data: [storageUsedBytes, Math.max(storageLimitBytes - storageUsedBytes, 0)],
-      backgroundColor: ["#8b5cf6", "#e5e7eb"],
+      backgroundColor: [storageColor, "#e5e7eb"],
       borderWidth: 0,
     },
   ],

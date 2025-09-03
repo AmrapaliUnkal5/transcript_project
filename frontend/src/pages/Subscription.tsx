@@ -1048,7 +1048,7 @@ export const Subscription = () => {
       }
 
       // Make authenticated API call to get SAML redirect
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/'}auth/saml/login`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/auth/saml/login`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1075,6 +1075,7 @@ export const Subscription = () => {
           const newForm = document.createElement('form');
           newForm.method = 'POST';
           newForm.action = formAction || '';
+          newForm.target = '_blank'; // This makes the form open in a new tab
           newForm.style.display = 'none';
           
           // Add SAMLResponse field
