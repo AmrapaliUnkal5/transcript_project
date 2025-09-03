@@ -16,14 +16,15 @@ interface SubscriptionScrapeProps {
   isConfigured: boolean;
   setRefetchScrapedUrls?: React.Dispatch<React.SetStateAction<(() => void) | undefined>>;
   onScrapeButtonVisibility?: (isVisible: boolean) => void;
-  // Add other props if you have them
+  onReset?: (resetFunc: () => void) => void;
 }
 
 const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
   isReconfiguring,
   isConfigured,
   setRefetchScrapedUrls,
-  onScrapeButtonVisibility
+  onScrapeButtonVisibility,
+  onReset = () => {},
 }) => {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [nodes, setNodes] = useState<string[]>([]);
@@ -64,6 +65,18 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
   //   if (planId === 3) return 2;
   //   return 1; // Or 0 for free plans
   // };
+
+  const resetInternalState = () => {
+    setSelectedNodes([]);
+    setNodes([]);
+    setWebsiteUrl("");
+  };
+
+  useEffect(() => {
+    if (onReset) {
+      onReset(resetInternalState);
+    }
+  }, [onReset]);
 
   const getWebsiteLimit = (planId: number): number => {
     const plan = getPlanById(planId);
