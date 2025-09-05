@@ -654,8 +654,8 @@ const handleBotClick = (bot: any) => {
 
   // Add this function to determine color based on usage percentage
   const getUsageColor = (percentage: number): string => {
-    if (percentage >= 95) return "#EF4444"; // Red for >95%
-    if (percentage >= 80) return "#F59E0B"; // Orange for 80-95%
+    if (percentage >= 90) return "#EF4444"; // Red for >=90%
+    if (percentage >= 75) return "#F59E0B"; // Orange for 75-89%
     return "#8b5cf6"; // Keep existing purple for <80%
   };
 
