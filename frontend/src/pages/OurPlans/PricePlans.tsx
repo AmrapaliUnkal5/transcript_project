@@ -94,10 +94,10 @@ export default function PricePlans() {
                       fontSize={["32px", "36px"]}
                       color="white"
                     >
-                      $0 /
+                      $0 
                     </Typography>
                   </Box>
-                  <Typography
+                  {/* <Typography
                     variant="h4"
                     fontWeight={600}
                     fontSize={["32px", "36px"]}
@@ -105,7 +105,7 @@ export default function PricePlans() {
                     style={{ opacity: 0.7, marginTop: 0 }}
                   >
                     ₹0
-                  </Typography>
+                  </Typography> */}
                   
 
                   <Typography
@@ -257,7 +257,7 @@ export default function PricePlans() {
                       fontSize={["32px", "36px"]}
                       color="white"
                     >
-                      ${formatPrice(starterPlan?.price)} <span style={{ opacity: 0.7 }}>/ ₹1,300</span>
+                      ${formatPrice(starterPlan?.price)} <span style={{ opacity: 0.7 }}></span>
                     </Typography>
 
                     <Typography
@@ -435,7 +435,7 @@ export default function PricePlans() {
                       fontSize={["32px", "36px"]}
                       color="white"
                     >
-                      ${formatPrice(growthPlan?.price)} <span style={{ opacity: 0.7 }}>/ ₹2,150</span>
+                      ${formatPrice(growthPlan?.price)} <span style={{ opacity: 0.7 }}></span>
                     </Typography>
 
                     <Typography
@@ -584,7 +584,7 @@ export default function PricePlans() {
                       fontSize={["32px", "36px"]}
                       color="white"
                     >
-                      ${formatPrice(professionalPlan?.price)} <span style={{ opacity: 0.7 }}>/ ₹4,750</span>
+                      ${formatPrice(professionalPlan?.price)} <span style={{ opacity: 0.7 }}></span>
                     </Typography>
 
                     <Typography
