@@ -118,7 +118,7 @@ export default function AddonExperience() {
                       lineHeight={1.5}
                       mb={1}
                          >
-                       ${formatPrice(Multilingual_support?.price)} / ₹850
+                       ${formatPrice(Multilingual_support?.price)} 
                      </Typography>
 
                   <Typography
@@ -211,7 +211,7 @@ export default function AddonExperience() {
                       lineHeight={1.5}
                       mb={1}
                        >
-                      ${formatPrice(White_Labeling?.price)} / ₹850
+                      ${formatPrice(White_Labeling?.price)} 
                       </Typography>
 
                     <Typography
@@ -302,7 +302,7 @@ export default function AddonExperience() {
                       mb={1}
                            >
                       {/* $9.99 / ₹850 */}
-                       ${formatPrice(Additional_messages?.price)} / ₹850
+                       ${formatPrice(Additional_messages?.price)} 
                     </Typography>
                     <Typography
                       variant="h6"
@@ -394,7 +394,7 @@ export default function AddonExperience() {
                     mb={1}
                     >
                   {/* $5/ ₹450 */}
-                  ${formatPrice(Additional_word_capacity?.price)} / ₹450
+                  ${formatPrice(Additional_word_capacity?.price)} 
                 </Typography>
 
                <Typography
@@ -489,7 +489,7 @@ export default function AddonExperience() {
                       lineHeight={1.5}
                       mb={1}
                        >
-                      ${formatPrice(Additional_Ai_admin_users?.price)} / ₹450
+                      ${formatPrice(Additional_Ai_admin_users?.price)} 
                      </Typography>
 
                   <Typography

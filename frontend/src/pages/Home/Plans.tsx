@@ -155,7 +155,7 @@ export default function Plans() {
                       fontSize={["32px", "36px"]}
                       color="white"
                     >
-                      ${formatPrice(starterPlan?.price)} <span style={{ opacity: 0.7 }}>/ ₹1,300</span>
+                      ${formatPrice(starterPlan?.price)} <span style={{ opacity: 0.7 }}></span>
                     </Typography>
 
                     <Typography
@@ -302,7 +302,7 @@ export default function Plans() {
                       fontSize={["32px", "36px"]}
                       color="white"
                     >
-                      ${formatPrice(growthPlan?.price)} <span style={{ opacity: 0.7 }}>/ ₹2,150</span>
+                      ${formatPrice(growthPlan?.price)} <span style={{ opacity: 0.7 }}></span>
                     </Typography>
 
                     <Typography
@@ -447,7 +447,7 @@ export default function Plans() {
                       fontSize={["32px", "36px"]}
                       color="white"
                     >
-                      ${formatPrice(professionalPlan?.price)} <span style={{ opacity: 0.7 }}>/ ₹4,750</span>
+                      ${formatPrice(professionalPlan?.price)} <span style={{ opacity: 0.7 }}></span>
                     </Typography>
 
                     <Typography
