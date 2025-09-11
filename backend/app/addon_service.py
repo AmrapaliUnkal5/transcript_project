@@ -61,6 +61,7 @@ class AddonService:
         Returns:
             The created UserAddon record
         """
+        print("Database reached here")
         # Get addon details
         addon = db.query(Addon).filter(Addon.id == addon_id).first()
         if not addon:
@@ -108,6 +109,7 @@ class AddonService:
             initial_count=addon.additional_message_limit or 0,
             remaining_count=addon.additional_message_limit or 0
         )
+        print("Database Updated")
         
         db.add(user_addon)
         db.commit()

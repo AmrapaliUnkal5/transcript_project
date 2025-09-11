@@ -152,14 +152,14 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
           <div className="flex items-center justify-between mb-4">
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
               ${addon.price.toFixed(2)}
-              {addon.addon_type === 'Additional Messages' && quantity > 1 && (
+              {addon.name !== 'White-Labeling' && addon.name !== 'Multilingual Support' && quantity > 1 && (
                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-1">
                   × {quantity} = ${(addon.price * quantity).toFixed(2)}
                 </span>
               )}
             </div>
             
-            {addon.addon_type === 'Additional Messages' && (
+            {addon.name !== 'White-Labeling' && addon.name !== 'Multilingual Support' && (
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -185,7 +185,7 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
           {/* Show a note about addon type */}
           <div className="flex items-start text-xs text-gray-500 dark:text-gray-400">
             <Info size={16} className="flex-shrink-0 mr-1.5 mt-0.5" />
-            {addon.addon_type === 'Additional Messages' ? (
+            {addon.name === 'Additional Messages' ? (
               <p>This add-on provides additional message credits that can be used until exhausted.</p>
             ) : (
               <p>This add-on will be active until your current subscription period ends.</p>

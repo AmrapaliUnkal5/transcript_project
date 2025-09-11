@@ -393,7 +393,7 @@ class ZohoBillingService:
             if response_data.get('code') == 0 and response_data.get('hostedpage'):
                 hosted_page_data = response_data.get('hostedpage', {})
                 hosted_page_url = hosted_page_data.get('url', '')
-                
+                print("Hosted Page URL New =>",hosted_page_url)
                 logger.info(f"Checkout URL generated: {hosted_page_url}")
                 
                 if not hosted_page_url:
@@ -450,7 +450,7 @@ class ZohoBillingService:
                         "quantity": quantity
                     }
                 ],
-                "redirect_url": f"{self.get_frontend_url()}/dashboard/welcome?payment=success",
+                "redirect_url": f"{self.get_frontend_url()}/dashboard/welcome?addonpayment=success",
                 "cancel_url": f"{self.get_frontend_url()}/account/add-ons"
             }
                 
@@ -731,7 +731,7 @@ class ZohoBillingService:
             if response_data.get('code') == 0 and response_data.get('hostedpage'):
                 hosted_page_data = response_data.get('hostedpage', {})
                 hosted_page_url = hosted_page_data.get('url', '')
-                
+                print("Update checkout url update=>",hosted_page_url)
                 logger.info(f"Update checkout URL generated: {hosted_page_url}")
                 
                 if not hosted_page_url:
@@ -1211,11 +1211,20 @@ def format_subscription_data_for_hosted_page(
     elif len(addon_codes) == 0:
         print("WARNING: Empty addon_codes list was provided")
     
-    # Create the basic subscription data structure according to Zoho API docs
+    billing_state = billing_address.get('state') if billing_address else None
+    billing_country = billing_address.get('country') if billing_address else None
+
+    should_apply_tax = (
+        billing_country 
+        and billing_country.lower() in ["india", "in", "ind"]  
+        and billing_state 
+        and billing_state.lower() not in ["rajasthan", "rj"]
+    )
+    
     subscription_data = {
         "plan": {
             "plan_code": plan_code,
-            "quantity": 1  # Required by Zoho Billing
+            "quantity": 1,  # Required by Zoho Billing
         },
         "redirect_url": f"{frontend_url}/dashboard/welcome?payment=success",  # Redirect to dashboard after successful payment
         "cancel_url": f"{frontend_url}/subscription",  # Redirect back to subscription page if cancelled
@@ -1224,7 +1233,12 @@ def format_subscription_data_for_hosted_page(
         "collect_shipping_address": True,  # Enable shipping address collection
         "auto_populate_address": False  # Prevent pre-filling with default addresses
     }
-    
+   
+    # Apply tax only if country = India and state != Rajasthan
+    if should_apply_tax:
+        subscription_data["plan"]["tax_id"] = "2818287000000032409"
+        subscription_data["plan"]["tax_exemption_code"] = ""
+         
     # Handle customer data based on whether they're existing or new
     if existing_customer_id:
         # For existing customers, just provide the customer ID to avoid duplicates
@@ -1291,8 +1305,7 @@ def format_subscription_data_for_hosted_page(
         print("WARNING: ZOHO_USD_PRICE_LIST_ID not set in environment variables")
         logger.warning("USD price list ID is missing - subscription prices might display in base currency (INR) instead of USD")
     
-
-    
+       
     # Add addons if provided
     if addon_codes and len(addon_codes) > 0:
         print(f"Adding addons to the checkout payload")
@@ -1303,8 +1316,18 @@ def format_subscription_data_for_hosted_page(
             addon_counts[code] = addon_counts.get(code, 0) + 1
         
         # Create the addons array with correct quantities
+        # subscription_data["addons"] = [
+        #     {"addon_code": code, "quantity": count} 
+        #     for code, count in addon_counts.items()
+        # ]
+
         subscription_data["addons"] = [
-            {"addon_code": code, "quantity": count} 
+            {
+                "addon_code": code, 
+                "quantity": count,
+                # Apply tax to each addon if needed
+                **({"tax_id": "2818287000000032409", "tax_exemption_code": ""} if should_apply_tax else {})
+            } 
             for code, count in addon_counts.items()
         ]
         

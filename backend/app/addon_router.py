@@ -259,7 +259,7 @@ def get_user_addon_status(user_id: int, db: Session = Depends(get_db)):
     # Get latest active addon for this user (order by purchase_date desc)
     latest_addon = (
         db.query(UserAddon)
-        .filter(UserAddon.user_id == user_id, UserAddon.is_active == True)
+        .filter(UserAddon.user_id == user_id)
         .order_by(UserAddon.purchase_date.desc())
         .first()
     )
