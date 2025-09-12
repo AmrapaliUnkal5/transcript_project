@@ -10,10 +10,15 @@ if SMTP_CONFIG["PROFILE"] == 'dev':
     
     def send_email(to_email: str, subject: str, body: str, attachments=None):
         try:
+            if isinstance(to_email, str):
+                recipients = [to_email.strip()]
+            else:
+                recipients = [email.strip() for email in to_email if email.strip()]
+
             sg = sendgrid.SendGridAPIClient(api_key=SMTP_CONFIG["password"])
             message = Mail(
                 from_email=(SMTP_CONFIG["from_email"], "Do Not Reply"),
-                to_emails=to_email,
+                to_emails=recipients,
                 subject=subject,
                 html_content=body
             )
@@ -44,6 +49,12 @@ else:
     
     def send_email(to_email: str, subject: str, body: str, attachments=None):
         try:
+
+            if isinstance(to_email, str):
+                recipients = [to_email.strip()]
+            else:
+                recipients = [email.strip() for email in to_email if email.strip()]
+
             with SMTP(SMTP_CONFIG["server"], SMTP_CONFIG["port"]) as server:
                 if SMTP_CONFIG["tls"]:
                     server.starttls()
@@ -51,7 +62,7 @@ else:
 
                 msg = MIMEMultipart()
                 msg["From"] = "Do Not Reply"
-                msg["To"] = to_email
+                msg["To"] = ", ".join(recipients)
                 msg["Subject"] = subject
                 msg.attach(MIMEText(body, "html"))
                 
@@ -66,6 +77,6 @@ else:
                         )
                         msg.attach(part)
 
-                server.sendmail(SMTP_CONFIG["from_email"], to_email, msg.as_string())
+                server.sendmail(SMTP_CONFIG["from_email"], recipients, msg.as_string())
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
