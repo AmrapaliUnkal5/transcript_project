@@ -35,7 +35,8 @@ SMTP_CONFIG = {
     "password": config("SMTP_PASSWORD"),
     "tls": config("SMTP_TLS", default="True", cast=bool),  # Convert string to bool
     "from_email": config("SMTP_FROM_EMAIL"),
-    "demo_email": config("DEMO_EMAIL")
+    "demo_email": config("DEMO_EMAIL").split(",")
+
 }
 
 # Optional API keys - properly handled if not set

@@ -295,7 +295,7 @@ const showError = (message) => {
                           formDataPayload.append("email", email);
                           formDataPayload.append("country", country);
                           formDataPayload.append("description", message);
-                          formDataPayload.append("requestType", "demo");
+                          formDataPayload.append("requestType", "support");
                           formDataPayload.append("phone", "");
 
                     await authApi.submitDemoRequest(formDataPayload);
