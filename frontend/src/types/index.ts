@@ -106,6 +106,8 @@ export interface BotSettings {
   showSources: boolean;
   unansweredMsg: string;
   external_knowledge: boolean,
+  role: string;
+  tone: string;
 }
 
 export interface ApiFile {

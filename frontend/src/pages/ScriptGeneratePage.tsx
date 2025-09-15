@@ -43,6 +43,13 @@ export const ScriptGeneratePage = () => {
     borderColor: "#E5E7EB",
     chatFontFamily: "Inter",
     userTimestampColor:"#FFFFFF",
+    lead_generation_enabled: false,
+    lead_form_config: [{ field: "name", required: false },{ field: "phone", required: false },{ field: "email", required: false },{ field: "address", required: false }],
+    showSources: false,
+    unansweredMsg: "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?",
+    external_knowledge: false,
+    role: "Support Bot",       // default
+    tone: "Friendly",
   });
   const navigate = useNavigate();
   const [domain, setDomain] = useState("");
@@ -108,6 +115,14 @@ export const ScriptGeneratePage = () => {
             borderColor: response.border_color || "#E5E7EB",
             chatFontFamily: response.chat_font_family || "Inter",
             userTimestampColor: response.userTimestampColor || "#FFFFFF",
+            lead_generation_enabled: response.lead_generation_enabled ?? false,
+            lead_form_config: response.lead_form_config || [],
+            showSources: response.show_sources ?? false,
+            unansweredMsg: response.unanswered_msg || "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?",
+            external_knowledge: response.external_knowledge ?? false,
+            // ✅ New fields
+            role: response.role || "Service Assistant",
+            tone: response.tone || "Friendly",
           });
         }
       } catch (error) {

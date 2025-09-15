@@ -24,6 +24,7 @@ import { Theme , THEMES } from '../types/index';
 import { Info } from "lucide-react";
 
 
+
 interface MessageUsage {
   totalUsed: number;
   basePlan: {
@@ -139,6 +140,8 @@ const updateBotSettings = async (
     show_sources: settings.showSources, 
     unanswered_msg: settings.unansweredMsg,
     external_knowledge: settings.external_knowledge,
+    role: settings.role ,
+    tone: settings.tone ,
   };
 
   try {
@@ -188,6 +191,8 @@ export interface BotSettings {
   showSources: boolean; 
   unansweredMsg: string;
   external_knowledge: boolean;
+  role: string;
+  tone: string;
 }
 
 export const ChatbotCustomization = () => {
@@ -349,6 +354,8 @@ useEffect(() => {
     showSources: false, 
     unansweredMsg: "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?",
     external_knowledge: false,
+    role: "Support Bot",       // default
+    tone: "Friendly",
   });
 
   const [isBotExisting, setIsBotExisting] = useState<boolean>(false);
@@ -437,6 +444,60 @@ useEffect(() => {
       chat.scrollTop = chat.scrollHeight;
     }
   }, [messages]);
+
+  const renderFormattedText = (text: string) => {
+  // Regex: match bold (**text**) or links ([text](url))
+  const regex = /(\*\*.*?\*\*|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g;
+
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(regex)) {
+    const matchText = match[0];
+    const index = match.index ?? 0;
+
+    // Add plain text before the match
+    if (index > lastIndex) {
+      parts.push(<span key={lastIndex}>{text.slice(lastIndex, index)}</span>);
+    }
+
+    // Bold
+    if (matchText.startsWith('**') && matchText.endsWith('**')) {
+      parts.push(
+        <strong key={index} style={{ fontWeight: 'bold' }}>
+          {matchText.slice(2, -2)}
+        </strong>
+      );
+    }
+    // Markdown link
+    else if (matchText.startsWith('[') && matchText.includes('](')) {
+      const linkMatch = matchText.match(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/);
+      if (linkMatch) {
+        const [, linkText, linkUrl] = linkMatch;
+        parts.push(
+          <a
+            key={index}
+            href={linkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            {linkText}
+          </a>
+        );
+      }
+    }
+
+    lastIndex = index + matchText.length;
+  }
+
+  // Add remaining text after the last match
+  if (lastIndex < text.length) {
+    parts.push(<span key={lastIndex}>{text.slice(lastIndex)}</span>);
+  }
+
+  return <span>{parts}</span>;
+};
 
   //check add ons // Check White-Labeling Addon
   useEffect(() => {
@@ -547,6 +608,9 @@ useEffect(() => {
             showSources: response.show_sources ?? false,
             unansweredMsg: response.unanswered_msg || "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?",
             external_knowledge: response.external_knowledge ?? false,
+            // ✅ New fields
+            role: response.role || "Service Assistant",
+            tone: response.tone || "Friendly",
           });
         }
       } catch (error) {
@@ -1737,6 +1801,56 @@ const handleThemeSelect = async (themeId: string) => {
           className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2"
         />
       </div>
+      {/* Bot Role - Textbox with Tooltip */}
+      <div className="flex flex-col justify-start">
+        <label
+          className="block text-sm mb-1.5 flex items-center gap-2"
+          style={{ fontFamily: "Instrument Sans, sans-serif", color: "#666666" }}
+        >
+          Bot Role
+          <div className="relative group inline-block">
+            <Info size={16} className="bg-[#5348CB] p-1 rounded-full text-white" />
+            <div className="absolute left-0 top-7 w-64 bg-gray-800 text-white text-xs rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg z-10 pointer-events-none">
+              Enter any role for your bot. Examples:
+              <ul className="mt-1 list-disc pl-4">
+                <li>Virtual Assistant</li>
+                <li>Support Assistant</li>
+                <li>Sales Advisor</li>
+                <li>Knowledge Guide</li>
+              </ul>
+            </div>
+          </div>
+        </label>
+        <input
+          type="text"
+          value={settings.role || "Service Assistant"}
+          placeholder="Service Assistant"
+          onChange={(e) => handleChange("role", e.target.value)}
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2"
+        />
+      </div>
+
+      {/* Bot Tone - Dropdown */}
+      <div className="flex flex-col justify-start">
+        <label
+          className="block text-sm mb-1.5"
+          style={{ fontFamily: "Instrument Sans, sans-serif", color: "#666666" }}
+        >
+          Bot Tone
+        </label>
+        <select
+          value={settings.tone || "Friendly"}
+          onChange={(e) => handleChange("tone", e.target.value)}
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2"
+        >
+          <option value="Friendly">Friendly</option>
+          <option value="Professional">Professional</option>
+          <option value="Casual">Casual</option>
+          <option value="Concise">Concise</option>
+          <option value="Empathetic">Empathetic</option>
+        </select>
+      </div>
+
 
       <div className="flex flex-col justify-start">
         <label className="block text-sm mb-1.5" style={{ fontFamily: "Instrument Sans, sans-serif" ,color: "#666666"}}>
@@ -1750,7 +1864,7 @@ const handleThemeSelect = async (themeId: string) => {
           style={{ color: "#333333"}}
         />
       </div>
-      <div></div>
+
       <div className="flex flex-col justify-start">
         <label className="block text-sm mb-1.5" style={{ fontFamily: "Instrument Sans, sans-serif" ,color: "#666666"}}>
           Default response when bot doesn't know the answer
@@ -2638,7 +2752,9 @@ const handleThemeSelect = async (themeId: string) => {
                             : settings.borderRadius,
                       }}
                     >
-                      <div>{msg.text}</div>
+                       <div>
+                        {renderFormattedText(msg.text)}
+                      </div>
                       <div
                         className="text-xs mt-1 text-right"
                         style={{
@@ -2681,9 +2797,28 @@ const handleThemeSelect = async (themeId: string) => {
                                  {/* Copy Button */}
                         <button
                         onClick={() => {
-                          navigator.clipboard.writeText(msg.text);
-                          setCopiedIndex(index); // show "Copied!"
+                          let htmlContent = msg.text;
+
+                        // Convert markdown to HTML (keep formatting)
+                        htmlContent = htmlContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                        htmlContent = htmlContent.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+                        // Create a blob with HTML format
+                        const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+                        const plainBlob = new Blob([msg.text.replace(/\*\*(.*?)\*\*/g, '$1')], {
+                          type: 'text/plain'
+                        });
+
+                        // Copy both formats to clipboard
+                        const clipboardItem = new ClipboardItem({
+                          'text/html': htmlBlob,
+                          'text/plain': plainBlob
+                        });
+
+                        navigator.clipboard.write([clipboardItem]).then(() => {
+                          setCopiedIndex(index);
                           setTimeout(() => setCopiedIndex(null), 1500);
+                        });
                         }}
                         className="text-gray-500 hover:text-gray-700 text-[11px] flex items-center gap-1"
                       >

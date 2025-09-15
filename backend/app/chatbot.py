@@ -431,6 +431,9 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
     
     use_external_knowledge = bot.external_knowledge if bot else False
     temperature = bot.temperature if bot and bot.temperature is not None else 0.7
+    # Get role and tone from bot
+    role = bot.role if bot else "Service Assistant"  # default just in case
+    tone = bot.tone if bot else "Friendly"           # default just in case
     
     # Get message character limit from bot settings or use default
     message_char_limit = bot.max_words_per_message * 5 if bot and bot.max_words_per_message else 1000  # Approx 5 chars per word
@@ -492,7 +495,7 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         
         # Pass the formatted history to the LLM
         bot_reply_dict  = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, 
-                               temperature=temperature, chat_history=formatted_history)
+                               temperature=temperature, chat_history=formatted_history,role=role,tone=tone)
         
         # Extract the actual response string and external knowledge flag
         bot_reply_text = bot_reply_dict["message"]
@@ -521,7 +524,9 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
             "bot_reply": bot_reply_text ,
             "is_default_response": bot_reply_dict.get("is_default_response", is_default_response),
             "not_answered": bot_reply_dict.get("not_answered", is_default_response),
-            "used_external": bot_reply_dict.get("used_external", False)
+            "used_external": bot_reply_dict.get("used_external", False),
+            "is_greeting_response": bot_reply_dict.get("is_greeting_response", False),
+            "is_farewell_response": bot_reply_dict.get("is_farewell_response", False)
         }
     except Exception as e:
         logger.exception(f"❌ DEBUG: Error generating response", 

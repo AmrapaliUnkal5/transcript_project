@@ -38,6 +38,11 @@ def parse_llm_response(response_text: str) -> Dict[str, Any]:
         parsed_response["elements"] = []
         parsed_response["mixed_content"] = [{"type": "markdown", "content": response_text}]
     
+    elif _has_links(response_text):
+        parsed_response["formatting_type"] = "markdown"
+        parsed_response["elements"] = []
+        parsed_response["mixed_content"] = [{"type": "markdown", "content": response_text}]
+
     return parsed_response
 
 def _has_bullet_points(text: str) -> bool:
@@ -93,6 +98,9 @@ def _extract_code_blocks(text: str) -> List[Dict[str, Any]]:
     matches = re.findall(pattern, text, re.DOTALL)
     return [{"type": "code", "language": lang or "text", "code": code.strip()} 
             for lang, code in matches]
+
+def _has_links(text: str) -> bool:
+    return bool(re.search(r'\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)', text))
 
 def _extract_mixed_content(text: str, primary_type: str) -> List[Dict[str, Any]]:
     """
