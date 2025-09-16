@@ -396,6 +396,11 @@ async def create_subscription_checkout(
         except:
             pass
         raise HTTPException(status_code=500, detail=f"Error creating subscription checkout: {error_msg}")
+    
+@router.post("/zoho/webhook_addon_test")
+async def webhook_addon_test(request: Request):
+    return {"status": "ok"}
+
 
 # Webhook endpoint to handle Zoho subscription events
 @router.post("/webhook")
@@ -1807,10 +1812,10 @@ def create_fresh_user_token(db: Session, user_id: int):
     
     addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
     
-    # Get message addon (ID 5) details if exists
+    # Get message addon (ID 3) details if exists
     message_addon = db.query(UserAddon).filter(
         UserAddon.user_id == user_id,
-        UserAddon.addon_id == 5,
+        UserAddon.addon_id == 3,
         UserAddon.is_active == True
     ).order_by(UserAddon.expiry_date.desc()).first()
     
