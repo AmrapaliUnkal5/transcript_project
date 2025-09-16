@@ -138,6 +138,8 @@ class BotBase(BaseModel):
     show_sources: Optional[bool] = False
     unanswered_msg:Optional[str] = "I'm sorry, I don't have an answer for this question. This is outside my area of knowledge. Is there something else I can help with?"
     external_knowledge: Optional[bool] = False
+    role: Optional[str] = "Service Assistant"
+    tone: Optional[str] = "Friendly"
     
 class BotCreate(BotBase):
     pass  
@@ -543,6 +545,7 @@ class BotWidgetResponse(BaseModel):
     chat_font_family: Optional[str] = "Inter"
     lead_generation_enabled: Optional[bool] = False
     lead_form_config: Optional[List[LeadFormField]] = []
+    show_sources: Optional[bool]
 
     class Config:
         from_attributes = True

@@ -166,7 +166,7 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
   const renderMarkdownText = (text: string) => {
     console.log('Widget renderMarkdownText - input:', text);
     // Simple markdown parsing for bold text
-    const parts = text.split(/(\*\*.*?\*\*)/g);
+    const parts = text.split(/(\*\*.*?\*\*|\[.*?\]\(.*?\))/g);
     console.log('Widget renderMarkdownText - parts:', parts);
     
     return (
@@ -180,6 +180,22 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
               </strong>
             );
           }
+          // Handle links: [text](url)
+        const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+        if (linkMatch) {
+          console.log('Widget renderMarkdownText - making link:', linkMatch[1], linkMatch[2]);
+          return (
+            <a
+              key={index}
+              href={linkMatch[2]}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#3b82f6', textDecoration: 'underline' }}
+            >
+              {linkMatch[1]}
+            </a>
+          );
+        }
           return <span key={index}>{part}</span>;
         })}
       </span>

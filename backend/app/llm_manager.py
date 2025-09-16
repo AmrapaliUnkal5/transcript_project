@@ -558,7 +558,7 @@ class LLMManager:
             print(f"🔄 Using default HuggingFace LLM with model: {default_model}")
             return HuggingFaceLLM(default_model, huggingface_api_key, 4096, 512)
 
-    def generate(self, context: str, user_message: str, use_external_knowledge: bool = False, temperature: float = 0.7, chat_history: str = "") -> str:
+    def generate(self, context: str, user_message: str, use_external_knowledge: bool = False, temperature: float = 0.7, chat_history: str = "", role: str = "Service Assistant",tone: str = "Friendly") -> str:
         """
         Generate a response using the specified LLM.
         
@@ -650,17 +650,48 @@ class LLMManager:
         try:
             if provider == "openai":
                 # Create system message based on external_knowledge flag
+
+                # Define tone descriptions
+                tone_descriptions = {
+                    "Professional": "Maintain a formal, polite, and technical style. Use complete sentences and avoid contractions.",
+                    "Casual": "Write in a friendly, conversational style. Use contractions and light humor if appropriate.",
+                    "Friendly": "Be warm, supportive, and approachable. Use encouraging and friendly language.",
+                    "Concise": "Provide short, clear, and direct answers. Eliminate unnecessary words while keeping meaning intact.",
+                    "Empathetic": "Respond with compassion and understanding. Acknowledge the user's feelings and provide reassurance."
+                }
+
+                # Ensure the tone exists in your descriptions
+                tone_description = tone_descriptions.get(tone, "")
                 system_content = (
-                    "You are a helpful assistant. Answer the user's question based on the provided context. "
-                    "Format your response appropriately based on the question type:\n"
-                    "- For lists or multiple points: Use bullet points with '• ' (bullet space) or '- ' (dash space)\n"
-                    "- For step-by-step instructions: Use numbered lists with '1. ', '2. ', etc.\n"
-                    "- For comparisons or data: Use markdown table format with | columns |\n"
-                    "- For code examples: Use ```language code blocks\n"
-                    "- For emphasis: Use **bold** text\n"
-                    "Keep formatting consistent and clear. "
-                    "Respond in no more than 15 short, clear sentences. "
+                    "You are a {tone} {role}. {tone_description}\n\n"
+
+                    "### Response Guidelines:\n"
+                    "- Answer the user's question based on the provided context.\n"
+                    "- Keep answers concise and clear, with a hard limit of 120 words.\n"
+                    "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
+                    "- If the message contains any other content (questions, facts, requests), DO NOT append these flags "
+                    "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n\n"
+
+                    "### Social Interactions:\n"
+                    "- Handle greetings/farewells with short, natural replies (max 1 short sentence)\n"
+                    "- IMPORTANT:Only if the user message is a greeting, reply and append on a new line: {{\"is_greeting_response\": true}}\n"
+                    "- IMPORTANT:Only if the user message is a farewell, reply and append on a new line: {{\"is_farewell_response\": true}}\n"
+                    "- These JSON lines MUST appear as plain text only (never inside code blocks, tables, or markdown formatting).\n\n"
+
+                    "### Formatting:\n"
+                    "- For lists or multiple points: Use bullet points with '• ' or '- '.\n"
+                    "- For step-by-step instructions: Use numbered lists ('1.', '2.', etc.).\n"
+                    "- For comparisons or data: Use Markdown tables (| col | col |).\n"
+                    "- For code examples: Use fenced code blocks ```language.\n"
+                    "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
+                    "- For emphasis: Use **bold** text.\n"
+                    "- Keep formatting consistent and clear.\n\n"
+
                     "If the context doesn't contain relevant information, "
+                ).format(
+                    tone=tone,
+                    role=role,
+                    tone_description=tone_description
                 )
                 
                 if use_external_knowledge:
@@ -681,7 +712,9 @@ class LLMManager:
                 if chat_history:
                     user_content += f"{chat_history}"
                 user_content += f"\nUser: {user_message}\nBot:"
-                
+                print("-==ssytem PROMPT")
+                print(system_content)
+
                 # Log the final prompt being sent to OpenAI
                 final_prompt = {
                     "system": system_content,
@@ -748,7 +781,33 @@ class LLMManager:
 
                 # Clean response (remove flag if present)
                 clean_response = re.sub(r'\[ext_knowledge_used\]', '', response_content, flags=re.IGNORECASE).strip()
-                
+                # Default flags
+                is_greeting_response = False
+                is_farewell_response = False
+
+                # 1. Check if LLM explicitly set metadata flag in JSON-like text
+                if '"is_greeting_response": true' in response_content.lower():
+                    is_greeting_response = True
+                    # Remove metadata JSON if present
+
+                if '"is_farewell_response": true' in response_content.lower():
+                    is_farewell_response = True
+
+                # 2. Fallback: detect by common greeting/farewell phrases if no explicit flag
+                if not (is_greeting_response or is_farewell_response):
+                    greeting_keywords = ["hi", "hello", "hey", "good morning", "good evening", "good afternoon"]
+                    farewell_keywords = ["bye", "goodbye", "see you", "take care", "farewell"]
+                    lower_resp = clean_response.lower()
+
+                    if any(lower_resp.startswith(greet) for greet in greeting_keywords):
+                        is_greeting_response = True
+                    elif any(lower_resp.startswith(farewell) for farewell in farewell_keywords):
+                        is_farewell_response = True
+                # Remove any JSON metadata blocks like {"is_greeting_response": true} or {"is_farewell_response": false}
+
+                clean_response = re.sub(r'\{.*?"is_(greeting|farewell)_response":\s*(true|false).*?\}', '', clean_response, flags=re.IGNORECASE).strip()
+
+
                 # ✅ Extract token usage if available
                 token_usage = None
                 if hasattr(response, 'usage') and response.usage:
@@ -777,7 +836,9 @@ class LLMManager:
                 
                 return {
                     "message": clean_response,
-                    "used_external": used_external
+                    "used_external": used_external,
+                    "is_greeting_response": is_greeting_response,
+                    "is_farewell_response": is_farewell_response
                 }
                 
             elif provider == "huggingface":

@@ -48,6 +48,7 @@ interface BotSettings {
   chat_font_family?: string;
   lead_generation_enabled?: boolean;
   lead_form_config?: Array<{field: "name" | "email" | "phone" | "address";required: boolean;}>;
+  show_sources?:boolean;
 }
 
 interface ChatbotWidgetProps {
@@ -844,7 +845,43 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
                     </button>
                     <button
                 onClick={() => {
-                  navigator.clipboard.writeText(msg.message);
+                  // Create HTML version with preserved formatting
+                  let htmlContent = msg.message;
+
+                  // Convert markdown to HTML (keep formatting)
+                  htmlContent = htmlContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                  htmlContent = htmlContent.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+                  // Create plain text version (fallback)
+                  const plainText = msg.message
+                    .replace(/\*\*(.*?)\*\*/g, '$1')
+                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$2');
+
+                  // Try to copy with HTML formatting
+                  const copyWithFormatting = async () => {
+                    try {
+                      // Create blobs for both formats
+                      const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+                      const plainBlob = new Blob([plainText], { type: 'text/plain' });
+
+                      // Copy both formats to clipboard
+                      const clipboardItem = new ClipboardItem({
+                        'text/html': htmlBlob,
+                        'text/plain': plainBlob
+                      });
+
+                      await navigator.clipboard.write([clipboardItem]);
+                      return true;
+                    } catch (err) {
+                      console.error("Failed to save lead info", err);
+                      return false;
+                    }
+                  };
+
+                  // Fallback to plain text if HTML copy fails
+                  copyWithFormatting().catch(() => {
+                    navigator.clipboard.writeText(plainText);
+                  });
                   setCopiedIndex(index);
                   setTimeout(() => setCopiedIndex(null), 1500);
                 }}
@@ -885,7 +922,7 @@ const ChatbotWidget = forwardRef<ChatbotWidgetHandle, ChatbotWidgetProps>(
 
                     
                     {/* View Sources button */}
-                    {msg.sources && msg.sources.length > 0 && !msg.is_greeting && (
+                    {botSettings?.show_sources && msg.sources && msg.sources.length > 0 && !msg.is_greeting && (
                       <button 
                         onClick={() => toggleSources(index)}
                         style={{

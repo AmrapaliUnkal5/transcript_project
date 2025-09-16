@@ -125,6 +125,8 @@ class Bot(Base):
     active_mail_sent= Column(Boolean,nullable=False,default=False)
     is_retrained = Column(Boolean, nullable=False, default=False)
     error_mail_sent= Column(Boolean,nullable=False,default=False)
+    role = Column(String, nullable=False, server_default="Service Assistant")
+    tone = Column(String, nullable=False, server_default="Friendly")
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")

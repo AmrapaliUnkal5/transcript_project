@@ -445,6 +445,8 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     # 3. We have similar docs
     if (not is_greeting(request.message_text) and 
    not bot_reply_dict.get("is_default_response", False) and
+   not bot_reply_dict.get("is_greeting_response", False) and
+    not bot_reply_dict.get("is_farewell_response", False) and
    (similar_docs or bot_reply_dict.get("used_external", False))):
     
         if bot_reply_dict.get("used_external", False):
@@ -466,13 +468,18 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
                 'website_url': metadata.get('website_url', 'Unknown source'),
                 'url': metadata.get('url', 'Unknown source')
             })
+    final_is_social = (
+            is_greeting(request.message_text)
+            or bot_reply_dict.get("is_greeting_response", False)
+            or bot_reply_dict.get("is_farewell_response", False)
+            )
 
     return {
         "message": bot_reply_text,
         "message_id": bot_message.message_id,
         "formatted_content": formatted_content,
         "sources": document_sources,
-        "is_greeting": is_greeting(request.message_text)
+        "is_greeting": final_is_social
     }
    
 @router.get("/get_chat_messages")
