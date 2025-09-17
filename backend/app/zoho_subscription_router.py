@@ -1516,32 +1516,53 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
                 webhook_logger.warning(f"⚠️ SUBSCRIPTION WEBHOOK: Addon with code {addon_code} not found in database")
                 continue
             
-            # Check if user already has this addon
-            existing_addon = db.query(UserAddon).filter(
+            # Fetch all existing active/pending rows for idempotent sync
+            existing_rows = db.query(UserAddon).filter(
                 UserAddon.user_id == user_id,
                 UserAddon.addon_id == addon.id,
                 UserAddon.status.in_(["active", "pending"])
-            ).order_by(UserAddon.created_at.desc()).first()
+            ).order_by(UserAddon.purchase_date.asc()).all()
             
             # All addons should expire with the user's current subscription end date
             # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
             addon_expiry = None if addon.id == 3 else expiry_date
             
             created_rows = 0
-            if existing_addon:
-                # Update one existing row
-                existing_addon.status = "active"
-                existing_addon.is_active = True
-                existing_addon.subscription_id = subscription_record.id
-                existing_addon.purchase_date = payment_date
-                existing_addon.expiry_date = addon_expiry
-                existing_addon.zoho_addon_instance_id = addon_instance_id
-                existing_addon.updated_at = datetime.now()
-                created_rows += 1
-                webhook_logger.info(f"🔄 SUBSCRIPTION WEBHOOK: Updated existing addon {addon.name} for user {user_id}")
-                # Create additional rows if quantity > 1
-                extra = max(int(addon_quantity) - 1, 0)
-                for _ in range(extra):
+            desired_count = max(int(addon_quantity), 1)
+            current_count = len(existing_rows)
+
+            # If we have more rows than desired, deactivate the extras (oldest first)
+            if current_count > desired_count:
+                to_deactivate = current_count - desired_count
+                for row in existing_rows[:to_deactivate]:
+                    row.is_active = False
+                    row.status = "cancelled"
+                    row.updated_at = datetime.now()
+                # Keep the newest desired_count rows up-to-date
+                kept_rows = existing_rows[to_deactivate:]
+                for row in kept_rows:
+                    row.status = "active"
+                    row.is_active = True
+                    row.subscription_id = subscription_record.id
+                    row.purchase_date = payment_date
+                    row.expiry_date = addon_expiry
+                    row.zoho_addon_instance_id = addon_instance_id
+                    row.updated_at = datetime.now()
+                created_rows += 0
+                webhook_logger.info(f"🔄 SUBSCRIPTION WEBHOOK: Normalized addon rows from {current_count} to {desired_count} for user {user_id}")
+
+            # If we have fewer rows than desired, update existing and create the missing ones
+            elif current_count < desired_count:
+                for row in existing_rows:
+                    row.status = "active"
+                    row.is_active = True
+                    row.subscription_id = subscription_record.id
+                    row.purchase_date = payment_date
+                    row.expiry_date = addon_expiry
+                    row.zoho_addon_instance_id = addon_instance_id
+                    row.updated_at = datetime.now()
+                to_create = desired_count - current_count
+                for _ in range(to_create):
                     new_row = UserAddon(
                         user_id=user_id,
                         addon_id=addon.id,
@@ -1557,26 +1578,19 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
                     )
                     db.add(new_row)
                     created_rows += 1
+                webhook_logger.info(f"🆕 SUBSCRIPTION WEBHOOK: Added {to_create} addon row(s) to reach desired count {desired_count} for user {user_id}")
+
+            # If counts match, just ensure existing rows are updated
             else:
-                # Create rows equal to quantity
-                count = max(int(addon_quantity), 1)
-                for _ in range(count):
-                    user_addon = UserAddon(
-                        user_id=user_id,
-                        addon_id=addon.id,
-                        subscription_id=subscription_record.id,
-                        purchase_date=payment_date,
-                        expiry_date=addon_expiry,
-                        is_active=True,
-                        auto_renew=addon.is_recurring,
-                        status="active",
-                        zoho_addon_instance_id=addon_instance_id,
-                        initial_count=addon.additional_message_limit or 0,
-                        remaining_count=addon.additional_message_limit or 0
-                    )
-                    db.add(user_addon)
-                    created_rows += 1
-                webhook_logger.info(f"🆕 SUBSCRIPTION WEBHOOK: Created {created_rows} addon row(s) for {addon.name} for user {user_id}")
+                for row in existing_rows:
+                    row.status = "active"
+                    row.is_active = True
+                    row.subscription_id = subscription_record.id
+                    row.purchase_date = payment_date
+                    row.expiry_date = addon_expiry
+                    row.zoho_addon_instance_id = addon_instance_id
+                    row.updated_at = datetime.now()
+                webhook_logger.info(f"ℹ️ SUBSCRIPTION WEBHOOK: Addon rows already at desired count {desired_count} for user {user_id}")
 
             addons_processed += created_rows
     
@@ -2311,11 +2325,12 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
             webhook_logger.info(f"🔌 ADDON PAYMENT: Processing addon {addon.name} (code: {addon_code}) for user {user_id}")
             
             # Check if user already has this addon (active or pending)
-            existing_addon = db.query(UserAddon).filter(
+            # Normalize rows for this addon to exactly the quantity paid for
+            existing_rows = db.query(UserAddon).filter(
                 UserAddon.user_id == user_id,
                 UserAddon.addon_id == addon.id,
                 UserAddon.status.in_(["active", "pending"])
-            ).order_by(UserAddon.created_at.desc()).first()
+            ).order_by(UserAddon.purchase_date.asc()).all()
             
             current_time = datetime.now()
             
@@ -2324,18 +2339,32 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
             addon_expiry = None if addon.id == 3 else subscription.expiry_date
             
             created_rows = 0
-            if existing_addon:
-                # Update one existing row
-                existing_addon.status = "active"
-                existing_addon.is_active = True
-                existing_addon.purchase_date = current_time
-                existing_addon.expiry_date = addon_expiry
-                existing_addon.updated_at = current_time
-                created_rows += 1
-                webhook_logger.info(f"🔄 ADDON PAYMENT: Updated existing addon {addon.name} for user {user_id}")
-                # Create additional rows if quantity > 1
-                extra = max(int(quantity) - 1, 0)
-                for _ in range(extra):
+            desired_count = max(int(quantity), 1)
+            current_count = len(existing_rows)
+
+            if current_count > desired_count:
+                to_deactivate = current_count - desired_count
+                for row in existing_rows[:to_deactivate]:
+                    row.is_active = False
+                    row.status = "cancelled"
+                    row.updated_at = current_time
+                kept = existing_rows[to_deactivate:]
+                for row in kept:
+                    row.status = "active"
+                    row.is_active = True
+                    row.purchase_date = current_time
+                    row.expiry_date = addon_expiry
+                    row.updated_at = current_time
+                webhook_logger.info(f"🔄 ADDON PAYMENT: Normalized addon rows from {current_count} to {desired_count} for user {user_id}")
+            elif current_count < desired_count:
+                for row in existing_rows:
+                    row.status = "active"
+                    row.is_active = True
+                    row.purchase_date = current_time
+                    row.expiry_date = addon_expiry
+                    row.updated_at = current_time
+                to_create = desired_count - current_count
+                for _ in range(to_create):
                     new_row = UserAddon(
                         user_id=user_id,
                         addon_id=addon.id,
@@ -2350,25 +2379,15 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
                     )
                     db.add(new_row)
                     created_rows += 1
+                webhook_logger.info(f"🆕 ADDON PAYMENT: Added {to_create} addon row(s) to reach desired count {desired_count} for user {user_id}")
             else:
-                # Create rows equal to quantity
-                count = max(int(quantity), 1)
-                for _ in range(count):
-                    user_addon = UserAddon(
-                        user_id=user_id,
-                        addon_id=addon.id,
-                        subscription_id=subscription.id,
-                        purchase_date=current_time,
-                        expiry_date=addon_expiry,
-                        is_active=True,
-                        auto_renew=addon.is_recurring,
-                        status="active",
-                        initial_count=addon.additional_message_limit or 0,
-                        remaining_count=addon.additional_message_limit or 0
-                    )
-                    db.add(user_addon)
-                    created_rows += 1
-                webhook_logger.info(f"🆕 ADDON PAYMENT: Created {created_rows} addon row(s) for {addon.name} for user {user_id}")
+                for row in existing_rows:
+                    row.status = "active"
+                    row.is_active = True
+                    row.purchase_date = current_time
+                    row.expiry_date = addon_expiry
+                    row.updated_at = current_time
+                webhook_logger.info(f"ℹ️ ADDON PAYMENT: Addon rows already at desired count {desired_count} for user {user_id}")
             addons_created += created_rows
         
         # Handle upgrade transactions (separate addon purchases without line items)

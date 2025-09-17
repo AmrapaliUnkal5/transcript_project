@@ -191,10 +191,12 @@ class AddonService:
             print(f"Processing recurring addon: {addon.name}")
             # For recurring addons, we need to use subscription modification
             # Note: updatesubscription endpoint doesn't need user_data since it's modifying existing subscription
+            # Use additive mode for standalone recurring addon purchases so Zoho charges only the delta
             checkout_url = zoho_service.get_recurring_addon_hosted_page_url(
                 subscription_id=subscription.zoho_subscription_id,
                 addon_code=addon.zoho_addon_code,
-                quantity=quantity
+                quantity=quantity,
+                mode="addon_purchase"
             )
         else:
             print(f"Processing one-time addon: {addon.name}")

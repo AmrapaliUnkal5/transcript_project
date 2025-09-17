@@ -421,7 +421,7 @@ class ZohoBillingService:
             logger.error(f"Error creating hosted page for subscription: {str(e)}")
             raise
     
-    def get_recurring_addon_hosted_page_url(self, subscription_id: str, addon_code: str, quantity: int = 1) -> str:
+    def get_recurring_addon_hosted_page_url(self, subscription_id: str, addon_code: str, quantity: int = 1, mode: str = "subscription_update") -> str:
         """
         Get a hosted page URL for adding a recurring addon to an existing subscription
         
@@ -442,12 +442,32 @@ class ZohoBillingService:
             # For recurring addons, we use the updatesubscription hosted page
             # This allows adding addons that will renew with the subscription
             # Note: updatesubscription endpoint doesn't need customer data since it's modifying existing subscription
+            # If this call represents a standalone recurring addon purchase (not a plan update),
+            # we should treat the requested quantity as an increment over existing quantity to avoid
+            # triggering a perceived downgrade when users later buy fewer units.
+            effective_quantity = quantity
+            if (mode or "").lower() == "addon_purchase":
+                try:
+                    current_details = self.get_subscription_details(subscription_id)
+                    current_quantity = 0
+                    subscription_obj = (current_details or {}).get("subscription") or {}
+                    for item in subscription_obj.get("addons", []) or []:
+                        if item.get("addon_code") == addon_code:
+                            # Zoho returns quantity per add-on instance
+                            current_quantity = int(item.get("quantity", 0) or 0)
+                            break
+                    # Additive quantity so Zoho charges only the delta at checkout
+                    effective_quantity = max(1, int(current_quantity) + int(quantity))
+                except Exception as _e:
+                    # Fallback to requested quantity if anything fails
+                    effective_quantity = quantity
+
             payload = {
                 "subscription_id": subscription_id,
                 "addons": [
                     {
                         "addon_code": addon_code,
-                        "quantity": quantity
+                        "quantity": int(effective_quantity)
                     }
                 ],
                 "redirect_url": f"{self.get_frontend_url()}/dashboard/welcome?addonpayment=success",
@@ -1030,6 +1050,28 @@ class ZohoBillingService:
         return validation_result
 
 
+
+    def get_subscription_details(self, subscription_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetch subscription details from Zoho. Used to read current addon quantities so that
+        standalone recurring addon purchases can set additive quantities and avoid downgrade flags.
+        """
+        try:
+            url = f"{self.base_url}/subscriptions/{subscription_id}"
+            headers = self._get_headers()
+            response = requests.get(url, headers=headers)
+
+            if response.status_code == 401:
+                headers = self._get_headers(force_refresh=True)
+                response = requests.get(url, headers=headers)
+
+            response.raise_for_status()
+            data = response.json()
+            # Expected top-level keys: code, subscription
+            return data
+        except Exception as e:
+            logger.error(f"Error fetching subscription details for {subscription_id}: {str(e)}")
+            return None
 
     def get_addon_hosted_page_url(self, subscription_id: str, addon_data: Dict[str, Any]) -> str:
         """
