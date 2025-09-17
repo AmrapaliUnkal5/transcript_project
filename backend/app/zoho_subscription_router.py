@@ -1523,14 +1523,13 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
                 UserAddon.status.in_(["active", "pending"])
             ).order_by(UserAddon.created_at.desc()).first()
             
-            # Determine expiry date based on addon type
-            if addon.addon_type == "Additional Messages":
-                addon_expiry = payment_date + timedelta(days=5*365)  # Lifetime addon
-            else:
-                addon_expiry = expiry_date  # Expires with subscription
+            # All addons should expire with the user's current subscription end date
+            # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
+            addon_expiry = None if addon.id == 3 else expiry_date
             
+            created_rows = 0
             if existing_addon:
-                # Update existing addon
+                # Update one existing row
                 existing_addon.status = "active"
                 existing_addon.is_active = True
                 existing_addon.subscription_id = subscription_record.id
@@ -1538,27 +1537,48 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
                 existing_addon.expiry_date = addon_expiry
                 existing_addon.zoho_addon_instance_id = addon_instance_id
                 existing_addon.updated_at = datetime.now()
+                created_rows += 1
                 webhook_logger.info(f"🔄 SUBSCRIPTION WEBHOOK: Updated existing addon {addon.name} for user {user_id}")
+                # Create additional rows if quantity > 1
+                extra = max(int(addon_quantity) - 1, 0)
+                for _ in range(extra):
+                    new_row = UserAddon(
+                        user_id=user_id,
+                        addon_id=addon.id,
+                        subscription_id=subscription_record.id,
+                        purchase_date=payment_date,
+                        expiry_date=addon_expiry,
+                        is_active=True,
+                        auto_renew=addon.is_recurring,
+                        status="active",
+                        zoho_addon_instance_id=addon_instance_id,
+                        initial_count=addon.additional_message_limit or 0,
+                        remaining_count=addon.additional_message_limit or 0
+                    )
+                    db.add(new_row)
+                    created_rows += 1
             else:
-                # Create new addon
-                user_addon = UserAddon(
-                    user_id=user_id,
-                    addon_id=addon.id,
-                    subscription_id=subscription_record.id,
-                    purchase_date=payment_date,
-                    expiry_date=addon_expiry,
-                    is_active=True,
-                    auto_renew=addon.is_recurring,
-                    status="active",
-                    zoho_addon_instance_id=addon_instance_id,
-                    initial_count=addon.additional_message_limit or 0,
-                    remaining_count=addon.additional_message_limit or 0
-                )
-                
-                db.add(user_addon)
-                webhook_logger.info(f"🆕 SUBSCRIPTION WEBHOOK: Created new addon {addon.name} for user {user_id}")
-            
-            addons_processed += 1
+                # Create rows equal to quantity
+                count = max(int(addon_quantity), 1)
+                for _ in range(count):
+                    user_addon = UserAddon(
+                        user_id=user_id,
+                        addon_id=addon.id,
+                        subscription_id=subscription_record.id,
+                        purchase_date=payment_date,
+                        expiry_date=addon_expiry,
+                        is_active=True,
+                        auto_renew=addon.is_recurring,
+                        status="active",
+                        zoho_addon_instance_id=addon_instance_id,
+                        initial_count=addon.additional_message_limit or 0,
+                        remaining_count=addon.additional_message_limit or 0
+                    )
+                    db.add(user_addon)
+                    created_rows += 1
+                webhook_logger.info(f"🆕 SUBSCRIPTION WEBHOOK: Created {created_rows} addon row(s) for {addon.name} for user {user_id}")
+
+            addons_processed += created_rows
     
     # Commit all changes
     db.commit()
@@ -1712,13 +1732,9 @@ async def handle_subscription_created(payload: Dict[str, Any], db: Session):
                     logger.warning(f"Could not find add-on with code {addon_code} in database")
                     continue
                 
-                # Determine expiry date based on addon type
-                addon_expiry = expiry_date  # Default: expires with subscription
-                
-                # Special case for lifetime addons (like Additional Messages)
-                if addon.addon_type == "Additional Messages":
-                    # Set a far future date for lifetime add-ons
-                    addon_expiry = payment_date + timedelta(days=5*365)
+                # All addons should expire with the user's current subscription end date
+                # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
+                addon_expiry = None if addon.id == 3 else expiry_date
                 
                 # Create UserAddon record
                 user_addon = UserAddon(
@@ -1904,13 +1920,9 @@ async def handle_subscription_renewed(payload: Dict[str, Any], db: Session):
                 existing_addon.is_active = True
                 existing_addon.status = "active"
                 
-                # Determine expiry date based on addon type
-                if addon.addon_type == "Additional Messages":
-                    # Don't update expiry for lifetime add-ons
-                    pass
-                else:
-                    # One-time add-ons expire with the subscription
-                    existing_addon.expiry_date = expiry_date
+                # All addons should expire with the user's current subscription end date
+                # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
+                existing_addon.expiry_date = None if addon.id == 3 else expiry_date
                 
                 existing_addon.updated_at = datetime.now()
                 logger.info(f"Updated existing add-on {addon.name} (ID: {addon.id}) for user {subscription.user_id}")
@@ -2307,40 +2319,57 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
             
             current_time = datetime.now()
             
-            # Determine expiry date based on addon type
-            if addon.addon_type == "Additional Messages":
-                # Set a far future date for lifetime add-ons
-                addon_expiry = current_time + timedelta(days=5*365)
-            else:
-                # Other one-time addons expire with the subscription
-                addon_expiry = subscription.expiry_date
+            # All addons should expire with the user's current subscription end date
+            # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
+            addon_expiry = None if addon.id == 3 else subscription.expiry_date
             
+            created_rows = 0
             if existing_addon:
-                # Update existing addon
+                # Update one existing row
                 existing_addon.status = "active"
                 existing_addon.is_active = True
                 existing_addon.purchase_date = current_time
                 existing_addon.expiry_date = addon_expiry
                 existing_addon.updated_at = current_time
+                created_rows += 1
                 webhook_logger.info(f"🔄 ADDON PAYMENT: Updated existing addon {addon.name} for user {user_id}")
+                # Create additional rows if quantity > 1
+                extra = max(int(quantity) - 1, 0)
+                for _ in range(extra):
+                    new_row = UserAddon(
+                        user_id=user_id,
+                        addon_id=addon.id,
+                        subscription_id=subscription.id,
+                        purchase_date=current_time,
+                        expiry_date=addon_expiry,
+                        is_active=True,
+                        auto_renew=addon.is_recurring,
+                        status="active",
+                        initial_count=addon.additional_message_limit or 0,
+                        remaining_count=addon.additional_message_limit or 0
+                    )
+                    db.add(new_row)
+                    created_rows += 1
             else:
-                # Create new UserAddon record
-                user_addon = UserAddon(
-                    user_id=user_id,
-                    addon_id=addon.id,
-                    subscription_id=subscription.id,
-                    purchase_date=current_time,
-                    expiry_date=addon_expiry,
-                    is_active=True,
-                    auto_renew=addon.is_recurring,
-                    status="active",
-                    initial_count=addon.additional_message_limit or 0,
-                    remaining_count=addon.additional_message_limit or 0
-                )
-                
-                db.add(user_addon)
-                addons_created += 1
-                webhook_logger.info(f"🆕 ADDON PAYMENT: Created new addon {addon.name} for user {user_id}")
+                # Create rows equal to quantity
+                count = max(int(quantity), 1)
+                for _ in range(count):
+                    user_addon = UserAddon(
+                        user_id=user_id,
+                        addon_id=addon.id,
+                        subscription_id=subscription.id,
+                        purchase_date=current_time,
+                        expiry_date=addon_expiry,
+                        is_active=True,
+                        auto_renew=addon.is_recurring,
+                        status="active",
+                        initial_count=addon.additional_message_limit or 0,
+                        remaining_count=addon.additional_message_limit or 0
+                    )
+                    db.add(user_addon)
+                    created_rows += 1
+                webhook_logger.info(f"🆕 ADDON PAYMENT: Created {created_rows} addon row(s) for {addon.name} for user {user_id}")
+            addons_created += created_rows
         
         # Handle upgrade transactions (separate addon purchases without line items)
         if upgrade_invoices and addons_created == 0:
@@ -2372,10 +2401,8 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
                 if matching_addon:
                     # Create addon record
                     current_time = datetime.now()
-                    if matching_addon.addon_type == "Additional Messages":
-                        addon_expiry = current_time + timedelta(days=5*365)
-                    else:
-                        addon_expiry = subscription.expiry_date
+                    # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
+                    addon_expiry = None if matching_addon.id == 3 else subscription.expiry_date
                     
                     # Check for existing addon
                     existing_addon = db.query(UserAddon).filter(
