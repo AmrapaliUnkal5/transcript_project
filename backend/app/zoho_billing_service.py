@@ -1283,11 +1283,41 @@ def format_subscription_data_for_hosted_page(
          
     # Handle customer data based on whether they're existing or new
     if existing_customer_id:
-        # For existing customers, just provide the customer ID to avoid duplicates
-        subscription_data["customer"] = {
-            "customer_id": existing_customer_id
+        # For existing customers, include ID and customer details so hosted page shows account info
+        customer_data = {
+            "customer_id": existing_customer_id,
+            "display_name": user_data.get("name", "") or (user_data.get("email", "").split("@")[0]),
+            "email": user_data.get("email", ""),
+            "mobile": user_data.get("phone_no", ""),
+            "company_name": user_data.get("company_name", "")
         }
-        print(f"Using existing customer ID: {existing_customer_id}")
+
+        if billing_address:
+            customer_data["billing_address"] = {
+                "attention": f"{billing_address.get('firstName', '')} {billing_address.get('lastName', '')}".strip(),
+                "address": billing_address.get('address1', ''),
+                "street2": billing_address.get('address2', ''),
+                "city": billing_address.get('city', ''),
+                "state": billing_address.get('state', ''),
+                "zip": billing_address.get('zipCode', ''),
+                "country": billing_address.get('country', ''),
+                "fax": ""
+            }
+
+        if shipping_address:
+            customer_data["shipping_address"] = {
+                "attention": f"{shipping_address.get('firstName', '')} {shipping_address.get('lastName', '')}".strip(),
+                "address": shipping_address.get('address1', ''),
+                "street2": shipping_address.get('address2', ''),
+                "city": shipping_address.get('city', ''),
+                "state": shipping_address.get('state', ''),
+                "zip": shipping_address.get('zipCode', ''),
+                "country": shipping_address.get('country', ''),
+                "fax": ""
+            }
+
+        subscription_data["customer"] = customer_data
+        print(f"Using existing customer ID: {existing_customer_id} with customer details included")
     else:
         # For NEW customers, include basic contact info and address if provided
         customer_data = {
