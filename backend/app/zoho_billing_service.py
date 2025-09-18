@@ -1092,7 +1092,7 @@ class ZohoBillingService:
             # Get the USD price list ID from environment variables
             # Use USD price list to show all prices in USD globally
             price_list_id = os.getenv('ZOHO_USD_PRICE_LIST_ID') or os.getenv('ZOHO_PRICE_LIST_ID')
-            print(f"Price List ID (USD): {price_list_id}")
+            print(f"Pricebook ID (USD): {price_list_id}")
             
             # Prepare the payload according to Zoho API docs for buyonetimeaddon
             payload = {
@@ -1106,15 +1106,15 @@ class ZohoBillingService:
             if addon_data.get("cancel_url"):
                 payload["cancel_url"] = addon_data["cancel_url"]
             
-            # Add price list ID if available - this is often required for buyonetimeaddon
+            # Add pricebook_id if available - this is often required for buyonetimeaddon
             if price_list_id:
-                payload["price_list_id"] = price_list_id
-                print(f"Added USD price list ID to addon checkout payload: {price_list_id}")
-                logger.info(f"Using USD price list for addon checkout: {price_list_id}")
+                payload["pricebook_id"] = price_list_id
+                print(f"Added USD pricebook_id to addon checkout payload: {price_list_id}")
+                logger.info(f"Using USD pricebook for addon checkout: {price_list_id}")
             else:
                 print("WARNING: ZOHO_USD_PRICE_LIST_ID not set in environment variables")
-                # For buyonetimeaddon, price_list_id might be required
-                logger.warning("USD price list ID is missing - addon prices might display in base currency (INR) instead of USD")
+                # For buyonetimeaddon, pricebook_id might be required
+                logger.warning("USD pricebook_id is missing - addon prices might display in base currency (INR) instead of USD")
             
             # Add customer information if provided - required for standalone addon purchases
             if "customer" in addon_data and addon_data["customer"]:
@@ -1243,7 +1243,7 @@ def format_subscription_data_for_hosted_page(
     print(f"Plan Code: {plan_code}")
     print(f"Addon Codes (received): {addon_codes}")
     print(f"Existing Customer ID: {existing_customer_id}")
-    print(f"Price List ID: {price_list_id}")
+    print(f"Pricebook ID: {price_list_id}")
     print(f"Billing Address: {billing_address}")
     print(f"Shipping Address: {shipping_address}")
     print(f"GSTIN: {gstin}")
@@ -1338,14 +1338,14 @@ def format_subscription_data_for_hosted_page(
         subscription_data["customer"] = customer_data
         print("New customer - included address data for Zoho checkout")
     
-    # Add price list ID if available
+    # Add pricebook_id if available
     if price_list_id:
-        subscription_data["price_list_id"] = price_list_id
-        print(f"Added USD price list ID to checkout payload: {price_list_id}")
-        logger.info(f"Using USD price list for subscription checkout: {price_list_id}")
+        subscription_data["pricebook_id"] = price_list_id
+        print(f"Added USD pricebook_id to checkout payload: {price_list_id}")
+        logger.info(f"Using USD pricebook for subscription checkout: {price_list_id}")
     else:
         print("WARNING: ZOHO_USD_PRICE_LIST_ID not set in environment variables")
-        logger.warning("USD price list ID is missing - subscription prices might display in base currency (INR) instead of USD")
+        logger.warning("USD pricebook_id is missing - subscription prices might display in base currency (INR) instead of USD")
     
        
     # Add addons if provided
