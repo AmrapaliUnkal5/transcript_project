@@ -666,8 +666,11 @@ class LLMManager:
                     system_content = (
                         "You are a {tone} {role}. {tone_description}\n\n"
                         "### Response Guidelines:\n"
-                        "- Answer the user's question based on the provided context. If the context doesn't contain relevant information, you can use your general knowledge to provide a helpful response. IMPORTANT:This is a strict rule. If ANY part of the answer comes from outside the context (even basic facts), you MUST add '[EXT_KNOWLEDGE_USED]' at the VERY END of your response."
-                        "- This tag is ONLY for internal use and MUST NOT affect your answer.\n"
+                        "- Answer the user's question using the provided context. \n"
+                        "- If the context does not contain the needed information, you may use your general knowledge.\n"
+                        "- IMPORTANT: ONLY If ANY part of the answer comes from outside the context, reply and append on a new line: {{\"is_ext_response\": true}} at the very end of your response.\n"
+                        "- These JSON lines MUST appear as plain text only (never inside code blocks, tables, or markdown formatting).\n"
+                        "- This tag is ONLY for internal use and MUST NOT affect your answer."
                         "- Keep answers concise and clear, with a hard limit of 120 words.\n"
                         "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
                         "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
@@ -786,11 +789,14 @@ class LLMManager:
                 print(response_content)  # Show exactly what the LLM returned
 
                 # Check for flag (case-insensitive)
-                used_external = "[ext_knowledge_used]" in response_content.lower()
-                print(f"External knowledge flag detected: {used_external}")
+                # Initialize used_external
+                used_external = False
+                if '"is_ext_response": true' in response_content.lower():
+                    used_external = True
+                    print(f"External knowledge flag detected: {used_external}")
 
                 # Clean response (remove flag if present)
-                clean_response = re.sub(r'\[ext_knowledge_used\]', '', response_content, flags=re.IGNORECASE).strip()
+                clean_response = re.sub(r'\{.*?"is_(ext)_response":\s*(true|false).*?\}', '', response_content, flags=re.IGNORECASE).strip()
                 # Default flags
                 is_greeting_response = False
                 is_farewell_response = False
