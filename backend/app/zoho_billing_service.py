@@ -462,13 +462,37 @@ class ZohoBillingService:
                     # Fallback to requested quantity if anything fails
                     effective_quantity = quantity
 
+            # Build addons list preserving existing recurring addons to avoid Zoho issuing credits
+            existing_addons: List[Dict[str, Any]] = []
+            try:
+                current_details = self.get_subscription_details(subscription_id)
+                subscription_obj = (current_details or {}).get("subscription") or {}
+                for item in subscription_obj.get("addons", []) or []:
+                    code = item.get("addon_code")
+                    qty = int(item.get("quantity", 0) or 0)
+                    if code and qty > 0:
+                        existing_addons.append({"addon_code": code, "quantity": qty})
+            except Exception as _e:
+                # If fetching fails, proceed with minimal payload; Zoho may replace list, but we already handled effective quantity
+                existing_addons = []
+
+            # Merge or add the requested addon
+            updated = False
+            for entry in existing_addons:
+                if entry.get("addon_code") == addon_code:
+                    entry["quantity"] = int(effective_quantity)
+                    updated = True
+                    break
+            if not updated:
+                existing_addons.append({
+                    "addon_code": addon_code,
+                    "quantity": int(effective_quantity)
+                })
+
             payload = {
                 "subscription_id": subscription_id,
-                "addons": [
-                    {
-                        "addon_code": addon_code,
-                        "quantity": int(effective_quantity)
-                    }
+                "addons": existing_addons if existing_addons else [
+                    {"addon_code": addon_code, "quantity": int(effective_quantity)}
                 ],
                 "redirect_url": f"{self.get_frontend_url()}/dashboard/welcome?addonpayment=success",
                 "cancel_url": f"{self.get_frontend_url()}/account/add-ons"
