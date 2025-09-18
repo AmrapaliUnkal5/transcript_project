@@ -40,6 +40,7 @@ ChartJS.register(ArcElement, ttip, lgnd);
 const SubscriptionExpiredOverlay = () => {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const handleRenewClick = () => {
     // Create state object with string values only
@@ -59,8 +60,9 @@ const SubscriptionExpiredOverlay = () => {
       if (value) params.set(key, value);
     });
 
-    // Open in new tab with query params
-    window.open(`/subscription?${params.toString()}`, "_blank");
+    // Open subscription page in a new tab with correct route
+    const absoluteUrl = `${window.location.origin}/dashboard/subscription?${params.toString()}`;
+    window.open(absoluteUrl, "_blank", "noopener,noreferrer");
   };
 
   const isCancelled = user?.subscription_status === "cancelled";
