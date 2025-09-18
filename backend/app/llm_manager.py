@@ -662,57 +662,67 @@ class LLMManager:
 
                 # Ensure the tone exists in your descriptions
                 tone_description = tone_descriptions.get(tone, "")
-                system_content = (
-                    "You are a {tone} {role}. {tone_description}\n\n"
-
-                    "### Response Guidelines:\n"
-                    "- Answer the user's question based on the provided context.\n"
-                    "- Keep answers concise and clear, with a hard limit of 120 words.\n"
-                    "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
-                    "- If the message contains any other content (questions, facts, requests), DO NOT append these flags "
-                    "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n\n"
-
-                    "### Social Interactions:\n"
-                    "- Handle greetings/farewells with short, natural replies (max 1 short sentence)\n"
-                    "- IMPORTANT:Only if the user message is a greeting, reply and append on a new line: {{\"is_greeting_response\": true}}\n"
-                    "- IMPORTANT:Only if the user message is a farewell, reply and append on a new line: {{\"is_farewell_response\": true}}\n"
-                    "- These JSON lines MUST appear as plain text only (never inside code blocks, tables, or markdown formatting).\n\n"
-
-                    "### Formatting:\n"
-                    "- For lists or multiple points: Use bullet points with '• ' or '- '.\n"
-                    "- For step-by-step instructions: Use numbered lists ('1.', '2.', etc.).\n"
-                    "- For comparisons or data: Use Markdown tables (| col | col |).\n"
-                    "- For code examples: Use fenced code blocks ```language.\n"
-                    "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
-                    "- For emphasis: Use **bold** text.\n"
-                    "- Keep formatting consistent and clear.\n\n"
-
-                    "If the context doesn't contain relevant information, "
-                ).format(
-                    tone=tone,
-                    role=role,
-                    tone_description=tone_description
-                )
-                
                 if use_external_knowledge:
-                   
-                    system_content += (
-                    "you can use your general knowledge to provide a helpful response. "
-                    "IMPORTANT: If ANY part of the answer comes from outside the context (even basic facts), you MUST add "
-                    "'[EXT_KNOWLEDGE_USED]' at the VERY END of your response. "
-                    "This tag is ONLY for internal use and MUST NOT affect your answer."
-                )
+                    system_content = (
+                        "You are a {tone} {role}. {tone_description}\n\n"
+                        "### Response Guidelines:\n"
+                        "- Answer the user's question based on the provided context. If the context doesn't contain relevant information, you can use your general knowledge to provide a helpful response. IMPORTANT:This is a strict rule. If ANY part of the answer comes from outside the context (even basic facts), you MUST add '[EXT_KNOWLEDGE_USED]' at the VERY END of your response."
+                        "- This tag is ONLY for internal use and MUST NOT affect your answer.\n"
+                        "- Keep answers concise and clear, with a hard limit of 120 words.\n"
+                        "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
+                        "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
+                        "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
+
+                        "### Social Interactions:\n"
+                        "- Handle greetings/farewells with short, natural replies (max 1 short sentence)\n"
+                        "- IMPORTANT:Only if the user message is a greeting, reply and append on a new line: {{\"is_greeting_response\": true}}\n"
+                        "- IMPORTANT:Only if the user message is a farewell, reply and append on a new line: {{\"is_farewell_response\": true}}\n"
+                        "- These JSON lines MUST appear as plain text only (never inside code blocks, tables, or markdown formatting).\n\n"
+
+                        "### Formatting:\n"
+                        "- For lists or multiple points: Use bullet points with '• ' or '- '.\n"
+                        "- For step-by-step instructions: Use numbered lists ('1.', '2.', etc.).\n"
+                        "- For comparisons or data: Use Markdown tables (| col | col |).\n"
+                        "- For code examples: Use fenced code blocks ```language.\n"
+                        "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
+                        "- For emphasis: Use **bold** text.\n"
+                        "- Keep formatting consistent and clear.\n\n"
+                    ).format(tone=tone, role=role, tone_description=tone_description)
                     logger.debug("External knowledge mode: Will use general knowledge if context is insufficient")
+
                 else:
-                    system_content += f"respond with exactly: \"{self.unanswered_message}\". Do not use external knowledge under any circumstances."
+                    system_content = (
+                        "You are a {tone} {role}. {tone_description}\n\n"
+                        "### Response Guidelines:\n"
+                        "- Answer the user's question based on the provided context. "
+                        f"If the context does not contain relevant information, respond with exactly: \"{self.unanswered_message}\". "
+                        "Do not use external knowledge under any circumstances.\n"
+                        "- Keep answers concise and clear, with a hard limit of 120 words.\n"
+                        "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
+                        "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
+                        "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
+
+                        "### Social Interactions:\n"
+                        "- Handle greetings/farewells with short, natural replies (max 1 short sentence)\n"
+                        "- IMPORTANT:Only if the user message is a greeting, reply and append on a new line: {{\"is_greeting_response\": true}}\n"
+                        "- IMPORTANT:Only if the user message is a farewell, reply and append on a new line: {{\"is_farewell_response\": true}}\n"
+                        "- These JSON lines MUST appear as plain text only (never inside code blocks, tables, or markdown formatting).\n\n"
+
+                        "### Formatting:\n"
+                        "- For lists or multiple points: Use bullet points with '• ' or '- '.\n"
+                        "- For step-by-step instructions: Use numbered lists ('1.', '2.', etc.).\n"
+                        "- For comparisons or data: Use Markdown tables (| col | col |).\n"
+                        "- For code examples: Use fenced code blocks ```language.\n"
+                        "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
+                        "- For emphasis: Use **bold** text.\n"
+                        "- Keep formatting consistent and clear.\n\n"
+                    ).format(tone=tone, role=role, tone_description=tone_description)
                     logger.debug("Strict context mode: Will only use provided context")
-                
-                # Include chat history in user message if available
                 user_content = f"Context: {context}"
                 if chat_history:
                     user_content += f"{chat_history}"
                 user_content += f"\nUser: {user_message}\nBot:"
-                print("-==ssytem PROMPT")
+                print("===SYSTEM PROMPT===")
                 print(system_content)
 
                 # Log the final prompt being sent to OpenAI
