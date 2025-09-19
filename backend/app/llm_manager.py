@@ -666,21 +666,33 @@ class LLMManager:
                     system_content = (
                         "You are a {tone} {role}. {tone_description}\n\n"
                         "### Response Guidelines:\n"
-                        "- Answer the user's question using the provided context. \n"
-                        "- If the context does not contain the needed information, you may use your general knowledge.\n"
-                        "- IMPORTANT: ONLY If ANY part of the answer comes from outside the context, reply and append on a new line: {{\"is_ext_response\": true}} at the very end of your response.\n"
-                        "- These JSON lines MUST appear as plain text only (never inside code blocks, tables, or markdown formatting).\n"
-                        "- This tag is ONLY for internal use and MUST NOT affect your answer."
+                        "- Answer the user's question using the provided Context.\n"
+                        "- If the Context does not contain the needed information, you may use your general knowledge.\n"
+                        "- IMPORTANT: If ANY part of the answer comes from outside the Context (even basic facts), you MUST add '[EXT_KNOWLEDGE_USED]' on a NEW LINE at the VERY END of your response.\n"
+                        "- These metadata lines MUST be plain text only (never inside code blocks, tables, or markdown). Append them AFTER the main answer, each on its own line.\n"
                         "- Keep answers concise and clear, with a hard limit of 120 words.\n"
                         "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
                         "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
                         "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
 
+                        "### External Knowledge Decision Rules:\n"
+                        "- DO NOT add '[EXT_KNOWLEDGE_USED]' if every factual element in your answer can be found in the Context text, even if you paraphrase, summarize, combine, or reorganize it.\n"
+                        "- ONLY add '[EXT_KNOWLEDGE_USED]' if you introduce any fact/number/date/definition/claim that is NOT present in the Context.\n"
+                        "- Rewriting, simplifying, adding transitions, or basic politeness does NOT count as external knowledge.\n"
+                        "- IMPORTANT: Common knowledge still counts as external if it is not explicitly present in the Context.\n"
+                        "- The presence of a greeting or farewell does NOT imply external knowledge.\n"
+                        "- SELF-CHECK BEFORE SENDING: Compare your answer to the Context. If ALL key facts are supported by the Context, DO NOT add the external flag; otherwise, DO add it.\n\n"
+
+                        "### Quick Mental Checklist (Do NOT output):\n"
+                        "1) Identify 2–3 key facts in your answer.\n"
+                        "2) For each fact, verify the exact information appears in the Context.\n"
+                        "3) If ANY fact is not in the Context, append '[EXT_KNOWLEDGE_USED]'.\n\n"
+
                         "### Social Interactions:\n"
-                        "- Handle greetings/farewells with short, natural replies (max 1 short sentence)\n"
-                        "- IMPORTANT:Only if the user message is a greeting, reply and append on a new line: {{\"is_greeting_response\": true}}\n"
-                        "- IMPORTANT:Only if the user message is a farewell, reply and append on a new line: {{\"is_farewell_response\": true}}\n"
-                        "- These JSON lines MUST appear as plain text only (never inside code blocks, tables, or markdown formatting).\n\n"
+                        "- Handle greetings/farewells with short, natural replies (max 1 short sentence).\n"
+                        "- ONLY if the user message is a greeting, append on a new line: {{\"is_greeting_response\": true}}.\n"
+                        "- ONLY if the user message is a farewell, append on a new line: {{\"is_farewell_response\": true}}.\n"
+                        "- These metadata lines are independent: greeting/farewell does NOT imply external knowledge.\n\n"
 
                         "### Formatting:\n"
                         "- For lists or multiple points: Use bullet points with '• ' or '- '.\n"
@@ -788,15 +800,16 @@ class LLMManager:
                 print("\n=== DEBUG: RAW LLM RESPONSE ===")
                 print(response_content)  # Show exactly what the LLM returned
 
-                # Check for flag (case-insensitive)
-                # Initialize used_external
+                # Check for flag (case-insensitive) — support both legacy bracket tag and JSON flag
                 used_external = False
-                if '"is_ext_response": true' in response_content.lower():
+                lower_resp = response_content.lower()
+                if '"is_ext_response": true' in lower_resp or '[ext_knowledge_used]' in lower_resp:
                     used_external = True
-                    print(f"External knowledge flag detected: {used_external}")
+                print(f"External knowledge flag detected: {used_external}")
 
-                # Clean response (remove flag if present)
-                clean_response = re.sub(r'\{.*?"is_(ext)_response":\s*(true|false).*?\}', '', response_content, flags=re.IGNORECASE).strip()
+                # Clean response (remove flags if present)
+                clean_response = re.sub(r'\{.*?"is_(ext)_response":\s*(true|false).*?\}', '', response_content, flags=re.IGNORECASE | re.DOTALL).strip()
+                clean_response = re.sub(r'\[ext_knowledge_used\]', '', clean_response, flags=re.IGNORECASE).strip()
                 # Default flags
                 is_greeting_response = False
                 is_farewell_response = False
@@ -821,8 +834,17 @@ class LLMManager:
                         is_farewell_response = True
                 # Remove any JSON metadata blocks like {"is_greeting_response": true} or {"is_farewell_response": false}
 
-                clean_response = re.sub(r'\{.*?"is_(greeting|farewell)_response":\s*(true|false).*?\}', '', clean_response, flags=re.IGNORECASE).strip()
+                clean_response = re.sub(r'\{.*?"is_(greeting|farewell)_response":\s*(true|false).*?\}', '', clean_response, flags=re.IGNORECASE | re.DOTALL).strip()
 
+
+                # Backend safeguard: if external knowledge is enabled and Context is empty, force used_external=True
+                try:
+                    context_is_empty = (context is None) or (len(context.strip()) == 0)
+                except Exception:
+                    context_is_empty = False
+                if use_external_knowledge and context_is_empty and not used_external:
+                    print("External knowledge override: Context empty and external allowed -> used_external=True")
+                    used_external = True
 
                 # ✅ Extract token usage if available
                 token_usage = None
