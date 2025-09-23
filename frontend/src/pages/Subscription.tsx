@@ -707,6 +707,7 @@ export const Subscription = () => {
     const selectedAddonCount = getSelectedAddonCount(plan.id);
     const isExpiredCurrentPlan = isCurrent && isExpiredPlan;
     const isCancelled = user?.subscription_status === "cancelled";
+    const isExplorer = plan.name.toLowerCase() === "explorer";
     console.log("effectivePlanId", effectivePlanId);
 
     return (
@@ -904,9 +905,11 @@ export const Subscription = () => {
               ? `bg-${planAccent}-400 text-white cursor-wait`
               : `bg-${planAccent}-500 hover:bg-${planAccent}-600 text-white shadow-md hover:shadow-lg`
           }`}
-          disabled={(isCurrent && !isExpiredPlan) || processingPlanId !== null}
+          disabled={(isCurrent && !isExpiredPlan) || processingPlanId !== null || (isCurrent && isExpiredPlan && isExplorer)}
           onClick={() => {
-                if (plan.name.toLowerCase() === "enterprise") {
+                if (isCurrent && isExpiredPlan && isExplorer) {
+            return; // Explorer cannot be renewed; disable action
+          } else if (plan.name.toLowerCase() === "enterprise") {
             window.open("/customersupport", "_blank"); // Redirect to Customer Support
           } else if (plan.name.toLowerCase() === "explorer" && !effectivePlanId) {
             navigate("/dashboard/create-bot");
@@ -921,7 +924,9 @@ export const Subscription = () => {
             "Continue with Free Plan"
           ) : isCurrent ? (
             isExpiredPlan ? (
-              isCancelled ? (
+              isExplorer ? (
+                "Free Plan Ended"
+              ) : isCancelled ? (
                 "Subscribe Again"
               ) : (
                 "Renew Plan"

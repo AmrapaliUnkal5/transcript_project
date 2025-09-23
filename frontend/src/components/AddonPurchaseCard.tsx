@@ -18,9 +18,14 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
   const [error, setError] = useState<string | null>(null);
   const [requiresSubscription, setRequiresSubscription] = useState(false);
   const [hasPendingPurchase, setHasPendingPurchase] = useState(false);
+   // Determine if this addon is already owned
+  const isOwned = user?.addon_plan_ids?.includes(addonId);
+  const addon = getAddonById(addonId);
+  // Check if this addon should be restricted to single purchase
+  const isRestrictedAddon = addon?.name === 'White-Labeling' || addon?.name === 'Multilingual Support';
   
   // Get the addon details - use the existing getAddonById method
-  const addon = getAddonById(addonId);
+  
   
   useEffect(() => {
     // Check for pending purchases
@@ -32,7 +37,12 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
           // Check if any of the pending addons match this addon ID
           if (response && response.pendingAddons) {
             const pendingAddons = response.pendingAddons;
+
+            if (isRestrictedAddon) {
             setHasPendingPurchase(pendingAddons.some((pa: any) => pa.addon_id === addonId));
+            }else{
+              setHasPendingPurchase(false);
+            }
           }
         } catch (err) {
           console.error("Error checking pending addon purchases:", err);
@@ -41,11 +51,32 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
     };
     
     checkPendingPurchases();
-  }, [addonId, user?.user_id]);
+  }, [addonId, user?.user_id, isRestrictedAddon]);
+  
+  // Ensure buttons and local state are reset when returning from checkout via Back/Forward navigation
+  useEffect(() => {
+    const resetTransientState = () => {
+      setProcessing(false);
+      setRequiresSubscription(false);
+      setError(null);
+    };
+    // Reset immediately on mount
+    resetTransientState();
+    // Handle BFCache restores, history navigation and visibility changes
+    window.addEventListener('pageshow', resetTransientState);
+    window.addEventListener('popstate', resetTransientState);
+    document.addEventListener('visibilitychange', resetTransientState);
+    return () => {
+      window.removeEventListener('pageshow', resetTransientState);
+      window.removeEventListener('popstate', resetTransientState);
+      document.removeEventListener('visibilitychange', resetTransientState);
+    };
+  }, []);
   
   if (!addon) {
     return null; // Don't render if addon not found
   }
+  
   
   const handlePurchase = async () => {
     try {
@@ -99,8 +130,7 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
     }
   };
   
-  // Determine if this addon is already owned
-  const isOwned = user?.addon_plan_ids?.includes(addonId);
+ 
   
   // Render pending purchase notification
   const renderPendingPurchaseNotification = () => {
@@ -152,14 +182,14 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
           <div className="flex items-center justify-between mb-4">
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
               ${addon.price.toFixed(2)}
-              {addon.addon_type === 'Additional Messages' && quantity > 1 && (
+              {addon.name !== 'White-Labeling' && addon.name !== 'Multilingual Support' && quantity > 1 && (
                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-1">
                   × {quantity} = ${(addon.price * quantity).toFixed(2)}
                 </span>
               )}
             </div>
             
-            {addon.addon_type === 'Additional Messages' && (
+            {addon.name !== 'White-Labeling' && addon.name !== 'Multilingual Support' && (
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -185,7 +215,7 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
           {/* Show a note about addon type */}
           <div className="flex items-start text-xs text-gray-500 dark:text-gray-400">
             <Info size={16} className="flex-shrink-0 mr-1.5 mt-0.5" />
-            {addon.addon_type === 'Additional Messages' ? (
+            {addon.name === 'Additional Messages' ? (
               <p>This add-on provides additional message credits that can be used until exhausted.</p>
             ) : (
               <p>This add-on will be active until your current subscription period ends.</p>
@@ -194,7 +224,7 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
         </div>
         
         {/* Owned badge */}
-        {isOwned && (
+        {isRestrictedAddon  && isOwned && (
           <div className="mt-4 flex items-center text-green-600 dark:text-green-400">
             <CheckCircle className="w-5 h-5 mr-2" />
             <span>Already purchased</span>
@@ -228,20 +258,20 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
           ) : (
             <button
               onClick={handlePurchase}
-              disabled={processing || isOwned || hasPendingPurchase}
+              disabled={(isRestrictedAddon && isOwned) || (isRestrictedAddon && hasPendingPurchase) || (isRestrictedAddon && processing)}
               className={`w-full py-2 px-4 rounded-md font-medium ${
-                isOwned
+                (isRestrictedAddon && isOwned)
                   ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                  : hasPendingPurchase
+                  : (isRestrictedAddon && hasPendingPurchase)
                   ? 'bg-yellow-500 text-white cursor-default'
                   : processing
                   ? 'bg-blue-400 text-white cursor-wait'
                   : 'bg-blue-500 hover:bg-blue-600 text-white'
               } transition-colors`}
             >
-              {isOwned ? (
+              {(isRestrictedAddon && isOwned) ? (
                 'Already Purchased'
-              ) : hasPendingPurchase ? (
+              ) : (isRestrictedAddon && hasPendingPurchase) ? (
                 'Pending Purchase'
               ) : processing ? (
                 <span className="flex items-center justify-center">

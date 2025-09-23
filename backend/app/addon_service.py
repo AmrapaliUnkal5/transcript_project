@@ -49,7 +49,7 @@ class AddonService:
         return db.query(addon_query.exists()).scalar()
     
     @staticmethod
-    def purchase_addon(db: Session, user_id: int, addon_id: int) -> UserAddon:
+    def purchase_addon(db: Session, user_id: int, addon_id: int, quantity: int = 1) -> List[UserAddon]:
         """
         Process the purchase of an add-on for a user
         
@@ -61,6 +61,7 @@ class AddonService:
         Returns:
             The created UserAddon record
         """
+        print("Database reached here")
         # Get addon details
         addon = db.query(Addon).filter(Addon.id == addon_id).first()
         if not addon:
@@ -83,37 +84,33 @@ class AddonService:
         # Determine expiry date based on addon type
         current_time = datetime.now()
         
-        if addon.is_recurring:
-            # Recurring addons expire with the subscription billing cycle
-            expiry_date = subscription.expiry_date
-        else:
-            # One-time addons - special handling based on type
-            if addon.addon_type == "Additional Messages":
-                # Set a far future date (5 years) as messages add-on doesn't expire with billing cycle
-                expiry_date = current_time + timedelta(days=5*365)
-            else:
-                # Other one-time addons expire with the subscription
-                expiry_date = subscription.expiry_date
+        # All addons should expire with the user's current subscription end date
+        # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
+        expiry_date = None if addon.id == 3 else subscription.expiry_date
         
-        # Create new user addon record
-        user_addon = UserAddon(
-            user_id=user_id,
-            addon_id=addon_id,
-            subscription_id=subscription.id,
-            purchase_date=current_time,
-            expiry_date=expiry_date,
-            is_active=True,
-            auto_renew=addon.is_recurring,
-            status="active",
-            initial_count=addon.additional_message_limit or 0,
-            remaining_count=addon.additional_message_limit or 0
-        )
-        
-        db.add(user_addon)
+        # Create as many rows as requested by quantity
+        created_addons: List[UserAddon] = []
+        rows_to_create = max(int(quantity), 1)
+        for _ in range(rows_to_create):
+            user_addon = UserAddon(
+                user_id=user_id,
+                addon_id=addon_id,
+                subscription_id=subscription.id,
+                purchase_date=current_time,
+                expiry_date=expiry_date,
+                is_active=True,
+                auto_renew=addon.is_recurring,
+                status="active",
+                initial_count=addon.additional_message_limit or 0,
+                remaining_count=addon.additional_message_limit or 0
+            )
+            db.add(user_addon)
+            created_addons.append(user_addon)
+        print("Database Updated - created", len(created_addons), "rows")
         db.commit()
-        db.refresh(user_addon)
-        
-        return user_addon
+        for ua in created_addons:
+            db.refresh(ua)
+        return created_addons
     
     @staticmethod
     def get_addon_checkout_url(db: Session, user_id: int, addon_id: int, quantity: int = 1) -> str:
@@ -194,10 +191,12 @@ class AddonService:
             print(f"Processing recurring addon: {addon.name}")
             # For recurring addons, we need to use subscription modification
             # Note: updatesubscription endpoint doesn't need user_data since it's modifying existing subscription
+            # Use additive mode for standalone recurring addon purchases so Zoho charges only the delta
             checkout_url = zoho_service.get_recurring_addon_hosted_page_url(
                 subscription_id=subscription.zoho_subscription_id,
                 addon_code=addon.zoho_addon_code,
-                quantity=quantity
+                quantity=quantity,
+                mode="addon_purchase"
             )
         else:
             print(f"Processing one-time addon: {addon.name}")
@@ -239,13 +238,9 @@ class AddonService:
         try:
             current_time = datetime.now()
             
-            # Determine expiry date based on addon type
-            if addon.addon_type == "Additional Messages":
-                # Set a far future date for lifetime add-ons
-                addon_expiry = current_time + timedelta(days=5*365)
-            else:
-                # Other one-time addons expire with the subscription
-                addon_expiry = subscription.expiry_date
+            # All addons should expire with the user's current subscription end date
+            # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
+            addon_expiry = None if addon.id == 3 else subscription.expiry_date
             
             # Check if there's already a pending record for this addon
             existing_pending = db.query(UserAddon).filter(

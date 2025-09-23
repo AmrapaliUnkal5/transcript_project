@@ -38,7 +38,7 @@ async def get_user_addons(
     return user_addons
 
 # Purchase an add-on
-@router.post("/purchase", response_model=UserAddonOut)
+@router.post("/purchase", response_model=List[UserAddonOut])
 async def purchase_addon(
     request: PurchaseAddonRequest,
     db: Session = Depends(get_db),
@@ -46,12 +46,13 @@ async def purchase_addon(
 ):
     """Purchase an add-on for the current user"""
     try:
-        user_addon = AddonService.purchase_addon(
+        user_addons = AddonService.purchase_addon(
             db=db,
             user_id=current_user["user_id"],
-            addon_id=request.addon_id
+            addon_id=request.addon_id,
+            quantity=request.quantity or 1
         )
-        return user_addon
+        return user_addons
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -259,7 +260,7 @@ def get_user_addon_status(user_id: int, db: Session = Depends(get_db)):
     # Get latest active addon for this user (order by purchase_date desc)
     latest_addon = (
         db.query(UserAddon)
-        .filter(UserAddon.user_id == user_id, UserAddon.is_active == True)
+        .filter(UserAddon.user_id == user_id)
         .order_by(UserAddon.purchase_date.desc())
         .first()
     )

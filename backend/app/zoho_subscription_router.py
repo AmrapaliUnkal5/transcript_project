@@ -104,6 +104,7 @@ async def create_subscription_checkout(
 ):
     """Create a Zoho subscription checkout URL"""
     try:
+        print("checkout is called !!!")
         # Get plan details
         plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == request.plan_id).first()
         if not plan:
@@ -147,6 +148,7 @@ async def create_subscription_checkout(
             )
 
         # Log the attempt to create checkout
+        print("Reached here")
         logger.info(f"Creating subscription checkout for plan {plan.name} (ID: {plan.id}) for user {user_id}")
 
         # Make sure we have the plan code
@@ -202,12 +204,13 @@ async def create_subscription_checkout(
         created_temp_subscription = False
         # Store temporary subscription information - this will be updated when webhook is received
         try:
+            
             # Check if there's an existing temporary subscription
             existing_temp_sub = db.query(UserSubscription).filter(
                 UserSubscription.user_id == user_id,
                 UserSubscription.status == "pending"
             ).first()
-            
+            print("existing_temp_sub=>",existing_temp_sub)
             if existing_temp_sub:
                 # Update the existing temporary subscription
                 existing_temp_sub.subscription_plan_id = plan.id
@@ -242,14 +245,14 @@ async def create_subscription_checkout(
             UserSubscription.user_id == user_id,
             UserSubscription.zoho_customer_id.isnot(None)
         ).first()
-        
+        print("existing_customer_subscription=>",existing_customer_subscription)
         # Check if user has an active subscription that can be updated
         active_subscription_for_update = db.query(UserSubscription).filter(
             UserSubscription.user_id == user_id,
             UserSubscription.status == "active",
             UserSubscription.zoho_subscription_id.isnot(None)
         ).order_by(UserSubscription.payment_date.desc()).first()
-        
+        print("active_subscription_for_update",active_subscription_for_update)
         logger.info(f"User {user_id} - Existing customer: {existing_customer_subscription.zoho_customer_id if existing_customer_subscription else 'None'}")
         logger.info(f"User {user_id} - Active subscription for update: {active_subscription_for_update.zoho_subscription_id if active_subscription_for_update else 'None'}")
         
@@ -264,19 +267,33 @@ async def create_subscription_checkout(
             if active_subscription_for_update.zoho_customer_id:
                 logger.info(f"Fetching customer details from Zoho for customer ID: {active_subscription_for_update.zoho_customer_id}")
                 customer_details = zoho_service.get_customer_details(active_subscription_for_update.zoho_customer_id)
-                
+                print("customer_details=>",customer_details)
                 if not customer_details:
                     logger.warning(f"Could not fetch customer details for customer ID: {active_subscription_for_update.zoho_customer_id}")
-            
+            state = request.billing_address.get("state") if request.billing_address else None
+            country = request.billing_address.get("country") if request.billing_address else None
+
+            should_apply_tax = (
+                country 
+                and country.lower() in ["india", "in", "ind"]  
+                and country 
+                and country.lower() not in ["rajasthan", "rj"]
+            )
             update_data = {
                 "plan": {
                     "plan_code": plan.zoho_plan_code,
-                    "quantity": 1
+                    "quantity": 1,
                 },
-                "redirect_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/",
+                #"redirect_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/",
+                "redirect_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/dashboard/welcome?payment=success",
                 "cancel_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/subscription",
             }
-            
+
+            # Apply tax_id only for India and non-Rajasthan states
+            if should_apply_tax:
+                update_data["plan"]["tax_id"] = os.getenv('ZOHO_TAX_ID')
+                update_data["plan"]["tax_exemption_code"] = ""
+
             # Include customer details if we successfully fetched them
             if customer_details:
                 logger.info("Including customer details in update subscription call")
@@ -311,8 +328,18 @@ async def create_subscription_checkout(
                 for code in addon_codes:
                     addon_counts[code] = addon_counts.get(code, 0) + 1
                 
-                update_data["addons"] = [
-                    {"addon_code": code, "quantity": count} 
+                # update_data["addons"] = [
+                #     {"addon_code": code, "quantity": count} 
+                #     for code, count in addon_counts.items()
+                # ]
+
+                update_data["addons"]=[
+                    {
+                        "addon_code": code, 
+                        "quantity": count,
+                        # Apply tax to each addon if needed
+                        **({"tax_id": os.getenv('ZOHO_TAX_ID'), "tax_exemption_code": ""} if should_apply_tax else {})
+                    } 
                     for code, count in addon_counts.items()
                 ]
                 
@@ -369,6 +396,11 @@ async def create_subscription_checkout(
         except:
             pass
         raise HTTPException(status_code=500, detail=f"Error creating subscription checkout: {error_msg}")
+    
+@router.post("/zoho/webhook_addon_test")
+async def webhook_addon_test(request: Request):
+    return {"status": "ok"}
+
 
 # Webhook endpoint to handle Zoho subscription events
 @router.post("/webhook")
@@ -1203,30 +1235,131 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
     webhook_logger.info(f"📦 SUBSCRIPTION WEBHOOK: Processing active subscription for user {user_id}")
     
     # Check if this subscription already exists
-    existing_subscription = db.query(UserSubscription).filter(
-        UserSubscription.zoho_subscription_id == zoho_subscription_id
-    ).first()
+    # existing_subscription = db.query(UserSubscription).filter(
+    #     UserSubscription.zoho_subscription_id == zoho_subscription_id
+    # ).first()
+
+    existing_subscription = (
+    db.query(UserSubscription)
+    .filter(UserSubscription.zoho_subscription_id == zoho_subscription_id)
+    .order_by(UserSubscription.payment_date.desc())
+    .first()
+)
+
     
+    print(f"BEFORE UPDATE - Subscription state: {existing_subscription.status if existing_subscription else 'Not found'}")
+    if existing_subscription:
+        print(" Details=>********************",
+            f"[DEBUG] Found subscription row: "
+            f"id={existing_subscription.id}, "
+            f"user_id={existing_subscription.user_id}, "
+            f"plan_id={existing_subscription.subscription_plan_id}, "
+            f"status={existing_subscription.status}, "
+            f"zoho_sub_id={existing_subscription.zoho_subscription_id}, "
+            f"zoho_cust_id={existing_subscription.zoho_customer_id}"
+        )
+    else:
+        print(f"[DEBUG] No subscription row found for zoho_sub_id={zoho_subscription_id}")
+
+
+
     # Check for pending subscription
     pending_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == user_id,
         UserSubscription.status == "pending"
     ).order_by(UserSubscription.created_at.desc()).first()
+
+    if pending_subscription:
+        print(" Details=>********************",
+            f"[DEBUG] Pending subscription row: "
+            f"id={pending_subscription.id}, "
+            f"user_id={pending_subscription.user_id}, "
+            f"plan_id={pending_subscription.subscription_plan_id}, "
+            f"status={pending_subscription.status}, "
+            f"zoho_sub_id={pending_subscription.zoho_subscription_id}, "
+            f"zoho_cust_id={pending_subscription.zoho_customer_id}, "
+            f"created_at={pending_subscription.created_at}, "
+            f"updated_at={pending_subscription.updated_at}"
+        )
+    else:
+        print(f"[DEBUG] No pending subscription found for user_id={user_id}")
+
+
+
     
     # Check for active subscription (for upgrade scenarios)
     active_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == user_id,
         UserSubscription.status == "active"
     ).order_by(UserSubscription.payment_date.desc()).first()
+    if active_subscription:
+        print(" Details=>********************",
+            f"[DEBUG] Active subscription row: "
+            f"id={active_subscription.id}, "
+            f"user_id={active_subscription.user_id}, "
+            f"plan_id={active_subscription.subscription_plan_id}, "
+            f"status={active_subscription.status}, "
+            f"zoho_sub_id={active_subscription.zoho_subscription_id}, "
+            f"zoho_cust_id={active_subscription.zoho_customer_id}, "
+            f"payment_date={active_subscription.payment_date}"
+        )
+    else:
+        print(f"[DEBUG] No active subscription found for user_id={user_id}")
     
+    to_mark= db.query(UserSubscription).filter(
+        UserSubscription.user_id == user_id,
+        UserSubscription.status == "active"
+    ).order_by(UserSubscription.payment_date.desc()).offset(1).first()
+
+    if to_mark:
+        print(" Details=>********************",
+            f"[DEBUG] to_mark subscription row: "
+            f"id={to_mark.id}, "
+            f"user_id={to_mark.user_id}, "
+            f"plan_id={to_mark.subscription_plan_id}, "
+            f"status={to_mark.status}, "
+            f"zoho_sub_id={to_mark.zoho_subscription_id}, "
+            f"zoho_cust_id={to_mark.zoho_customer_id}, "
+            f"payment_date={to_mark.payment_date}"
+        )
     # Extract invoice ID from subscription data
     invoice_id = subscription_data.get("child_invoice_id") or subscription_data.get("invoice_id")
     
     webhook_logger.info(f"🔍 SUBSCRIPTION WEBHOOK: Found - Existing: {existing_subscription is not None}, Pending: {pending_subscription is not None}, Active: {active_subscription is not None}")
-    
+    print("existing_subscription=>",existing_subscription)
+    if existing_subscription:
+        print(" Details=>********************",
+            f"[DEBUG] Found subscription row: "
+            f"id={existing_subscription.id}, "
+            f"user_id={existing_subscription.user_id}, "
+            f"plan_id={existing_subscription.subscription_plan_id}, "
+            f"status={existing_subscription.status}, "
+            f"zoho_sub_id={existing_subscription.zoho_subscription_id}, "
+            f"zoho_cust_id={existing_subscription.zoho_customer_id}"
+        )
+    else:
+        print(f"[DEBUG] No subscription row found for zoho_sub_id={zoho_subscription_id}")
+
+    print("pending_subscription=>",pending_subscription)
+    if pending_subscription:
+        print(" Details=>********************",
+            f"[DEBUG] Pending subscription row: "
+            f"id={pending_subscription.id}, "
+            f"user_id={pending_subscription.user_id}, "
+            f"plan_id={pending_subscription.subscription_plan_id}, "
+            f"status={pending_subscription.status}, "
+            f"zoho_sub_id={pending_subscription.zoho_subscription_id}, "
+            f"zoho_cust_id={pending_subscription.zoho_customer_id}, "
+            f"created_at={pending_subscription.created_at}, "
+            f"updated_at={pending_subscription.updated_at}"
+        )
+    else:
+        print(f"[DEBUG] No pending subscription found for user_id={user_id}")
     # Handle upgrade scenario: existing active subscription + pending subscription + different plans
     if existing_subscription and pending_subscription and existing_subscription.id != pending_subscription.id:
+        print("This block of bigger loop is executed")
         if existing_subscription.subscription_plan_id != pending_subscription.subscription_plan_id:
+            print("This block inside of bigger loop is executed")
             # UPGRADE CASE: User upgraded their plan
             webhook_logger.info(f"🔄 SUBSCRIPTION WEBHOOK: Upgrade detected - activating new plan", extra={
                 "user_id": user_id,
@@ -1240,7 +1373,8 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
             pending_subscription.status = "active"
             pending_subscription.zoho_subscription_id = zoho_subscription_id
             pending_subscription.zoho_customer_id = zoho_customer_id
-            pending_subscription.payment_date = payment_date
+            print("payment_date=>",payment_date)
+            pending_subscription.payment_date = datetime.now()
             pending_subscription.expiry_date = expiry_date
             pending_subscription.amount = amount
             pending_subscription.currency = currency_code
@@ -1255,8 +1389,10 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
             existing_subscription.notes = f"Upgraded to plan {plan.name} (subscription ID: {pending_subscription.id})"
             
             subscription_record = pending_subscription
+            db.commit()
             webhook_logger.info(f"✅ SUBSCRIPTION WEBHOOK: Plan upgrade completed - old: {existing_subscription.id}, new: {pending_subscription.id}")
         else:
+            print("This block else of bigger loop is executed")
             # Same plan, just update existing
             existing_subscription.status = "active"
             existing_subscription.payment_date = payment_date
@@ -1269,9 +1405,11 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
                 existing_subscription.zoho_invoice_id = invoice_id
             
             subscription_record = existing_subscription
+            db.commit()
             webhook_logger.info(f"🔄 SUBSCRIPTION WEBHOOK: Updated existing subscription {existing_subscription.id}")
             
     elif existing_subscription:
+        print("This block is getting executed existing_subscription")
         # Update existing subscription (renewal or update)
         existing_subscription.status = "active"
         existing_subscription.payment_date = payment_date
@@ -1280,13 +1418,31 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
         existing_subscription.currency = currency_code
         existing_subscription.updated_at = datetime.now()
         existing_subscription.notes = "Updated via subscription webhook"
+         # Mark the old subscription as upgraded
+        # to_mark.status = "upgraded"
+        # to_mark.updated_at = datetime.now()
+        if to_mark:
+            print(f"[DEBUG] Updating to_mark subscription {to_mark.id} to 'upgraded'")
+            to_mark.status = "upgraded"
+            to_mark.updated_at = datetime.now()
+            to_mark.notes = f"Upgraded to plan {plan.name}"
+            print(f"[DEBUG] to_mark updated - status: {to_mark.status}")
         if invoice_id:
             existing_subscription.zoho_invoice_id = invoice_id
         
         subscription_record = existing_subscription
+        
+       # to_mark.notes = f"Upgraded to plan {plan.name} (subscription ID: {pending_subscription.id})"
+        db.commit()
+        #db.refresh()
+
+        
+       
+        
         webhook_logger.info(f"🔄 SUBSCRIPTION WEBHOOK: Updated existing subscription {existing_subscription.id}")
         
     elif pending_subscription:
+        print("This block is getting executed pending_subscription")
         # Activate pending subscription (first-time or new subscription)
         pending_subscription.status = "active"
         pending_subscription.zoho_subscription_id = zoho_subscription_id
@@ -1302,9 +1458,11 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
             pending_subscription.zoho_invoice_id = invoice_id
         
         subscription_record = pending_subscription
+        db.commit()
         webhook_logger.info(f"✅ SUBSCRIPTION WEBHOOK: Activated pending subscription {pending_subscription.id}")
         
     else:
+        print("This block is getting executed else block")
         # Create new subscription (no existing or pending found)
         new_subscription = UserSubscription(
             user_id=user_id,
@@ -1329,6 +1487,7 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
     
     # Process addons from the rich subscription data
     addons_processed = 0
+    print("Addon logic reached here")
     if addons_data:
         webhook_logger.info(f"🔌 SUBSCRIPTION WEBHOOK: Processing {len(addons_data)} addons")
         
@@ -1355,49 +1514,83 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
                 webhook_logger.warning(f"⚠️ SUBSCRIPTION WEBHOOK: Addon with code {addon_code} not found in database")
                 continue
             
-            # Check if user already has this addon
-            existing_addon = db.query(UserAddon).filter(
+            # Fetch all existing active/pending rows for idempotent sync
+            existing_rows = db.query(UserAddon).filter(
                 UserAddon.user_id == user_id,
                 UserAddon.addon_id == addon.id,
                 UserAddon.status.in_(["active", "pending"])
-            ).order_by(UserAddon.created_at.desc()).first()
+            ).order_by(UserAddon.purchase_date.asc()).all()
             
-            # Determine expiry date based on addon type
-            if addon.addon_type == "Additional Messages":
-                addon_expiry = payment_date + timedelta(days=5*365)  # Lifetime addon
+            # All addons should expire with the user's current subscription end date
+            # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
+            addon_expiry = None if addon.id == 3 else expiry_date
+            
+            created_rows = 0
+            desired_count = max(int(addon_quantity), 1)
+            current_count = len(existing_rows)
+
+            # If we have more rows than desired, deactivate the extras (oldest first)
+            if current_count > desired_count:
+                to_deactivate = current_count - desired_count
+                for row in existing_rows[:to_deactivate]:
+                    row.is_active = False
+                    row.status = "cancelled"
+                    row.updated_at = datetime.now()
+                # Keep the newest desired_count rows up-to-date
+                kept_rows = existing_rows[to_deactivate:]
+                for row in kept_rows:
+                    row.status = "active"
+                    row.is_active = True
+                    row.subscription_id = subscription_record.id
+                    row.purchase_date = payment_date
+                    row.expiry_date = addon_expiry
+                    row.zoho_addon_instance_id = addon_instance_id
+                    row.updated_at = datetime.now()
+                created_rows += 0
+                webhook_logger.info(f"🔄 SUBSCRIPTION WEBHOOK: Normalized addon rows from {current_count} to {desired_count} for user {user_id}")
+
+            # If we have fewer rows than desired, update existing and create the missing ones
+            elif current_count < desired_count:
+                for row in existing_rows:
+                    row.status = "active"
+                    row.is_active = True
+                    row.subscription_id = subscription_record.id
+                    row.purchase_date = payment_date
+                    row.expiry_date = addon_expiry
+                    row.zoho_addon_instance_id = addon_instance_id
+                    row.updated_at = datetime.now()
+                to_create = desired_count - current_count
+                for _ in range(to_create):
+                    new_row = UserAddon(
+                        user_id=user_id,
+                        addon_id=addon.id,
+                        subscription_id=subscription_record.id,
+                        purchase_date=payment_date,
+                        expiry_date=addon_expiry,
+                        is_active=True,
+                        auto_renew=addon.is_recurring,
+                        status="active",
+                        zoho_addon_instance_id=addon_instance_id,
+                        initial_count=addon.additional_message_limit or 0,
+                        remaining_count=addon.additional_message_limit or 0
+                    )
+                    db.add(new_row)
+                    created_rows += 1
+                webhook_logger.info(f"🆕 SUBSCRIPTION WEBHOOK: Added {to_create} addon row(s) to reach desired count {desired_count} for user {user_id}")
+
+            # If counts match, just ensure existing rows are updated
             else:
-                addon_expiry = expiry_date  # Expires with subscription
-            
-            if existing_addon:
-                # Update existing addon
-                existing_addon.status = "active"
-                existing_addon.is_active = True
-                existing_addon.subscription_id = subscription_record.id
-                existing_addon.purchase_date = payment_date
-                existing_addon.expiry_date = addon_expiry
-                existing_addon.zoho_addon_instance_id = addon_instance_id
-                existing_addon.updated_at = datetime.now()
-                webhook_logger.info(f"🔄 SUBSCRIPTION WEBHOOK: Updated existing addon {addon.name} for user {user_id}")
-            else:
-                # Create new addon
-                user_addon = UserAddon(
-                    user_id=user_id,
-                    addon_id=addon.id,
-                    subscription_id=subscription_record.id,
-                    purchase_date=payment_date,
-                    expiry_date=addon_expiry,
-                    is_active=True,
-                    auto_renew=addon.is_recurring,
-                    status="active",
-                    zoho_addon_instance_id=addon_instance_id,
-                    initial_count=addon.additional_message_limit or 0,
-                    remaining_count=addon.additional_message_limit or 0
-                )
-                
-                db.add(user_addon)
-                webhook_logger.info(f"🆕 SUBSCRIPTION WEBHOOK: Created new addon {addon.name} for user {user_id}")
-            
-            addons_processed += 1
+                for row in existing_rows:
+                    row.status = "active"
+                    row.is_active = True
+                    row.subscription_id = subscription_record.id
+                    row.purchase_date = payment_date
+                    row.expiry_date = addon_expiry
+                    row.zoho_addon_instance_id = addon_instance_id
+                    row.updated_at = datetime.now()
+                webhook_logger.info(f"ℹ️ SUBSCRIPTION WEBHOOK: Addon rows already at desired count {desired_count} for user {user_id}")
+
+            addons_processed += created_rows
     
     # Commit all changes
     db.commit()
@@ -1551,13 +1744,9 @@ async def handle_subscription_created(payload: Dict[str, Any], db: Session):
                     logger.warning(f"Could not find add-on with code {addon_code} in database")
                     continue
                 
-                # Determine expiry date based on addon type
-                addon_expiry = expiry_date  # Default: expires with subscription
-                
-                # Special case for lifetime addons (like Additional Messages)
-                if addon.addon_type == "Additional Messages":
-                    # Set a far future date for lifetime add-ons
-                    addon_expiry = payment_date + timedelta(days=5*365)
+                # All addons should expire with the user's current subscription end date
+                # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
+                addon_expiry = None if addon.id == 3 else expiry_date
                 
                 # Create UserAddon record
                 user_addon = UserAddon(
@@ -1626,6 +1815,7 @@ async def handle_subscription_cancelled(payload: Dict[str, Any], db: Session):
 
 # Helper function to create fresh token with updated user data
 def create_fresh_user_token(db: Session, user_id: int):
+    print("create_fresh_user_token block is reached")
     """
     Create a fresh JWT token with the latest user data from the database
     """
@@ -1650,10 +1840,10 @@ def create_fresh_user_token(db: Session, user_id: int):
     
     addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
     
-    # Get message addon (ID 5) details if exists
+    # Get message addon (ID 3) details if exists
     message_addon = db.query(UserAddon).filter(
         UserAddon.user_id == user_id,
-        UserAddon.addon_id == 5,
+        UserAddon.addon_id == 3,
         UserAddon.is_active == True
     ).order_by(UserAddon.expiry_date.desc()).first()
     
@@ -1742,13 +1932,9 @@ async def handle_subscription_renewed(payload: Dict[str, Any], db: Session):
                 existing_addon.is_active = True
                 existing_addon.status = "active"
                 
-                # Determine expiry date based on addon type
-                if addon.addon_type == "Additional Messages":
-                    # Don't update expiry for lifetime add-ons
-                    pass
-                else:
-                    # One-time add-ons expire with the subscription
-                    existing_addon.expiry_date = expiry_date
+                # All addons should expire with the user's current subscription end date
+                # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
+                existing_addon.expiry_date = None if addon.id == 3 else expiry_date
                 
                 existing_addon.updated_at = datetime.now()
                 logger.info(f"Updated existing add-on {addon.name} (ID: {addon.id}) for user {subscription.user_id}")
@@ -2137,48 +2323,70 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
             webhook_logger.info(f"🔌 ADDON PAYMENT: Processing addon {addon.name} (code: {addon_code}) for user {user_id}")
             
             # Check if user already has this addon (active or pending)
-            existing_addon = db.query(UserAddon).filter(
+            # Normalize rows for this addon to exactly the quantity paid for
+            existing_rows = db.query(UserAddon).filter(
                 UserAddon.user_id == user_id,
                 UserAddon.addon_id == addon.id,
                 UserAddon.status.in_(["active", "pending"])
-            ).order_by(UserAddon.created_at.desc()).first()
+            ).order_by(UserAddon.purchase_date.asc()).all()
             
             current_time = datetime.now()
             
-            # Determine expiry date based on addon type
-            if addon.addon_type == "Additional Messages":
-                # Set a far future date for lifetime add-ons
-                addon_expiry = current_time + timedelta(days=5*365)
-            else:
-                # Other one-time addons expire with the subscription
-                addon_expiry = subscription.expiry_date
+            # All addons should expire with the user's current subscription end date
+            # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
+            addon_expiry = None if addon.id == 3 else subscription.expiry_date
             
-            if existing_addon:
-                # Update existing addon
-                existing_addon.status = "active"
-                existing_addon.is_active = True
-                existing_addon.purchase_date = current_time
-                existing_addon.expiry_date = addon_expiry
-                existing_addon.updated_at = current_time
-                webhook_logger.info(f"🔄 ADDON PAYMENT: Updated existing addon {addon.name} for user {user_id}")
+            created_rows = 0
+            desired_count = max(int(quantity), 1)
+            current_count = len(existing_rows)
+
+            if current_count > desired_count:
+                to_deactivate = current_count - desired_count
+                for row in existing_rows[:to_deactivate]:
+                    row.is_active = False
+                    row.status = "cancelled"
+                    row.updated_at = current_time
+                kept = existing_rows[to_deactivate:]
+                for row in kept:
+                    row.status = "active"
+                    row.is_active = True
+                    row.purchase_date = current_time
+                    row.expiry_date = addon_expiry
+                    row.updated_at = current_time
+                webhook_logger.info(f"🔄 ADDON PAYMENT: Normalized addon rows from {current_count} to {desired_count} for user {user_id}")
+            elif current_count < desired_count:
+                for row in existing_rows:
+                    row.status = "active"
+                    row.is_active = True
+                    row.purchase_date = current_time
+                    row.expiry_date = addon_expiry
+                    row.updated_at = current_time
+                to_create = desired_count - current_count
+                for _ in range(to_create):
+                    new_row = UserAddon(
+                        user_id=user_id,
+                        addon_id=addon.id,
+                        subscription_id=subscription.id,
+                        purchase_date=current_time,
+                        expiry_date=addon_expiry,
+                        is_active=True,
+                        auto_renew=addon.is_recurring,
+                        status="active",
+                        initial_count=addon.additional_message_limit or 0,
+                        remaining_count=addon.additional_message_limit or 0
+                    )
+                    db.add(new_row)
+                    created_rows += 1
+                webhook_logger.info(f"🆕 ADDON PAYMENT: Added {to_create} addon row(s) to reach desired count {desired_count} for user {user_id}")
             else:
-                # Create new UserAddon record
-                user_addon = UserAddon(
-                    user_id=user_id,
-                    addon_id=addon.id,
-                    subscription_id=subscription.id,
-                    purchase_date=current_time,
-                    expiry_date=addon_expiry,
-                    is_active=True,
-                    auto_renew=addon.is_recurring,
-                    status="active",
-                    initial_count=addon.additional_message_limit or 0,
-                    remaining_count=addon.additional_message_limit or 0
-                )
-                
-                db.add(user_addon)
-                addons_created += 1
-                webhook_logger.info(f"🆕 ADDON PAYMENT: Created new addon {addon.name} for user {user_id}")
+                for row in existing_rows:
+                    row.status = "active"
+                    row.is_active = True
+                    row.purchase_date = current_time
+                    row.expiry_date = addon_expiry
+                    row.updated_at = current_time
+                webhook_logger.info(f"ℹ️ ADDON PAYMENT: Addon rows already at desired count {desired_count} for user {user_id}")
+            addons_created += created_rows
         
         # Handle upgrade transactions (separate addon purchases without line items)
         if upgrade_invoices and addons_created == 0:
@@ -2210,10 +2418,8 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
                 if matching_addon:
                     # Create addon record
                     current_time = datetime.now()
-                    if matching_addon.addon_type == "Additional Messages":
-                        addon_expiry = current_time + timedelta(days=5*365)
-                    else:
-                        addon_expiry = subscription.expiry_date
+                    # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
+                    addon_expiry = None if matching_addon.id == 3 else subscription.expiry_date
                     
                     # Check for existing addon
                     existing_addon = db.query(UserAddon).filter(
@@ -2485,7 +2691,7 @@ async def resume_checkout(
                     "plan_code": plan.zoho_plan_code,
                     "quantity": 1
                 },
-                "redirect_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/",
+                "redirect_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/dashboard/welcome?payment=success",
                 "cancel_url": f"{os.getenv('FRONTEND_URL', 'https://evolra.ai')}/subscription",
             }
             

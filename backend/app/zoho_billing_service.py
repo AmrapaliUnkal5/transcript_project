@@ -393,7 +393,7 @@ class ZohoBillingService:
             if response_data.get('code') == 0 and response_data.get('hostedpage'):
                 hosted_page_data = response_data.get('hostedpage', {})
                 hosted_page_url = hosted_page_data.get('url', '')
-                
+                print("Hosted Page URL New =>",hosted_page_url)
                 logger.info(f"Checkout URL generated: {hosted_page_url}")
                 
                 if not hosted_page_url:
@@ -421,7 +421,7 @@ class ZohoBillingService:
             logger.error(f"Error creating hosted page for subscription: {str(e)}")
             raise
     
-    def get_recurring_addon_hosted_page_url(self, subscription_id: str, addon_code: str, quantity: int = 1) -> str:
+    def get_recurring_addon_hosted_page_url(self, subscription_id: str, addon_code: str, quantity: int = 1, mode: str = "subscription_update") -> str:
         """
         Get a hosted page URL for adding a recurring addon to an existing subscription
         
@@ -442,15 +442,59 @@ class ZohoBillingService:
             # For recurring addons, we use the updatesubscription hosted page
             # This allows adding addons that will renew with the subscription
             # Note: updatesubscription endpoint doesn't need customer data since it's modifying existing subscription
+            # If this call represents a standalone recurring addon purchase (not a plan update),
+            # we should treat the requested quantity as an increment over existing quantity to avoid
+            # triggering a perceived downgrade when users later buy fewer units.
+            effective_quantity = quantity
+            if (mode or "").lower() == "addon_purchase":
+                try:
+                    current_details = self.get_subscription_details(subscription_id)
+                    current_quantity = 0
+                    subscription_obj = (current_details or {}).get("subscription") or {}
+                    for item in subscription_obj.get("addons", []) or []:
+                        if item.get("addon_code") == addon_code:
+                            # Zoho returns quantity per add-on instance
+                            current_quantity = int(item.get("quantity", 0) or 0)
+                            break
+                    # Additive quantity so Zoho charges only the delta at checkout
+                    effective_quantity = max(1, int(current_quantity) + int(quantity))
+                except Exception as _e:
+                    # Fallback to requested quantity if anything fails
+                    effective_quantity = quantity
+
+            # Build addons list preserving existing recurring addons to avoid Zoho issuing credits
+            existing_addons: List[Dict[str, Any]] = []
+            try:
+                current_details = self.get_subscription_details(subscription_id)
+                subscription_obj = (current_details or {}).get("subscription") or {}
+                for item in subscription_obj.get("addons", []) or []:
+                    code = item.get("addon_code")
+                    qty = int(item.get("quantity", 0) or 0)
+                    if code and qty > 0:
+                        existing_addons.append({"addon_code": code, "quantity": qty})
+            except Exception as _e:
+                # If fetching fails, proceed with minimal payload; Zoho may replace list, but we already handled effective quantity
+                existing_addons = []
+
+            # Merge or add the requested addon
+            updated = False
+            for entry in existing_addons:
+                if entry.get("addon_code") == addon_code:
+                    entry["quantity"] = int(effective_quantity)
+                    updated = True
+                    break
+            if not updated:
+                existing_addons.append({
+                    "addon_code": addon_code,
+                    "quantity": int(effective_quantity)
+                })
+
             payload = {
                 "subscription_id": subscription_id,
-                "addons": [
-                    {
-                        "addon_code": addon_code,
-                        "quantity": quantity
-                    }
+                "addons": existing_addons if existing_addons else [
+                    {"addon_code": addon_code, "quantity": int(effective_quantity)}
                 ],
-                "redirect_url": f"{self.get_frontend_url()}/dashboard/welcome?payment=success",
+                "redirect_url": f"{self.get_frontend_url()}/dashboard/welcome?addonpayment=success",
                 "cancel_url": f"{self.get_frontend_url()}/account/add-ons"
             }
                 
@@ -731,7 +775,7 @@ class ZohoBillingService:
             if response_data.get('code') == 0 and response_data.get('hostedpage'):
                 hosted_page_data = response_data.get('hostedpage', {})
                 hosted_page_url = hosted_page_data.get('url', '')
-                
+                print("Update checkout url update=>",hosted_page_url)
                 logger.info(f"Update checkout URL generated: {hosted_page_url}")
                 
                 if not hosted_page_url:
@@ -1031,6 +1075,28 @@ class ZohoBillingService:
 
 
 
+    def get_subscription_details(self, subscription_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetch subscription details from Zoho. Used to read current addon quantities so that
+        standalone recurring addon purchases can set additive quantities and avoid downgrade flags.
+        """
+        try:
+            url = f"{self.base_url}/subscriptions/{subscription_id}"
+            headers = self._get_headers()
+            response = requests.get(url, headers=headers)
+
+            if response.status_code == 401:
+                headers = self._get_headers(force_refresh=True)
+                response = requests.get(url, headers=headers)
+
+            response.raise_for_status()
+            data = response.json()
+            # Expected top-level keys: code, subscription
+            return data
+        except Exception as e:
+            logger.error(f"Error fetching subscription details for {subscription_id}: {str(e)}")
+            return None
+
     def get_addon_hosted_page_url(self, subscription_id: str, addon_data: Dict[str, Any]) -> str:
         """
         Get a hosted page URL for buying a one-time addon for an existing subscription
@@ -1050,7 +1116,7 @@ class ZohoBillingService:
             # Get the USD price list ID from environment variables
             # Use USD price list to show all prices in USD globally
             price_list_id = os.getenv('ZOHO_USD_PRICE_LIST_ID') or os.getenv('ZOHO_PRICE_LIST_ID')
-            print(f"Price List ID (USD): {price_list_id}")
+            print(f"Pricebook ID (USD): {price_list_id}")
             
             # Prepare the payload according to Zoho API docs for buyonetimeaddon
             payload = {
@@ -1064,15 +1130,15 @@ class ZohoBillingService:
             if addon_data.get("cancel_url"):
                 payload["cancel_url"] = addon_data["cancel_url"]
             
-            # Add price list ID if available - this is often required for buyonetimeaddon
+            # Add pricebook_id if available - this is often required for buyonetimeaddon
             if price_list_id:
-                payload["price_list_id"] = price_list_id
-                print(f"Added USD price list ID to addon checkout payload: {price_list_id}")
-                logger.info(f"Using USD price list for addon checkout: {price_list_id}")
+                payload["pricebook_id"] = price_list_id
+                print(f"Added USD pricebook_id to addon checkout payload: {price_list_id}")
+                logger.info(f"Using USD pricebook for addon checkout: {price_list_id}")
             else:
                 print("WARNING: ZOHO_USD_PRICE_LIST_ID not set in environment variables")
-                # For buyonetimeaddon, price_list_id might be required
-                logger.warning("USD price list ID is missing - addon prices might display in base currency (INR) instead of USD")
+                # For buyonetimeaddon, pricebook_id might be required
+                logger.warning("USD pricebook_id is missing - addon prices might display in base currency (INR) instead of USD")
             
             # Add customer information if provided - required for standalone addon purchases
             if "customer" in addon_data and addon_data["customer"]:
@@ -1201,7 +1267,7 @@ def format_subscription_data_for_hosted_page(
     print(f"Plan Code: {plan_code}")
     print(f"Addon Codes (received): {addon_codes}")
     print(f"Existing Customer ID: {existing_customer_id}")
-    print(f"Price List ID: {price_list_id}")
+    print(f"Pricebook ID: {price_list_id}")
     print(f"Billing Address: {billing_address}")
     print(f"Shipping Address: {shipping_address}")
     print(f"GSTIN: {gstin}")
@@ -1211,11 +1277,20 @@ def format_subscription_data_for_hosted_page(
     elif len(addon_codes) == 0:
         print("WARNING: Empty addon_codes list was provided")
     
-    # Create the basic subscription data structure according to Zoho API docs
+    billing_state = billing_address.get('state') if billing_address else None
+    billing_country = billing_address.get('country') if billing_address else None
+
+    should_apply_tax = (
+        billing_country 
+        and billing_country.lower() in ["india", "in", "ind"]  
+        and billing_state 
+        and billing_state.lower() not in ["rajasthan", "rj"]
+    )
+    
     subscription_data = {
         "plan": {
             "plan_code": plan_code,
-            "quantity": 1  # Required by Zoho Billing
+            "quantity": 1,  # Required by Zoho Billing
         },
         "redirect_url": f"{frontend_url}/dashboard/welcome?payment=success",  # Redirect to dashboard after successful payment
         "cancel_url": f"{frontend_url}/subscription",  # Redirect back to subscription page if cancelled
@@ -1224,14 +1299,49 @@ def format_subscription_data_for_hosted_page(
         "collect_shipping_address": True,  # Enable shipping address collection
         "auto_populate_address": False  # Prevent pre-filling with default addresses
     }
-    
+   
+    # Apply tax only if country = India and state != Rajasthan
+    if should_apply_tax:
+        subscription_data["plan"]["tax_id"] = os.getenv('ZOHO_TAX_ID')
+        subscription_data["plan"]["tax_exemption_code"] = ""
+         
     # Handle customer data based on whether they're existing or new
     if existing_customer_id:
-        # For existing customers, just provide the customer ID to avoid duplicates
-        subscription_data["customer"] = {
-            "customer_id": existing_customer_id
+        # For existing customers, include ID and customer details so hosted page shows account info
+        customer_data = {
+            "customer_id": existing_customer_id,
+            "display_name": user_data.get("name", "") or (user_data.get("email", "").split("@")[0]),
+            "email": user_data.get("email", ""),
+            "mobile": user_data.get("phone_no", ""),
+            "company_name": user_data.get("company_name", "")
         }
-        print(f"Using existing customer ID: {existing_customer_id}")
+
+        if billing_address:
+            customer_data["billing_address"] = {
+                "attention": f"{billing_address.get('firstName', '')} {billing_address.get('lastName', '')}".strip(),
+                "address": billing_address.get('address1', ''),
+                "street2": billing_address.get('address2', ''),
+                "city": billing_address.get('city', ''),
+                "state": billing_address.get('state', ''),
+                "zip": billing_address.get('zipCode', ''),
+                "country": billing_address.get('country', ''),
+                "fax": ""
+            }
+
+        if shipping_address:
+            customer_data["shipping_address"] = {
+                "attention": f"{shipping_address.get('firstName', '')} {shipping_address.get('lastName', '')}".strip(),
+                "address": shipping_address.get('address1', ''),
+                "street2": shipping_address.get('address2', ''),
+                "city": shipping_address.get('city', ''),
+                "state": shipping_address.get('state', ''),
+                "zip": shipping_address.get('zipCode', ''),
+                "country": shipping_address.get('country', ''),
+                "fax": ""
+            }
+
+        subscription_data["customer"] = customer_data
+        print(f"Using existing customer ID: {existing_customer_id} with customer details included")
     else:
         # For NEW customers, include basic contact info and address if provided
         customer_data = {
@@ -1282,17 +1392,16 @@ def format_subscription_data_for_hosted_page(
         subscription_data["customer"] = customer_data
         print("New customer - included address data for Zoho checkout")
     
-    # Add price list ID if available
+    # Add pricebook_id if available
     if price_list_id:
-        subscription_data["price_list_id"] = price_list_id
-        print(f"Added USD price list ID to checkout payload: {price_list_id}")
-        logger.info(f"Using USD price list for subscription checkout: {price_list_id}")
+        subscription_data["pricebook_id"] = price_list_id
+        print(f"Added USD pricebook_id to checkout payload: {price_list_id}")
+        logger.info(f"Using USD pricebook for subscription checkout: {price_list_id}")
     else:
         print("WARNING: ZOHO_USD_PRICE_LIST_ID not set in environment variables")
-        logger.warning("USD price list ID is missing - subscription prices might display in base currency (INR) instead of USD")
+        logger.warning("USD pricebook_id is missing - subscription prices might display in base currency (INR) instead of USD")
     
-
-    
+       
     # Add addons if provided
     if addon_codes and len(addon_codes) > 0:
         print(f"Adding addons to the checkout payload")
@@ -1303,8 +1412,18 @@ def format_subscription_data_for_hosted_page(
             addon_counts[code] = addon_counts.get(code, 0) + 1
         
         # Create the addons array with correct quantities
+        # subscription_data["addons"] = [
+        #     {"addon_code": code, "quantity": count} 
+        #     for code, count in addon_counts.items()
+        # ]
+
         subscription_data["addons"] = [
-            {"addon_code": code, "quantity": count} 
+            {
+                "addon_code": code, 
+                "quantity": count,
+                # Apply tax to each addon if needed
+                **({"tax_id": os.getenv('ZOHO_TAX_ID'), "tax_exemption_code": ""} if should_apply_tax else {})
+            } 
             for code, count in addon_counts.items()
         ]
         

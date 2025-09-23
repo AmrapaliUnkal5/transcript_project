@@ -190,4 +190,4 @@ def get_logger(name: str, extra: Optional[Dict[str, Any]] = None) -> logging.Log
 
 
 # Initialize logging when this module is imported
-setup_logging() 
+setup_logging()
