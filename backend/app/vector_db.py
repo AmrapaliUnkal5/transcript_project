@@ -19,8 +19,8 @@ import hashlib
 # Initialize logger
 logger = get_module_logger(__name__)
 
-#load_dotenv()
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
+load_dotenv()
+
 # Use settings object instead of direct environment access
 api_key = settings.OPENAI_API_KEY
 
