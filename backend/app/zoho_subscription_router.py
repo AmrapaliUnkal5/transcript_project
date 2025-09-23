@@ -291,7 +291,7 @@ async def create_subscription_checkout(
 
             # Apply tax_id only for India and non-Rajasthan states
             if should_apply_tax:
-                update_data["plan"]["tax_id"] = "2818287000000032409"
+                update_data["plan"]["tax_id"] = os.getenv('ZOHO_TAX_ID')
                 update_data["plan"]["tax_exemption_code"] = ""
 
             # Include customer details if we successfully fetched them
@@ -338,7 +338,7 @@ async def create_subscription_checkout(
                         "addon_code": code, 
                         "quantity": count,
                         # Apply tax to each addon if needed
-                        **({"tax_id": "2818287000000032409", "tax_exemption_code": ""} if should_apply_tax else {})
+                        **({"tax_id": os.getenv('ZOHO_TAX_ID'), "tax_exemption_code": ""} if should_apply_tax else {})
                     } 
                     for code, count in addon_counts.items()
                 ]
@@ -1355,8 +1355,6 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
         )
     else:
         print(f"[DEBUG] No pending subscription found for user_id={user_id}")
-    # print("bigger loop=>",existing_subscription and pending_subscription and existing_subscription.id != pending_subscription.id)
-    # print("inner loop=>",existing_subscription.subscription_plan_id != pending_subscription.subscription_plan_id)
     # Handle upgrade scenario: existing active subscription + pending subscription + different plans
     if existing_subscription and pending_subscription and existing_subscription.id != pending_subscription.id:
         print("This block of bigger loop is executed")
