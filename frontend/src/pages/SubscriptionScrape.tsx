@@ -438,6 +438,15 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+  return () => {
+    // Clear search and filter states when component unmounts
+    setSearchTerm("");
+    setScrapedSearchTerm("");
+    setScrapedStatusFilter("all");
+  };
+}, []);
+
   return (
     <div className="bg-white  p-6"
   style={{

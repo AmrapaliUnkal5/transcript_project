@@ -2031,6 +2031,9 @@ def monitor_bot_training_status(self, bot_id: int):
             if not bot:
                 db.close()
                 return
+            if bot.status == "Deleted":
+                db.close()
+                return
 
             # Compute current status using shared progress logic (async)
             try:
@@ -2049,6 +2052,11 @@ def monitor_bot_training_status(self, bot_id: int):
                 db.commit()
                 time.sleep(5)
                 continue
+
+            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+            if bot.status == "Deleted":
+                db.close()
+                return
 
             # Update bot status and send email if needed
             bot.is_trained = (overall_status == "Active")

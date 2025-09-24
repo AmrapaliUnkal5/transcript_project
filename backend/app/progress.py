@@ -152,8 +152,7 @@ async def compute_status(bot_id: int, db: Session):
 
     overall_status = determine_overall_status(file_status, website_status, youtube_status, bot)
     
-    if (bot.status != overall_status):
-        
+    if (bot.status != "Deleted" and bot.status != overall_status):
         bot.is_trained = (overall_status == "Active")
         bot.is_active = (overall_status == "Active")
         bot.status = overall_status

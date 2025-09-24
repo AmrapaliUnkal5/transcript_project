@@ -391,6 +391,15 @@ export const FileUpload = () => {
     }
   }, [activeTab, fetchYouTubeVideos]);
 
+  useEffect(() => {
+  // Clear search and filter states when tab changes
+  setSearchTerm("");
+  setStatusFilter("all");
+  setFileSearchTerm("");
+  setFileStatusFilter("all");
+
+}, [activeTab]);
+
   const handleFinish = async () => {
     try {
       const savedSelectedVideos = localStorage.getItem("selected_videos");

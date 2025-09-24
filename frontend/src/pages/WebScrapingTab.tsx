@@ -172,6 +172,24 @@ const resetInternalState = () => {
     }
   }, [onReset]);
 
+  useEffect(() => {
+    return () => {
+      // Clear search and filter states when component unmounts
+      setSearchTerm("");
+      setScrapedSearchTerm("");
+      setScrapedStatusFilter("all");
+    };
+  }, []);
+
+  // Add this useEffect to expose the refresh function to parent
+useEffect(() => {
+  if (setRefetchScrapedUrls) {
+    setRefetchScrapedUrls(() => fetchScrapedUrls);
+  }
+}, [fetchScrapedUrls, setRefetchScrapedUrls]);
+
+
+
     const handleDeleteClick = (url: string, wordCount: number) => {
   setUrlToDelete(url);
   setWordCountToDelete(wordCount); // Set the word count
