@@ -201,6 +201,8 @@ const [hasWebsiteContent, setHasWebsiteContent] = useState(false);
 const [hasYouTubeContent, setHasYouTubeContent] = useState(false);
 const isCreateBotFlow = location.pathname.includes('/dashboard/create-bot');
 const [hasScraped, setHasScraped] = useState(false);
+// Add state for the refresh function
+const [refetchScrapedUrls, setRefetchScrapedUrls] = useState<(() => void) | undefined>();
 
 useEffect(() => {
   const fetchBotLimits = async () => {
@@ -846,6 +848,10 @@ const handleDelete = async (id: string) => {
     toast.error("Please save your changes before going back");
     return;
   }
+  if (currentStep === 2 ) {
+    setHasScraped(false);
+  }
+
     if (currentStep === 0) {
       navigate("/",{ state: { botName,
         botId,
@@ -872,6 +878,12 @@ const handleDelete = async (id: string) => {
       setWebsiteUrl("");
       setHasWebChanges(false);
       setHasScraped(true);
+      // Refresh the scraped URLs table after a short delay
+      setTimeout(() => {
+        if (refetchScrapedUrls) {
+          refetchScrapedUrls();
+        }
+      }, 1000); // 1 second delay to allow backend to start processing
 
       
       toast.info("Your website content is being prepared. We'll notify you when it's ready.");
@@ -1432,6 +1444,7 @@ const renderStepContent = () => {
                     disableActions={true} 
                     disableActions2={hasScraped}
                     isCreateBotFlow={true}
+                    setRefetchScrapedUrls={setRefetchScrapedUrls}
                   />
                  <div className="flex justify-start mt-4">
                   {/* <button
