@@ -11,13 +11,14 @@ interface AddonPurchaseCardProps {
 }
 
 export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, className = '' }) => {
-  const { getAddonById, purchaseAddon } = useSubscriptionPlans();
+  const { getAddonById, purchaseAddon, addToCart, cart } = useSubscriptionPlans();
   const { user } = useAuth();
   const [quantity, setQuantity] = useState(1);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [requiresSubscription, setRequiresSubscription] = useState(false);
   const [hasPendingPurchase, setHasPendingPurchase] = useState(false);
+  const [addedToCart, setAddedToCart] = useState(false);
    // Determine if this addon is already owned
   const isOwned = user?.addon_plan_ids?.includes(addonId);
   const addon = getAddonById(addonId);
@@ -78,6 +79,8 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
   }
   
   
+  const isInCart = cart?.some((i) => i.addonId === addonId) || false;
+
   const handlePurchase = async () => {
     try {
       setProcessing(true);
@@ -127,6 +130,19 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
       setHasPendingPurchase(false);
     } catch (err: any) {
       setError(err.message || 'Failed to cancel purchase');
+    }
+  };
+
+  const handleAddToCart = () => {
+    try {
+      // For restricted addons, if already in cart, do nothing
+      if (isRestrictedAddon && isInCart) return;
+      setAddedToCart(false);
+      addToCart(addonId, quantity);
+      setAddedToCart(true);
+      setTimeout(() => setAddedToCart(false), 1500);
+    } catch (err: any) {
+      setError(err.message || 'Failed to add to cart');
     }
   };
   
@@ -215,7 +231,7 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
           {/* Show a note about addon type */}
           <div className="flex items-start text-xs text-gray-500 dark:text-gray-400">
             <Info size={16} className="flex-shrink-0 mr-1.5 mt-0.5" />
-            {addon.name === 'Additional Messages' ? (
+            {addon.name === '' ? (
               <p>This add-on provides additional message credits that can be used until exhausted.</p>
             ) : (
               <p>This add-on will be active until your current subscription period ends.</p>
@@ -256,35 +272,42 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
               </Link>
             </div>
           ) : (
-            <button
-              onClick={handlePurchase}
-              disabled={(isRestrictedAddon && isOwned) || (isRestrictedAddon && hasPendingPurchase) || (isRestrictedAddon && processing)}
-              className={`w-full py-2 px-4 rounded-md font-medium ${
-                (isRestrictedAddon && isOwned)
-                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                  : (isRestrictedAddon && hasPendingPurchase)
-                  ? 'bg-yellow-500 text-white cursor-default'
-                  : processing
-                  ? 'bg-blue-400 text-white cursor-wait'
-                  : 'bg-blue-500 hover:bg-blue-600 text-white'
-              } transition-colors`}
-            >
-              {(isRestrictedAddon && isOwned) ? (
-                'Already Purchased'
-              ) : (isRestrictedAddon && hasPendingPurchase) ? (
-                'Pending Purchase'
-              ) : processing ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </span>
-              ) : (
-                'Purchase Add-on'
-              )}
-            </button>
+            ((isRestrictedAddon && (isOwned || hasPendingPurchase)) ? null : (
+              <div className="space-y-2">
+                <button
+                  onClick={handlePurchase}
+                  disabled={processing}
+                  className={`w-full py-2 px-4 rounded-md font-medium ${
+                    processing
+                      ? 'bg-blue-400 text-white cursor-wait'
+                      : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  } transition-colors`}
+                >
+                  {processing ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : (
+                    'Buy Now'
+                  )}
+                </button>
+                <button
+                  onClick={handleAddToCart}
+                  disabled={processing || (isRestrictedAddon && isInCart)}
+                  className={`w-full py-2 px-4 rounded-md font-medium border ${
+                    (processing || (isRestrictedAddon && isInCart))
+                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 cursor-not-allowed'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  } transition-colors`}
+                >
+                  {(isRestrictedAddon && isInCart) ? 'Added' : (addedToCart ? 'Added!' : 'Add to Cart')}
+                </button>
+              </div>
+            ))
           )}
         </div>
       </div>

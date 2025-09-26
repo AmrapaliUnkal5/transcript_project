@@ -51,6 +51,11 @@ interface SubscriptionPlanContextType {
     gstin?: string;
   }) => Promise<string>;
   purchaseAddon: (addonId: number, quantity?: number, isContinuation?: boolean) => Promise<string>;
+  cart: { addonId: number; quantity: number }[];
+  addToCart: (addonId: number, quantity?: number) => void;
+  removeFromCart: (addonId: number) => void;
+  clearCart: () => void;
+  checkoutCart: () => Promise<string>;
 }
 
 
@@ -61,6 +66,7 @@ export const SubscriptionPlanProvider: React.FC<{ children: React.ReactNode }> =
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [addons, setAddons] = useState<AddonPlan[]>([]);
   const [isLoading, setLoading] = useState(false);
+  const [cart, setCart] = useState<{ addonId: number; quantity: number }[]>([]);
 
   useEffect(() => {
     const cachedPlans = localStorage.getItem('subscriptionPlans');
@@ -155,6 +161,29 @@ export const SubscriptionPlanProvider: React.FC<{ children: React.ReactNode }> =
     }
   };
 
+  // Cart helpers
+  const addToCart = (addonId: number, quantity: number = 1) => {
+    setCart(prev => {
+      const existing = prev.find(i => i.addonId === addonId);
+      if (existing) {
+        return prev.map(i => i.addonId === addonId ? { ...i, quantity: i.quantity + quantity } : i);
+      }
+      return [...prev, { addonId, quantity }];
+    });
+  };
+
+  const removeFromCart = (addonId: number) => {
+    setCart(prev => prev.filter(i => i.addonId !== addonId));
+  };
+
+  const clearCart = () => setCart([]);
+
+  const checkoutCart = async (): Promise<string> => {
+    if (cart.length === 0) throw new Error("Cart is empty");
+    const url = await subscriptionApi.purchaseAddonsBulk(cart);
+    return url;
+  };
+
   const contextValue = {
     plans,
     addons,
@@ -166,7 +195,12 @@ export const SubscriptionPlanProvider: React.FC<{ children: React.ReactNode }> =
     setAddons,
     setLoading,
     createCheckout,
-    purchaseAddon
+    purchaseAddon,
+    cart,
+    addToCart,
+    removeFromCart,
+    clearCart,
+    checkoutCart
   };
 
   return (

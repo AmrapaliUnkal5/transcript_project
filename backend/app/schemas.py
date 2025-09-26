@@ -495,6 +495,13 @@ class MessageUsageResponse(BaseModel):
 class AddOnCheckoutResponse(BaseModel):
     checkout_url: str
 
+class BulkAddonItem(BaseModel):
+    addon_id: int
+    quantity: int = 1
+
+class BulkAddOnCheckoutRequest(BaseModel):
+    items: List[BulkAddonItem]
+
 class YouTubeVideoResponse(BaseModel):
     video_id: str
     video_title: str

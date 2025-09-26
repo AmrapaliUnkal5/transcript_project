@@ -974,6 +974,26 @@ export const subscriptionApi = {
     }
   },
   
+  purchaseAddonsBulk: async (
+    items: { addonId: number; quantity: number }[]
+  ): Promise<string> => {
+    try {
+      const payload = {
+        items: items.map(i => ({ addon_id: i.addonId, quantity: i.quantity || 1 }))
+      };
+      const response = await api.post("/addons/checkout/bulk", payload);
+      if (response?.data?.checkout_url) {
+        return response.data.checkout_url;
+      }
+      throw new Error('No checkout URL returned from the server');
+    } catch (error: any) {
+      if (error.response?.data?.detail) {
+        throw new Error(error.response.data.detail);
+      }
+      throw error;
+    }
+  },
+  
   createCheckout: async (planId: number, addonIds?: number[]): Promise<string> => {
     const response = await api.post("/subscription/checkout", { planId, addonIds });
     return response.data.url;

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependency import get_current_user
 from app.models import User, Addon, UserAddon
-from app.schemas import AddonSchema, UserAddonOut, PurchaseAddonRequest, CancelAddonRequest, AddOnCheckoutResponse
+from app.schemas import AddonSchema, UserAddonOut, PurchaseAddonRequest, CancelAddonRequest, AddOnCheckoutResponse, BulkAddOnCheckoutRequest
 from app.addon_service import AddonService
 from typing import List, Dict, Any, Union, Optional
 import logging
@@ -95,6 +95,33 @@ async def addon_checkout(
     except Exception as e:
         logger.error(f"Error creating add-on checkout: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error creating add-on checkout: {str(e)}")
+
+# Bulk checkout for multiple add-ons purchase
+@router.post("/checkout/bulk", response_model=AddOnCheckoutResponse)
+async def addon_checkout_bulk(
+    request: BulkAddOnCheckoutRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Generate a checkout URL for purchasing multiple add-ons together"""
+    try:
+        if not request.items or len(request.items) == 0:
+            raise HTTPException(status_code=400, detail="No add-ons provided")
+
+        # Map to expected format for service: list of {addon_id, quantity}
+        items = [{"addon_id": it.addon_id, "quantity": it.quantity or 1} for it in request.items]
+
+        checkout_url = AddonService.get_bulk_addon_checkout_url(
+            db=db,
+            user_id=current_user['user_id'],
+            items=items
+        )
+        return {"checkout_url": checkout_url}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating bulk add-on checkout: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating bulk add-on checkout: {str(e)}")
 
 # Cancel an add-on
 @router.post("/cancel", response_model=UserAddonOut)
@@ -274,6 +301,6 @@ def get_user_addon_status(user_id: int, db: Session = Depends(get_db)):
         "subscription_id": latest_addon.subscription_id,
         "purchase_date": latest_addon.purchase_date,
         "expiry_date": latest_addon.expiry_date,
-        "remaining_count": latest_addon.remaining_count,
-        "initial_count": latest_addon.initial_count,
+        "remaining_count": 0,
+        "initial_count": 0,
     }

@@ -291,7 +291,7 @@ async def create_subscription_checkout(
 
             # Apply tax_id only for India and non-Rajasthan states
             if should_apply_tax:
-                update_data["plan"]["tax_id"] = os.getenv('ZOHO_TAX_ID')
+                update_data["plan"]["tax_id"] = "2818287000000032409"
                 update_data["plan"]["tax_exemption_code"] = ""
 
             # Include customer details if we successfully fetched them
@@ -338,7 +338,7 @@ async def create_subscription_checkout(
                         "addon_code": code, 
                         "quantity": count,
                         # Apply tax to each addon if needed
-                        **({"tax_id": os.getenv('ZOHO_TAX_ID'), "tax_exemption_code": ""} if should_apply_tax else {})
+                        **({"tax_id": "2818287000000032409", "tax_exemption_code": ""} if should_apply_tax else {})
                     } 
                     for code, count in addon_counts.items()
                 ]
@@ -1571,8 +1571,8 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
                         auto_renew=addon.is_recurring,
                         status="active",
                         zoho_addon_instance_id=addon_instance_id,
-                        initial_count=addon.additional_message_limit or 0,
-                        remaining_count=addon.additional_message_limit or 0
+                        initial_count=0,
+                        remaining_count=0
                     )
                     db.add(new_row)
                     created_rows += 1
@@ -1759,8 +1759,8 @@ async def handle_subscription_created(payload: Dict[str, Any], db: Session):
                     auto_renew=addon.is_recurring,
                     status="active",
                     zoho_addon_instance_id=addon_instance_id,
-                    initial_count=addon.additional_message_limit or 0,
-                    remaining_count=addon.additional_message_limit or 0
+                    initial_count=0,
+                    remaining_count=0
                 )
                 
                 db.add(user_addon)
@@ -1948,8 +1948,8 @@ async def handle_subscription_renewed(payload: Dict[str, Any], db: Session):
                     purchase_date=datetime.now(),
                     expiry_date=expiry_date if addon.addon_type != "Additional Messages" else None,
                     created_at=datetime.now(),
-                    initial_count=addon.additional_message_limit or 0,
-                    remaining_count=addon.additional_message_limit or 0
+                    initial_count=0,
+                    remaining_count=0
                 )
                 db.add(new_addon)
                 logger.info(f"Added new add-on {addon.name} (ID: {addon.id}) for user {subscription.user_id}")
@@ -2372,8 +2372,8 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
                         is_active=True,
                         auto_renew=addon.is_recurring,
                         status="active",
-                        initial_count=addon.additional_message_limit or 0,
-                        remaining_count=addon.additional_message_limit or 0
+                        initial_count=0,
+                        remaining_count=0
                     )
                     db.add(new_row)
                     created_rows += 1
@@ -2445,8 +2445,8 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
                             is_active=True,
                             auto_renew=matching_addon.is_recurring,
                             status="active",
-                            initial_count=matching_addon.additional_message_limit or 0,
-                            remaining_count=matching_addon.additional_message_limit or 0
+                            initial_count=0,
+                            remaining_count=0
                         )
                         db.add(user_addon)
                         webhook_logger.info(f"🆕 ADDON PAYMENT: Created new addon {matching_addon.name} for user {user_id}")
