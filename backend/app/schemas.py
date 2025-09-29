@@ -502,6 +502,13 @@ class BulkAddonItem(BaseModel):
 class BulkAddOnCheckoutRequest(BaseModel):
     items: List[BulkAddonItem]
 
+class CancelSubscriptionRequest(BaseModel):
+    reason: Optional[str] = None
+
+class CancelSubscriptionResponse(BaseModel):
+    success: bool
+    message: Optional[str] = None
+
 class YouTubeVideoResponse(BaseModel):
     video_id: str
     video_title: str

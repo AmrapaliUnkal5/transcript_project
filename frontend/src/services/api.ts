@@ -1115,6 +1115,12 @@ export const subscriptionApi = {
     }
   },
 
+  // Cancel current subscription at term end
+  cancelSubscription: async (reason?: string) => {
+    const response = await api.post("/zoho/subscription/cancel", { reason });
+    return response.data;
+  },
+
   // Get pending addon purchases for a user
   getPendingAddonPurchases: async (userId: number) => {
     try {

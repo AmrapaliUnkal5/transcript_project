@@ -10,7 +10,7 @@ from pydantic import BaseModel
 import logging
 import os
 import traceback
-from app.schemas import ZohoCheckoutRequest, ZohoCheckoutResponse
+from app.schemas import ZohoCheckoutRequest, ZohoCheckoutResponse, CancelSubscriptionRequest, CancelSubscriptionResponse
 from app.utils.create_access_token import create_access_token
 from fastapi.responses import JSONResponse
 from app.utils.logger import get_module_logger, get_webhook_logger
@@ -396,6 +396,44 @@ async def create_subscription_checkout(
         except:
             pass
         raise HTTPException(status_code=500, detail=f"Error creating subscription checkout: {error_msg}")
+
+# Cancel subscription at term end and disable auto_renew locally
+@router.post("/subscription/cancel", response_model=CancelSubscriptionResponse)
+async def cancel_subscription(
+    request: CancelSubscriptionRequest,
+    db: Session = Depends(get_db),
+    current_user: Union[dict, User] = Depends(get_current_user),
+):
+    try:
+        # Determine user id
+        user_id = current_user.get("user_id") if isinstance(current_user, dict) else current_user.user_id
+
+        # Find the latest active subscription
+        subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "active"
+        ).order_by(UserSubscription.expiry_date.desc()).first()
+
+        if not subscription or not subscription.zoho_subscription_id:
+            raise HTTPException(status_code=404, detail="Active subscription not found")
+
+        # Request Zoho to cancel at term end
+        zoho_service = ZohoBillingService()
+        zoho_service.cancel_subscription(subscription.zoho_subscription_id, cancel_at_term_end=True, reason=request.reason)
+
+        # Update DB - disable auto_renew
+        subscription.auto_renew = False
+        subscription.updated_at = datetime.now()
+        note = "Cancelled at term end by user"
+        subscription.notes = f"{(subscription.notes or '').strip()} | {note}".strip(" |")
+        db.commit()
+
+        return CancelSubscriptionResponse(success=True, message="Subscription will not auto-renew.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling subscription: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error cancelling subscription: {str(e)}")
     
 @router.post("/zoho/webhook_addon_test")
 async def webhook_addon_test(request: Request):

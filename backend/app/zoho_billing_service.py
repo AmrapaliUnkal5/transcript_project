@@ -651,6 +651,30 @@ class ZohoBillingService:
             logger.error(f"ERROR: Exception creating update hosted page: {str(e)}")
             raise
 
+    def cancel_subscription(self, subscription_id: str, cancel_at_term_end: bool = True, reason: Optional[str] = None) -> Dict[str, Any]:
+        """Cancel a subscription in Zoho (optionally at term end).
+        Reference: Cancel/Reactivate subscription in Zoho Billing API.
+        """
+        try:
+            url = f"{self.base_url}/subscriptions/{subscription_id}/cancel"
+            headers = self._get_headers()
+            payload: Dict[str, Any] = {
+                "cancel_at_term_end": cancel_at_term_end
+            }
+            if reason:
+                payload["comment"] = reason
+
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 401:
+                headers = self._get_headers(force_refresh=True)
+                response = requests.post(url, headers=headers, json=payload)
+
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error cancelling subscription {subscription_id}: {str(e)}")
+            raise
+
     def get_customer_details(self, customer_id: str) -> Optional[Dict[str, Any]]:
         """
         Fetch customer details from Zoho including billing address and account information

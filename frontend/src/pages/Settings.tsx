@@ -718,6 +718,42 @@ export const Settings = () => {
                 </p>
               </div>
             </div>
+
+            {/* Cancel Subscription CTA */}
+            {settings.subscription?.status === "active" && settings.subscription?.auto_renew && (
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={async () => {
+                    const confirmed = window.confirm(
+                      "You're about to cancel your subscription. From the next billing cycle, your plan will not renew automatically."
+                    );
+                    if (!confirmed) return;
+                    try {
+                      setLoading(true);
+                      await subscriptionApi.cancelSubscription();
+                      toast.success("Auto-renew has been turned off. Your plan will not renew next cycle.");
+                      // Refresh user details to reflect auto_renew = false
+                      const response = await authApi.getUserDetails();
+                      setSettings((prev) => ({
+                        ...prev,
+                        subscription: {
+                          ...prev.subscription,
+                          auto_renew: response.subscription?.auto_renew || false,
+                          status: response.subscription?.status || prev.subscription.status,
+                        },
+                      }));
+                    } catch (e) {
+                      toast.error("Failed to cancel subscription. Please try again.");
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-md bg-red-500 hover:bg-red-600 text-white"
+                >
+                  Cancel Subscription
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
