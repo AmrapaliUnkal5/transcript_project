@@ -509,6 +509,9 @@ class CancelSubscriptionResponse(BaseModel):
     success: bool
     message: Optional[str] = None
 
+class CancelAddonNextCycleRequest(BaseModel):
+    addon_id: int
+
 class YouTubeVideoResponse(BaseModel):
     video_id: str
     video_title: str

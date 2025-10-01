@@ -93,6 +93,7 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
             "purchase_date": ua.purchase_date,  # fallback in case quantity isn’t tracked
             "expiry_date": ua.expiry_date,
             "auto_renew": ua.auto_renew,
+            "addon_id": ua.addon_id
         }
         for ua in active_addons
     ]

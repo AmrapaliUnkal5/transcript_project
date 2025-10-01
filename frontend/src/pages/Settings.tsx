@@ -786,6 +786,9 @@ export const Settings = () => {
                       <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
                         Auto Renew
                       </th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Action
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -828,6 +831,25 @@ export const Settings = () => {
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
                           {addon.auto_renew ? "Yes" : "No"}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {addon.auto_renew ? (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const url = await subscriptionApi.cancelAddon(addon.addon_id || addon.addonId || addon.id);
+                                  if (url) window.location.href = url;
+                                } catch (e: any) {
+                                  toast.error(e.message || "Failed to initiate addon cancellation");
+                                }
+                              }}
+                              className="px-3 py-1 rounded-md bg-red-500 hover:bg-red-600 text-white"
+                            >
+                              Cancel
+                            </button>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
                         </td>
                       </tr>
                     ))}

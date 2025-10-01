@@ -652,22 +652,21 @@ class ZohoBillingService:
             raise
 
     def cancel_subscription(self, subscription_id: str, cancel_at_term_end: bool = True, reason: Optional[str] = None) -> Dict[str, Any]:
-        """Cancel a subscription in Zoho (optionally at term end).
-        Reference: Cancel/Reactivate subscription in Zoho Billing API.
+        """Cancel a subscription in Zoho.
+        If cancel_at_term_end=True, use non-renewing (end-of-term) behavior per Zoho (cancel_at_end=true).
         """
         try:
             url = f"{self.base_url}/subscriptions/{subscription_id}/cancel"
             headers = self._get_headers()
-            payload: Dict[str, Any] = {
-                "cancel_at_term_end": cancel_at_term_end
-            }
-            if reason:
-                payload["comment"] = reason
+            # Zoho expects cancel_at_end in query to mark non_renewing; false cancels immediately
+            params = {"cancel_at_end": str(bool(cancel_at_term_end)).lower()}
+            # Some orgs accept comment in body
+            payload: Dict[str, Any] = {"comment": reason} if reason else {}
 
-            response = requests.post(url, headers=headers, json=payload)
+            response = requests.post(url, headers=headers, params=params, json=(payload or None))
             if response.status_code == 401:
                 headers = self._get_headers(force_refresh=True)
-                response = requests.post(url, headers=headers, json=payload)
+                response = requests.post(url, headers=headers, params=params, json=(payload or None))
 
             response.raise_for_status()
             return response.json()

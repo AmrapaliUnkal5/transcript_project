@@ -1142,4 +1142,25 @@ export const subscriptionApi = {
       throw error;
     }
   },
+
+  // Cancel an addon for the next billing cycle (Zoho hosted update)
+  cancelAddon: async (addonId: number): Promise<string> => {
+    try {
+      // Send addon_id as query param to avoid body parsing issues
+      const response = await api.post(`/zoho/subscription/addons/cancel-next-cycle?addon_id=${addonId}`, {});
+      if (response?.data?.checkout_url) {
+        return response.data.checkout_url;
+      }
+      // Some responses may return hostedpage; handle gracefully
+      if (response?.data?.hostedpage?.url) {
+        return response.data.hostedpage.url;
+      }
+      throw new Error("No checkout URL returned from the server");
+    } catch (error: any) {
+      if (error.response?.data?.detail) {
+        throw new Error(error.response.data.detail);
+      }
+      throw error;
+    }
+  },
 };

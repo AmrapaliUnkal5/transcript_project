@@ -10,11 +10,12 @@ from pydantic import BaseModel
 import logging
 import os
 import traceback
-from app.schemas import ZohoCheckoutRequest, ZohoCheckoutResponse, CancelSubscriptionRequest, CancelSubscriptionResponse
+from app.schemas import ZohoCheckoutRequest, ZohoCheckoutResponse, CancelSubscriptionRequest, CancelSubscriptionResponse, CancelAddonNextCycleRequest
 from app.utils.create_access_token import create_access_token
 from fastapi.responses import JSONResponse
 from app.utils.logger import get_module_logger, get_webhook_logger
 from app.config import settings
+from app.schemas import CancelAddonNextCycleRequest
 
 router = APIRouter(prefix="/zoho", tags=["Zoho Subscriptions"])
 logger = get_module_logger(__name__)
@@ -434,6 +435,73 @@ async def cancel_subscription(
     except Exception as e:
         logger.error(f"Error cancelling subscription: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error cancelling subscription: {str(e)}")
+
+# Cancel addon for next cycle
+@router.post("/subscription/addons/cancel-next-cycle")
+async def cancel_addon_next_cycle(
+    req: Optional[CancelAddonNextCycleRequest] = None,
+    addon_id: Optional[int] = None,
+    addon_name: Optional[str] = None,
+    addon_code: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: Union[dict, User] = Depends(get_current_user),
+):
+    try:
+        user_id = current_user.get("user_id") if isinstance(current_user, dict) else current_user.user_id
+        sub = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "active"
+        ).order_by(UserSubscription.expiry_date.desc()).first()
+        if not sub or not sub.zoho_subscription_id:
+            raise HTTPException(status_code=404, detail="Active subscription not found")
+
+        # Determine target addon_id from body or query
+        target_addon_id = req.addon_id if req and hasattr(req, 'addon_id') else addon_id
+        # Resolve addon by id, code or name
+        if not target_addon_id:
+            if addon_code:
+                addon_row = db.query(Addon).filter(Addon.zoho_addon_code == addon_code).first()
+                target_addon_id = addon_row.id if addon_row else None
+            elif addon_name:
+                addon_row = db.query(Addon).filter(Addon.name == addon_name).first()
+                target_addon_id = addon_row.id if addon_row else None
+        if not target_addon_id:
+            raise HTTPException(status_code=400, detail="addon_id or addon_name/addon_code is required")
+
+        # Build addons list excluding the one to cancel
+        current_addons = db.query(UserAddon).filter(
+            UserAddon.user_id == user_id,
+            UserAddon.status == "active"
+        ).all()
+        by_code: Dict[str, int] = {}
+        for ua in current_addons:
+            if ua.addon_id == target_addon_id:
+                continue
+            addon = db.query(Addon).filter(Addon.id == ua.addon_id).first()
+            if addon and addon.zoho_addon_code:
+                by_code[addon.zoho_addon_code] = by_code.get(addon.zoho_addon_code, 0) + 1
+        addons_payload = [{"addon_code": code, "quantity": qty} for code, qty in by_code.items()]
+
+        # Request hosted page to update subscription addons for next cycle
+        hosted = zoho_service.get_subscription_update_hosted_page_url(sub.zoho_subscription_id, {"addons": addons_payload})
+
+        # Mark this addon as not auto-renewing locally
+        row = db.query(UserAddon).filter(
+            UserAddon.user_id == user_id,
+            UserAddon.addon_id == target_addon_id,
+            UserAddon.status == "active"
+        ).first()
+        if row:
+            row.auto_renew = False
+            row.updated_at = datetime.now()
+            db.commit()
+
+        return {"success": True, "checkout_url": hosted}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling addon for next cycle: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error cancelling addon for next cycle: {str(e)}")
     
 @router.post("/zoho/webhook_addon_test")
 async def webhook_addon_test(request: Request):
