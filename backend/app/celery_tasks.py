@@ -257,7 +257,7 @@ def reembed_bots_for_subscription_plan(self, subscription_plan_id: int, old_embe
         } 
 
 @celery_app.task(bind=True, name='process_youtube_videos_part1', max_retries=3)
-def process_youtube_videos_part1(self, bot_id: int, video_urls: List[str]):
+def process_youtube_videos_part1(self, bot_id: int, video_urls: List[str],  action_user_id: int):
     """
     Celery task to extract and save YouTube transcripts & metadata only (no embedding).
     Mirrors original process_youtube_videos, but stops before vectorization.
@@ -294,6 +294,7 @@ def process_youtube_videos_part1(self, bot_id: int, video_urls: List[str]):
                 if existing_video:
                     existing_video.status = "Failed"
                     existing_video.error_code = reason
+                    existing_video.updated_by = action_user_id
                     db.commit()
                 else:
                     logger.warning(
@@ -341,10 +342,11 @@ def process_youtube_videos_part1(self, bot_id: int, video_urls: List[str]):
                 validate_cumulative_word_count_sync_for_celery(word_diff, {"user_id": user_id}, db)
             except Exception as e:
                 # Mark this video as failed due to word limit
-                save_video_metadata(db, bot_id, url, transcript, metadata)
+                save_video_metadata(db, bot_id, url, transcript, metadata, action_user_id)
                 if existing_video:
                     existing_video.status = "Failed"
                     existing_video.error_code = "Word count exceeds your subscription plan limit."
+                    existing_video.updated_by = action_user_id
                     db.commit()
                     add_notification(
                             db=db,
@@ -366,7 +368,7 @@ def process_youtube_videos_part1(self, bot_id: int, video_urls: List[str]):
                 "metadata": metadata,
                 "video_id": extracted_video_id
             })
-            save_video_metadata(db, bot_id, url, transcript, metadata)
+            save_video_metadata(db, bot_id, url, transcript, metadata,action_user_id)
 
         except Exception as e:
             failed_videos.append({"url": url, "reason": str(e)})
@@ -394,11 +396,12 @@ def process_youtube_videos_part1(self, bot_id: int, video_urls: List[str]):
     if videos_to_vectorize:
         for v in videos_to_vectorize:
             v.status = "Embedding"
+            v.updated_by = action_user_id
             db.add(v)
         db.commit()
 
         video_ids = [v.id for v in videos_to_vectorize]
-        process_youtube_videos_part2.delay(bot_id, video_ids)
+        process_youtube_videos_part2.delay(bot_id, video_ids, action_user_id)
 
     return {
         "status": "completed",
@@ -440,6 +443,10 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
         original_filename = file_data.get("original_filename")
         file_id = file_data.get("file_id")
         file_type = file_data.get("file_type", "application/octet-stream")
+        action_user_id = file_data.get('action_user_id')
+        if not action_user_id:
+            # Fallback to bot owner or raise error
+            action_user_id = bot.user_id
         if not file_path or not original_filename or not file_id:
             raise Exception("Missing file path, original filename, or file ID")
         
@@ -1371,7 +1378,7 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                 for metadata in file_metadata_list:
                     metadata["status"] = "Failed" if quota_exceeded else "Extracted"
                     metadata["error_message"] = error_message if quota_exceeded else None
-                    metadata["updated_by"] = user_id  # Required for auditing
+                    metadata["updated_by"] = action_user_id  # Required for auditing
                     print("metadata",metadata)
 
                     update_file_metadata_status_only(db, metadata)
@@ -1408,7 +1415,7 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                         locked_file.status = "Embedding"
                         db.add(locked_file)
                         db.commit()
-                        process_file_upload_part2.delay(bot_id, locked_file.unique_file_name)
+                        process_file_upload_part2.delay(bot_id, locked_file.unique_file_name,action_user_id)
                 
                 return {
                     "status": "complete",
@@ -1428,7 +1435,7 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                 file_record.status = "Failed"
                 error_msg = f"Extraction Failed: {str(process_error)}"
                 file_record.error_code = error_msg
-                file_record.updated_by = bot.user_id
+                file_record.updated_by = action_user_id
                 db.commit()
                 logger.info(f"Updated file status of extraction to 'failed'")
                 
@@ -1467,7 +1474,7 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                         "file_id_db": file_data.get("file_id_db"),
                         "status": "Failed",
                         "error_message": f"Extraction Failed: {str(e)}",
-                        "updated_by": bot.user_id if bot else None
+                        "updated_by": action_user_id
                     })
                     db.commit()
                     logger.info(f"✅ File ID {file_id} marked as 'failed' in DB after final retry failure.")
@@ -1494,13 +1501,14 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
 
 
 @celery_app.task(bind=True, name="process_file_upload_part2", max_retries=3)
-def process_file_upload_part2(self, bot_id: int, file_id: str):
+def process_file_upload_part2(self, bot_id: int, file_id: str,action_user_id: int):
     """
     Celery task to perform vectorization (part 2) for a file after text extraction.
 
     Args:
         bot_id: The ID of the chatbot
         file_id: Unique file ID (from files table)
+        action_user_id: The ID of the user who performed the operation
     """
     from app.word_count_validation import update_bot_word_and_file_count
     try:
@@ -1602,7 +1610,7 @@ def process_file_upload_part2(self, bot_id: int, file_id: str):
         # ✅ Update the database record
         file_record.status = "Success"
         file_record.last_embedded = datetime.now()
-        file_record.updated_by = user_id
+        file_record.updated_by = action_user_id if action_user_id else user_id
         db.commit()
         # After embedding is completed
         try:
@@ -1674,7 +1682,7 @@ def process_file_upload_part2(self, bot_id: int, file_id: str):
 
 
 @celery_app.task(bind=True, name='process_youtube_videos_part2', max_retries=3)
-def process_youtube_videos_part2(self, bot_id: int, video_ids: List[int]):
+def process_youtube_videos_part2(self, bot_id: int, video_ids: List[int], action_user_id: int):
     """
     Part 2 Celery Task: Vectorize transcripts of YouTube videos by reading from DB.
     """
@@ -1714,6 +1722,7 @@ def process_youtube_videos_part2(self, bot_id: int, video_ids: List[int]):
 
                 video.status = "Success"
                 video.last_embedded = datetime.now()
+                video.updated_by = action_user_id
                 db.commit()
 
                 # ✅ Word count update
@@ -1739,6 +1748,7 @@ def process_youtube_videos_part2(self, bot_id: int, video_ids: List[int]):
                 logger.exception(f"❌ Error vectorizing video {video.video_title}: {str(e)}")
                 video.status = "Failed"
                 video.error_code = f"Embedding Failed: {str(e)}"
+                video.updated_by = action_user_id
                 db.commit()
 
                 send_failure_notification(
@@ -1763,7 +1773,7 @@ def process_youtube_videos_part2(self, bot_id: int, video_ids: List[int]):
 
 
 @celery_app.task(bind=True, name='process_web_scraping_part1', max_retries=3)
-def process_web_scraping_part1(self, bot_id: int, url_list: list):
+def process_web_scraping_part1(self, bot_id: int, url_list: list, action_user_id: int):
     """
     Celery task to process web scraping in the background.
     
@@ -1820,7 +1830,7 @@ def process_web_scraping_part1(self, bot_id: int, url_list: list):
         # Process web pages - Notice that scrape_selected_nodes already handles embedding
         # in the vector database (see app/scraper.py implementation)
         logger.info(f"🌐 Starting scraping for bot {bot_id}")
-        result = scrape_selected_nodes(url_list, bot_id, db)
+        result = scrape_selected_nodes(url_list, bot_id, db, action_user_id)
         # asyncio.run(broadcast_grid_refresh(bot_id, "Websites"))
         # Get success/failure counts
         success_count = len(result) if result else 0
@@ -1873,7 +1883,7 @@ def process_web_scraping_part1(self, bot_id: int, url_list: list):
                 db.add(n)
             db.commit()
 
-            process_web_scraping_part2.delay(bot_id, [n.id for n in nodes_to_vectorize])
+            process_web_scraping_part2.delay(bot_id, [n.id for n in nodes_to_vectorize], action_user_id)
         # Return results
         return {
             "status": "complete",
@@ -1916,7 +1926,7 @@ def process_web_scraping_part1(self, bot_id: int, url_list: list):
         } 
 
 @celery_app.task(bind=True, name="process_web_scraping_part2", max_retries=3)
-def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list):
+def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action_user_id: int):
     """
     Celery task to vectorize selected scraped website nodes for a given bot.
     """
@@ -1986,7 +1996,7 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list):
 
                 node.status = "Success"
                 node.last_embedded = datetime.now()
-                node.updated_by = user_id
+                node.updated_by = action_user_id if action_user_id else user_id
                 logger.info(f"✅ Vectorization complete for {url}", extra={"bot_id": bot_id})
 
             except Exception as db_err:

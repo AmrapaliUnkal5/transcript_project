@@ -140,6 +140,8 @@ class BotBase(BaseModel):
     external_knowledge: Optional[bool] = False
     role: Optional[str] = "Service Assistant"
     tone: Optional[str] = "Friendly"
+    created_by: Optional[int] = None
+    updated_by: Optional[int] = None
     
 class BotCreate(BotBase):
     pass  

@@ -26,6 +26,13 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
     else:  
         user_id = getattr(current_user, "user_id", None)
 
+    if current_user.get("is_team_member") and current_user.get("member_id"):
+        action_user_id = current_user["member_id"]
+        logger.info(f"👥 Team member creating bot - member_id: {action_user_id}")
+    else:
+        action_user_id = current_user.get("user_id")
+        logger.info(f"👤 Regular user creating bot - user_id: {action_user_id}")
+
     logger.info(f"Creating new bot", 
                extra={"request_id": request_id, "user_id": user_id, 
                      "bot_name": bot.bot_name})
@@ -92,7 +99,9 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
             is_active=bot.is_active,
             user_id=user_id,
             word_count=0,
-            external_knowledge=bot.external_knowledge
+            external_knowledge=bot.external_knowledge,
+            created_by=action_user_id,
+            updated_by=action_user_id
         )
 
         db.add(db_bot)

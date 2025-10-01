@@ -933,7 +933,7 @@ def check_task_status(task_id: str):
         raise HTTPException(status_code=500, detail=f"Error checking task status: {str(e)}")
 
 @app.post("/scrape-async")
-def scrape_async_endpoint(request: WebScrapingRequest, db: Session = Depends(get_db)):
+def scrape_async_endpoint(request: WebScrapingRequest, db: Session = Depends(get_db),  current_user: dict = Depends(get_current_user)):
     """
     API endpoint to start asynchronous web scraping using Celery.
     
@@ -951,6 +951,14 @@ def scrape_async_endpoint(request: WebScrapingRequest, db: Session = Depends(get
             raise HTTPException(status_code=404, detail=f"Bot with ID {request.bot_id} not found")
         
         logger.info(f"[SCRAPE-ASYNC] Bot found, user_id={bot.user_id}")
+
+        # Determine who to credit for the action (team member or regular user)
+        if current_user.get("is_team_member") and current_user.get("member_id"):
+            action_user_id = current_user["member_id"]
+            logger.info(f"👥 DEBUG: Team member scraping - member_id: {action_user_id}")
+        else:
+            action_user_id = current_user["user_id"]
+            logger.info(f"👤 DEBUG: Regular user scraping - user_id: {action_user_id}")
 
         # PHASE 1: Save URLs immediately
         inserted = 0
@@ -993,8 +1001,8 @@ def scrape_async_endpoint(request: WebScrapingRequest, db: Session = Depends(get
                 url=url,
                 bot_id=request.bot_id,
                 status="Extracting",
-                created_by=bot.user_id,
-                updated_by=bot.user_id,
+                created_by=action_user_id,
+                updated_by=action_user_id,
                 website_id=website.id,
             )
             db.add(node)
@@ -1008,7 +1016,7 @@ def scrape_async_endpoint(request: WebScrapingRequest, db: Session = Depends(get
         logger.info(f"[SCRAPE-ASYNC] Attempting to start Celery task with {len(request.selected_nodes)} URLs")
         if new_urls:
             try:
-                task = process_web_scraping_part1.delay(request.bot_id, request.selected_nodes)
+                task = process_web_scraping_part1.delay(request.bot_id, request.selected_nodes, action_user_id)
                 logger.info(f"[SCRAPE-ASYNC] Celery task started successfully with task_id={task.id}")
             except Exception as celery_err:
                 logger.exception(f"[SCRAPE-ASYNC] Failed to start Celery task: {str(celery_err)}")
