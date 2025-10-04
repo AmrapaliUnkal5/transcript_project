@@ -887,6 +887,11 @@ updateBotExternalKnowledge: async (botId: number) => {
     return response.data;
   },
 
+  checkExternalKnowledgeForUser: async (): Promise<{ hasExternalKnowledge: boolean }> => {
+    const response = await api.get(`/addon/external-knowledge-check/user`);
+    return response.data;
+  },
+
   getBotToken: async (botId: number): Promise<{ token: string }> => {
     const response = await api.get(`/widget/bot/${botId}/token`);
     return response.data;
@@ -936,6 +941,7 @@ export const subscriptionApi = {
   },
   
   getUserAddons: async (userId: number) => {
+    // Legacy endpoint used elsewhere in codebase
     const response = await api.get(`/user/${userId}/addons`);
     return response.data;
   },
@@ -1146,16 +1152,10 @@ export const subscriptionApi = {
   // Cancel an addon for the next billing cycle (Zoho hosted update)
   cancelAddon: async (addonId: number): Promise<string> => {
     try {
-      // Send addon_id as query param to avoid body parsing issues
-      const response = await api.post(`/zoho/subscription/addons/cancel-next-cycle?addon_id=${addonId}`, {});
-      if (response?.data?.checkout_url) {
-        return response.data.checkout_url;
-      }
-      // Some responses may return hostedpage; handle gracefully
-      if (response?.data?.hostedpage?.url) {
-        return response.data.hostedpage.url;
-      }
-      throw new Error("No checkout URL returned from the server");
+      // Send addon_id as query param with NO body to avoid 422
+      const response = await api.post(`/zoho/subscription/addons/cancel-next-cycle`, null, { params: { addon_id: addonId } });
+      // No checkout now; API applies on renewal
+      return "";
     } catch (error: any) {
       if (error.response?.data?.detail) {
         throw new Error(error.response.data.detail);
