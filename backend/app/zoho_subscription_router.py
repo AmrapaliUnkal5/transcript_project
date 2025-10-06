@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks, Body, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import SubscriptionPlan, Addon, UserSubscription, User, UserAddon
@@ -292,7 +292,7 @@ async def create_subscription_checkout(
 
             # Apply tax_id only for India and non-Rajasthan states
             if should_apply_tax:
-                update_data["plan"]["tax_id"] = "2818287000000032409"
+                update_data["plan"]["tax_id"] = os.getenv("ZOHO_TAX_ID" ,"2818287000000032409")
                 update_data["plan"]["tax_exemption_code"] = ""
 
             # Include customer details if we successfully fetched them
@@ -339,7 +339,7 @@ async def create_subscription_checkout(
                         "addon_code": code, 
                         "quantity": count,
                         # Apply tax to each addon if needed
-                        **({"tax_id": "2818287000000032409", "tax_exemption_code": ""} if should_apply_tax else {})
+                        **({"tax_id": os.getenv("ZOHO_TAX_ID" ,"2818287000000032409"), "tax_exemption_code": ""} if should_apply_tax else {})
                     } 
                     for code, count in addon_counts.items()
                 ]
@@ -439,10 +439,10 @@ async def cancel_subscription(
 # Cancel addon for next cycle
 @router.post("/subscription/addons/cancel-next-cycle")
 async def cancel_addon_next_cycle(
-    req: Optional[CancelAddonNextCycleRequest] = None,
-    addon_id: Optional[int] = None,
-    addon_name: Optional[str] = None,
-    addon_code: Optional[str] = None,
+    req: Optional[CancelAddonNextCycleRequest] = Body(default=None),
+    addon_id: Optional[int] = Query(default=None),
+    addon_name: Optional[str] = Query(default=None),
+    addon_code: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: Union[dict, User] = Depends(get_current_user),
 ):
@@ -468,22 +468,44 @@ async def cancel_addon_next_cycle(
         if not target_addon_id:
             raise HTTPException(status_code=400, detail="addon_id or addon_name/addon_code is required")
 
-        # Build addons list excluding the one to cancel
+        # Build addons quantity map from items that are still set to auto-renew
+        # (exclude previously cancelled-at-renewal items)
         current_addons = db.query(UserAddon).filter(
             UserAddon.user_id == user_id,
-            UserAddon.status == "active"
+            UserAddon.status == "active",
+            UserAddon.auto_renew == True
         ).all()
         by_code: Dict[str, int] = {}
         for ua in current_addons:
-            if ua.addon_id == target_addon_id:
-                continue
             addon = db.query(Addon).filter(Addon.id == ua.addon_id).first()
-            if addon and addon.zoho_addon_code:
-                by_code[addon.zoho_addon_code] = by_code.get(addon.zoho_addon_code, 0) + 1
-        addons_payload = [{"addon_code": code, "quantity": qty} for code, qty in by_code.items()]
+            if not addon or not addon.zoho_addon_code:
+                continue
+            # If your table has a quantity field, prefer that; otherwise each row counts as 1
+            row_qty = getattr(ua, "quantity", None)
+            qty_to_add = int(row_qty) if isinstance(row_qty, (int,)) and row_qty is not None else 1
+            by_code[addon.zoho_addon_code] = by_code.get(addon.zoho_addon_code, 0) + qty_to_add
 
-        # Request hosted page to update subscription addons for next cycle
-        hosted = zoho_service.get_subscription_update_hosted_page_url(sub.zoho_subscription_id, {"addons": addons_payload})
+        # Decrement exactly one unit of the target addon for THIS request
+        target_addon = db.query(Addon).filter(Addon.id == target_addon_id).first()
+        if target_addon and target_addon.zoho_addon_code:
+            if target_addon.zoho_addon_code in by_code:
+                by_code[target_addon.zoho_addon_code] = max(0, by_code[target_addon.zoho_addon_code] - 1)
+
+        # Build payload with remaining quantities (>0 only)
+        addons_payload = [
+            {"addon_code": code, "quantity": qty}
+            for code, qty in by_code.items() if qty > 0
+        ]
+
+        logger.info(f"Computed addon quantities post-cancel: {by_code}")
+        logger.info(f"Update payload addons: {addons_payload}")
+
+        # Use direct API to apply changes on renewal (no immediate charge/checkout)
+        api_result = zoho_service.update_subscription_addons_api(
+            sub.zoho_subscription_id,
+            addons_payload,
+            apply_on_renewal=True
+        )
 
         # Mark this addon as not auto-renewing locally
         row = db.query(UserAddon).filter(
@@ -496,7 +518,7 @@ async def cancel_addon_next_cycle(
             row.updated_at = datetime.now()
             db.commit()
 
-        return {"success": True, "checkout_url": hosted}
+        return {"success": True, "data": api_result}
     except HTTPException:
         raise
     except Exception as e:

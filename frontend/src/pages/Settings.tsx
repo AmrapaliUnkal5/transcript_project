@@ -833,14 +833,23 @@ export const Settings = () => {
                           {addon.auto_renew ? "Yes" : "No"}
                         </td>
                         <td className="px-4 py-2 text-sm">
-                          {addon.auto_renew ? (
+                          {settings.subscription?.status !== "active" || settings.subscription?.auto_renew === false ? (
+                            <span className="text-gray-400">—</span>
+                          ) : addon.auto_renew ? (
                             <button
                               onClick={async () => {
                                 try {
-                                  const url = await subscriptionApi.cancelAddon(addon.addon_id || addon.addonId || addon.id);
-                                  if (url) window.location.href = url;
+                                  await subscriptionApi.cancelAddon(addon.addon_id || addon.addonId || addon.id);
+                                  toast.success("Addon set to cancel at next renewal.");
+                                  // Optimistically update UI: mark this addon's auto_renew false
+                                  setSettings((prev: any) => ({
+                                    ...prev,
+                                    addons: prev.addons.map((a: any, i: number) =>
+                                      i === index ? { ...a, auto_renew: false, status: a.status } : a
+                                    ),
+                                  }));
                                 } catch (e: any) {
-                                  toast.error(e.message || "Failed to initiate addon cancellation");
+                                  toast.error(e.message || "Failed to schedule addon cancellation");
                                 }
                               }}
                               className="px-3 py-1 rounded-md bg-red-500 hover:bg-red-600 text-white"
@@ -848,7 +857,7 @@ export const Settings = () => {
                               Cancel
                             </button>
                           ) : (
-                            <span className="text-gray-400">—</span>
+                            <span className="inline-block px-3 py-1 rounded-md bg-gray-200 text-gray-600 cursor-not-allowed">Cancelled</span>
                           )}
                         </td>
                       </tr>

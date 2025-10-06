@@ -651,6 +651,38 @@ class ZohoBillingService:
             logger.error(f"ERROR: Exception creating update hosted page: {str(e)}")
             raise
 
+    def update_subscription_addons_api(self, subscription_id: str, addons: List[Dict[str, Any]], apply_on_renewal: bool = True) -> Dict[str, Any]:
+        """Direct API to update subscription addons without hosted page.
+        If apply_on_renewal is True, changes take effect at next billing (no immediate charge).
+        """
+        try:
+            url = f"{self.base_url}/subscriptions/{subscription_id}"
+            headers = self._get_headers()
+            payload: Dict[str, Any] = {
+                "addons": addons,
+                # Schedule changes at end of current term to avoid immediate charges
+                "end_of_term": bool(apply_on_renewal),
+                "prorate": False
+            }
+            try:
+                logger.info("Preparing Zoho update subscription API call")
+                logger.info(f"Subscription ID: {subscription_id}")
+                logger.info(f"Endpoint URL: {url}")
+                logger.info(f"Request payload: {json.dumps(payload)}")
+            except Exception as _log_e:
+                logger.warning(f"Could not serialize payload for logging: {str(_log_e)}")
+            response = requests.put(url, headers=headers, json=payload)
+            if response.status_code == 401:
+                headers = self._get_headers(force_refresh=True)
+                response = requests.put(url, headers=headers, json=payload)
+            if not response.ok:
+                logger.error(f"Zoho update subscription (API) error body: {response.text}")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error updating subscription addons via API for {subscription_id}: {str(e)}")
+            raise
+
     def cancel_subscription(self, subscription_id: str, cancel_at_term_end: bool = True, reason: Optional[str] = None) -> Dict[str, Any]:
         """Cancel a subscription in Zoho.
         If cancel_at_term_end=True, use non-renewing (end-of-term) behavior per Zoho (cancel_at_end=true).
@@ -1325,7 +1357,7 @@ def format_subscription_data_for_hosted_page(
    
     # Apply tax only if country = India and state != Rajasthan
     if should_apply_tax:
-        subscription_data["plan"]["tax_id"] = "2818287000000032409"
+        subscription_data["plan"]["tax_id"] = os.getenv("ZOHO_TAX_ID" ,"2818287000000032409")
         subscription_data["plan"]["tax_exemption_code"] = ""
          
     # Handle customer data based on whether they're existing or new
@@ -1445,7 +1477,7 @@ def format_subscription_data_for_hosted_page(
                 "addon_code": code, 
                 "quantity": count,
                 # Apply tax to each addon if needed
-                **({"tax_id": "2818287000000032409", "tax_exemption_code": ""} if should_apply_tax else {})
+                **({"tax_id": os.getenv("ZOHO_TAX_ID" ,"2818287000000032409"), "tax_exemption_code": ""} if should_apply_tax else {})
             } 
             for code, count in addon_counts.items()
         ]

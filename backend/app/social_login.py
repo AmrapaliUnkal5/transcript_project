@@ -110,10 +110,18 @@ async def google_auth(request: Request, payload: TokenPayload, db: Session = Dep
             logger.info(f"New Google auth provider created", 
                        extra={"request_id": request_id, "user_id": user.user_id})
 
+        # Step 1: Try to find an active subscription
         user_subscription = db.query(UserSubscription).filter(
-        UserSubscription.user_id == user.user_id,
-        UserSubscription.status.notin_(["pending", "failed", "cancelled"])
+            UserSubscription.user_id == user.user_id,
+            UserSubscription.status == 'active'
         ).order_by(UserSubscription.payment_date.desc()).first()
+
+        # Step 2: If no active one, get the latest one regardless of status
+        if not user_subscription:
+            user_subscription = db.query(UserSubscription).filter(
+                UserSubscription.user_id == user.user_id
+            ).order_by(UserSubscription.payment_date.desc()).first()
+
 
         # Get message addon (ID 5) details if exists
         message_addon = db.query(UserAddon).filter(
@@ -272,11 +280,18 @@ async def facebook_login(
         subscription_user_id = owner_id if is_team_member else user.user_id
         member_id = user.user_id if is_team_member else None
 
-        # Subscription
+        # Step 1: Try to find an active subscription
         user_subscription = db.query(UserSubscription).filter(
             UserSubscription.user_id == subscription_user_id,
-            UserSubscription.status.notin_(["pending", "failed", "cancelled"])
+            UserSubscription.status == 'active'
         ).order_by(UserSubscription.payment_date.desc()).first()
+
+        # Step 2: If no active one, get the latest one regardless of status
+        if not user_subscription:
+            user_subscription = db.query(UserSubscription).filter(
+                UserSubscription.user_id == subscription_user_id
+            ).order_by(UserSubscription.payment_date.desc()).first()
+
 
         subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
 

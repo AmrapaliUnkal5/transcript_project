@@ -23,7 +23,7 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
   const isOwned = user?.addon_plan_ids?.includes(addonId);
   const addon = getAddonById(addonId);
   // Check if this addon should be restricted to single purchase
-  const isRestrictedAddon = addon?.name === 'White-Labeling' || addon?.name === 'Multilingual Support';
+  const isRestrictedAddon = addon?.name === 'White-Labeling' || addon?.name === 'Multilingual Support' || addon?.name === 'External Knowledge';
   
   // Get the addon details - use the existing getAddonById method
   
@@ -198,14 +198,14 @@ export const AddonPurchaseCard: React.FC<AddonPurchaseCardProps> = ({ addonId, c
           <div className="flex items-center justify-between mb-4">
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
               ${addon.price.toFixed(2)}
-              {addon.name !== 'White-Labeling' && addon.name !== 'Multilingual Support' && quantity > 1 && (
+              {addon.name !== 'White-Labeling' && addon.name !== 'Multilingual Support' && addon.name !== 'External Knowledge' && quantity > 1 && (
                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-1">
                   × {quantity} = ${(addon.price * quantity).toFixed(2)}
                 </span>
               )}
             </div>
             
-            {addon.name !== 'White-Labeling' && addon.name !== 'Multilingual Support' && (
+            {addon.name !== 'White-Labeling' && addon.name !== 'Multilingual Support' && addon.name !== 'External Knowledge' && (
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
