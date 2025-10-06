@@ -45,9 +45,13 @@ def create_bot_settings(bot_data: schemas.BotCreate, db: Session = Depends(get_d
     return crud.create_bot(db, bot_data)
 
 @router.put("/{bot_id}", response_model=schemas.BotResponse)
-def update_bot_settings(bot_id: int, bot_data: schemas.BotUpdate, db: Session = Depends(get_db)):
+def update_bot_settings(bot_id: int, bot_data: schemas.BotUpdate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """Update bot settings if already existing"""
-    updated_bot = crud.update_bot(db, bot_id, bot_data)
+    if current_user.get("is_team_member") and current_user.get("member_id"):
+        action_user_id = current_user["member_id"]
+    else:
+        action_user_id = current_user.get("user_id")
+    updated_bot = crud.update_bot(db, bot_id, bot_data, action_user_id)
     if not updated_bot:
         raise HTTPException(status_code=404, detail="Bot not found")
     return updated_bot
@@ -97,12 +101,16 @@ async def upload_bot_icon(bot_id: int = Form(...),file: UploadFile = File(...), 
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/del/{bot_id}", response_model=schemas.BotResponse)
-def update_bot_status(bot_id: int, db: Session = Depends(get_db)):
+def update_bot_status(bot_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """Update only the status of the bot to 'Deleted'"""
-    updated_bot = crud.delete_bot(db, bot_id)
+    if current_user.get("is_team_member") and current_user.get("member_id"):
+        action_user_id = current_user["member_id"]
+    else:
+        action_user_id = current_user["user_id"]
+    updated_bot = crud.delete_bot(db, bot_id, action_user_id)
     #add notification
     event_type="BOT_DELETED",
-    event_data=f"Bot has been deleted."
+    event_data=f"Bot has been deleted by user id: {action_user_id}."
     add_notification(db=db,
                     event_type=event_type,
                     event_data=event_data,

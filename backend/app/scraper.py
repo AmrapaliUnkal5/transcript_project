@@ -692,7 +692,7 @@ def get_links_from_sitemap(base_url: str, timeout: int = 10, max_retries: int = 
     if not re.search(r"\.(pdf|jpg|jpeg|png|gif|webp|svg|bmp|ico|xml|txt|json|csv)(\?|$)", url, re.IGNORECASE)
 ))
 
-def save_scraped_nodes(url_list, bot_id, db: Session):
+def save_scraped_nodes(url_list, bot_id, db: Session, action_user_id: int = None):
     """Save scraped URLs and titles to the database with the associated bot_id."""
     print("save_scraped_nodes")
 
@@ -745,6 +745,7 @@ def save_scraped_nodes(url_list, bot_id, db: Session):
                 existing_node.nodes_text = text_content
                 existing_node.nodes_text_count = word_count
                 existing_node.status = "Extracted"
+                existing_node.updated_by = action_user_id
                 existing_node.last_embedded = None
                 print("Website node updated with text content")
                 #Add notification only for existing and updated nodes
@@ -839,7 +840,7 @@ def send_web_scraping_failure_notification(db: Session, bot_id: int, reason: str
 
 
 # Hybrid scraping function
-def scrape_selected_nodes(url_list, bot_id, db: Session):
+def scrape_selected_nodes(url_list, bot_id, db: Session, action_user_id: int = None):
     logger = get_module_logger(__name__)
 
     logger.info(f"Starting scrape_selected_nodes",
@@ -907,6 +908,9 @@ def scrape_selected_nodes(url_list, bot_id, db: Session):
             total_word_count = sum(item["word_count"] for item in crawled_data)
             bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
             user_id = bot.user_id if bot else None
+            if not action_user_id:
+                # Get bot owner as fallback
+                action_user_id = bot.user_id if bot else None
 
             for item in crawled_data:
                 try:
@@ -917,7 +921,7 @@ def scrape_selected_nodes(url_list, bot_id, db: Session):
                         db
                     )
                     # ✅ Save single node
-                    save_scraped_nodes([item], bot_id, db)
+                    save_scraped_nodes([item], bot_id, db, action_user_id )
 
                 except Exception as wc_error:
                     # ❌ Mark this node as failed
@@ -939,7 +943,7 @@ def scrape_selected_nodes(url_list, bot_id, db: Session):
                         node.nodes_text = item.get("text", "")
                         node.title = item.get("title", "No Title")
                         node.updated_at = datetime.utcnow()
-                        node.updated_by = user_id
+                        node.updated_by = action_user_id
                         db.commit()
 
                     send_web_scraping_failure_notification(

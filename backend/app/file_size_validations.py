@@ -344,8 +344,17 @@ async def validate_and_upload_files(
             
             # Set initial  status to Extracting
             file_metadata["status"] = "Extracting"
-            file_metadata["created_by"] = current_user["user_id"]
-            file_metadata["updated_by"] = current_user["user_id"]
+
+            # Determine who to credit for the action (team member or regular user)
+            if current_user.get("is_team_member") and current_user.get("member_id"):
+                action_user_id = current_user["member_id"]
+                logger.info(f"👥 DEBUG: Team member action - member_id: {action_user_id}")
+            else:
+                action_user_id = current_user["user_id"]
+                logger.info(f"👤 DEBUG: Regular user action - user_id: {action_user_id}")
+
+            file_metadata["created_by"] = action_user_id
+            file_metadata["updated_by"] = action_user_id
             logger.info(f"📊 DEBUG: Set status to 'Extracting'")
             
             # Insert initial file metadata into database
@@ -366,6 +375,7 @@ async def validate_and_upload_files(
                 "file_path": text_file_path,
                 "original_size_bytes": original_size_bytes,
                 "file_id_db" :db_file.file_id,
+                'action_user_id': action_user_id
 
             }
             logger.info(f"🔄 DEBUG: Celery task data: {file_data}")
@@ -468,7 +478,8 @@ async def validate_and_upload_files(
 @router.post("/start-training")
 def start_training(
     request: StartTrainingRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: UserOut = Depends(get_current_user)
 ):
     logger.info(f"🎯 DEBUG: POST /start-training called")
     logger.info(f"🤖 DEBUG: Request bot_id: {request.bot_id}")
@@ -482,6 +493,11 @@ def start_training(
         raise HTTPException(status_code=404, detail="Bot not found")
 
     logger.info(f"✅ DEBUG: Bot found - bot_id: {bot_id}")
+
+    if current_user.get("is_team_member") and current_user.get("member_id"):
+        action_user_id = current_user["member_id"]
+    else:
+        action_user_id = current_user["user_id"]
 
     # ✅ Step 1: Fetch eligible files for vectorization
     logger.info(f"📄 DEBUG: Fetching files with status 'Extracted' for bot_id: {bot_id}")
@@ -501,7 +517,7 @@ def start_training(
         db.commit() # commit status change before dispatch
         for file in files_to_vectorize:
             logger.info(f"🔄 DEBUG: Dispatching Celery task for file: {file.unique_file_name}")
-            process_file_upload_part2.delay(bot_id, file.unique_file_name)
+            process_file_upload_part2.delay(bot_id, file.unique_file_name, action_user_id)
         logger.info(f"✅ DEBUG: Updated {len(files_to_vectorize)} files to 'Embedding' status")
     else:
         logger.info(f"🚫 DEBUG: No files pending vectorization for bot {bot_id}")
@@ -531,7 +547,7 @@ def start_training(
         db.commit()
         video_ids = [video.id for video in videos_to_vectorize]
         logger.info(f"🔄 DEBUG: Dispatching Celery task for {len(video_ids)} videos: {video_ids}")
-        process_youtube_videos_part2.delay(bot_id, video_ids)
+        process_youtube_videos_part2.delay(bot_id, video_ids, action_user_id)
         logger.info(f"✅ DEBUG: Updated {len(videos_to_vectorize)} videos to 'Embedding' status")
     else:
         logger.info(f"🚫 DEBUG: No YouTube videos pending vectorization for bot {bot_id}")
@@ -561,7 +577,7 @@ def start_training(
             db.add(node)
         db.commit()
         logger.info(f"🔄 DEBUG: Dispatching Celery task for {len(scraped_node_ids)} scraped nodes: {scraped_node_ids}")
-        process_web_scraping_part2.delay(bot_id, scraped_node_ids)
+        process_web_scraping_part2.delay(bot_id, scraped_node_ids, action_user_id)
         logger.info(f"✅ DEBUG: Updated {len(scraped_nodes_to_vectorize)} scraped nodes to 'Embedding' status")
     else:
         logger.info(f"🚫 DEBUG: No scraped web pages pending vectorization for bot {bot_id}")

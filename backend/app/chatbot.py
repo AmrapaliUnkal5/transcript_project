@@ -573,7 +573,8 @@ async def fetch_videos(request: Request, video_request: YouTubeRequest):
 async def process_selected_videos(
     request: Request,
     video_request: VideoProcessingRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     request_id = getattr(request.state, "request_id", "unknown")
     
@@ -586,6 +587,14 @@ async def process_selected_videos(
     if not bot:
         logger.error(f"❌ DEBUG: Bot not found", extra={"bot_id": video_request.bot_id})
         raise HTTPException(status_code=404, detail="Bot not found")
+    # Determine who to credit for the action (team member or regular user)
+    if current_user.get("is_team_member") and current_user.get("member_id"):
+        action_user_id = current_user["member_id"]
+        logger.info(f"👥 DEBUG: Team member video processing - member_id: {action_user_id}")
+    else:
+        action_user_id = current_user["user_id"]
+        logger.info(f"👤 DEBUG: Regular user video processing - user_id: {action_user_id}")
+
 
     user_id = bot.user_id
     logger.info(f"👤 DEBUG: Processing videos for user_id: {user_id}")
@@ -629,8 +638,8 @@ async def process_selected_videos(
             video_title="YouTube Video",
             transcript_count=0,
             status="Extracting",
-            created_by=user_id,
-            updated_by=user_id,
+            created_by=action_user_id,
+            updated_by=action_user_id,
         )
         db.add(basic_video)
         inserted += 1
@@ -648,7 +657,8 @@ async def process_selected_videos(
             logger.info(f"🚀 DEBUG: Starting Celery task for {len(new_video_urls)} videos")
             task = process_youtube_videos_part1.delay(
                 video_request.bot_id,
-                new_video_urls
+                new_video_urls,
+                action_user_id
             )
             logger.info(f"✅ DEBUG: Celery task started successfully", extra={"task_id": task.id if inserted > 0 else None})
             return {
@@ -738,8 +748,17 @@ def soft_delete_video(request: Request, bot_id: int, video_id: str = Query(...),
 
         logger.info(f"✅ DEBUG: Video found - Title: {video.video_title}, Status: {video.status}")
 
+        # Determine who performed the deletion
+        if current_user.get("is_team_member") and current_user.get("member_id"):
+            action_user_id = current_user["member_id"]
+            logger.info(f"👥 DEBUG: Team member deleting video - member_id: {action_user_id}")
+        else:
+            action_user_id = current_user["user_id"]
+            logger.info(f"👤 DEBUG: Regular user deleting video - user_id: {action_user_id}")
+
         # Soft delete the video in the database
         video.is_deleted = True
+        video.updated_by = action_user_id
         logger.info(f"🗑️ DEBUG: Marked video as deleted in database")
         
          # Get the transcript count from the video if word_count parameter wasn't provided
@@ -775,7 +794,7 @@ def soft_delete_video(request: Request, bot_id: int, video_id: str = Query(...),
         logger.info(f"👤 DEBUG: User ID for notification: {user_youtube}")
         
         # Add notification
-        notification_text = f"Video '{video.video_title}' was removed from bot {bot_id}'s knowledge base. "
+        notification_text = f"Video '{video.video_title}' was removed from bot {bot_id}'s knowledge base by user id:{action_user_id}. "
         logger.info(f"📢 DEBUG: Adding notification: {notification_text}")
         add_notification(db, "Video Removed", notification_text, bot_id, user_youtube)
         logger.info(f"✅ DEBUG: Notification added successfully")
@@ -832,9 +851,18 @@ def soft_delete_scraped_url(
         logger.info(f"✅ DEBUG: Scraped node found - ID: {scraped_node.id}, Status: {scraped_node.status}")
         word_count = scraped_node.nodes_text_count
         logger.info(f"📊 DEBUG: Actual word count from node: {word_count}")
-        
+
+        # Determine who performed the deletion
+        if current_user.get("is_team_member") and current_user.get("member_id"):
+            action_user_id = current_user["member_id"]
+            logger.info(f"👥 DEBUG: Team member deleting URL - member_id: {action_user_id}")
+        else:
+            action_user_id = current_user["user_id"]
+            logger.info(f"👤 DEBUG: Regular user deleting URL - user_id: {action_user_id}")
+
         # Soft delete the scraped node in the database
         scraped_node.is_deleted = True
+        scraped_node.updated_by = action_user_id
         logger.info(f"🗑️ DEBUG: Marked scraped node as deleted in database")
         
         # Check if all nodes for this website are deleted
@@ -894,7 +922,7 @@ def soft_delete_scraped_url(
         logger.info(f"✅ DEBUG: URL deleted from ChromaDB")
         
         # Add notification
-        notification_text = f"URL '{decoded_url}' was removed from bot {bot_id}'s knowledge base."
+        notification_text = f"URL '{decoded_url}' was removed from bot {bot_id}'s knowledge base by user id: {action_user_id}."
         logger.info(f"📢 DEBUG: Adding notification: {notification_text}")
         add_notification(db, "URL Removed", notification_text,bot_id, current_user["user_id"])
         logger.info(f"✅ DEBUG: Notification added successfully")

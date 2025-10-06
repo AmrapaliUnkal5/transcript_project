@@ -132,6 +132,10 @@ class Bot(Base):
     embedding_model = relationship("EmbeddingModel", back_populates="bots")
     llm_model = relationship("LLMModel", back_populates="bots")
     files = relationship("File", back_populates="bot", cascade="all, delete-orphan")
+
+    #Audit fields
+    created_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+    updated_by = Column(Integer, ForeignKey("users.user_id"), nullable=True)
     
     def __str__(self):
         status_indicator = " (active)" if self.is_active else " (inactive)"

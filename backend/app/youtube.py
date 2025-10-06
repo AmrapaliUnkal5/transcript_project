@@ -641,7 +641,7 @@ def report_video_processing_results(db, bot_id, stored_videos, failed_videos):
         print(f"❌ Error sending processing report: {e}")
         return False
 
-def save_video_metadata(db, bot_id: int, url: str, transcript: str, metadata: dict):
+def save_video_metadata(db, bot_id: int, url: str, transcript: str, metadata: dict,action_user_id: int = None):
     """Saves or updates YouTube video metadata and transcript in the database."""
     try:
         assert url, "video_url cannot be empty"
@@ -709,6 +709,7 @@ def save_video_metadata(db, bot_id: int, url: str, transcript: str, metadata: di
             existing_video.likes = likes
             existing_video.description = metadata.get("description", "")
             existing_video.thumbnail_url = metadata.get("thumbnail_url")
+            existing_video.updated_by = action_user_id
         else:
             print(f"⚠️ Video not found in DB for update (video_id={video_id}, bot_id={bot_id}). Possibly deleted during extraction.")
             return  # Skip inserting

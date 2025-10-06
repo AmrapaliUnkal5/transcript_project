@@ -66,7 +66,7 @@ def create_bot(db: Session, bot_data: BotCreate):
     db.refresh(new_bot)
     return new_bot
 
-def update_bot(db: Session, bot_id: int, bot_data: BotUpdate):
+def update_bot(db: Session, bot_id: int, bot_data: BotUpdate, action_user_id: int = None):
     """Update bot settings if already existing"""
     # Fetch the bot from the database
     bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
@@ -102,6 +102,9 @@ def update_bot(db: Session, bot_id: int, bot_data: BotUpdate):
             logger.debug(f"Updating {field} from {current_value} to {value}")
             setattr(bot, field, value)  # Set the new value
     
+    if action_user_id:
+        bot.updated_by = action_user_id
+
     db.commit()
     db.refresh(bot)  
     return bot
@@ -222,7 +225,7 @@ def create_file(db: Session, file_data: dict):
     return db_file     
 
 
-def delete_bot(db: Session, bot_id: int):
+def delete_bot(db: Session, bot_id: int, action_user_id: int = None):
     """Soft delete a bot by updating its status to 'Deleted'"""
     bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
 
@@ -244,6 +247,8 @@ def delete_bot(db: Session, bot_id: int):
     # Set status to "Deleted"
     bot.status = "Deleted"
     bot.is_active = False
+    if action_user_id:
+        bot.updated_by = action_user_id
 
     db.commit()
     db.refresh(bot)
