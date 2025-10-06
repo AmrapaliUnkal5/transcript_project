@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks, Body, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import SubscriptionPlan, Addon, UserSubscription, User, UserAddon
@@ -10,11 +10,12 @@ from pydantic import BaseModel
 import logging
 import os
 import traceback
-from app.schemas import ZohoCheckoutRequest, ZohoCheckoutResponse
+from app.schemas import ZohoCheckoutRequest, ZohoCheckoutResponse, CancelSubscriptionRequest, CancelSubscriptionResponse, CancelAddonNextCycleRequest
 from app.utils.create_access_token import create_access_token
 from fastapi.responses import JSONResponse
 from app.utils.logger import get_module_logger, get_webhook_logger
 from app.config import settings
+from app.schemas import CancelAddonNextCycleRequest
 
 router = APIRouter(prefix="/zoho", tags=["Zoho Subscriptions"])
 logger = get_module_logger(__name__)
@@ -291,7 +292,7 @@ async def create_subscription_checkout(
 
             # Apply tax_id only for India and non-Rajasthan states
             if should_apply_tax:
-                update_data["plan"]["tax_id"] = os.getenv('ZOHO_TAX_ID')
+                update_data["plan"]["tax_id"] = os.getenv("ZOHO_TAX_ID" ,"2818287000000032409")
                 update_data["plan"]["tax_exemption_code"] = ""
 
             # Include customer details if we successfully fetched them
@@ -338,7 +339,7 @@ async def create_subscription_checkout(
                         "addon_code": code, 
                         "quantity": count,
                         # Apply tax to each addon if needed
-                        **({"tax_id": os.getenv('ZOHO_TAX_ID'), "tax_exemption_code": ""} if should_apply_tax else {})
+                        **({"tax_id": os.getenv("ZOHO_TAX_ID" ,"2818287000000032409"), "tax_exemption_code": ""} if should_apply_tax else {})
                     } 
                     for code, count in addon_counts.items()
                 ]
@@ -396,6 +397,133 @@ async def create_subscription_checkout(
         except:
             pass
         raise HTTPException(status_code=500, detail=f"Error creating subscription checkout: {error_msg}")
+
+# Cancel subscription at term end and disable auto_renew locally
+@router.post("/subscription/cancel", response_model=CancelSubscriptionResponse)
+async def cancel_subscription(
+    request: CancelSubscriptionRequest,
+    db: Session = Depends(get_db),
+    current_user: Union[dict, User] = Depends(get_current_user),
+):
+    try:
+        # Determine user id
+        user_id = current_user.get("user_id") if isinstance(current_user, dict) else current_user.user_id
+
+        # Find the latest active subscription
+        subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "active"
+        ).order_by(UserSubscription.expiry_date.desc()).first()
+
+        if not subscription or not subscription.zoho_subscription_id:
+            raise HTTPException(status_code=404, detail="Active subscription not found")
+
+        # Request Zoho to cancel at term end
+        zoho_service = ZohoBillingService()
+        zoho_service.cancel_subscription(subscription.zoho_subscription_id, cancel_at_term_end=True, reason=request.reason)
+
+        # Update DB - disable auto_renew
+        subscription.auto_renew = False
+        subscription.updated_at = datetime.now()
+        note = "Cancelled at term end by user"
+        subscription.notes = f"{(subscription.notes or '').strip()} | {note}".strip(" |")
+        db.commit()
+
+        return CancelSubscriptionResponse(success=True, message="Subscription will not auto-renew.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling subscription: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error cancelling subscription: {str(e)}")
+
+# Cancel addon for next cycle
+@router.post("/subscription/addons/cancel-next-cycle")
+async def cancel_addon_next_cycle(
+    req: Optional[CancelAddonNextCycleRequest] = Body(default=None),
+    addon_id: Optional[int] = Query(default=None),
+    addon_name: Optional[str] = Query(default=None),
+    addon_code: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: Union[dict, User] = Depends(get_current_user),
+):
+    try:
+        user_id = current_user.get("user_id") if isinstance(current_user, dict) else current_user.user_id
+        sub = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "active"
+        ).order_by(UserSubscription.expiry_date.desc()).first()
+        if not sub or not sub.zoho_subscription_id:
+            raise HTTPException(status_code=404, detail="Active subscription not found")
+
+        # Determine target addon_id from body or query
+        target_addon_id = req.addon_id if req and hasattr(req, 'addon_id') else addon_id
+        # Resolve addon by id, code or name
+        if not target_addon_id:
+            if addon_code:
+                addon_row = db.query(Addon).filter(Addon.zoho_addon_code == addon_code).first()
+                target_addon_id = addon_row.id if addon_row else None
+            elif addon_name:
+                addon_row = db.query(Addon).filter(Addon.name == addon_name).first()
+                target_addon_id = addon_row.id if addon_row else None
+        if not target_addon_id:
+            raise HTTPException(status_code=400, detail="addon_id or addon_name/addon_code is required")
+
+        # Build addons quantity map from items that are still set to auto-renew
+        # (exclude previously cancelled-at-renewal items)
+        current_addons = db.query(UserAddon).filter(
+            UserAddon.user_id == user_id,
+            UserAddon.status == "active",
+            UserAddon.auto_renew == True
+        ).all()
+        by_code: Dict[str, int] = {}
+        for ua in current_addons:
+            addon = db.query(Addon).filter(Addon.id == ua.addon_id).first()
+            if not addon or not addon.zoho_addon_code:
+                continue
+            # If your table has a quantity field, prefer that; otherwise each row counts as 1
+            row_qty = getattr(ua, "quantity", None)
+            qty_to_add = int(row_qty) if isinstance(row_qty, (int,)) and row_qty is not None else 1
+            by_code[addon.zoho_addon_code] = by_code.get(addon.zoho_addon_code, 0) + qty_to_add
+
+        # Decrement exactly one unit of the target addon for THIS request
+        target_addon = db.query(Addon).filter(Addon.id == target_addon_id).first()
+        if target_addon and target_addon.zoho_addon_code:
+            if target_addon.zoho_addon_code in by_code:
+                by_code[target_addon.zoho_addon_code] = max(0, by_code[target_addon.zoho_addon_code] - 1)
+
+        # Build payload with remaining quantities (>0 only)
+        addons_payload = [
+            {"addon_code": code, "quantity": qty}
+            for code, qty in by_code.items() if qty > 0
+        ]
+
+        logger.info(f"Computed addon quantities post-cancel: {by_code}")
+        logger.info(f"Update payload addons: {addons_payload}")
+
+        # Use direct API to apply changes on renewal (no immediate charge/checkout)
+        api_result = zoho_service.update_subscription_addons_api(
+            sub.zoho_subscription_id,
+            addons_payload,
+            apply_on_renewal=True
+        )
+
+        # Mark this addon as not auto-renewing locally
+        row = db.query(UserAddon).filter(
+            UserAddon.user_id == user_id,
+            UserAddon.addon_id == target_addon_id,
+            UserAddon.status == "active"
+        ).first()
+        if row:
+            row.auto_renew = False
+            row.updated_at = datetime.now()
+            db.commit()
+
+        return {"success": True, "data": api_result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling addon for next cycle: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error cancelling addon for next cycle: {str(e)}")
     
 @router.post("/zoho/webhook_addon_test")
 async def webhook_addon_test(request: Request):
@@ -1571,8 +1699,8 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
                         auto_renew=addon.is_recurring,
                         status="active",
                         zoho_addon_instance_id=addon_instance_id,
-                        initial_count=addon.additional_message_limit or 0,
-                        remaining_count=addon.additional_message_limit or 0
+                        initial_count=0,
+                        remaining_count=0
                     )
                     db.add(new_row)
                     created_rows += 1
@@ -1759,8 +1887,8 @@ async def handle_subscription_created(payload: Dict[str, Any], db: Session):
                     auto_renew=addon.is_recurring,
                     status="active",
                     zoho_addon_instance_id=addon_instance_id,
-                    initial_count=addon.additional_message_limit or 0,
-                    remaining_count=addon.additional_message_limit or 0
+                    initial_count=0,
+                    remaining_count=0
                 )
                 
                 db.add(user_addon)
@@ -1948,8 +2076,8 @@ async def handle_subscription_renewed(payload: Dict[str, Any], db: Session):
                     purchase_date=datetime.now(),
                     expiry_date=expiry_date if addon.addon_type != "Additional Messages" else None,
                     created_at=datetime.now(),
-                    initial_count=addon.additional_message_limit or 0,
-                    remaining_count=addon.additional_message_limit or 0
+                    initial_count=0,
+                    remaining_count=0
                 )
                 db.add(new_addon)
                 logger.info(f"Added new add-on {addon.name} (ID: {addon.id}) for user {subscription.user_id}")
@@ -2372,8 +2500,8 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
                         is_active=True,
                         auto_renew=addon.is_recurring,
                         status="active",
-                        initial_count=addon.additional_message_limit or 0,
-                        remaining_count=addon.additional_message_limit or 0
+                        initial_count=0,
+                        remaining_count=0
                     )
                     db.add(new_row)
                     created_rows += 1
@@ -2445,8 +2573,8 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
                             is_active=True,
                             auto_renew=matching_addon.is_recurring,
                             status="active",
-                            initial_count=matching_addon.additional_message_limit or 0,
-                            remaining_count=matching_addon.additional_message_limit or 0
+                            initial_count=0,
+                            remaining_count=0
                         )
                         db.add(user_addon)
                         webhook_logger.info(f"🆕 ADDON PAYMENT: Created new addon {matching_addon.name} for user {user_id}")

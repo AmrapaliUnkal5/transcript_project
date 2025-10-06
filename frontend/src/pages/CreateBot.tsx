@@ -144,6 +144,7 @@ export const CreateBot = () => {
     "Getting things ready for you..."
   );
   const [useExternalKnowledge, setUseExternalKnowledge] = useState(false);
+  const [hasExternalKnowledgeEntitlement, setHasExternalKnowledgeEntitlement] = useState<boolean | null>(null);
   const MAX_FILE_SIZE = (userPlan?.per_file_size_limit ?? 20) * 1024 * 1024;
   console.log("Maxfilesize=>", MAX_FILE_SIZE);
   const MAX_WORD_COUNT = userPlan?.word_count_limit ?? 50000;
@@ -334,6 +335,18 @@ useEffect(() => {
       }
     };
     fetchUsage();
+  }, []);
+
+  // Prefetch External Knowledge entitlement for the current user
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await authApi.checkExternalKnowledgeForUser();
+        setHasExternalKnowledgeEntitlement(!!result?.hasExternalKnowledge);
+      } catch (e) {
+        setHasExternalKnowledgeEntitlement(false);
+      }
+    })();
   }, []);
 
   const processWordCounts = async (filesToProcess: File[]) => {
@@ -1374,7 +1387,24 @@ const renderStepContent = () => {
                   className="hidden"
                   name="knowledgeSource"
                   checked={useExternalKnowledge}
-                  onChange={() => setUseExternalKnowledge(true)}
+                  onChange={() => {
+                    if (!user?.user_id) {
+                      toast.error("Please log in to enable external knowledge.");
+                      setUseExternalKnowledge(false);
+                      return;
+                    }
+                    if (hasExternalKnowledgeEntitlement === true) {
+                      setUseExternalKnowledge(true);
+                      return;
+                    }
+                    if (hasExternalKnowledgeEntitlement === false) {
+                      toast.info("External Knowledge is an add-on. Please purchase it to enable this feature.");
+                      setUseExternalKnowledge(false);
+                      return;
+                    }
+                    // Fallback if entitlement not yet loaded
+                    toast.info("Checking your add-on entitlement. Please try again in a moment.");
+                  }}
                 />
                 <span
                   className={`h-4 w-4 mr-2 inline-block rounded-full border-2 flex items-center justify-center ${

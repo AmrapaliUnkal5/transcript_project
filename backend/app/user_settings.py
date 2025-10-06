@@ -34,8 +34,8 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    # Fetch current active subscription (assuming latest/active is needed)
+
+    # Step 1: Try to fetch active subscription
     subscription = (
         db.query(UserSubscription)
         .filter(
@@ -46,32 +46,43 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
         .first()
     )
 
-    #print("subscription.subscription_plan_id",subscription.subscription_plan_id)
+    # Step 2: If no active subscription, fetch the latest one
+    if not subscription:
+        subscription = (
+            db.query(UserSubscription)
+            .filter(UserSubscription.user_id == current_user["user_id"])
+            .order_by(UserSubscription.payment_date.desc())
+            .first()
+        )
 
-    subscription_data = None
+    # Step 3: If subscription exists, fetch plan details
     if subscription:
-        plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == subscription.subscription_plan_id).first()
-        print("plan.name",plan.name)
+        plan = (
+            db.query(SubscriptionPlan)
+            .filter(SubscriptionPlan.id == subscription.subscription_plan_id)
+            .first()
+        )
         subscription_data = {
             "plan_name": plan.name if plan else "Unknown Plan",
-            "amount": float(subscription.amount),
-            "currency": subscription.currency,
-            "payment_date": subscription.payment_date,
-            "expiry_date": subscription.expiry_date,
-            "auto_renew": subscription.auto_renew,
-            "status": subscription.status
+            "amount": float(subscription.amount) if subscription.amount else "N/A",
+            "currency": subscription.currency or "",
+            "payment_date": subscription.payment_date or "",
+            "expiry_date": subscription.expiry_date or "",
+            "auto_renew": subscription.auto_renew or "",
+            "status": subscription.status or "N/A",
         }
     else:
-    # No subscription record, default to Explorer Plan
+        # Step 4: No subscription found at all
         subscription_data = {
-            "plan_name": "Explorer Plan",
+            "plan_name": "N/A",
             "amount": "N/A",
             "currency": "",
             "payment_date": "",
             "expiry_date": "",
             "auto_renew": "",
-            "status": "Active"
+            "status": "Active",
         }
+
 
     # Get all active addons for the current user
     active_addons = (
@@ -93,6 +104,7 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
             "purchase_date": ua.purchase_date,  # fallback in case quantity isn’t tracked
             "expiry_date": ua.expiry_date,
             "auto_renew": ua.auto_renew,
+            "addon_id": ua.addon_id
         }
         for ua in active_addons
     ]

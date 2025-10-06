@@ -698,6 +698,9 @@ export const Subscription = () => {
     checkFreePlanValidity();
   }, [currentPlanId, user?.user_id]);
 
+  // Filter out one-time Additional Messages (id 3) from visible addons
+  const visibleAddons = addons.filter((a) => a.id !== 3 && a.name !== "Additional Messages One Time");
+
   // Render a plan card
   const renderPlanCard = (plan: any) => {
     const PlanIcon = planIcons[plan.name as keyof typeof planIcons] || Compass;
@@ -880,7 +883,7 @@ export const Subscription = () => {
         </ul>
 
         {/* Add-ons Button (now opens modal) */}
-        {plan.name.toLowerCase() !== "enterprise" && plan.name.toLowerCase() !== "explorer" && addons.length > 0 && (
+        {plan.name.toLowerCase() !== "enterprise" && plan.name.toLowerCase() !== "explorer" && visibleAddons.length > 0 && (
           <button
             onClick={() => openAddonsModal(plan)}
             className={`text-${planAccent}-600 hover:text-${planAccent}-800 dark:text-${planAccent}-400 dark:hover:text-${planAccent}-300 font-medium text-sm flex items-center justify-center w-full border border-${planAccent}-400 rounded-md py-2 mt-6 transition-colors hover:bg-${planAccent}-50 dark:hover:bg-${planAccent}-900/20`}
@@ -1252,7 +1255,7 @@ export const Subscription = () => {
               onClose={closeAddonsModal}
               planName={currentModalPlan.name}
               planId={currentModalPlan.id}
-              addons={addons}
+              addons={visibleAddons}
               selectedAddons={selectedAddons[currentModalPlan.id] || {}}
               toggleAddon={(addonId) => toggleAddon(currentModalPlan.id, addonId)}
               increaseQuantity={(addonId) => increaseQuantity(currentModalPlan.id, addonId)}

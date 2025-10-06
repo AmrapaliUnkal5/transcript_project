@@ -497,6 +497,23 @@ class MessageUsageResponse(BaseModel):
 class AddOnCheckoutResponse(BaseModel):
     checkout_url: str
 
+class BulkAddonItem(BaseModel):
+    addon_id: int
+    quantity: int = 1
+
+class BulkAddOnCheckoutRequest(BaseModel):
+    items: List[BulkAddonItem]
+
+class CancelSubscriptionRequest(BaseModel):
+    reason: Optional[str] = None
+
+class CancelSubscriptionResponse(BaseModel):
+    success: bool
+    message: Optional[str] = None
+
+class CancelAddonNextCycleRequest(BaseModel):
+    addon_id: int
+
 class YouTubeVideoResponse(BaseModel):
     video_id: str
     video_title: str

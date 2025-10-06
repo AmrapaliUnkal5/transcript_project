@@ -718,6 +718,42 @@ export const Settings = () => {
                 </p>
               </div>
             </div>
+
+            {/* Cancel Subscription CTA */}
+            {settings.subscription?.status === "active" && settings.subscription?.auto_renew && (
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={async () => {
+                    const confirmed = window.confirm(
+                      "You're about to cancel your subscription. From the next billing cycle, your plan will not renew automatically."
+                    );
+                    if (!confirmed) return;
+                    try {
+                      setLoading(true);
+                      await subscriptionApi.cancelSubscription();
+                      toast.success("Auto-renew has been turned off. Your plan will not renew next cycle.");
+                      // Refresh user details to reflect auto_renew = false
+                      const response = await authApi.getUserDetails();
+                      setSettings((prev) => ({
+                        ...prev,
+                        subscription: {
+                          ...prev.subscription,
+                          auto_renew: response.subscription?.auto_renew || false,
+                          status: response.subscription?.status || prev.subscription.status,
+                        },
+                      }));
+                    } catch (e) {
+                      toast.error("Failed to cancel subscription. Please try again.");
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-md bg-red-500 hover:bg-red-600 text-white"
+                >
+                  Cancel Subscription
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -749,6 +785,9 @@ export const Settings = () => {
                       </th>
                       <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
                         Auto Renew
+                      </th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Action
                       </th>
                     </tr>
                   </thead>
@@ -792,6 +831,34 @@ export const Settings = () => {
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
                           {addon.auto_renew ? "Yes" : "No"}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {settings.subscription?.status !== "active" || settings.subscription?.auto_renew === false ? (
+                            <span className="text-gray-400">—</span>
+                          ) : addon.auto_renew ? (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await subscriptionApi.cancelAddon(addon.addon_id || addon.addonId || addon.id);
+                                  toast.success("Addon set to cancel at next renewal.");
+                                  // Optimistically update UI: mark this addon's auto_renew false
+                                  setSettings((prev: any) => ({
+                                    ...prev,
+                                    addons: prev.addons.map((a: any, i: number) =>
+                                      i === index ? { ...a, auto_renew: false, status: a.status } : a
+                                    ),
+                                  }));
+                                } catch (e: any) {
+                                  toast.error(e.message || "Failed to schedule addon cancellation");
+                                }
+                              }}
+                              className="px-3 py-1 rounded-md bg-red-500 hover:bg-red-600 text-white"
+                            >
+                              Cancel
+                            </button>
+                          ) : (
+                            <span className="inline-block px-3 py-1 rounded-md bg-gray-200 text-gray-600 cursor-not-allowed">Cancelled</span>
+                          )}
                         </td>
                       </tr>
                     ))}

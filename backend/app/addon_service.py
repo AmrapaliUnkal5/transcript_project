@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 import logging
 from app.zoho_billing_service import ZohoBillingService
+from app.schemas import BulkAddOnCheckoutRequest
 
 logger = logging.getLogger(__name__)
 
@@ -101,8 +102,8 @@ class AddonService:
                 is_active=True,
                 auto_renew=addon.is_recurring,
                 status="active",
-                initial_count=addon.additional_message_limit or 0,
-                remaining_count=addon.additional_message_limit or 0
+                initial_count=0,
+                remaining_count=0
             )
             db.add(user_addon)
             created_addons.append(user_addon)
@@ -265,7 +266,7 @@ class AddonService:
                     is_active=False,  # Not active until payment succeeds
                     auto_renew=addon.is_recurring,
                     status="pending",  # Mark as pending until webhook confirms payment
-                    initial_count=addon.additional_message_limit or 0,
+                    initial_count=0,
                     remaining_count=0  # Set to 0 until activated
                 )
                 
@@ -405,3 +406,117 @@ class AddonService:
             "additional_words": "Additional Words" in active_addon_types,
             "additional_messages": "Additional Messages" in active_addon_types
         } 
+
+    @staticmethod
+    def get_bulk_addon_checkout_url(db: Session, user_id: int, items: List[Dict[str, int]]) -> str:
+        """
+        Generate a checkout URL for purchasing multiple add-ons together (cart flow).
+
+        Uses Zoho updatesubscription hosted page which accepts an addons array.
+        """
+        # Validate active subscription
+        subscription = (
+            db.query(UserSubscription)
+            .filter(
+                UserSubscription.user_id == user_id,
+                UserSubscription.status == "active"
+            )
+            .order_by(UserSubscription.expiry_date.desc())
+            .first()
+        )
+        if not subscription:
+            raise ValueError("You need an active subscription to purchase add-ons. Please subscribe to a plan first.")
+        if not subscription.zoho_subscription_id:
+            raise ValueError("Your subscription doesn't have a valid billing reference. Please contact support.")
+
+        # Build addons list: resolve codes and quantities, validate
+        addons_payload: List[Dict[str, int]] = []
+        addon_counts: Dict[str, int] = {}
+        for item in items:
+            addon_id = int(item.get("addon_id"))
+            quantity = int(item.get("quantity", 1))
+            if quantity <= 0:
+                continue
+            addon = db.query(Addon).filter(Addon.id == addon_id).first()
+            if not addon or not addon.zoho_addon_code:
+                raise ValueError(f"Add-on with ID {addon_id} not found or not configured")
+            addon_counts[addon.zoho_addon_code] = addon_counts.get(addon.zoho_addon_code, 0) + quantity
+
+        if not addon_counts:
+            raise ValueError("No valid add-ons to checkout")
+
+        # Merge with existing recurring addons to avoid Zoho issuing credits (preserve full list)
+        zoho_service = ZohoBillingService()
+        merged_counts: Dict[str, int] = {}
+        try:
+            current_details = zoho_service.get_subscription_details(subscription.zoho_subscription_id)
+            subscription_obj = (current_details or {}).get("subscription") or {}
+            for item in (subscription_obj.get("addons") or []):
+                code = item.get("addon_code")
+                qty = int(item.get("quantity", 0) or 0)
+                if code and qty > 0:
+                    merged_counts[code] = merged_counts.get(code, 0) + qty
+        except Exception as _e:
+            # If fetching fails, proceed with only requested ones
+            merged_counts = {}
+
+        # Add requested quantities additively
+        for code, qty in addon_counts.items():
+            merged_counts[code] = int(merged_counts.get(code, 0)) + int(qty)
+
+        # Prepare update payload as per Zoho: full addons array with addon_code and final quantity
+        update_data: Dict[str, Any] = {
+            "addons": [
+                {"addon_code": code, "quantity": int(qty)}
+                for code, qty in merged_counts.items()
+            ],
+            "redirect_url": f"{zoho_service.get_frontend_url()}/dashboard/welcome?addonpayment=success",
+            "cancel_url": f"{zoho_service.get_frontend_url()}/account/add-ons"
+        }
+
+        # Generate hosted page URL
+        checkout_url = zoho_service.get_subscription_update_hosted_page_url(
+            subscription_id=subscription.zoho_subscription_id,
+            update_data=update_data
+        )
+
+        if not checkout_url:
+            raise ValueError("Failed to generate checkout URL")
+
+        # Create/refresh pending rows for tracking (optional, similar to single flow)
+        try:
+            current_time = datetime.now()
+            for code, qty in addon_counts.items():
+                addon = db.query(Addon).filter(Addon.zoho_addon_code == code).first()
+                if not addon:
+                    continue
+                expiry_date = None if addon.id == 3 else subscription.expiry_date
+                existing_pending = db.query(UserAddon).filter(
+                    UserAddon.user_id == user_id,
+                    UserAddon.addon_id == addon.id,
+                    UserAddon.status == "pending"
+                ).first()
+                if existing_pending:
+                    existing_pending.updated_at = current_time
+                    existing_pending.expiry_date = expiry_date
+                else:
+                    pending_addon = UserAddon(
+                        user_id=user_id,
+                        addon_id=addon.id,
+                        subscription_id=subscription.id,
+                        purchase_date=current_time,
+                        expiry_date=expiry_date,
+                        is_active=False,
+                        auto_renew=addon.is_recurring,
+                        status="pending",
+                        initial_count=0,
+                        remaining_count=0
+                    )
+                    db.add(pending_addon)
+            db.commit()
+        except Exception as _e:
+            db.rollback()
+            # Non-fatal
+            logger.warning(f"Could not create pending rows for bulk addons: {str(_e)}")
+
+        return checkout_url

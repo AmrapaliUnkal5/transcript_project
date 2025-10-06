@@ -371,11 +371,19 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
 
     subscription_user_id = owner_id if is_team_member else db_user.user_id
     member_id = db_user.user_id if is_team_member else None
-    
+
+    # Step 1: Try to find an active subscription
     user_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == subscription_user_id,
-        UserSubscription.status.notin_(["pending", "failed", "cancelled"])
+        UserSubscription.status == 'active'
     ).order_by(UserSubscription.payment_date.desc()).first()
+
+    # Step 2: If no active one, get the latest one regardless of status
+    if not user_subscription:
+        user_subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == subscription_user_id
+        ).order_by(UserSubscription.payment_date.desc()).first()
+
 
     logger.debug("User subscription: %s", user_subscription)
     if user_subscription:
@@ -462,12 +470,19 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
     # ✅ If team member → use owner's subscription
     subscription_user_id = owner_id if is_team_member else db_user.user_id
     member_id = db_user.user_id if is_team_member else None
-        
-    # Get the user's active subscription
+
+    # Step 1: Try to find an active subscription
     user_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == subscription_user_id,
-        UserSubscription.status.not_in(["pending", "cancelled","failed"])
+        UserSubscription.status == 'active'
     ).order_by(UserSubscription.payment_date.desc()).first()
+
+    # Step 2: If no active one, get the latest one regardless of status
+    if not user_subscription:
+        user_subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == subscription_user_id
+        ).order_by(UserSubscription.payment_date.desc()).first()
+
     
     # Get subscription plan ID if available
     subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
@@ -690,10 +705,18 @@ def login_for_access_token(
 
     logger.info("User authenticated successfully!")
 
+    # Step 1: Try to find an active subscription
     user_subscription = db.query(UserSubscription).filter(
         UserSubscription.user_id == user.user_id,
-        UserSubscription.status.notin_(["pending", "failed", "cancelled"])
+        UserSubscription.status == 'active'
     ).order_by(UserSubscription.payment_date.desc()).first()
+
+    # Step 2: If no active one, get the latest one regardless of status
+    if not user_subscription:
+        user_subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user.user_id
+        ).order_by(UserSubscription.payment_date.desc()).first()
+
 
     logger.info(f"User subscription: {user_subscription}")
     logger.info(f"User subscription plan ID: {user_subscription.subscription_plan_id}")

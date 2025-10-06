@@ -5,6 +5,8 @@ from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 import json
 from datetime import datetime
 from typing import Dict, Any, Optional
+import platform
+import time
 
 # Import settings to get LOG_DIR
 try:
@@ -165,6 +167,27 @@ def setup_logging(log_level=logging.INFO):
     webhook_handler.setLevel(logging.INFO)
     webhook_handler.setFormatter(json_formatter)
     
+     # Patch the doRollover method for Windows compatibility
+    if platform.system() == "Windows":
+        original_do_rollover = webhook_handler.doRollover
+        def windows_safe_do_rollover(handler):
+            """
+            Windows-specific workaround for log rotation permission errors.
+            """
+            try:
+                # First attempt normal rollover
+                original_do_rollover()
+            except PermissionError:
+                try:
+                    # Wait a bit and retry
+                    time.sleep(0.1)
+                    original_do_rollover()
+                except PermissionError:
+                    print(f"Warning: Could not rotate log file {handler.baseFilename} due to file lock")
+                    # skip rotation gracefully
+                    pass
+
+        webhook_handler.doRollover = lambda: windows_safe_do_rollover(webhook_handler)
     # Add handler to the webhook logger specifically
     webhook_logger.addHandler(webhook_handler)
 
@@ -190,4 +213,29 @@ def get_logger(name: str, extra: Optional[Dict[str, Any]] = None) -> logging.Log
 
 
 # Initialize logging when this module is imported
-setup_logging()
+setup_logging() 
+
+
+
+def windows_safe_do_rollover(handler):
+    """
+    Windows-specific workaround for log rotation permission errors.
+    This function attempts to handle the file locking issue gracefully.
+    """
+    if platform.system() != "Windows":
+        return handler.doRollover()  # Use normal behavior on non-Windows
+    
+    try:
+        # First attempt normal rollover
+        handler.doRollover()
+    except PermissionError:
+        # If we can't rename due to file lock, try a few workarounds
+        try:
+            # Wait a bit and retry
+            time.sleep(0.1)
+            handler.doRollover()
+        except PermissionError:
+            # If still failing, log the error but don't crash
+            print(f"Warning: Could not rotate log file {handler.baseFilename} due to file lock")
+            # Continue with the current file instead of rotating
+            pass

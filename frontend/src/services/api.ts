@@ -887,6 +887,11 @@ updateBotExternalKnowledge: async (botId: number) => {
     return response.data;
   },
 
+  checkExternalKnowledgeForUser: async (): Promise<{ hasExternalKnowledge: boolean }> => {
+    const response = await api.get(`/addon/external-knowledge-check/user`);
+    return response.data;
+  },
+
   getBotToken: async (botId: number): Promise<{ token: string }> => {
     const response = await api.get(`/widget/bot/${botId}/token`);
     return response.data;
@@ -936,6 +941,7 @@ export const subscriptionApi = {
   },
   
   getUserAddons: async (userId: number) => {
+    // Legacy endpoint used elsewhere in codebase
     const response = await api.get(`/user/${userId}/addons`);
     return response.data;
   },
@@ -970,6 +976,26 @@ export const subscriptionApi = {
         throw new Error(error.response.data.detail);
       }
       
+      throw error;
+    }
+  },
+  
+  purchaseAddonsBulk: async (
+    items: { addonId: number; quantity: number }[]
+  ): Promise<string> => {
+    try {
+      const payload = {
+        items: items.map(i => ({ addon_id: i.addonId, quantity: i.quantity || 1 }))
+      };
+      const response = await api.post("/addons/checkout/bulk", payload);
+      if (response?.data?.checkout_url) {
+        return response.data.checkout_url;
+      }
+      throw new Error('No checkout URL returned from the server');
+    } catch (error: any) {
+      if (error.response?.data?.detail) {
+        throw new Error(error.response.data.detail);
+      }
       throw error;
     }
   },
@@ -1095,6 +1121,12 @@ export const subscriptionApi = {
     }
   },
 
+  // Cancel current subscription at term end
+  cancelSubscription: async (reason?: string) => {
+    const response = await api.post("/zoho/subscription/cancel", { reason });
+    return response.data;
+  },
+
   // Get pending addon purchases for a user
   getPendingAddonPurchases: async (userId: number) => {
     try {
@@ -1113,6 +1145,21 @@ export const subscriptionApi = {
       return response.data;
     } catch (error) {
       console.error('Error canceling pending addon purchase:', error);
+      throw error;
+    }
+  },
+
+  // Cancel an addon for the next billing cycle (Zoho hosted update)
+  cancelAddon: async (addonId: number): Promise<string> => {
+    try {
+      // Send addon_id as query param with NO body to avoid 422
+      const response = await api.post(`/zoho/subscription/addons/cancel-next-cycle`, null, { params: { addon_id: addonId } });
+      // No checkout now; API applies on renewal
+      return "";
+    } catch (error: any) {
+      if (error.response?.data?.detail) {
+        throw new Error(error.response.data.detail);
+      }
       throw error;
     }
   },

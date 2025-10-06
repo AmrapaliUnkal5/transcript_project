@@ -204,39 +204,28 @@ export const ChatbotCustomization = () => {
   const { selectedBot, setSelectedBot } = useBot(); // Get setSelectedBot from context
   
   // === External Knowledge Sync ===
-const [externalKnowledge, setExternalKnowledge] = useState<boolean>(false);
+  const [externalKnowledge, setExternalKnowledge] = useState<boolean>(false);
+  const [hasExternalKnowledgeEntitlement, setHasExternalKnowledgeEntitlement] = useState<boolean | null>(null);
 
-
-useEffect(() => {
-  if (selectedBot?.external_knowledge !== undefined) {
-    setExternalKnowledge(selectedBot.external_knowledge);
-  }
-}, [selectedBot?.external_knowledge]);
-
-useEffect(() => {
-  const fetchExternalKnowledgeStatus = async () => {
-    if (!selectedBot?.id) return;
-
-    try {
-      const response = await authApi.getBotExternalKnowledge(selectedBot.id);
-      if (response?.success) {
-        setExternalKnowledge(response.external_knowledge);
-
-        if (selectedBot.external_knowledge !== response.external_knowledge) {
-          setSelectedBot((prev) =>
-            prev
-              ? { ...prev, external_knowledge: response.external_knowledge }
-              : null
-          );
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching external knowledge status:", error);
+  useEffect(() => {
+    if (selectedBot?.external_knowledge !== undefined) {
+      setExternalKnowledge(selectedBot.external_knowledge);
     }
-  };
+  }, [selectedBot?.external_knowledge]);
 
-  fetchExternalKnowledgeStatus();
-}, [selectedBot?.id]);
+ 
+  // Prefetch entitlement for External Knowledge at USER level
+  useEffect(() => {
+    if (!user?.user_id) return;
+    (async () => {
+      try {
+        const entitlement = await authApi.checkExternalKnowledgeForUser();
+        setHasExternalKnowledgeEntitlement(!!entitlement?.hasExternalKnowledge);
+      } catch (e) {
+        setHasExternalKnowledgeEntitlement(false);
+      }
+    })();
+  }, [user?.user_id]);
 
   
   if (!userId) {
@@ -1610,7 +1599,21 @@ const handleThemeSelect = async (themeId: string) => {
             </div>
             <Toggle
               checked={settings.external_knowledge || false}
-              onChange={() => handleChange("external_knowledge", !settings.external_knowledge)}
+              onChange={() => {
+                if (!selectedBot?.id) {
+                  toast.error("Please select or create a bot first.");
+                  return;
+                }
+                if (hasExternalKnowledgeEntitlement === true) {
+                  handleChange("external_knowledge", !settings.external_knowledge);
+                  return;
+                }
+                if (hasExternalKnowledgeEntitlement === false) {
+                  toast.error("External Knowledge is an add-on. Please purchase it to enable this feature.");
+                  return;
+                }
+                toast.info("Checking your add-on entitlement. Please try again in a moment.");
+              }}
             />
           </div>
 

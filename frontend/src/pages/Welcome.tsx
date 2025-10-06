@@ -1408,7 +1408,7 @@ const storageOptions = {
 
                     <span className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
                       {formatNumberWithCommas(chatUsed)} /{" "}
-                      {formatNumberWithCommas(chatLimit)}
+                      {formatNumberWithCommas(chat_messages_used)}
                     </span>
 
                     <span className="text-sm text-gray-600 dark:text-gray-300 mb-4">

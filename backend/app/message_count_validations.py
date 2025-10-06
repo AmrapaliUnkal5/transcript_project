@@ -52,7 +52,8 @@ async def get_user_msgusage(
         message_addons = db.query(UserAddon).join(Addon).filter(
             UserAddon.user_id == current_user["user_id"],
             UserAddon.is_active == True,
-            Addon.id == 3,  # Additional Messages addon
+            #Addon.id == 3,
+            Addon.id == 7,  # Additional Messages addon
             or_(
                 UserAddon.expiry_date == None,
                 UserAddon.expiry_date >= datetime.utcnow()
@@ -138,3 +139,25 @@ def check_white_labeling_addon_chatbotcustomization(bot_id: int, db: Session = D
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error checking White-Labeling addon: {str(e)}")    
 
+
+# Check External Knowledge add-on for current user (no bot required)
+@router.get("/addon/external-knowledge-check/user")
+def check_external_knowledge_addon_for_user(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        user_id = current_user["user_id"]
+        ek_addon = db.query(UserAddon).join(Addon).filter(
+            UserAddon.user_id == user_id,
+            Addon.id == 8,
+            UserAddon.is_active == True,
+            or_(
+                UserAddon.expiry_date == None,
+                UserAddon.expiry_date >= datetime.utcnow()
+            )
+        ).first()
+
+        return {"hasExternalKnowledge": True if ek_addon else False}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking External Knowledge addon: {str(e)}")

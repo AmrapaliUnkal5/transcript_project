@@ -249,7 +249,8 @@ def check_message_limit(
         message_addons = db.query(UserAddon).join(Addon).filter(
             UserAddon.user_id == user_id,
             UserAddon.is_active == True,
-            Addon.id == 3,
+            #Addon.id == 3,
+            Addon.id == 7,
             or_(
                 UserAddon.expiry_date == None,
                 UserAddon.expiry_date >= datetime.utcnow()
@@ -567,7 +568,8 @@ def check_and_record_addon_usage(
     try:
         user_addons = db.query(UserAddon).join(Addon).filter(
             UserAddon.user_id == user_id,
-            UserAddon.addon_id == 3,  # Message addon
+            #UserAddon.addon_id == 3,  # Message addon
+            UserAddon.addon_id == 7,
             UserAddon.is_active == True,
             or_(
                 UserAddon.expiry_date == None,
