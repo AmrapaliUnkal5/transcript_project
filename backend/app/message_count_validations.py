@@ -150,7 +150,7 @@ def check_external_knowledge_addon_for_user(
         user_id = current_user["user_id"]
         ek_addon = db.query(UserAddon).join(Addon).filter(
             UserAddon.user_id == user_id,
-            Addon.id == 8,
+            Addon.id == 7,
             UserAddon.is_active == True,
             or_(
                 UserAddon.expiry_date == None,
