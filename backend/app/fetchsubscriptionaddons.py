@@ -77,7 +77,7 @@ async def record_addon_usage(
         user_addons = db.query(UserAddon).join(Addon).filter(
             UserAddon.user_id == current_user["user_id"],
             #UserAddon.addon_id == 3,  # Message addon
-            UserAddon.addon_id == 7,
+            UserAddon.addon_id == 6,
             UserAddon.is_active == True,
             or_(
                 UserAddon.expiry_date == None,
@@ -122,7 +122,7 @@ def update_addon_usage_proper(db: Session, user_id: int, messages_to_use: int):
         addons = db.query(UserAddon).join(Addon).filter(
             UserAddon.user_id == user_id,
             #UserAddon.addon_id == 3,
-            UserAddon.addon_id == 7,
+            UserAddon.addon_id == 6,
             UserAddon.is_active == True,
             or_(
                 UserAddon.expiry_date == None,
