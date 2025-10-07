@@ -195,7 +195,7 @@ def get_usage_metrics(
             UserAddon.user_id == user_id,
             UserAddon.is_active == True,
             #Addon.id == 3,  # Additional Messages addon
-            Addon.id == 7, 
+            Addon.id == 6, 
         ).scalar() or 0
 
         chat_messages_used = (user.total_message_count + total_initial_count) or 0
@@ -217,7 +217,7 @@ def get_usage_metrics(
             active_addons = db.query(UserAddon).join(Addon).filter(
                 UserAddon.user_id == current_user["user_id"],
                 #UserAddon.addon_id == 3,  # Message addon
-                UserAddon.addon_id == 7,
+                UserAddon.addon_id == 6,
                 UserAddon.is_active == True,
                 or_(
                     UserAddon.expiry_date == None,
