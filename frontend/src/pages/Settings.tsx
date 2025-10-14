@@ -654,9 +654,9 @@ export const Settings = () => {
                   Amount
                 </label>
                 <p className="text-gray-900 dark:text-white">
-                  {settings.subscription?.amount
-                    ? `${settings.subscription.amount} ${settings.subscription.currency}`
-                    : "Free"}
+                  {settings.subscription?.plan_name?.toLowerCase() === "explorer"
+                    ? "Free"
+                    : `${settings.subscription?.amount} ${settings.subscription?.currency}`}
                 </p>
               </div>
 

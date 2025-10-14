@@ -410,7 +410,7 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
       city: '',
       state: '',
       zipCode: '',
-      country: 'IN'
+      country: ''
     },
     gstin: ''
   });
@@ -715,6 +715,7 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
               errors['billingAddress.country'] ? 'border-red-500' : 'border-gray-300'
             }`}
           >
+            <option value="">Select Country</option>
             {COUNTRIES.map(country => (
               <option key={country.code} value={country.code}>
                 {country.name}

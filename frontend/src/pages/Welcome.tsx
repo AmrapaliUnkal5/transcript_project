@@ -1135,42 +1135,9 @@ const storageOptions = {
           </div>
         )}
       </div>
-     {showSubscriptionModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full text-center">
-      <h2 className="text-lg font-semibold mb-4">Subscription Update</h2>
-      <p className="mb-4">{subscriptionModalMessage}</p>
-      <button
-        onClick={() => {
-          setShowSubscriptionModal(false);
-          navigate("/dashboard/welcome", { replace: true });
-        }}
-        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-      >
-        OK
-      </button>
-    </div>
-  </div>
-)}
-
-{isPolling && (
-  <div
-    className="fixed top-0 left-0 w-full h-full flex flex-col items-center justify-center bg-black bg-opacity-50 z-50"
-    role="status"
-    aria-live="polite"
-  >
-    {/* Spinner */}
-    <div className="w-16 h-16 border-4 border-t-transparent border-white rounded-full animate-spin"></div>
-
-    {/* Text */}
-    <p className="mt-4 text-lg font-medium text-white">
-      Processing your subscription...
-    </p>
-  </div>
-)}
-
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8  ">
+     {/* Subscription success/failure modal moved to top-level */}
+ 
+       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8  ">
         {bots.map((bot) => (
           <div
             key={bot.id}
@@ -1506,6 +1473,36 @@ const storageOptions = {
           <NewUserWelcome />
         )}
       </div>
+      {/* Top-level subscription modal so it renders for both new and existing users */}
+      {showSubscriptionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full text-center">
+            <h2 className="text-lg font-semibold mb-4">Subscription Update</h2>
+            <p className="mb-4">{subscriptionModalMessage}</p>
+            <button
+              onClick={() => {
+                setShowSubscriptionModal(false);
+                navigate("/dashboard/welcome", { replace: true });
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+      {isPolling && (
+        <div
+          className="fixed inset-0 top-16 w-full h-[calc(100%-4rem)] flex flex-col items-center justify-center bg-black bg-opacity-50 z-50"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="w-16 h-16 border-4 border-t-transparent border-white rounded-full animate-spin"></div>
+          <p className="mt-4 text-lg font-medium text-white">
+            Processing your subscription...
+          </p>
+        </div>
+      )}
     </div>
   );
 };
