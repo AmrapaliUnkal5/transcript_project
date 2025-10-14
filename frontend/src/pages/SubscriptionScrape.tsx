@@ -1,3 +1,4 @@
+import { formatUiDate } from "../utils/date";
 import React, { useState, useEffect, useCallback } from "react";
 //import { Button } from "@/components/ui/button";
 //import { Input } from "@/components/ui/input";
@@ -903,9 +904,7 @@ const SubscriptionScrape: React.FC<SubscriptionScrapeProps> = ({
                       fontSize: '14px',
                        color: '#333333',
                      }}>
-                        {item.upload_date
-                          ? new Date(item.upload_date).toLocaleDateString()
-                          : "N/A"}
+                        {formatUiDate(item.upload_date)}
                       </td>
                     <td className=" px-4 py-2 text-center">
                       <button

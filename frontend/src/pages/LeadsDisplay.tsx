@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { authApi } from "../services/api";
 import { useBot } from "../context/BotContext";
+import { formatUiDate } from "../utils/date";
 
 type Lead = {
   id: number;
@@ -75,13 +76,7 @@ const LeadsDisplay = () => {
                     <td className="px-6 py-4">{lead.email || "—"}</td>
                     <td className="px-6 py-4">{lead.phone || "—"}</td>
                     <td className="px-6 py-4">{lead.address || "—"}</td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {new Date(lead.created_at).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </td>
+                    <td className="px-6 py-4 text-gray-600">{formatUiDate(lead.created_at)}</td>
                   </tr>
                 ))}
               </tbody>

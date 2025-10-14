@@ -5,6 +5,7 @@ import { Legend } from "recharts";
 import { useAuth } from "../context/AuthContext";
 
 import { PieChart, Pie, Cell } from "recharts";
+import { formatUiDate } from "../utils/date";
 
 import {
   AreaChart,

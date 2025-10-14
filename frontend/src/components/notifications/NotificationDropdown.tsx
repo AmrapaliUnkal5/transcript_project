@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 //import { Check } from "lucide-react";
 import { authApi } from "../../services/api";
+import { formatUiDate } from "../../utils/date";
 import { Trash } from "lucide-react";
 
 
@@ -139,13 +140,7 @@ export const NotificationDropdown = () => {
                       <p className="break-all whitespace-normal overflow-hidden">
                           {notif.event_data}
                             </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(notif.created_at).toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </p>
+                    <p className="text-xs text-gray-400 mt-1">{formatUiDate(notif.created_at)}</p>
                   </div>
                   <button
                     onClick={() => handleMarkAsRead(notif.id)}

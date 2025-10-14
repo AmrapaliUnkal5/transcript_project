@@ -1,3 +1,4 @@
+import { formatUiDate } from "../utils/date";
 import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -1765,7 +1766,7 @@ const renderStepContent = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {file.uploadDate.toLocaleDateString()}
+                              {formatUiDate(file.uploadDate)}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
