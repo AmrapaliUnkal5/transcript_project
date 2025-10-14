@@ -3,6 +3,7 @@ import { User, Globe, Bell, Shield, Key, Users, AlertTriangle } from "lucide-rea
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
 import { authApi, UserUpdate, subscriptionApi } from "../services/api";
+import { formatUiDate } from "../utils/date";
 import TeamManagement from "../components/TeamManagement";
 import { ToastContainer, toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
@@ -665,15 +666,7 @@ export const Settings = () => {
                   Payment Date
                 </label>
                 <p className="text-gray-900 dark:text-white">
-                  {settings.subscription?.payment_date
-                    ? new Date(
-                        settings.subscription.payment_date
-                      ).toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "long",
-                        year: "numeric",
-                      })
-                    : "N/A"}
+                  {formatUiDate(settings.subscription?.payment_date)}
                 </p>
               </div>
 
@@ -682,15 +675,7 @@ export const Settings = () => {
                   Expiry Date
                 </label>
                 <p className="text-gray-900 dark:text-white">
-                  {settings.subscription?.expiry_date
-                    ? new Date(
-                        settings.subscription.expiry_date
-                      ).toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "long",
-                        year: "numeric",
-                      })
-                    : "N/A"}
+                  {formatUiDate(settings.subscription?.expiry_date)}
                 </p>
               </div>
 
@@ -812,22 +797,10 @@ export const Settings = () => {
                           </span>
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
-                          {addon.purchase_date
-                            ? new Date(addon.purchase_date).toLocaleDateString("en-GB", {
-                                day: "2-digit",
-                                month: "long",
-                                year: "numeric",
-                              })
-                            : "N/A"}
+                          {formatUiDate(addon.purchase_date)}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
-                          {addon.expiry_date
-                            ? new Date(addon.expiry_date).toLocaleDateString("en-GB", {
-                                day: "2-digit",
-                                month: "long",
-                                year: "numeric",
-                              })
-                            : "N/A"}
+                          {formatUiDate(addon.expiry_date)}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
                           {addon.auto_renew ? "Yes" : "No"}

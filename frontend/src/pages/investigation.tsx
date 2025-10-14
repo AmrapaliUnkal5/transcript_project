@@ -1,3 +1,4 @@
+import { formatUiDate } from "../utils/date";
 import React, { useState, useEffect } from "react";
 import { File as FileIcon, Trash2, Eye, Loader2 } from "lucide-react";
 import { useBot } from "../context/BotContext";
@@ -320,7 +321,7 @@ const Investigation = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(node.created_at).toLocaleDateString()}
+                          {formatUiDate(node.created_at)}
                         </span>
                       </td>
                       
@@ -399,7 +400,7 @@ const Investigation = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(file.created_at).toLocaleDateString()}
+                          {formatUiDate(file.created_at)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
@@ -488,7 +489,7 @@ const Investigation = () => {
                         </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(video.created_at).toLocaleDateString()}
+                          {formatUiDate(video.created_at)}
                         </span>
                       </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
