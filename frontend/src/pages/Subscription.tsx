@@ -484,15 +484,14 @@ export const Subscription = () => {
   return result;
 };
 
-  const handleSubscribe = async (planId: number) => {
+  const handleSubscribe = async (planId: number, forceProceed: boolean = false) => {
     // Get the current plan ID and the selected plan
     const currentPlan = plans.find((p) => p.id === currentPlanId);
     const selectedPlan = plans.find((p) => p.id === planId);
 
     // Always prevent downgrades, regardless of expiration status
-    if (currentPlan && selectedPlan && selectedPlan.id < currentPlan.id) {
-      setSelectedPlanForDowngrade(selectedPlan);
-      setShowDowngradeWarning(true);
+    if (!forceProceed && currentPlan && selectedPlan && selectedPlan.id < currentPlan.id) {
+      await evaluateDowngradeEligibility(selectedPlan);
       return;
     }
 
@@ -701,6 +700,91 @@ export const Subscription = () => {
   // Filter out one-time Additional Messages (id 3) from visible addons
   const visibleAddons = addons.filter((a) => a.id !== 3 && a.name !== "Additional Messages One Time");
 
+  // Downgrade gating state
+  const [showCannotDowngrade, setShowCannotDowngrade] = useState(false);
+  const [cannotDowngradeReasons, setCannotDowngradeReasons] = useState<string[] | null>(null);
+
+  // Helper to parse plan storage limit like "20 MB" to bytes
+  const parseStorageLimitToBytes = (limit?: string): number | null => {
+    if (!limit || typeof limit !== "string") return null;
+    const match = limit.trim().toUpperCase().match(/^(\d+)\s*(KB|MB|GB|TB)$/);
+    if (!match) return null;
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+    const units: Record<string, number> = { KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4 };
+    return value * (units[unit] || 1);
+  };
+
+  // Check if user can downgrade to target plan based on current usage (base + auto-renewing addons)
+  const evaluateDowngradeEligibility = async (targetPlan: any) => {
+    try {
+      // Fetch usage and active user addons in parallel
+      const [userUsage, msgUsage, usageMetrics, userAddons] = await Promise.all([
+        authApi.getUserUsage(),            // words + storage (bytes)
+        authApi.getUserMessageCount(),     // total_messages_used
+        authApi.getUsageMetrics(),         // total_bots
+        user?.user_id ? authApi.fetchUserAddons(user.user_id) : Promise.resolve([]),
+      ]);
+
+      const reasons: string[] = [];
+
+      // Words used vs target plan limit
+      const wordsUsed: number = userUsage?.totalWordsUsed ?? 0;
+      // Base + addon boosts (only auto-renewing)
+      const wordBoostFromAddons = Array.isArray(userAddons)
+        ? userAddons.filter((a: any) => a.auto_renew && a.addon?.additional_word_limit)
+            .reduce((sum: number, a: any) => sum + (a.addon?.additional_word_limit || 0), 0)
+        : 0;
+      const targetWordLimit: number | null = (targetPlan?.word_count_limit ?? 0) + wordBoostFromAddons;
+      if (typeof targetWordLimit === "number" && wordsUsed > targetWordLimit) {
+        reasons.push(`Word usage ${wordsUsed.toLocaleString()} exceeds ${targetWordLimit.toLocaleString()} limit`);
+      }
+
+      // Messages used vs target plan message_limit
+      const messagesUsed: number = msgUsage?.total_messages_used ?? 0;
+      const messageBoostFromAddons = Array.isArray(userAddons)
+        ? userAddons.filter((a: any) => a.auto_renew && a.addon?.additional_message_limit)
+            .reduce((sum: number, a: any) => sum + (a.addon?.additional_message_limit || 0), 0)
+        : 0;
+      const targetMsgLimit: number | null = (targetPlan?.message_limit ?? 0) + messageBoostFromAddons;
+      if (typeof targetMsgLimit === "number" && messagesUsed > targetMsgLimit) {
+        reasons.push(`Chat messages used ${messagesUsed.toLocaleString()} exceeds ${targetMsgLimit.toLocaleString()} limit`);
+      }
+
+      // Storage used (bytes) vs target storage limit string
+      const storageUsedBytes: number = userUsage?.totalStorageUsed ?? 0;
+      // If you ever introduce storage-boosting addons, sum them here similar to words/messages
+      const targetStorageBytes: number | null = parseStorageLimitToBytes(targetPlan?.storage_limit);
+      if (typeof storageUsedBytes === "number" && targetStorageBytes !== null && storageUsedBytes > targetStorageBytes) {
+        reasons.push(`Storage used exceeds ${targetPlan?.storage_limit} limit`);
+      }
+
+      // Total bots vs target chatbot_limit
+      const botsUsed: number = usageMetrics?.total_bots ?? 0;
+      // If there are addons that increase bot limits and are auto-renewing, add here
+      const targetBotLimit: number | null = targetPlan?.chatbot_limit ?? null;
+      if (typeof targetBotLimit === "number" && botsUsed > targetBotLimit) {
+        reasons.push(`Active chatbots ${botsUsed} exceeds ${targetBotLimit} limit`);
+      }
+
+      if (reasons.length > 0) {
+        setCannotDowngradeReasons(reasons);
+        setShowCannotDowngrade(true);
+        return { eligible: false, reasons };
+      }
+
+      // Eligible -> show confirmation modal
+      setSelectedPlanForDowngrade(targetPlan);
+      setShowDowngradeWarning(true);
+      return { eligible: true, reasons: [] };
+    } catch (err) {
+      console.error("Error evaluating downgrade eligibility:", err);
+      setCannotDowngradeReasons(["Unable to validate current usage. Please try again later."]);
+      setShowCannotDowngrade(true);
+      return { eligible: false, reasons: ["Validation error"] };
+    }
+  };
+
   // Render a plan card
   const renderPlanCard = (plan: any) => {
     const PlanIcon = planIcons[plan.name as keyof typeof planIcons] || Compass;
@@ -900,6 +984,7 @@ export const Subscription = () => {
           </button>
         )}
 
+        {!(isExplorer && effectivePlanId && !isCurrent) && (
         <button
           className={`mt-6 w-full px-4 py-2 rounded-lg transition-all transform hover:scale-105 flex items-center justify-center ${
             isCurrent && !isExpiredPlan
@@ -950,6 +1035,7 @@ export const Subscription = () => {
             </>
           )}
         </button>
+        )}
       </div>
     );
   };
@@ -963,26 +1049,59 @@ export const Subscription = () => {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Plan Downgrade Warning
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            If you downgrade your plan, you may lose access to some features,
-            bot count, or additional usage.
-          </p>
+          <div className="text-gray-700 dark:text-gray-300 mb-6 text-sm">
+            Downgrading now will reset your plan’s limits to the selected plan’s allowances immediately. You may lose access to features or exceed limits based on your current usage.
+          </div>
           <div className="flex justify-end space-x-3">
             <button
               onClick={() => setShowDowngradeWarning(false)}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
             >
               Cancel
             </button>
-            {/* <button
+            <button
               onClick={() => {
                 setShowDowngradeWarning(false);
-                handleSubscribe(selectedPlanForDowngrade.id);
+                handleSubscribe(selectedPlanForDowngrade.id, true);
               }}
               className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
             >
-              Proceed with Downgrade
-            </button> */}
+              Proceed
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const CannotDowngradeDialog = () => {
+    if (!showCannotDowngrade) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Cannot Downgrade
+          </h3>
+          <div className="text-gray-600 dark:text-gray-300 mb-4">
+            You’ve exceeded one or more limits of the selected plan:
+          </div>
+          {cannotDowngradeReasons && cannotDowngradeReasons.length > 0 && (
+            <ul className="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 mb-6">
+              {cannotDowngradeReasons.map((r, idx) => (
+                <li key={idx}>{r}</li>
+              ))}
+            </ul>
+          )}
+          <div className="flex justify-end">
+            <button
+              onClick={() => {
+                setShowCannotDowngrade(false);
+                setCannotDowngradeReasons(null);
+              }}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              Close
+            </button>
           </div>
         </div>
       </div>
@@ -1266,6 +1385,7 @@ export const Subscription = () => {
             />
           )}
           <DowngradeWarningDialog />
+          <CannotDowngradeDialog />
           
           {/* Address Form Modal */}
           <AddressFormModal
