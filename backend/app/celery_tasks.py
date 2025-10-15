@@ -42,7 +42,7 @@ import asyncio
 from app.utils.reembedding_utils import reembed_all_bot_data
 import time
 from app.utils.upload_knowledge_utils import extract_text_from_file
-from app.utils.upload_knowledge_utils import chunk_text
+from app.utils.upload_knowledge_utils import chunk_text, chunk_markdown_text
 from app.config import settings
 from app.utils.file_storage import save_file, get_file_url, delete_file as delete_file_storage, FileStorageError
 # from app.grid_refresh_ws import broadcast_grid_refresh
@@ -50,6 +50,9 @@ from app.progress import get_file_status, get_website_status, get_youtube_status
 from app.utils.email_notifications import send_bot_activation_email, send_bot_error_email
 import time
 from datetime import datetime
+import pymupdf4llm
+import io
+
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -586,38 +589,65 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                                 
                                 logger.info(f"Successfully downloaded PDF from S3, got {len(archive_pdf_content)} bytes")
                                 
-                                # Try multiple PDF extraction libraries in sequence
-                                # 1. Try PyPDF2
+                                # Try markdown extraction first using pymupdf4llm
                                 try:
-                                    import PyPDF2
-                                    import io
-                                    logger.info(f"Attempting extraction with PyPDF2")
+                                    import tempfile
+                                    logger.info(f"Attempting markdown extraction with pymupdf4llm")
+                                    print("Attempting markdown extraction with pymupdf4llm")
+
+                                    #Create temporary file for pymupdf4llm
+                                    temp_file_path = None
+                                    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+                                        temp_file.write(archive_pdf_content)
+                                        temp_file_path = temp_file.name
                                     
-                                    pdf_text = ""
                                     try:
-                                        pdf_file_obj = io.BytesIO(archive_pdf_content)
-                                        pdf_reader = PyPDF2.PdfReader(pdf_file_obj)
-                                        logger.info(f"PDF has {len(pdf_reader.pages)} pages according to PyPDF2")
-                                        
-                                        for page_num in range(len(pdf_reader.pages)):
-                                            page = pdf_reader.pages[page_num]
-                                            page_text = page.extract_text()
-                                            if page_text:
-                                                pdf_text += page_text + "\n\n"
-                                                logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
-                                            else:
-                                                logger.warning(f"No text extracted from page {page_num+1} with PyPDF2")
-                                        
-                                        if pdf_text.strip():
-                                            logger.info(f"Successfully extracted {len(pdf_text)} chars with PyPDF2")
-                                            file_content_text = pdf_text
+                                        md_text = pymupdf4llm.to_markdown(temp_file_path)
+                                        if md_text and md_text.strip():
+                                            file_content_text = md_text
+                                            logger.info(f"✅ Successfully extracted {len(md_text)} chars as markdown")
                                         else:
-                                            logger.warning(f"PyPDF2 extraction yielded no text, trying next method")
-                                    except Exception as pypdf_err:
-                                        logger.error(f"PyPDF2 extraction error: {str(pypdf_err)}")
+                                            logger.warning("⚠️ Markdown extraction yielded no text, falling back to Docling extraction")
+                                    finally:
+                                        # Clean up temporary file
+                                        if temp_file_path and os.path.exists(temp_file_path):
+                                            os.unlink(temp_file_path)
                                 except ImportError:
-                                    logger.warning(f"PyPDF2 not available, skipping this extraction method")
+                                    logger.warning("⚠️ pymupdf4llm not available, falling back to Docling extraction")
+                                except Exception as markdown_err:
+                                    logger.error(f"❌ Markdown extraction error: {str(markdown_err)}, falling back to Docling extraction")
                                 
+                                if not file_content_text:
+                                    try:
+                                        import PyPDF2
+                                        import io
+                                        logger.info(f"Attempting extraction with PyPDF2")
+
+                                        pdf_text = ""
+                                        try:
+                                            pdf_file_obj = io.BytesIO(archive_pdf_content)
+                                            pdf_reader = PyPDF2.PdfReader(pdf_file_obj)
+                                            logger.info(f"PDF has {len(pdf_reader.pages)} pages according to PyPDF2")
+
+                                            for page_num in range(len(pdf_reader.pages)):
+                                                page = pdf_reader.pages[page_num]
+                                                page_text = page.extract_text()
+                                                if page_text:
+                                                    pdf_text += page_text + "\n\n"
+                                                    logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
+                                                else:
+                                                    logger.warning(f"No text extracted from page {page_num+1} with PyPDF2")
+
+                                            if pdf_text.strip():
+                                                logger.info(f"Successfully extracted {len(pdf_text)} chars with PyPDF2")
+                                                file_content_text = pdf_text
+                                            else:
+                                                logger.warning(f"PyPDF2 extraction yielded no text, trying next method")
+                                        except Exception as pypdf_err:
+                                            logger.error(f"PyPDF2 extraction error: {str(pypdf_err)}")
+                                    except ImportError:
+                                        logger.warning(f"PyPDF2 not available, skipping this extraction method")
+
                                 # 2. If PyPDF2 failed, try pdfplumber
                                 if not file_content_text:
                                     try:
@@ -728,35 +758,45 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                                 logger.info(f"Found original PDF at {archive_path}")
                                 
                                 # Try multiple PDF extraction libraries in sequence
-                                # 1. Try PyPDF2
+                                # 1. Try pymupdf4llm
                                 try:
-                                    import PyPDF2
-                                    logger.info(f"Attempting extraction with PyPDF2")
-                                    
-                                    pdf_text = ""
-                                    with open(archive_path, 'rb') as pdf_file:
-                                        try:
-                                            pdf_reader = PyPDF2.PdfReader(pdf_file)
-                                            logger.info(f"PDF has {len(pdf_reader.pages)} pages according to PyPDF2")
-                                            
-                                            for page_num in range(len(pdf_reader.pages)):
-                                                page = pdf_reader.pages[page_num]
-                                                page_text = page.extract_text()
-                                                if page_text:
-                                                    pdf_text += page_text + "\n\n"
-                                                    logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
-                                                else:
-                                                    logger.warning(f"No text extracted from page {page_num+1} with PyPDF2")
-                                            
-                                            if pdf_text.strip():
-                                                logger.info(f"Successfully extracted {len(pdf_text)} chars with PyPDF2")
-                                                file_content_text = pdf_text
-                                            else:
-                                                logger.warning(f"PyPDF2 extraction yielded no text, trying next method")
-                                        except Exception as pypdf_err:
-                                            logger.error(f"PyPDF2 extraction error: {str(pypdf_err)}")
+                                    logger.info(f"Attempting extraction with pymupdf4llm")
+                                    print("Attempting extraction with pymupdf4llm")
+                                    md_text = pymupdf4llm.to_markdown(archive_path)
+                                    file_content_text = md_text
+                                    logger.info(f"Extracted {len(md_text)} chars of markdown")
                                 except ImportError:
-                                    logger.warning(f"PyPDF2 not available, skipping this extraction method")
+                                    logger.warning("⚠️ pymupdf4llm not available, falling back to Docling extraction")
+
+                                if not file_content_text:
+                                    try:
+                                        import PyPDF2
+                                        logger.info(f"Attempting extraction with PyPDF2")
+
+                                        pdf_text = ""
+                                        with open(archive_path, 'rb') as pdf_file:
+                                            try:
+                                                pdf_reader = PyPDF2.PdfReader(pdf_file)
+                                                logger.info(f"PDF has {len(pdf_reader.pages)} pages according to PyPDF2")
+
+                                                for page_num in range(len(pdf_reader.pages)):
+                                                    page = pdf_reader.pages[page_num]
+                                                    page_text = page.extract_text()
+                                                    if page_text:
+                                                        pdf_text += page_text + "\n\n"
+                                                        logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
+                                                    else:
+                                                        logger.warning(f"No text extracted from page {page_num+1} with PyPDF2")
+
+                                                if pdf_text.strip():
+                                                    logger.info(f"Successfully extracted {len(pdf_text)} chars with PyPDF2")
+                                                    file_content_text = pdf_text
+                                                else:
+                                                    logger.warning(f"PyPDF2 extraction yielded no text, trying next method")
+                                            except Exception as pypdf_err:
+                                                logger.error(f"PyPDF2 extraction error: {str(pypdf_err)}")
+                                    except ImportError:
+                                        logger.warning(f"PyPDF2 not available, skipping this extraction method")
                                 
                                 # 2. If PyPDF2 failed, try pdfplumber
                                 if not file_content_text:
@@ -1582,30 +1622,65 @@ def process_file_upload_part2(self, bot_id: int, file_id: str,action_user_id: in
         file_type = file_record.file_type
 
         # ✅ Create metadata for embedding - ENSURE CONSISTENT FORMAT
-        metadata = {
-            "id": file_id,               # Primary identifier
-            "source": "upload",          # Source type for filtering
+        # ✅ Base metadata (applies to all chunks)
+        base_metadata = {
+            "id": file_id,
+            "source": "upload",
             "file_name": original_filename,
             "file_type": file_type,
-            "bot_id": bot_id             # Always include bot_id
+            "bot_id": bot_id
         }
 
         logger.info(f"📥 Adding document to vector database: {original_filename}")
 
         # ✅ Split text into chunks before storing in vector database
         print("bot_id",bot_id)
-        text_chunks = chunk_text(file_content_text, bot_id=bot_id, user_id=user_id, db=db)
-        logger.info(f"📄 Split text into {len(text_chunks)} chunks")
+        # Split the text into words
+        words = file_content_text.split()
 
-        # ✅ Store each chunk with proper metadata
-        for i, chunk in enumerate(text_chunks):
-            chunk_metadata = metadata.copy()
-            chunk_metadata["id"] = f"{file_id}_chunk_{i+1}" if len(text_chunks) > 1 else file_id
-            chunk_metadata["chunk_number"] = i + 1
-            chunk_metadata["total_chunks"] = len(text_chunks)
+        # Decide chunking strategy based on bot.markdown_chunking (True => markdown-aware, False/None => legacy)
+        use_markdown_chunking = bool(bot and bot.markdown_chunking is True)
 
-            # Add the chunk to the vector database with user_id for model selection
-            add_document(bot_id=bot_id, text=chunk, metadata=chunk_metadata, user_id=user_id)
+        if use_markdown_chunking:
+            # New: markdown-aware chunking with metadata
+            chunks_with_metadata = chunk_markdown_text(
+                file_content_text,
+                file_name=original_filename,
+                file_id=file_id,
+                file_type=file_type,
+                bot_id=bot_id,
+                user_id=user_id,
+                db=db
+            )
+            logger.info(f"📄 Split text into {len(chunks_with_metadata)} chunks")
+
+            # Store each chunk with merged metadata
+            for chunk in chunks_with_metadata:
+                chunk_metadata = {**base_metadata, **chunk["metadata"]}
+                add_document(
+                    bot_id=bot_id,
+                    text=chunk["text"],
+                    metadata=chunk_metadata,
+                    user_id=user_id
+                )
+        else:
+            # Legacy: character-based chunking
+            text_chunks = chunk_text(file_content_text, bot_id=bot_id, user_id=user_id, db=db)
+            logger.info(f"📄 Split text into {len(text_chunks)} chunks")
+
+            # Store each chunk and build metadata per chunk
+            for i, chunk in enumerate(text_chunks):
+                chunk_metadata = base_metadata.copy()
+                chunk_metadata["id"] = f"{file_id}_chunk_{i+1}" if len(text_chunks) > 1 else file_id
+                chunk_metadata["chunk_number"] = i + 1
+                chunk_metadata["total_chunks"] = len(text_chunks)
+
+                add_document(
+                    bot_id=bot_id,
+                    text=chunk,
+                    metadata=chunk_metadata,
+                    user_id=user_id
+                )
 
         # ✅ Update the database record
         file_record.status = "Success"
@@ -1968,30 +2043,82 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action
                 bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
                 user_id = bot.user_id if bot else None
                 
+                # Decide chunking strategy based on bot.markdown_chunking (True => markdown-aware, False/None => legacy)
+                use_markdown_chunking = bool(bot and bot.markdown_chunking is True)
 
-                text_chunks = chunk_text(node.nodes_text)
-                logger.info(f"Split text into {len(text_chunks)} chunks", extra={"bot_id": bot_id, "url": url})
+                if use_markdown_chunking:
+                    # New: markdown-aware chunking for better context preservation
+                    markdown_chunks = chunk_markdown_text(
+                        markdown_text=node.nodes_text,
+                        file_name=node.title or "No Title",
+                        file_id=website_id,
+                        file_type="website",
+                        bot_id=bot_id,
+                        user_id=user_id,
+                        db=db
+                    )
+                    logger.info(f"Split markdown into {len(markdown_chunks)} chunks", extra={"bot_id": bot_id, "url": url})
 
-                for i, chunk in enumerate(text_chunks):
-                    chunk_metadata = metadata.copy()
-                    chunk_metadata["id"] = f"{website_id}_{i}" if len(text_chunks) > 1 else website_id
-                    chunk_metadata["chunk_number"] = i + 1
-                    chunk_metadata["total_chunks"] = len(text_chunks)
+                    for chunk_data in markdown_chunks:
+                        chunk_text_value = chunk_data["text"]
+                        chunk_metadata = chunk_data["metadata"]
 
-                    if user_id:
-                        logger.info(f"Adding chunk {i+1}/{len(text_chunks)} to vector DB", 
-                                          extra={"bot_id": bot_id, "url": url, "user_id": user_id})
-                        add_document(bot_id, text=chunk, metadata=chunk_metadata, user_id=user_id)
-                    else:
-                        logger.warning(f"No user_id found for bot, adding chunk without user context",
-                                            extra={"bot_id": bot_id, "url": url})
-                        add_document(bot_id, text=chunk, metadata=chunk_metadata)
+                        # Update with website-specific fields (additive only, don't remove anything)
+                        chunk_metadata.update({
+                            "source": "website",
+                            "website_url": url,
+                            "url": url,
+                            "title": node.title or "No Title"
+                        })
+
+                        if user_id:
+                            logger.info(
+                                    f"Adding chunk {chunk_metadata['chunk_number']}/{chunk_metadata['total_chunks']} to vector DB",
+                                    extra={"bot_id": bot_id, "url": url, "user_id": user_id}
+                                )
+                            add_document(bot_id, text=chunk_text_value, metadata=chunk_metadata, user_id=user_id)
+                        else:
+                            logger.warning(
+                                f"No user_id found for bot, adding chunk without user context",
+                                extra={"bot_id": bot_id, "url": url}
+                            )
+                            add_document(bot_id, text=chunk_text_value, metadata=chunk_metadata)
+                else:
+                    # Legacy: character-based chunking
+                    text_chunks = chunk_text(node.nodes_text)
+                    logger.info(f"Split text into {len(text_chunks)} chunks", extra={"bot_id": bot_id, "url": url})
+
+                    for i, chunk in enumerate(text_chunks):
+                        chunk_metadata = metadata.copy()
+                        chunk_metadata["id"] = f"{website_id}_{i}" if len(text_chunks) > 1 else website_id
+                        chunk_metadata["chunk_number"] = i + 1
+                        chunk_metadata["total_chunks"] = len(text_chunks)
+
+                        if user_id:
+                            logger.info(
+                                f"Adding chunk {i+1}/{len(text_chunks)} to vector DB",
+                                extra={"bot_id": bot_id, "url": url, "user_id": user_id}
+                            )
+                            add_document(bot_id, text=chunk, metadata=chunk_metadata, user_id=user_id)
+                        else:
+                            logger.warning(
+                                f"No user_id found for bot, adding chunk without user context",
+                                extra={"bot_id": bot_id, "url": url}
+                            )
+                            add_document(bot_id, text=chunk, metadata=chunk_metadata)
 
                 total_words_embedded += len(node.nodes_text.split())
                 print("count of words embeded in website", total_words_embedded)
-                logger.info(f"Successfully added document chunks to vector DB",
-                                  extra={"bot_id": bot_id, "url": url,
-                                        "document_id": website_id, "chunk_count": len(text_chunks)})
+                chunk_count = len(markdown_chunks) if use_markdown_chunking else len(text_chunks)
+                logger.info(
+                    f"Successfully added document chunks to vector DB",
+                    extra={
+                        "bot_id": bot_id,
+                        "url": url,
+                        "document_id": website_id,
+                        "chunk_count": chunk_count
+                    }
+                )
                 
 
                 node.status = "Success"

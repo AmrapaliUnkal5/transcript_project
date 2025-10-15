@@ -667,7 +667,7 @@ class LLMManager:
                         "You are a {tone} {role}. {tone_description}\n\n"
                         "### Response Guidelines:\n"
                         "- Answer the user's question using the provided Context.\n"
-                        "- If the Context does not contain the needed information, you may use your general knowledge.\n"
+                        "- If the Context does not contain the needed information, you MUST use your general knowledge.\n"
                         "- IMPORTANT: If ANY part of the answer comes from outside the Context (even basic facts), you MUST add '[EXT_KNOWLEDGE_USED]' on a NEW LINE at the VERY END of your response.\n"
                         "- These metadata lines MUST be plain text only (never inside code blocks, tables, or markdown). Append them AFTER the main answer, each on its own line.\n"
                         "- Keep answers concise and clear, with a hard limit of 120 words.\n"
@@ -690,8 +690,15 @@ class LLMManager:
 
                         "### Social Interactions:\n"
                         "- Handle greetings/farewells with short, natural replies (max 1 short sentence).\n"
-                        "- ONLY if the user message is a greeting, append on a new line: {{\"is_greeting_response\": true}}.\n"
-                        "- ONLY if the user message is a farewell, append on a new line: {{\"is_farewell_response\": true}}.\n"
+                        "- CRITICAL: A greeting is ONLY a simple hello/hi WITHOUT any question or request.\n"
+                        "  Examples of pure greetings: 'hi', 'hello', 'hey', 'good morning'\n"
+                        "  NOT greetings: 'hi, what is soccer?', 'hello, tell me about X', 'when was the World Cup?'\n"
+                        "- CRITICAL: A farewell is ONLY a simple goodbye WITHOUT any question or request.\n"
+                        "  Examples of pure farewells: 'bye', 'goodbye', 'see you', 'take care'\n"
+                        "  NOT farewells: 'bye, but first tell me X', 'goodbye and thanks for the info'\n"
+                        "- ONLY append {{\"is_greeting_response\": true}} if the user INPUT is a pure greeting with NO questions.\n"
+                        "- ONLY append {{\"is_farewell_response\": true}} if the user INPUT is a pure farewell with NO questions.\n"
+                        "- If the user asks ANY question (even with 'hi'), DO NOT add greeting/farewell metadata.\n"
                         "- These metadata lines are independent: greeting/farewell does NOT imply external knowledge.\n\n"
 
                         "### Formatting:\n"
@@ -718,9 +725,16 @@ class LLMManager:
                         "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
 
                         "### Social Interactions:\n"
-                        "- Handle greetings/farewells with short, natural replies (max 1 short sentence)\n"
-                        "- IMPORTANT:Only if the user message is a greeting, reply and append on a new line: {{\"is_greeting_response\": true}}\n"
-                        "- IMPORTANT:Only if the user message is a farewell, reply and append on a new line: {{\"is_farewell_response\": true}}\n"
+                        "- Handle greetings/farewells with short, natural replies (max 1 short sentence).\n"
+                        "- CRITICAL: A greeting is ONLY a simple hello/hi WITHOUT any question or request.\n"
+                        "  Examples of pure greetings: 'hi', 'hello', 'hey', 'good morning'\n"
+                        "  NOT greetings: 'hi, what is soccer?', 'hello, tell me about X', 'when was the World Cup?'\n"
+                        "- CRITICAL: A farewell is ONLY a simple goodbye WITHOUT any question or request.\n"
+                        "  Examples of pure farewells: 'bye', 'goodbye', 'see you', 'take care'\n"
+                        "  NOT farewells: 'bye, but first tell me X', 'goodbye and thanks for the info'\n"
+                        "- ONLY append {{\"is_greeting_response\": true}} if the user INPUT is a pure greeting with NO questions.\n"
+                        "- ONLY append {{\"is_farewell_response\": true}} if the user INPUT is a pure farewell with NO questions.\n"
+                        "- If the user asks ANY question (even with 'hi'), DO NOT add greeting/farewell metadata.\n"
                         "- These JSON lines MUST appear as plain text only (never inside code blocks, tables, or markdown formatting).\n\n"
 
                         "### Formatting:\n"
@@ -737,8 +751,8 @@ class LLMManager:
                 if chat_history:
                     user_content += f"{chat_history}"
                 user_content += f"\nUser: {user_message}\nBot:"
-                print("===SYSTEM PROMPT===")
-                print(system_content)
+                # print("===SYSTEM PROMPT===")
+                # print(system_content)
 
                 # Log the final prompt being sent to OpenAI
                 final_prompt = {

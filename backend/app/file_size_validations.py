@@ -300,7 +300,7 @@ async def validate_and_upload_files(
             logger.info(f"🆔 DEBUG: Generated file_id: {file_id}")
             
             # Create text file name with txt extension
-            text_filename = f"{file_id}.txt"
+            text_filename = f"{file_id}.md"
             logger.info(f"📝 DEBUG: Text filename: {text_filename}")
             
             # Create path for the text file

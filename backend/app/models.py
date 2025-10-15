@@ -114,8 +114,8 @@ class Bot(Base):
     border_color = Column(String, nullable=True, default="#0a0a0a")
     chat_font_family = Column(String, nullable=True, default="Inter")
     selected_domain = Column(String, nullable=True)
-    chunk_size = Column(Integer, nullable=False, default=1000)
-    chunk_overlap = Column(Integer, nullable=False, default=100)
+    chunk_size = Column(Integer, nullable=False, default=512)
+    chunk_overlap = Column(Integer, nullable=False, default=75)
     theme_id= Column(String, nullable=False, default="basic")
     lead_generation_enabled = Column(Boolean, nullable=False, default=False)
     lead_form_config = Column(JSONB, nullable=True)
@@ -127,6 +127,8 @@ class Bot(Base):
     error_mail_sent= Column(Boolean,nullable=False,default=False)
     role = Column(String, nullable=False, server_default="Service Assistant")
     tone = Column(String, nullable=False, server_default="Friendly")
+    #hybrid_search = Column(Boolean, nullable=True, default=True)
+    markdown_chunking = Column(Boolean, nullable=True, default=True)
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")

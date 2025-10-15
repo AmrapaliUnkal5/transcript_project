@@ -118,6 +118,11 @@ class BotAdmin(BaseModelView, model=Bot):
             print(f"🔍 BotAdmin.on_model_change called - is_created: {is_created}")
             print(f"🔍 Model data: {model.__dict__}")
             print(f"🔍 Form data: {data}")
+
+            if 'lead_form_config' in data:
+                if data['lead_form_config'] == {}:
+                    data['lead_form_config'] = None  # Convert {} to None
+                    print(f"🔧 Fixed lead_form_config: {{}} → None")
             
             # Only trigger re-embedding if this is an update (not a new creation)
             if not is_created:

@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, UploadFile
 from requests import Session
 from app.vector_db import retrieve_similar_docs, add_document
 import pdfplumber 
-from typing import Union, List, Dict
+from typing import Union, List, Dict, Any
 import io
 import asyncio
 import os
@@ -20,6 +20,7 @@ import tiktoken
 import time
 from app.models import Bot
 from app.database import get_db
+import re
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -97,7 +98,37 @@ def extract_text_from_image(image_bytes: bytes) -> str:
 def extract_text_from_docx(docx_content: bytes) -> str:
     """Extracts text from a DOCX file using multiple methods."""
     try:
-        # Method 1: Try docx2txt first (more reliable for both formats)
+        #Method 1: Try docling first
+        temp_path = None
+        try:
+            from docling.document_converter import DocumentConverter
+            import tempfile
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_file:
+                temp_file.write(docx_content)
+                temp_path = temp_file.name
+
+            converter = DocumentConverter()  # defaults are enough for DOCX
+            result = converter.convert(temp_path)
+            md_text = result.document.export_to_markdown()
+
+            if md_text.strip():
+                logger.info(f"✅ Successfully extracted {len(md_text)} characters using docling (Markdown).")
+                return md_text.strip()
+            else:
+                logger.warning("⚠️ Docling returned empty content; falling back to other extractors.")
+
+        except ImportError as import_err:
+            logger.warning(f"⚠️ Docling import failed: {import_err}, trying other methods.")
+        except Exception as docling_err:
+            logger.warning(f"⚠️ Docling extraction failed: {docling_err}, trying other methods.")
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.unlink(temp_path)
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to delete temp file {temp_path}: {e}")
+
+        # Method 2: Try docx2txt (more reliable for both formats)
         try:
             import docx2txt
             import tempfile
@@ -114,7 +145,7 @@ def extract_text_from_docx(docx_content: bytes) -> str:
             if 'temp_path' in locals() and os.path.exists(temp_path):
                 os.unlink(temp_path)
         
-        # Method 2: Fallback to python-docx
+        # Method 3: Fallback to python-docx
         doc = Document(io.BytesIO(docx_content))
         text = " ".join([para.text for para in doc.paragraphs])
         logger.info(f"✅ Successfully extracted {len(text)} characters using python-docx")
@@ -289,6 +320,428 @@ async def extract_text_from_file(file, filename=None) -> Union[str, None]:
         logger.error(f"❌ Error extracting text from file {filename if filename else 'unknown'}: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Error extracting text: {str(e)}")
 
+def token_length(text: str) -> int:
+    """Return token length of text using tiktoken cl100k_base."""
+    encoding = tiktoken.get_encoding("cl100k_base")
+    return len(encoding.encode(text))
+
+class MarkdownRecursiveChunker:
+    def __init__(self, max_chunk_size: int = 512, min_chunk_size: int = 200,
+                 keep_root_header: bool = False, section_overlap: int = 75,
+                 include_headers: bool = True):
+        """
+        Markdown chunker using RecursiveCharacterTextSplitter with header awareness.
+
+        :param max_chunk_size: Maximum characters per chunk
+        :param min_chunk_size: Minimum characters per chunk
+        :param keep_root_header: Whether to keep the main document title in section_hierarchy
+        :param section_overlap: Overlap only when splitting large sections (not between different sections)
+        :param include_headers: Whether to include headers in chunk text
+        """
+        self.max_chunk_size = max_chunk_size
+        self.min_chunk_size = min_chunk_size
+        self.keep_root_header = keep_root_header
+        self.section_overlap = section_overlap
+        self.include_headers = include_headers
+
+        # Initialize RecursiveCharacterTextSplitter with NO overlap by default
+        # We'll add overlap manually only when splitting sections
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=max_chunk_size,
+            chunk_overlap=0,  # No overlap by default
+            length_function=lambda text: len(tiktoken.get_encoding("cl100k_base").encode(text)),
+            separators=[
+                "\n\n",  # Paragraph breaks
+                "\n",    # Line breaks
+                " ",     # Word breaks
+                ""       # Character breaks
+            ]
+        )
+
+    def chunk_markdown(self, markdown_text: str, file_name: str, file_type: str, file_id: str, bot_id: int) -> List[Dict[str, Any]]:
+        """Split markdown text into chunks with configurable header inclusion and part numbering."""
+
+        # Step 1: Extract headers and build document structure
+        headers = self._extract_headers(markdown_text)
+        sections = self._split_by_headers(markdown_text, headers)
+
+        chunks = []
+        chunk_index = 0
+
+        for section in sections:
+            header = section['header']
+            section_text = section['text'].strip()
+
+            if not section_text:  # Skip empty sections
+                continue
+
+            # Step 2: Check if the section is long
+            if token_length(section_text) > self.max_chunk_size:
+                # Split the section into multiple parts
+                text_chunks = self._split_section_with_overlap(section_text, header if self.include_headers else "")
+                total_parts = len(text_chunks)
+
+                for i, chunk_text in enumerate(text_chunks):
+                    section_part = f"{i+1}/{total_parts}"  # Part number
+                    # Prepare chunk text with header and part info
+                    if self.include_headers and header:
+                        header_text = section['header_text']  # clean header without Markdown symbols
+                        header_line = f"[{header_text} — Part {section_part}]"
+                        full_text = f"{header_line}\n{chunk_text}".strip()
+                    else:
+                        full_text = chunk_text.strip()
+
+                    chunks.append(self._add_metadata(
+                        full_text,
+                        section['hierarchy'],
+                        chunk_index,
+                        file_name,
+                        file_type,
+                        file_id,
+                        bot_id,
+                        0,  # total_chunks will be updated later
+                        section_part
+                    ))
+                    chunk_index += 1
+
+            else:
+                # Small section - single chunk
+                section_part = None
+                if self.include_headers and header:
+                    header_line = f"[{section['header_text']}]"
+                    full_text = f"{header_line}\n{section_text}".strip()
+                else:
+                    full_text = section_text
+
+                chunks.append(self._add_metadata(
+                    full_text,
+                    section['hierarchy'],
+                    chunk_index,
+                    file_name,
+                    file_type,
+                    file_id,
+                    bot_id,
+                    0,  # total_chunks will be updated later
+                    section_part
+                ))
+                chunk_index += 1
+
+        # Update total_chunks in metadata and pass to _add_metadata calls
+        total_chunks = len(chunks)
+
+        # Recreate chunks with proper metadata
+        updated_chunks = []
+        for i, chunk in enumerate(chunks):
+            updated_chunks.append(self._add_metadata(
+                chunk["text"],
+                chunk["metadata"]["section_hierarchy"],
+                i,
+                file_name,
+                file_type,
+                file_id,
+                bot_id,
+                total_chunks,
+                chunk["metadata"].get("section_part")
+            ))
+
+        return updated_chunks
+
+
+    def _extract_headers(self, text: str) -> List[Dict]:
+        """Find all markdown headers and their positions."""
+        header_regex = re.compile(r'^(#{1,6})\s+(.*)', re.MULTILINE)
+        headers = []
+
+        for match in header_regex.finditer(text):
+            level = len(match.group(1))
+            title = match.group(2).strip()
+            clean_title = re.sub(r'[*_]', '', title.strip())
+
+            headers.append({
+                'level': level,
+                'title': title,
+                'start': match.start(),
+                'end': match.end(),
+                'header': f"{'#' * level} {title}",  # Preserve original header format
+                'header_text': clean_title  # Clean header text
+            })
+
+        return headers
+
+    def _split_by_headers(self, text: str, headers: List[Dict]) -> List[Dict]:
+        """Split text into sections with proper parent-child hierarchy."""
+        sections = []
+
+        if not headers:
+            return [{'header': '', 'text': text, 'hierarchy': []}]
+
+        hierarchy_stack = []  # Track nested header structure
+
+        for i, header in enumerate(headers):
+            # Maintain proper hierarchy by popping headers at same or deeper level
+            while hierarchy_stack and hierarchy_stack[-1]['level'] >= header['level']:
+                hierarchy_stack.pop()
+
+            hierarchy_stack.append(header)
+
+            # Extract section text
+            start = header['end']
+            end = headers[i + 1]['start'] if i + 1 < len(headers) else len(text)
+            section_text = text[start:end].strip()
+
+            # Build hierarchy path
+            hierarchy_titles = [h['header_text'] for h in hierarchy_stack]
+
+            # Skip root header if keep_root_header is False
+            if not self.keep_root_header and len(hierarchy_titles) > 1:
+                hierarchy_titles = hierarchy_titles[1:]
+
+            sections.append({
+                'header': header['header'],          # original markdown header (optional)
+                'header_text': header['header_text'], # clean header text without # or **
+                'text': section_text,
+                'hierarchy': hierarchy_titles,
+                'level': header['level']
+            })
+
+        return sections
+
+    def _split_section_with_overlap(self, section_text: str, header: str = "") -> List[str]:
+        """
+        Split a large section with intelligent overlap only within the same section.
+        No overlap occurs between different sections.
+        """
+        if token_length(section_text) <= self.max_chunk_size:
+            return [section_text]
+
+        # Calculate effective chunk size considering header length (if headers are included)
+        header_length = token_length(header) + 1 if (header and self.include_headers) else 0  # +1 for newline
+        effective_chunk_size = self.max_chunk_size - header_length
+
+        # Use RecursiveCharacterTextSplitter but with custom overlap handling
+        temp_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=effective_chunk_size,
+            chunk_overlap=self.section_overlap,
+            length_function=token_length,
+            separators=["\n\n", "\n", " ", ""]
+        )
+
+        chunks = temp_splitter.split_text(section_text)
+        return chunks
+
+    def _add_metadata(self, chunk_text: str, hierarchy: List[str], chunk_index: int,
+                      file_name: str, file_type: str, file_id: str, bot_id: int,
+                      total_chunks: int, section_part=None) -> Dict:
+        """Add essential metadata to each chunk."""
+        return {
+            'chunk_id': f"chunk_{chunk_index:04d}",
+            'text': chunk_text,
+            'metadata': {
+                "id": f"{file_id}_chunk_{chunk_index + 1}" if total_chunks > 1 else file_id,
+                "source": "upload",
+                "file_id": file_id,
+                "file_name": file_name,
+                "file_type": file_type,
+                "bot_id": bot_id,
+                "chunk_number": chunk_index + 1,
+                "total_chunks": total_chunks,
+                "section_hierarchy": hierarchy,
+                "section_part": section_part
+            }
+        }
+    
+    def merge_small_chunks(self, chunks: List[Dict], min_tokens: int = 200, max_tokens: int = 512, file_id: str = None) -> List[Dict]:
+        """
+        Merge consecutive small chunks until we reach min_tokens.
+        Keeps metadata of merged chunks.
+        Preserves original part headers in text.
+        """
+        merged = []
+        buffer_text = ""
+        buffer_meta = []
+        chunk_index = 0
+
+        for chunk in chunks:
+            # Concatenate buffer with current chunk text
+            candidate_text = (buffer_text + "\n" + chunk["text"]).strip() if buffer_text else chunk["text"]
+            tokens = token_length(candidate_text)
+
+            if tokens < min_tokens:
+                buffer_text = candidate_text
+                buffer_meta.append(chunk)
+            else:
+                # Finalize merged chunk
+                merged.append({
+                    "chunk_id": f"chunk_{chunk_index:04d}",
+                    "text": candidate_text,
+                    "metadata": self.merge_metadata([c["metadata"] for c in buffer_meta + [chunk]])
+                })
+                buffer_text = ""
+                buffer_meta = []
+                chunk_index += 1
+
+        # Flush remaining buffer
+        if buffer_text:
+            merged.append({
+                "chunk_id": f"chunk_{chunk_index:04d}",
+                "text": buffer_text,
+                "metadata": self.merge_metadata([c["metadata"] for c in buffer_meta])
+            })
+
+        # Update chunk_number and total_chunks
+        total_chunks = len(merged)
+        for i, chunk in enumerate(merged):
+            chunk["metadata"]["chunk_number"] = i + 1
+            chunk["metadata"]["total_chunks"] = total_chunks
+
+        # Regenerate IDs to match new sequential chunk numbers
+        if file_id:
+            for i, chunk in enumerate(merged):
+                chunk["metadata"]["id"] = f"{file_id}_chunk_{i + 1}" if total_chunks > 1 else file_id
+
+        return merged
+
+    @staticmethod
+    def merge_metadata(meta_list: List[Dict]) -> Dict:
+        """Merge metadata from multiple chunks into a single metadata object."""
+        if not meta_list:
+            return {}
+
+        first = meta_list[0]
+        merged_hierarchy = []
+        for m in meta_list:
+            for h in m.get("section_hierarchy", []):
+                if h not in merged_hierarchy:
+                    merged_hierarchy.append(h)
+
+        # Include section_part as "merged"
+        return {
+            "id": first.get("id", first.get("chunk_number")),
+            "source": first.get("source", "upload"),
+            "file_id": first.get("file_id"),
+            "file_name": first.get("file_name"),
+            "file_type": first.get("file_type"),
+            "bot_id": first.get("bot_id"),
+            "section_hierarchy": merged_hierarchy,
+            "section_part": "merged"
+        }
+
+def chunk_markdown_text(
+    markdown_text: str,
+    file_name: str,
+    file_id: str,
+    file_type: str,
+    chunk_size: int = None,
+    section_overlap: int = 75,
+    bot_id: int = None,
+    user_id: int = None,
+    db: Session = Depends(get_db),
+    file_info: Dict = None
+) -> List[Dict]:
+    """
+    Chunk markdown text using MarkdownRecursiveChunker with metadata support.
+    """
+    start_time = time.time()
+    text_length = len(markdown_text)
+
+    # If bot-specific config exists, override defaults
+    if bot_id and (chunk_size is None):
+        bot_config = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        if bot_config:
+            chunk_size = chunk_size or bot_config.chunk_size
+        else:
+            logger.warning(f"⚠️ Bot ID {bot_id} not found, falling back to default chunk values.")
+
+    # Defaults
+    chunk_size = chunk_size or 512
+    section_overlap = section_overlap or 75
+
+    logger.info(f"🔪 Markdown chunking text of length {text_length} with chunk_size={chunk_size}, section_overlap={section_overlap}")
+
+    try:
+        # Initialize new Markdown-aware chunker
+        chunker = MarkdownRecursiveChunker(
+            max_chunk_size=chunk_size,
+            min_chunk_size=200,
+            section_overlap=section_overlap,
+            keep_root_header=False,
+
+        )
+
+        # Split text
+        chunks = chunker.chunk_markdown(markdown_text, file_name, file_type, file_id, bot_id)
+        chunks_count = len(chunks)
+
+        # ========== MERGING LOGIC: Merge small chunks if average size is too small ==========
+        # Calculate average chunk size
+        avg_size = sum(token_length(c['text']) for c in chunks) // len(chunks) if chunks else 0
+        
+        # Define merge threshold (fixed at 200 tokens, matching colleague's implementation)
+        merge_threshold = 200
+        
+        logger.info(f"📊 Average chunk size before merge: {avg_size} tokens (threshold: {merge_threshold})")
+        
+        # Merge small chunks if average size below threshold
+        if avg_size < merge_threshold:
+            logger.info(f"⚠️ Average chunk size below {merge_threshold}, merging small chunks...")
+            chunks = chunker.merge_small_chunks(chunks, file_id=file_id)
+            chunks_count = len(chunks)
+            logger.info(f"✅ Merged chunks. New count: {chunks_count}")
+            
+            # Calculate new average after merging
+            avg_size_post = sum(token_length(c['text']) for c in chunks) // len(chunks) if chunks else 0
+            logger.info(f"📏 Average chunk size after merge: {avg_size_post} tokens")
+        else:
+            logger.info("✅ Chunk sizes are fine. No merging needed.")
+        # ========== END OF MERGING LOGIC ==========
+
+        # Debugging preview
+        # for i, chunk in enumerate(chunks[:5], start=1):  # only show first 5 to avoid flooding
+        #     print(f"\n--- Chunk {i}/{chunks_count} ---")
+        #     print("Text:", chunk["text"][:300])
+        #     print("Metadata:", chunk["metadata"])
+        #     print("---------------")
+
+        # Log operation
+        if bot_id and user_id:
+            log_chunking_operation(
+                user_id=user_id,
+                bot_id=bot_id,
+                text_length=text_length,
+                chunk_size=chunk_size,
+                chunk_overlap=section_overlap,
+                chunks_count=chunks_count,
+                file_info=file_info
+            )
+
+        logger.info(f"✅ Successfully split markdown into {chunks_count} chunks")
+        return chunks
+
+    except Exception as e:
+        logger.warning(f"⚠️ Error chunking markdown text: {e}")
+        if bot_id and user_id:
+            log_chunking_operation(
+                user_id=user_id,
+                bot_id=bot_id,
+                text_length=text_length,
+                chunk_size=chunk_size,
+                chunk_overlap=section_overlap,
+                chunks_count=1,
+                file_info=file_info,
+                extra={"error": str(e), "fallback": "single_chunk"}
+            )
+        return [{
+            "chunk_id": "chunk_0000",
+            "text": markdown_text,
+            "metadata": {
+                "file_name": file_name,
+                "file_type": "markdown",
+                "chunk_number": 1,
+                "total_chunks": 1,
+                "section_hierarchy": []
+            }
+        }]
+
 def chunk_text(text: str, chunk_size: int = None, chunk_overlap: int = None, bot_id: int = None, user_id: int = None,db: Session = Depends(get_db), file_info: Dict = None) -> List[str]:
     """
     Chunks text into smaller pieces suitable for embeddings.
@@ -335,6 +788,11 @@ def chunk_text(text: str, chunk_size: int = None, chunk_overlap: int = None, bot
         # Split the text into chunks
         chunks = text_splitter.split_text(text)
         chunks_count = len(chunks)
+        # 🔹 Print all chunks for debugging
+        for i, chunk in enumerate(chunks, start=1):
+            print(f"\n--- Chunk {i}/{chunks_count} ---")
+            print(chunk[:500])  # Print first 500 chars (to avoid flooding console if text is huge)
+            print("---------------")
         
         # Log chunking operation if bot_id and user_id are provided
         if bot_id and user_id:
