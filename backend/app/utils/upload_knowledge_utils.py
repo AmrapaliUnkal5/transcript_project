@@ -570,23 +570,40 @@ class MarkdownRecursiveChunker:
                 buffer_text = candidate_text
                 buffer_meta.append(chunk)
             else:
-                # Finalize merged chunk
-                merged.append({
-                    "chunk_id": f"chunk_{chunk_index:04d}",
-                    "text": candidate_text,
-                    "metadata": self.merge_metadata([c["metadata"] for c in buffer_meta + [chunk]])
-                })
+                # If only one chunk (no merge happened), preserve original metadata
+                if not buffer_meta:
+                    merged.append({
+                        "chunk_id": f"chunk_{chunk_index:04d}",
+                        "text": chunk["text"],
+                        "metadata": chunk["metadata"].copy()  # Keep original
+                    })
+                else:
+                    # Actually merging multiple chunks
+                    merged.append({
+                        "chunk_id": f"chunk_{chunk_index:04d}",
+                        "text": candidate_text,
+                        "metadata": self.merge_metadata([c["metadata"] for c in buffer_meta + [chunk]])
+                    })
                 buffer_text = ""
                 buffer_meta = []
                 chunk_index += 1
 
         # Flush remaining buffer
         if buffer_text:
-            merged.append({
-                "chunk_id": f"chunk_{chunk_index:04d}",
-                "text": buffer_text,
-                "metadata": self.merge_metadata([c["metadata"] for c in buffer_meta])
-            })
+            if len(buffer_meta) == 1:
+                # Only one leftover chunk → keep original metadata
+                merged.append({
+                    "chunk_id": f"chunk_{chunk_index:04d}",
+                    "text": buffer_meta[0]["text"],
+                    "metadata": buffer_meta[0]["metadata"].copy()  # Keep original
+                })
+            else:
+                # Multiple chunks being merged
+                merged.append({
+                    "chunk_id": f"chunk_{chunk_index:04d}",
+                    "text": buffer_text,
+                    "metadata": self.merge_metadata([c["metadata"] for c in buffer_meta])
+                })
 
         # Update chunk_number and total_chunks
         total_chunks = len(merged)
