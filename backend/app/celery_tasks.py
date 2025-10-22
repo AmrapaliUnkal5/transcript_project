@@ -52,6 +52,7 @@ import time
 from datetime import datetime
 import pymupdf4llm
 import io
+from app.utils.upload_knowledge_utils import normalize_markdown_tables
 
 
 # Configure logging
@@ -604,6 +605,7 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                                     try:
                                         md_text = pymupdf4llm.to_markdown(temp_file_path)
                                         if md_text and md_text.strip():
+                                            md_text = normalize_markdown_tables(md_text)
                                             file_content_text = md_text
                                             logger.info(f"✅ Successfully extracted {len(md_text)} chars as markdown")
                                         else:
@@ -763,6 +765,7 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                                     logger.info(f"Attempting extraction with pymupdf4llm")
                                     print("Attempting extraction with pymupdf4llm")
                                     md_text = pymupdf4llm.to_markdown(archive_path)
+                                    md_text = normalize_markdown_tables(md_text)
                                     file_content_text = md_text
                                     logger.info(f"Extracted {len(md_text)} chars of markdown")
                                 except ImportError:

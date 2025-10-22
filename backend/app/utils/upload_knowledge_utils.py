@@ -35,6 +35,53 @@ def extract_text_from_pdf(pdf_file):
         logger.warning(f"⚠️ Error extracting PDF text: {e}")
         return None
 
+def normalize_markdown_tables(md: str) -> str:
+    """
+    Normalize markdown by cleaning HTML tags while preserving code blocks.
+
+    - Inside markdown tables: convert <br> to spaces and strip all HTML tags.
+    - Outside tables (and outside code blocks): strip HTML tags and convert <br> to spaces.
+    - Code blocks (``` fenced) are preserved verbatim.
+    """
+    lines = md.splitlines()
+    out = []
+    in_code = False
+    in_table = False
+
+    def is_table_sep(line: str) -> bool:
+        return bool(re.match(r'^\s*\|[:\-| ]+\|\s*$', line))
+
+    for i, line in enumerate(lines):
+        if re.match(r'^\s*```', line):
+            in_code = not in_code
+            out.append(line)
+            continue
+
+        if in_code:
+            out.append(line)
+            continue
+
+        # Detect start of a markdown table (header row followed by separator)
+        if not in_table and line.strip().startswith('|') and '|' in line:
+            if i + 1 < len(lines) and is_table_sep(lines[i + 1]):
+                in_table = True
+
+        if in_table:
+            # Replace HTML breaks within table cells, then strip any remaining HTML tags
+            fixed = re.sub(r'<br\s*/?>', ' ', line, flags=re.IGNORECASE)
+            fixed = re.sub(r'</?\w+\b[^>]*>', '', fixed, flags=re.IGNORECASE)
+            out.append(fixed)
+            # End table when the next line is not a table row
+            if not (i + 1 < len(lines) and lines[i + 1].strip().startswith('|')):
+                in_table = False
+        else:
+            # Outside tables (and not in code): normalize <br> to space and strip HTML tags
+            cleaned = re.sub(r'<br\s*/?>', ' ', line, flags=re.IGNORECASE)
+            cleaned = re.sub(r'</?\w+\b[^>]*>', '', cleaned, flags=re.IGNORECASE)
+            out.append(cleaned)
+
+    return '\n'.join(out)
+
 def extract_text_from_pdf_images(pdf_content: bytes) -> str:
     """Extracts text from images in a PDF using OCR."""
     try:
