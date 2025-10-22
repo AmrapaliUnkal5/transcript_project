@@ -375,7 +375,10 @@ export default function MoreFaq() {
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant='body1' color='#D5D5D5'>
-                 A message is counted each time a user interacts with your bot. Each user question and each bot response are counted as one message each.
+                 Messages are counted based on interactions with the chatbot.
+                 Each user input and the corresponding AI response is
+                 considered a single message unit for billing and usage
+                 tracking purposes.
                 </Typography>
               </AccordionDetails>
             </Accordion>
