@@ -495,16 +495,26 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
 
     # ✅ Extract actual response string
     bot_reply_text = bot_reply_dict["bot_reply"]
-    
-    # ✅ Parse response for formatting
-    from app.utils.response_parser import parse_llm_response
-    formatted_content = parse_llm_response(bot_reply_text)
 
-    # ✅ Store bot response in DB
+    # ✅ Strip Provenance block from the user-facing message
+    def strip_provenance_block(text: str) -> str:
+        if not text:
+            return text
+        import re
+        # Remove everything from 'Provenance:' (case-insensitive) to the end
+        return re.sub(r"(?is)provenance\s*:\s*[\s\S]*$", "", text).rstrip()
+
+    cleaned_bot_reply_text = strip_provenance_block(bot_reply_text)
+
+    # ✅ Parse response for formatting using cleaned text
+    from app.utils.response_parser import parse_llm_response
+    formatted_content = parse_llm_response(cleaned_bot_reply_text)
+
+    # ✅ Store bot response in DB (cleaned)
     bot_message = ChatMessage(
         interaction_id=real_interaction_id,
         sender="bot",
-        message_text=bot_reply_text,
+        message_text=cleaned_bot_reply_text,
         not_answered=bot_reply_dict.get("not_answered", False)
     )
     db.add(bot_message)
@@ -521,41 +531,128 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
     print("bot_message.message_id",messageid_data_token)
 
     document_sources = []
-    
-    # Only show sources if:
-    # 1. Not a greeting
-    # 2. Not a default "no answer" response
-    # 3. We have similar docs
-    if (not is_greeting(request.message_text) and 
-   not bot_reply_dict.get("is_default_response", False) and
-   (similar_docs or bot_reply_dict.get("used_external", False))):
-    
-        if bot_reply_dict.get("used_external", False):
-            # If external knowledge was used, add that as a source
-            document_sources.append({
-                'source': 'External Knowledge',
-                'file_name': 'General Knowledge',
-                'website_url': '',
-                'url': ''
+
+    # ✅ Extract Provenance-based sources from the LLM response (like preview)
+    def extract_provenance_sources(text: str):
+        sources = []
+        if not text:
+            return sources
+        import re
+        # Find start of Provenance block (case-insensitive), tolerate extra text on the same line
+        prov_match = re.search(r"provenance\s*:\s*", text, re.IGNORECASE)
+        if not prov_match:
+            return sources
+        start_idx = prov_match.end()
+        tail = text[start_idx:]
+        lines = tail.splitlines()
+        for line in lines:
+            raw = line.strip()
+            if not raw:
+                # stop at first blank line after provenance
+                break
+            # Accept with or without leading dash
+            if raw.startswith('-'):
+                raw = raw.lstrip('-').strip()
+            # Must contain a source field
+            if 'source' not in raw.lower():
+                # if we hit a non-provenance-like line, stop
+                break
+            # Extract source type
+            m_src = re.search(r"source\s*:\s*(youtube|website|file)", raw, re.IGNORECASE)
+            if not m_src:
+                continue
+            src_type = m_src.group(1).lower()
+            # Extract value depending on type
+            display = None
+            if src_type in ('youtube', 'website'):
+                m_url = re.search(r'url\s*:\s*([^;,\"]+)', raw, re.IGNORECASE)
+                if m_url:
+                    display = m_url.group(1).strip()
+                    # Remove any leading '@' or stray punctuation
+                    display = display.lstrip('@').strip()
+            elif src_type == 'file':
+                m_fn = re.search(r'filename\s*:\s*([^;,\"]+)', raw, re.IGNORECASE)
+                if m_fn:
+                    display = m_fn.group(1).strip()
+            if not display or display.lower() == 'unknown':
+                continue
+            sources.append({
+                'type': 'youtube' if src_type == 'youtube' else ('website' if src_type == 'website' else 'file'),
+                'display': display
             })
-        elif similar_docs:
-            # Otherwise use the highest scoring document
-            highest_score_doc = max(similar_docs, key=lambda x: x.get('score', 0))
-            metadata = highest_score_doc.get('metadata', {})
-            
-            document_sources.append({
-                'source': metadata.get('source', 'Unknown source'),
-                'file_name': metadata.get('file_name', 'Unknown source'),
-                'website_url': metadata.get('website_url', 'Unknown source'),
-                'url': metadata.get('url', 'Unknown source')
-            })
+        # Deduplicate by (type, display)
+        seen = set()
+        deduped = []
+        for s in sources:
+            key = (s['type'], s['display'])
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(s)
+        return deduped
+
+    # Only show sources if similar to preview logic
+    if (
+        not is_greeting(request.message_text)
+        and not bot_reply_dict.get("is_default_response", False)
+        and not bot_reply_dict.get("is_greeting_response", False)
+        and not bot_reply_dict.get("is_farewell_response", False)
+        and (similar_docs or bot_reply_dict.get("used_external", False))
+    ):
+        # Prefer LLM-provided Provenance lines for sources
+        prov_sources = extract_provenance_sources(bot_reply_text)
+        if prov_sources:
+            for s in prov_sources:
+                if s['type'] == 'youtube':
+                    document_sources.append({
+                        'source': 'youtube',
+                        'file_name': '',
+                        'website_url': '',
+                        'url': s['display']
+                    })
+                elif s['type'] == 'website':
+                    document_sources.append({
+                        'source': 'website',
+                        'file_name': '',
+                        'website_url': s['display'],
+                        'url': ''
+                    })
+                else:
+                    document_sources.append({
+                        'source': 'upload',
+                        'file_name': s['display'],
+                        'website_url': '',
+                        'url': ''
+                    })
+            # Optionally include External Knowledge if used
+            if bot_reply_dict.get("used_external", False):
+                document_sources.append({
+                    'source': 'External Knowledge',
+                    'file_name': 'General Knowledge',
+                    'website_url': '',
+                    'url': ''
+                })
+        else:
+            # No Provenance sources; if external knowledge used, show only that
+            if bot_reply_dict.get("used_external", False):
+                document_sources.append({
+                    'source': 'External Knowledge',
+                    'website_url': '',
+                    'url': ''
+                })
+
+    final_is_social = (
+        is_greeting(request.message_text)
+        or bot_reply_dict.get("is_greeting_response", False)
+        or bot_reply_dict.get("is_farewell_response", False)
+    )
 
     return {
-        "message": bot_reply_text,
+        "message": cleaned_bot_reply_text,
         "message_id": messageid_data_token,
         "formatted_content": formatted_content,
         "sources": document_sources,
-        "is_greeting": is_greeting(request.message_text)
+        "is_greeting": final_is_social
     }
 
 def check_and_record_addon_usage(

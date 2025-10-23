@@ -363,10 +363,20 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
 
     # ✅ Extract actual response string
     bot_reply_text = bot_reply_dict["bot_reply"]
-    
-    # ✅ Parse response for formatting
+
+    # ✅ Strip Provenance block from the user-facing message
+    def strip_provenance_block(text: str) -> str:
+        if not text:
+            return text
+        import re
+        # Remove everything from 'Provenance:' (case-insensitive) to the end
+        return re.sub(r"(?is)provenance\s*:\s*[\s\S]*$", "", text).rstrip()
+
+    cleaned_bot_reply_text = strip_provenance_block(bot_reply_text)
+
+    # ✅ Parse response for formatting using cleaned text
     from app.utils.response_parser import parse_llm_response
-    formatted_content = parse_llm_response(bot_reply_text)
+    formatted_content = parse_llm_response(cleaned_bot_reply_text)
 
     # ✅ Extract Provenance-based sources from the LLM response
     def extract_provenance_sources(text: str):
@@ -440,11 +450,11 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
         }
     })
 
-    # ✅ Store bot response in DB
+    # ✅ Store bot response in DB (cleaned)
     bot_message = ChatMessage(
         interaction_id=request.interaction_id,
         sender="bot",
-        message_text=bot_reply_text,
+        message_text=cleaned_bot_reply_text,
         not_answered=bot_reply_dict.get("not_answered", False)
     )
     db.add(bot_message)
@@ -558,7 +568,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
             )
 
     return {
-        "message": bot_reply_text,
+        "message": cleaned_bot_reply_text,
         "message_id": bot_message.message_id,
         "formatted_content": formatted_content,
         "sources": document_sources,
