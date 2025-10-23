@@ -130,7 +130,43 @@ class EmbeddingManager:
         finally:
             db.close()
             
+        self.target_dimension = self.model_info.get("dimension") if self.model_info else None
         self.embedder = self._initialize_embedder(test_embedder=False)
+
+    def _adjust_dimension(self, embedding):
+        """Adjust embedding length to match DB-configured dimension, if provided.
+
+        Rules:
+        - If lengths match or no target set, return as-is
+        - If embedding is longer and divisible by target, average contiguous blocks
+          (e.g., 3072 -> 1536 by averaging pairs)
+        - If longer but not divisible, truncate to target
+        - If shorter, zero-pad to target
+        """
+        try:
+            if not isinstance(embedding, (list, tuple)):
+                return embedding
+            if not self.target_dimension or self.target_dimension <= 0:
+                return embedding
+            current_dim = len(embedding)
+            if current_dim == self.target_dimension:
+                return embedding
+            arr = np.asarray(embedding, dtype=float)
+            if current_dim > self.target_dimension:
+                factor = current_dim // self.target_dimension
+                if factor > 1 and current_dim % self.target_dimension == 0:
+                    reshaped = arr.reshape(self.target_dimension, factor)
+                    reduced = reshaped.mean(axis=1)
+                    return reduced.tolist()
+                # Fallback: truncate
+                return arr[: self.target_dimension].tolist()
+            # current_dim < target: pad with zeros
+            padded = np.zeros(self.target_dimension, dtype=float)
+            padded[: current_dim] = arr
+            return padded.tolist()
+        except Exception:
+            # On any unexpected issue, return original embedding
+            return embedding
         
     def _get_model_info(self, model_name):
         """Get model information from the database"""
@@ -264,6 +300,7 @@ class EmbeddingManager:
         try:
             # Get the embedding
             embedding = self.embedder.embed_query(text)
+            embedding = self._adjust_dimension(embedding)
             
             # Calculate duration
             duration_ms = int((time.time() - start_time) * 1000)
@@ -319,6 +356,7 @@ class EmbeddingManager:
                 embedding = self.embedder.embed_documents([text])[0]
             else:
                 embedding = self.embedder.embed_query(text)
+            embedding = self._adjust_dimension(embedding)
             
             # Calculate duration
             duration_ms = int((time.time() - start_time) * 1000)

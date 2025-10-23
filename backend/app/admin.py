@@ -4,6 +4,7 @@ from sqladmin.authentication import AuthenticationBackend
 from starlette.responses import RedirectResponse
 from app.config import settings
 from app.database import engine
+from app.database import SessionLocal
 from app.models import (
     User, Bot, File, Interaction, Language, UserAddon, 
     UserAuthProvider, ChatMessage, 
@@ -154,9 +155,16 @@ class BotAdmin(BaseModelView, model=Bot):
                     else:
                         print(f"❌ Could not find bot with ID {model.bot_id} in database")
                     
-                    # Run the comprehensive re-embedding in the background to avoid blocking the admin UI
-                    # This will now re-embed files, web scraping data, and YouTube data
-                    task = asyncio.create_task(reembed_all_bot_data(model.bot_id, session))
+                    # Run the comprehensive re-embedding in the background using a NEW DB session
+                    # Do NOT reuse the request-scoped session; it may be closed after the request ends
+                    async def _run_reembed_with_new_session(bot_id: int):
+                        db_session = SessionLocal()
+                        try:
+                            await reembed_all_bot_data(bot_id, db_session)
+                        finally:
+                            db_session.close()
+
+                    task = asyncio.create_task(_run_reembed_with_new_session(model.bot_id))
                     
                     def callback(future):
                         try:
