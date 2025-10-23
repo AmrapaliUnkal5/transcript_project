@@ -480,7 +480,27 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
                  "not_answered": True }
     else:
         # Note: vector_db.py returns documents with a "content" field
-        context = " ".join([doc.get("content", "") for doc in similar_docs])
+        # Build context with explicit chunk blocks and attached provenance metadata
+        context_blocks = []
+        for i, doc in enumerate(similar_docs):
+            content = doc.get("content", "")
+            md = doc.get("metadata", {}) or {}
+            file_name = md.get("file_name", "unknown")
+            chunk_number = md.get("chunk_number", "unknown")
+            section_hierarchy = md.get("section_hierarchy", [])
+            context_blocks.append(
+                f"[CHUNK {i}]\n{content}\n[METADATA] file_name: {file_name}; chunk_number: {chunk_number}; section_hierarchy: {section_hierarchy}"
+            )
+            logger.info(
+                f"📄 DEBUG: Context chunk {i}",
+                extra={
+                    "bot_id": bot_id,
+                    "file_name": file_name,
+                    "chunk_number": chunk_number,
+                    "section_hierarchy": section_hierarchy,
+                },
+            )
+        context = "\n\n".join(context_blocks)
         logger.info(f"📄 DEBUG: Context prepared with {len(similar_docs)} documents, length: {len(context)} characters")
 
     try:

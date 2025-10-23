@@ -747,7 +747,11 @@ class LLMManager:
                         "- Keep formatting consistent and clear.\n\n"
                     ).format(tone=tone, role=role, tone_description=tone_description)
                     logger.debug("Strict context mode: Will only use provided context")
-                user_content = f"Context: {context}"
+                user_content = (
+                    "Context (each block shows the text and attached provenance in [METADATA]):\n"
+                    f"{context}\n\n"
+                    "When answering, append a plain text block titled 'Provenance' listing which chunks you used (by CHUNK index) and include their file_name, chunk_number, and section_hierarchy exactly as shown in the [METADATA]. If you used any fact not supported by the Context, also append '[EXT_KNOWLEDGE_USED]'."
+                )
                 if chat_history:
                     user_content += f"{chat_history}"
                 user_content += f"\nUser: {user_message}\nBot:"
