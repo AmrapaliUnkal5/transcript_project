@@ -750,7 +750,12 @@ class LLMManager:
                 user_content = (
                     "Context (each block shows the text and attached provenance in [METADATA]):\n"
                     f"{context}\n\n"
-                    "When answering, append a plain text block titled 'Provenance' listing which chunks you used (by CHUNK index) and include their file_name, chunk_number, and section_hierarchy exactly as shown in the [METADATA]. If you used any fact not supported by the Context, also append '[EXT_KNOWLEDGE_USED]'."
+                    "When answering, append a plain text block titled 'Provenance' that lists ONLY the chunks you actually used (by CHUNK index).\n"
+                    "Format each line EXACTLY as follows (case-insensitive for keys is OK, but use these field names):\n"
+                    "- For YouTube: 'source: YouTube url: <URL>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
+                    "- For Website: 'source: Website url: <URL>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
+                    "- For Files: 'source: File filename: <FILE_NAME>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
+                    "Rules: Do NOT output 'file_name: unknown'. Do NOT include extra fields. Only include chunks actually used. If you used any fact not supported by the Context, append '[EXT_KNOWLEDGE_USED]' on a new line at the end."
                 )
                 if chat_history:
                     user_content += f"{chat_history}"

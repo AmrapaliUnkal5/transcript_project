@@ -488,8 +488,24 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
             file_name = md.get("file_name", "unknown")
             chunk_number = md.get("chunk_number", "unknown")
             section_hierarchy = md.get("section_hierarchy", [])
+            source_type = md.get("source", "upload")
+            # Prefer explicit URL fields when available (website_url for websites, url for youtube)
+            website_url = md.get("website_url", "")
+            url = md.get("url", "")
+            # Build a richer metadata string to help the LLM output better Provenance
+            metadata_parts = [
+                f"file_name: {file_name}",
+                f"chunk_number: {chunk_number}",
+                f"section_hierarchy: {section_hierarchy}",
+                f"source: {source_type}"
+            ]
+            if website_url:
+                metadata_parts.append(f"website_url: {website_url}")
+            if url:
+                metadata_parts.append(f"url: {url}")
+            metadata_str = "; ".join(metadata_parts)
             context_blocks.append(
-                f"[CHUNK {i}]\n{content}\n[METADATA] file_name: {file_name}; chunk_number: {chunk_number}; section_hierarchy: {section_hierarchy}"
+                f"[CHUNK {i}]\n{content}\n[METADATA] {metadata_str}"
             )
             logger.info(
                 f"📄 DEBUG: Context chunk {i}",
