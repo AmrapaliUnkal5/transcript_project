@@ -1348,7 +1348,7 @@ const renderStepContent = () => {
                 fontWeight: "600",
               }}
             >
-              Knowledge Source
+              External Knowledge
             </label>
 
             <div className="flex flex-col space-y-4">
