@@ -126,7 +126,9 @@ def test_apify_transcript(video_url):
         logger.info("Starting Apify actor to extract transcript...")
         
         # Run the Actor and wait for it to finish
-        run = client.actor("dz_omar/youtube-transcript-extractor").call(run_input=run_input)
+        #run = client.actor("dz_omar/youtube-transcript-extractor").call(run_input=run_input)
+        run = client.actor("dz_omar/youtube-transcript-metadata-extractor").call(run_input=run_input)
+
         
         logger.info(f"Apify run completed. Dataset ID: {run['defaultDatasetId']}")
         
