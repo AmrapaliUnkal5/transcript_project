@@ -836,7 +836,11 @@ class LLMManager:
                 }
                 if _should_send_temperature(provider, model_name):
                     request_payload["temperature"] = temperature
-                request_payload[_token_param_key(provider, model_name)] = 3000
+                # Set output token cap: 3000 for GPT-5 mini/nano, else 300
+                _mn = (model_name or "").lower()
+                _is_gpt5_small = _mn.startswith("gpt-5") and ("mini" in _mn or "nano" in _mn)
+                _cap = 3000 if _is_gpt5_small else 300
+                request_payload[_token_param_key(provider, model_name)] = _cap
 
                 response = self.llm.chat.completions.create(**request_payload)
                 llm_duration = int((time.time() - llm_request_start) * 1000)
