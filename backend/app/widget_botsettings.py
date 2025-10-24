@@ -502,7 +502,7 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
             return text
         import re
         # Remove everything from 'Provenance:' (case-insensitive) to the end
-        return re.sub(r"(?is)provenance\s*:\s*[\s\S]*$", "", text).rstrip()
+        return re.sub(r"(?is)provenance\s*:?(?:\r?\n|\s|$)[\s\S]*$", "", text).rstrip()
 
     cleaned_bot_reply_text = strip_provenance_block(bot_reply_text)
 
@@ -538,8 +538,8 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
         if not text:
             return sources
         import re
-        # Find start of Provenance block (case-insensitive), tolerate extra text on the same line
-        prov_match = re.search(r"provenance\s*:\s*", text, re.IGNORECASE)
+        # Find start of Provenance block (case-insensitive), allowing optional colon or newline after the header
+        prov_match = re.search(r"(?is)provenance\s*:?(?:\r?\n|\s)", text, re.IGNORECASE)
         if not prov_match:
             return sources
         start_idx = prov_match.end()
