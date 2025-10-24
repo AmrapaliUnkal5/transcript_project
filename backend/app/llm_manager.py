@@ -801,23 +801,71 @@ class LLMManager:
                         "user_content_preview": user_content[:150] + "..." if len(user_content) > 150 else user_content,
                         "use_external_knowledge": use_external_knowledge,
                         "temperature": temperature,
-                        "max_tokens": 300
+                        "max_output_tokens": 300
                     }
                 })
                 
+                def _token_param_key(pvd: str, model: str) -> str:
+                    p = (pvd or "").lower()
+                    m = (model or "").lower()
+                    # OpenAI: newer models may require max_completion_tokens; classic chat uses max_tokens
+                    if p == "openai":
+                        if m.startswith("gpt-5"):
+                            return "max_completion_tokens"
+                        return "max_tokens"
+                    # Anthropic / Google (if added later) typically use max_output_tokens
+                    if p in ("anthropic", "google"):
+                        return "max_output_tokens"
+                    return "max_tokens"
+
+                def _should_send_temperature(pvd: str, model: str) -> bool:
+                    p = (pvd or "").lower()
+                    m = (model or "").lower()
+                    # Some OpenAI gpt-5 models only support the default temperature and reject overrides
+                    if p == "openai" and m.startswith("gpt-5"):
+                        return False
+                    return True
+
                 llm_request_start = time.time()
-                response = self.llm.chat.completions.create(
-                    model=model_name,
-                    messages=[
+                request_payload = {
+                    "model": model_name,
+                    "messages": [
                         {"role": "system", "content": system_content},
                         {"role": "user", "content": user_content}
-                    ],
-                    temperature=temperature,
-                    max_tokens=300
-                )
+                    ]
+                }
+                if _should_send_temperature(provider, model_name):
+                    request_payload["temperature"] = temperature
+                request_payload[_token_param_key(provider, model_name)] = 3000
+
+                response = self.llm.chat.completions.create(**request_payload)
                 llm_duration = int((time.time() - llm_request_start) * 1000)
                 
-                response_content = response.choices[0].message.content
+                # --- Robust extraction of assistant text ---
+                def _extract_text(msg):
+                    try:
+                        content = getattr(msg, "content", None)
+                    except Exception:
+                        content = None
+                    # Direct string
+                    if isinstance(content, str):
+                        return content
+                    # Newer SDKs may return list of content parts
+                    if isinstance(content, list):
+                        parts = []
+                        for part in content:
+                            if isinstance(part, dict):
+                                if isinstance(part.get("text"), str):
+                                    parts.append(part.get("text"))
+                                elif part.get("type") == "text" and isinstance(part.get("text"), str):
+                                    parts.append(part.get("text"))
+                            elif isinstance(part, str):
+                                parts.append(part)
+                        return "".join(parts)
+                    return content or ""
+
+                response_message = response.choices[0].message if response.choices else None
+                response_content = _extract_text(response_message) if response_message else ""
 
                 # Debug prints (ALWAYS show for troubleshooting)
                 print("\n=== DEBUG: RAW LLM RESPONSE ===")
@@ -831,7 +879,7 @@ class LLMManager:
                 print(f"External knowledge flag detected: {used_external}")
 
                 # Clean response (remove flags if present)
-                clean_response = re.sub(r'\{.*?"is_(ext)_response":\s*(true|false).*?\}', '', response_content, flags=re.IGNORECASE | re.DOTALL).strip()
+                clean_response = re.sub(r'\{.*?"is_(ext)_response":\s*(true|false).*?\}', '', response_content or "", flags=re.IGNORECASE | re.DOTALL).strip()
                 clean_response = re.sub(r'\[ext_knowledge_used\]', '', clean_response, flags=re.IGNORECASE).strip()
                 # Default flags
                 is_greeting_response = False
@@ -895,8 +943,11 @@ class LLMManager:
                     }
                 )
                 
+                # If model returns empty content, provide a safe fallback message
+                final_message = clean_response if clean_response else (self.unanswered_message or "I'm sorry, I don't have an answer for this question.")
+
                 return {
-                    "message": clean_response,
+                    "message": final_message,
                     "used_external": used_external,
                     "is_greeting_response": is_greeting_response,
                     "is_farewell_response": is_farewell_response
