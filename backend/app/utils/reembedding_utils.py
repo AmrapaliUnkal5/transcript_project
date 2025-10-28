@@ -70,7 +70,7 @@ async def delete_file_embeddings(file_name: str, bot_id: int, db):
                     break
 
             if all_point_ids:
-                logger.info(f"🗑️ Found {len(all_point_ids)} embeddings to delete in Qdrant for file {file_id}")
+                logger.info(f"🗑️ Found {len(all_point_ids)} embeddings to delete in Qdrant for file {file_name}")
                 qdrant_client.delete(
                     collection_name=collection_name,
                     points_selector=all_point_ids
@@ -78,7 +78,7 @@ async def delete_file_embeddings(file_name: str, bot_id: int, db):
                 deleted_count = len(all_point_ids)
                 logger.info(f"✅ Deleted {deleted_count} embeddings from Qdrant")
             else:
-                logger.info(f"ℹ️ No embeddings found for file {file_id}")
+                logger.info(f"ℹ️ No embeddings found for file {file_name}")
 
         except Exception as e:
             logger.error(f"❌ Error deleting from Qdrant: {str(e)}")
@@ -95,7 +95,7 @@ async def delete_scraped_node_embeddings(url: str, bot_id: int, db):
     Delete all embeddings for a specific scraped node from the vector database.
 
     Args:
-        website_id: The website identifier
+        url: The website URL used in metadata
         bot_id: Bot ID
         db: Database session
 
@@ -139,7 +139,7 @@ async def delete_scraped_node_embeddings(url: str, bot_id: int, db):
                     break
 
             if all_point_ids:
-                logger.info(f"🗑️ Found {len(all_point_ids)} embeddings to delete in Qdrant for website {website_id}")
+                logger.info(f"🗑️ Found {len(all_point_ids)} embeddings to delete in Qdrant for website {url}")
                 qdrant_client.delete(
                     collection_name=collection_name,
                     points_selector=all_point_ids
@@ -148,7 +148,7 @@ async def delete_scraped_node_embeddings(url: str, bot_id: int, db):
                 logger.info(f"✅ Deleted {deleted_count} embeddings from Qdrant")
                 return deleted_count
             else:
-                logger.info(f"ℹ️ No embeddings found for website {website_id}")
+                logger.info(f"ℹ️ No embeddings found for website {url}")
                 return 0
 
         except Exception as e:
@@ -164,7 +164,7 @@ async def delete_youtube_video_embeddings(url: str, bot_id: int, db):
     Delete all embeddings for a specific YouTube video from the vector database.
 
     Args:
-        video_id: The YouTube video identifier
+        url: The YouTube video URL used in metadata
         bot_id: Bot ID
         db: Database session
 
@@ -208,7 +208,7 @@ async def delete_youtube_video_embeddings(url: str, bot_id: int, db):
                     break
 
             if all_point_ids:
-                logger.info(f"🗑️ Found {len(all_point_ids)} embeddings to delete in Qdrant for video {video_id}")
+                logger.info(f"🗑️ Found {len(all_point_ids)} embeddings to delete in Qdrant for video {url}")
                 qdrant_client.delete(
                     collection_name=collection_name,
                     points_selector=all_point_ids
@@ -217,7 +217,7 @@ async def delete_youtube_video_embeddings(url: str, bot_id: int, db):
                 logger.info(f"✅ Deleted {deleted_count} embeddings from Qdrant")
                 return deleted_count
             else:
-                logger.info(f"ℹ️ No embeddings found for video {video_id}")
+                logger.info(f"ℹ️ No embeddings found for video {url}")
                 return 0
 
         except Exception as e:
@@ -695,7 +695,6 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
                     "title": node.title or "No Title",
                     "bot_id": bot_id,
                     "user_id": user_id,
-                    "website_id": node.website_id,
                     "is_reembed": True
                 }
 
