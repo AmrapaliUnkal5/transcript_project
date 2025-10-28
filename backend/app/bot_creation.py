@@ -92,6 +92,28 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
                               "plan_id": free_plan.id, "plan_name": free_plan.name})
 
     try:
+        # Get the user's active subscription plan to determine default models
+        # This needs to happen AFTER we potentially create the free plan subscription above
+        user_subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "active"
+        ).order_by(UserSubscription.expiry_date.desc()).first()
+
+        embedding_model_id = None
+        llm_model_id = None
+
+        if user_subscription:
+            subscription_plan = db.query(SubscriptionPlan).filter(
+                SubscriptionPlan.id == user_subscription.subscription_plan_id
+            ).first()
+
+            if subscription_plan:
+                embedding_model_id = subscription_plan.default_embedding_model_id
+                llm_model_id = subscription_plan.default_llm_model_id
+                logger.info(f"Using models from subscription plan: {subscription_plan.name}",
+                           extra={"request_id": request_id, "user_id": user_id,
+                                 "embedding_model_id": embedding_model_id, "llm_model_id": llm_model_id})
+
         # Create a new bot
         db_bot = Bot(
             bot_name=bot.bot_name,
@@ -100,6 +122,8 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
             user_id=user_id,
             word_count=0,
             external_knowledge=bot.external_knowledge,
+            embedding_model_id=embedding_model_id,
+            llm_model_id=llm_model_id,
             created_by=action_user_id,
             updated_by=action_user_id
         )

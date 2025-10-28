@@ -260,6 +260,77 @@ def reembed_bots_for_subscription_plan(self, subscription_plan_id: int, old_embe
             "subscription_plan_id": subscription_plan_id
         } 
 
+
+@celery_app.task(bind=True, name='reembed_single_bot', max_retries=3)
+def reembed_single_bot(self, bot_id: int):
+    """
+    Re-embed all data for a single bot in the background.
+
+    Behavior:
+    - Marks bot.is_retrained = True before starting
+    - Calls async reembed_all_bot_data(bot_id, db)
+    - Clears bot.is_retrained = False at the end (success or error)
+    - Returns a compact summary
+    """
+    try:
+        logger.info(f"🔄 Starting single-bot re-embedding task for bot {bot_id}")
+
+        db = next(get_db())
+
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        if not bot:
+            logger.error(f"❌ Bot with ID {bot_id} not found")
+            return {"status": "error", "error": "bot_not_found", "bot_id": bot_id}
+
+        # Mark as Retraining so UI can reflect progress
+        try:
+            bot.is_retrained = True
+            db.commit()
+            logger.info(f"✅ Marked bot {bot_id} as Retraining")
+        except Exception as mark_err:
+            logger.warning(f"⚠️ Could not set Retraining flag for bot {bot_id}: {str(mark_err)}")
+
+        # Run async function in a dedicated loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            results = loop.run_until_complete(reembed_all_bot_data(bot_id, db))
+        finally:
+            loop.close()
+
+        # Clear Retraining flag
+        try:
+            bot.is_retrained = False
+            db.commit()
+            logger.info(f"✅ Cleared Retraining flag for bot {bot_id}")
+        except Exception as clear_err:
+            logger.warning(f"⚠️ Could not clear Retraining flag for bot {bot_id}: {str(clear_err)}")
+
+        return {
+            "status": "completed",
+            "bot_id": bot_id,
+            "summary": results,
+        }
+
+    except Exception as e:
+        logger.exception(f"❌ Error in reembed_single_bot for bot {bot_id}: {str(e)}")
+
+        # Best-effort: clear flag on error
+        try:
+            db = next(get_db())
+            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+            if bot:
+                bot.is_retrained = False
+                db.commit()
+        except Exception:
+            pass
+
+        # Retry with backoff if allowed
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
+
+        return {"status": "error", "bot_id": bot_id, "error": str(e)}
+
 @celery_app.task(bind=True, name='process_youtube_videos_part1', max_retries=3)
 def process_youtube_videos_part1(self, bot_id: int, video_urls: List[str],  action_user_id: int):
     """
