@@ -505,6 +505,22 @@ class LLMManager:
             print(f"🔄 Using OpenAI with model: {model_name}")
             return OpenAI(api_key=api_key)
             
+        elif provider in ("google", "gemini"):
+            # For Google Gemini models
+            try:
+                import google.generativeai as genai  # Local import to avoid hard dependency when unused
+            except Exception as import_err:
+                raise ValueError(f"google-generativeai package is not installed: {import_err}")
+
+            gemini_api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
+            if not gemini_api_key:
+                raise ValueError("GEMINI_API_KEY is not set")
+            genai.configure(api_key=gemini_api_key)
+
+            print(f"🔄 Using Google Gemini with model: {model_name}")
+            # Return the configured GenerativeModel instance
+            return genai.GenerativeModel(model_name=model_name)
+
         elif provider == "huggingface":
             # For HuggingFace models
             huggingface_api_key = settings.HUGGINGFACE_API_KEY
@@ -1030,6 +1046,117 @@ class LLMManager:
                 )
                 
                 return response_content
+            elif provider in ("google", "gemini"):
+                # Google Gemini (Generative AI)
+                try:
+                    import google.generativeai as genai  # local import
+                except Exception as import_err:
+                    raise ValueError(f"google-generativeai package is not installed: {import_err}")
+
+                # Prepare prompts similar to OpenAI branch
+                tone_descriptions = {
+                    "Professional": "Maintain a formal, polite, and technical style. Use complete sentences and avoid contractions.",
+                    "Casual": "Write in a friendly, conversational style. Use contractions and light humor if appropriate.",
+                    "Friendly": "Be warm, supportive, and approachable. Use encouraging and friendly language.",
+                    "Concise": "Provide short, clear, and direct answers. Eliminate unnecessary words while keeping meaning intact.",
+                    "Empathetic": "Respond with compassion and understanding. Acknowledge the user's feelings and provide reassurance."
+                }
+                tone_description = tone_descriptions.get(tone, "")
+
+                if use_external_knowledge:
+                    system_content = (
+                        "You are a {tone} {role}. {tone_description}\n\n"
+                        "### Response Guidelines:\n"
+                        "- Answer the user's question using the provided Context.\n"
+                        "- If the Context does not contain the needed information, you MUST use your general knowledge.\n"
+                        "- IMPORTANT: If ANY part of the answer comes from outside the Context (even basic facts), you MUST add '[EXT_KNOWLEDGE_USED]' on a NEW LINE at the VERY END of your response.\n"
+                        "- Keep answers concise and clear, with a hard limit of 120 words.\n"
+                        "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n\n"
+                        "### External Knowledge Decision Rules:\n"
+                        "- ONLY add '[EXT_KNOWLEDGE_USED]' if you introduce any fact that is NOT present in the Context.\n\n"
+                    ).format(tone=tone, role=role, tone_description=tone_description)
+                else:
+                    system_content = (
+                        "You are a {tone} {role}. {tone_description}\n\n"
+                        "### Response Guidelines:\n"
+                        "- Answer the user's question based on the provided context. "
+                        f"If the context does not contain relevant information, respond with exactly: \"{self.unanswered_message}\". "
+                        "Do not use external knowledge under any circumstances.\n"
+                        "- Keep answers concise and clear, with a hard limit of 120 words.\n"
+                        "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n\n"
+                    ).format(tone=tone, role=role, tone_description=tone_description)
+
+                user_content = (
+                    "Context (each block shows the text and attached provenance in [METADATA]):\n"
+                    f"{context}\n\n"
+                    "Provenance policy: If and only if you used ANY information from the Context above, append a plain text block titled 'Provenance' listing ONLY the sources actually used. If you relied solely on external knowledge, DO NOT include any 'Provenance' block.\n"
+                    "Rules: If you used any fact not supported by the Context, append '[EXT_KNOWLEDGE_USED]' on a new line at the end."
+                )
+                if chat_history:
+                    user_content += f"{chat_history}"
+                user_content += f"\nUser: {user_message}\nBot:"
+
+                # Log request
+                log_llm_request(
+                    user_id=self.user_id,
+                    bot_id=self.bot_id,
+                    model_name=model_name,
+                    provider=provider,
+                    temperature=temperature,
+                    query=user_message,
+                    context_length=len(context),
+                    use_external_knowledge=use_external_knowledge,
+                    chat_history_msgs=len(chat_history.split('\n')) if chat_history else 0,
+                    extra={
+                        "system_prompt": system_content[:200] + "..." if len(system_content) > 200 else system_content,
+                        "user_content_length": len(user_content),
+                        "max_tokens": 300
+                    }
+                )
+
+                # Generate
+                llm_request_start = time.time()
+                generation_config = {
+                    "temperature": temperature,
+                    "max_output_tokens": 300
+                }
+                # Some Gemini SDK versions support system_instruction; otherwise include as first part
+                try:
+                    response = self.llm.generate_content(
+                        [system_content, user_content],
+                        generation_config=generation_config
+                    )
+                except TypeError:
+                    # Fallback without config in older SDKs
+                    response = self.llm.generate_content([system_content, user_content])
+                llm_duration = int((time.time() - llm_request_start) * 1000)
+
+                response_text = getattr(response, "text", None) or ""
+
+                # External knowledge flag
+                used_external = False
+                if "[ext_knowledge_used]" in (response_text or "").lower():
+                    used_external = True
+
+                clean_response = re.sub(r"\[ext_knowledge_used\]", "", response_text, flags=re.IGNORECASE).strip()
+
+                # Log response
+                log_llm_response(
+                    user_id=self.user_id,
+                    bot_id=self.bot_id,
+                    model_name=model_name,
+                    provider=provider,
+                    duration_ms=llm_duration,
+                    response_length=len(clean_response),
+                    success=True,
+                    response=clean_response,
+                )
+
+                final_message = clean_response if clean_response else (self.unanswered_message or "I'm sorry, I don't have an answer for this question.")
+                return {
+                    "message": final_message,
+                    "used_external": used_external
+                }
             else:
                 # ✅ Log unsupported provider error
                 ai_logger.error("Unsupported LLM provider", extra={
