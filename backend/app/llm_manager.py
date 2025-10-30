@@ -574,6 +574,115 @@ class LLMManager:
             print(f"🔄 Using default HuggingFace LLM with model: {default_model}")
             return HuggingFaceLLM(default_model, huggingface_api_key, 4096, 512)
 
+    def _build_prompt(self, context: str, user_message: str, use_external_knowledge: bool, chat_history: str, role: str, tone: str):
+        """Build shared system and user content used across providers."""
+        tone_descriptions = {
+            "Professional": "Maintain a formal, polite, and technical style. Use complete sentences and avoid contractions.",
+            "Casual": "Write in a friendly, conversational style. Use contractions and light humor if appropriate.",
+            "Friendly": "Be warm, supportive, and approachable. Use encouraging and friendly language.",
+            "Concise": "Provide short, clear, and direct answers. Eliminate unnecessary words while keeping meaning intact.",
+            "Empathetic": "Respond with compassion and understanding. Acknowledge the user's feelings and provide reassurance."
+        }
+        tone_description = tone_descriptions.get(tone, "")
+
+        if use_external_knowledge:
+            system_content = (
+                "You are a {tone} {role}. {tone_description}\n\n"
+                "### Response Guidelines:\n"
+                "- Answer the user's question using the provided Context.\n"
+                "- If the Context does not contain the needed information, you MUST use your general knowledge.\n"
+                "- IMPORTANT: If ANY part of the answer comes from outside the Context (even basic facts), you MUST add '[EXT_KNOWLEDGE_USED]' on a NEW LINE at the VERY END of your response.\n"
+                "- These metadata lines MUST be plain text only (never inside code blocks, tables, or markdown). Append them AFTER the main answer, each on its own line.\n"
+                "- Keep answers concise and clear, with a hard limit of 120 words.\n"
+                "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
+                "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
+                "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
+
+                "### External Knowledge Decision Rules:\n"
+                "- DO NOT add '[EXT_KNOWLEDGE_USED]' if every factual element in your answer can be found in the Context text, even if you paraphrase, summarize, combine, or reorganize it.\n"
+                "- ONLY add '[EXT_KNOWLEDGE_USED]' if you introduce any fact/number/date/definition/claim that is NOT present in the Context.\n"
+                "- Rewriting, simplifying, adding transitions, or basic politeness does NOT count as external knowledge.\n"
+                "- IMPORTANT: Common knowledge still counts as external if it is not explicitly present in the Context.\n"
+                "- The presence of a greeting or farewell does NOT imply external knowledge.\n"
+                "- SELF-CHECK BEFORE SENDING: Compare your answer to the Context. If ALL key facts are supported by the Context, DO NOT add the external flag; otherwise, DO add it.\n\n"
+
+                "### Quick Mental Checklist (Do NOT output):\n"
+                "1) Identify 2–3 key facts in your answer.\n"
+                "2) For each fact, verify the exact information appears in the Context.\n"
+                "3) If ANY fact is not in the Context, append '[EXT_KNOWLEDGE_USED]'.\n\n"
+
+                "### Social Interactions:\n"
+                "- Handle greetings/farewells with short, natural replies (max 1 short sentence).\n"
+                "- CRITICAL: A greeting is ONLY a simple hello/hi WITHOUT any question or request.\n"
+                "  Examples of pure greetings: 'hi', 'hello', 'hey', 'good morning'\n"
+                "  NOT greetings: 'hi, what is soccer?', 'hello, tell me about X', 'when was the World Cup?'\n"
+                "- CRITICAL: A farewell is ONLY a simple goodbye WITHOUT any question or request.\n"
+                "  Examples of pure farewells: 'bye', 'goodbye', 'see you', 'take care'\n"
+                "  NOT farewells: 'bye, but first tell me X', 'goodbye and thanks for the info'\n"
+                "- ONLY append {{\"is_greeting_response\": true}} if the user INPUT is a pure greeting with NO questions.\n"
+                "- ONLY append {{\"is_farewell_response\": true}} if the user INPUT is a pure farewell with NO questions.\n"
+                "- If the user asks ANY question (even with 'hi'), DO NOT add greeting/farewell metadata.\n"
+                "- These metadata lines are independent: greeting/farewell does NOT imply external knowledge.\n\n"
+
+                "### Formatting:\n"
+                "- For lists or multiple points: Use bullet points with '• ' or '- '.\n"
+                "- For step-by-step instructions: Use numbered lists ('1.', '2.', etc.).\n"
+                "- For comparisons or data: Use Markdown tables (| col | col |).\n"
+                "- For code examples: Use fenced code blocks ```language.\n"
+                "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
+                "- For emphasis: Use **bold** text.\n"
+                "- Keep formatting consistent and clear.\n\n"
+            ).format(tone=tone, role=role, tone_description=tone_description)
+        else:
+            system_content = (
+                "You are a {tone} {role}. {tone_description}\n\n"
+                "### Response Guidelines:\n"
+                "- Answer the user's question based on the provided context. "
+                f"If the context does not contain relevant information, respond with exactly: \"{self.unanswered_message}\". "
+                "Do not use external knowledge under any circumstances.\n"
+                "- Keep answers concise and clear, with a hard limit of 120 words.\n"
+                "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
+                "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
+                "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
+
+                "### Social Interactions:\n"
+                "- Handle greetings/farewells with short, natural replies (max 1 short sentence).\n"
+                "- CRITICAL: A greeting is ONLY a simple hello/hi WITHOUT any question or request.\n"
+                "  Examples of pure greetings: 'hi', 'hello', 'hey', 'good morning'\n"
+                "  NOT greetings: 'hi, what is soccer?', 'hello, tell me about X', 'when was the World Cup?'\n"
+                "- CRITICAL: A farewell is ONLY a simple goodbye WITHOUT any question or request.\n"
+                "  Examples of pure farewells: 'bye', 'goodbye', 'see you', 'take care'\n"
+                "  NOT farewells: 'bye, but first tell me X', 'goodbye and thanks for the info'\n"
+                "- ONLY append {{\"is_greeting_response\": true}} if the user INPUT is a pure greeting with NO questions.\n"
+                "- ONLY append {{\"is_farewell_response\": true}} if the user INPUT is a pure farewell with NO questions.\n"
+                "- If the user asks ANY question (even with 'hi'), DO NOT add greeting/farewell metadata.\n"
+                "- These JSON lines MUST appear as plain text only (never inside code blocks, tables, or markdown formatting).\n\n"
+
+                "### Formatting:\n"
+                "- For lists or multiple points: Use bullet points with '• ' or '- '.\n"
+                "- For step-by-step instructions: Use numbered lists ('1.', '2.', etc.).\n"
+                "- For comparisons or data: Use Markdown tables (| col | col |).\n"
+                "- For code examples: Use fenced code blocks ```language.\n"
+                "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
+                "- For emphasis: Use **bold** text.\n"
+                "- Keep formatting consistent and clear.\n\n"
+            ).format(tone=tone, role=role, tone_description=tone_description)
+
+        user_content = (
+            "Context (each block shows the text and attached provenance in [METADATA]):\n"
+            f"{context}\n\n"
+            "Provenance policy: If and only if you used ANY information from the Context above, append a plain text block titled 'Provenance' listing ONLY the sources actually used. If you relied solely on external knowledge, DO NOT include any 'Provenance' block.\n"
+            "Format each line EXACTLY as follows (case-insensitive for keys is OK, but use these field names):\n"
+            "- For YouTube: 'source: YouTube url: <URL>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
+            "- For Website: 'source: Website url: <URL>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
+            "- For Files: 'source: File filename: <FILE_NAME>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
+            "Rules: Do NOT output 'file_name: unknown'. Do NOT include extra fields. Only include items actually used. If you used any fact not supported by the Context, append '[EXT_KNOWLEDGE_USED]' on a new line at the end."
+        )
+        if chat_history:
+            user_content += f"{chat_history}"
+        user_content += f"\nUser: {user_message}\nBot:"
+        return system_content, user_content
+
     def generate(self, context: str, user_message: str, use_external_knowledge: bool = False, temperature: float = 0.7, chat_history: str = "", role: str = "Service Assistant",tone: str = "Friendly") -> str:
         """
         Generate a response using the specified LLM.
@@ -665,119 +774,14 @@ class LLMManager:
         
         try:
             if provider == "openai":
-                # Create system message based on external_knowledge flag
-
-                # Define tone descriptions
-                tone_descriptions = {
-                    "Professional": "Maintain a formal, polite, and technical style. Use complete sentences and avoid contractions.",
-                    "Casual": "Write in a friendly, conversational style. Use contractions and light humor if appropriate.",
-                    "Friendly": "Be warm, supportive, and approachable. Use encouraging and friendly language.",
-                    "Concise": "Provide short, clear, and direct answers. Eliminate unnecessary words while keeping meaning intact.",
-                    "Empathetic": "Respond with compassion and understanding. Acknowledge the user's feelings and provide reassurance."
-                }
-
-                # Ensure the tone exists in your descriptions
-                tone_description = tone_descriptions.get(tone, "")
-                if use_external_knowledge:
-                    system_content = (
-                        "You are a {tone} {role}. {tone_description}\n\n"
-                        "### Response Guidelines:\n"
-                        "- Answer the user's question using the provided Context.\n"
-                        "- If the Context does not contain the needed information, you MUST use your general knowledge.\n"
-                        "- IMPORTANT: If ANY part of the answer comes from outside the Context (even basic facts), you MUST add '[EXT_KNOWLEDGE_USED]' on a NEW LINE at the VERY END of your response.\n"
-                        "- These metadata lines MUST be plain text only (never inside code blocks, tables, or markdown). Append them AFTER the main answer, each on its own line.\n"
-                        "- Keep answers concise and clear, with a hard limit of 120 words.\n"
-                        "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
-                        "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
-                        "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
-
-                        "### External Knowledge Decision Rules:\n"
-                        "- DO NOT add '[EXT_KNOWLEDGE_USED]' if every factual element in your answer can be found in the Context text, even if you paraphrase, summarize, combine, or reorganize it.\n"
-                        "- ONLY add '[EXT_KNOWLEDGE_USED]' if you introduce any fact/number/date/definition/claim that is NOT present in the Context.\n"
-                        "- Rewriting, simplifying, adding transitions, or basic politeness does NOT count as external knowledge.\n"
-                        "- IMPORTANT: Common knowledge still counts as external if it is not explicitly present in the Context.\n"
-                        "- The presence of a greeting or farewell does NOT imply external knowledge.\n"
-                        "- SELF-CHECK BEFORE SENDING: Compare your answer to the Context. If ALL key facts are supported by the Context, DO NOT add the external flag; otherwise, DO add it.\n\n"
-
-                        "### Quick Mental Checklist (Do NOT output):\n"
-                        "1) Identify 2–3 key facts in your answer.\n"
-                        "2) For each fact, verify the exact information appears in the Context.\n"
-                        "3) If ANY fact is not in the Context, append '[EXT_KNOWLEDGE_USED]'.\n\n"
-
-                        "### Social Interactions:\n"
-                        "- Handle greetings/farewells with short, natural replies (max 1 short sentence).\n"
-                        "- CRITICAL: A greeting is ONLY a simple hello/hi WITHOUT any question or request.\n"
-                        "  Examples of pure greetings: 'hi', 'hello', 'hey', 'good morning'\n"
-                        "  NOT greetings: 'hi, what is soccer?', 'hello, tell me about X', 'when was the World Cup?'\n"
-                        "- CRITICAL: A farewell is ONLY a simple goodbye WITHOUT any question or request.\n"
-                        "  Examples of pure farewells: 'bye', 'goodbye', 'see you', 'take care'\n"
-                        "  NOT farewells: 'bye, but first tell me X', 'goodbye and thanks for the info'\n"
-                        "- ONLY append {{\"is_greeting_response\": true}} if the user INPUT is a pure greeting with NO questions.\n"
-                        "- ONLY append {{\"is_farewell_response\": true}} if the user INPUT is a pure farewell with NO questions.\n"
-                        "- If the user asks ANY question (even with 'hi'), DO NOT add greeting/farewell metadata.\n"
-                        "- These metadata lines are independent: greeting/farewell does NOT imply external knowledge.\n\n"
-
-                        "### Formatting:\n"
-                        "- For lists or multiple points: Use bullet points with '• ' or '- '.\n"
-                        "- For step-by-step instructions: Use numbered lists ('1.', '2.', etc.).\n"
-                        "- For comparisons or data: Use Markdown tables (| col | col |).\n"
-                        "- For code examples: Use fenced code blocks ```language.\n"
-                        "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
-                        "- For emphasis: Use **bold** text.\n"
-                        "- Keep formatting consistent and clear.\n\n"
-                    ).format(tone=tone, role=role, tone_description=tone_description)
-                    logger.debug("External knowledge mode: Will use general knowledge if context is insufficient")
-
-                else:
-                    system_content = (
-                        "You are a {tone} {role}. {tone_description}\n\n"
-                        "### Response Guidelines:\n"
-                        "- Answer the user's question based on the provided context. "
-                        f"If the context does not contain relevant information, respond with exactly: \"{self.unanswered_message}\". "
-                        "Do not use external knowledge under any circumstances.\n"
-                        "- Keep answers concise and clear, with a hard limit of 120 words.\n"
-                        "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
-                        "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
-                        "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
-
-                        "### Social Interactions:\n"
-                        "- Handle greetings/farewells with short, natural replies (max 1 short sentence).\n"
-                        "- CRITICAL: A greeting is ONLY a simple hello/hi WITHOUT any question or request.\n"
-                        "  Examples of pure greetings: 'hi', 'hello', 'hey', 'good morning'\n"
-                        "  NOT greetings: 'hi, what is soccer?', 'hello, tell me about X', 'when was the World Cup?'\n"
-                        "- CRITICAL: A farewell is ONLY a simple goodbye WITHOUT any question or request.\n"
-                        "  Examples of pure farewells: 'bye', 'goodbye', 'see you', 'take care'\n"
-                        "  NOT farewells: 'bye, but first tell me X', 'goodbye and thanks for the info'\n"
-                        "- ONLY append {{\"is_greeting_response\": true}} if the user INPUT is a pure greeting with NO questions.\n"
-                        "- ONLY append {{\"is_farewell_response\": true}} if the user INPUT is a pure farewell with NO questions.\n"
-                        "- If the user asks ANY question (even with 'hi'), DO NOT add greeting/farewell metadata.\n"
-                        "- These JSON lines MUST appear as plain text only (never inside code blocks, tables, or markdown formatting).\n\n"
-
-                        "### Formatting:\n"
-                        "- For lists or multiple points: Use bullet points with '• ' or '- '.\n"
-                        "- For step-by-step instructions: Use numbered lists ('1.', '2.', etc.).\n"
-                        "- For comparisons or data: Use Markdown tables (| col | col |).\n"
-                        "- For code examples: Use fenced code blocks ```language.\n"
-                        "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
-                        "- For emphasis: Use **bold** text.\n"
-                        "- Keep formatting consistent and clear.\n\n"
-                    ).format(tone=tone, role=role, tone_description=tone_description)
-                    logger.debug("Strict context mode: Will only use provided context")
-                user_content = (
-                    "Context (each block shows the text and attached provenance in [METADATA]):\n"
-                    f"{context}\n\n"
-                    "Provenance policy: If and only if you used ANY information from the Context above, append a plain text block titled 'Provenance' listing ONLY the sources actually used. If you relied solely on external knowledge, DO NOT include any 'Provenance' block.\n"
-                    "Format each line EXACTLY as follows (case-insensitive for keys is OK, but use these field names):\n"
-                    "- For YouTube: 'source: YouTube url: <URL>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
-                    "- For Website: 'source: Website url: <URL>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
-                    "- For Files: 'source: File filename: <FILE_NAME>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
-                    "Rules: Do NOT output 'file_name: unknown'. Do NOT include extra fields. Only include items actually used. If you used any fact not supported by the Context, append '[EXT_KNOWLEDGE_USED]' on a new line at the end."
+                system_content, user_content = self._build_prompt(
+                    context=context,
+                    user_message=user_message,
+                    use_external_knowledge=use_external_knowledge,
+                    chat_history=chat_history,
+                    role=role,
+                    tone=tone
                 )
-                if chat_history:
-                    user_content += f"{chat_history}"
-                user_content += f"\nUser: {user_message}\nBot:"
-                # print("===SYSTEM PROMPT===")
-                # print(system_content)
 
                 # Log the final prompt being sent to OpenAI
                 final_prompt = {
@@ -1053,48 +1057,15 @@ class LLMManager:
                 except Exception as import_err:
                     raise ValueError(f"google-generativeai package is not installed: {import_err}")
 
-                # Prepare prompts similar to OpenAI branch
-                tone_descriptions = {
-                    "Professional": "Maintain a formal, polite, and technical style. Use complete sentences and avoid contractions.",
-                    "Casual": "Write in a friendly, conversational style. Use contractions and light humor if appropriate.",
-                    "Friendly": "Be warm, supportive, and approachable. Use encouraging and friendly language.",
-                    "Concise": "Provide short, clear, and direct answers. Eliminate unnecessary words while keeping meaning intact.",
-                    "Empathetic": "Respond with compassion and understanding. Acknowledge the user's feelings and provide reassurance."
-                }
-                tone_description = tone_descriptions.get(tone, "")
-
-                if use_external_knowledge:
-                    system_content = (
-                        "You are a {tone} {role}. {tone_description}\n\n"
-                        "### Response Guidelines:\n"
-                        "- Answer the user's question using the provided Context.\n"
-                        "- If the Context does not contain the needed information, you MUST use your general knowledge.\n"
-                        "- IMPORTANT: If ANY part of the answer comes from outside the Context (even basic facts), you MUST add '[EXT_KNOWLEDGE_USED]' on a NEW LINE at the VERY END of your response.\n"
-                        "- Keep answers concise and clear, with a hard limit of 120 words.\n"
-                        "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n\n"
-                        "### External Knowledge Decision Rules:\n"
-                        "- ONLY add '[EXT_KNOWLEDGE_USED]' if you introduce any fact that is NOT present in the Context.\n\n"
-                    ).format(tone=tone, role=role, tone_description=tone_description)
-                else:
-                    system_content = (
-                        "You are a {tone} {role}. {tone_description}\n\n"
-                        "### Response Guidelines:\n"
-                        "- Answer the user's question based on the provided context. "
-                        f"If the context does not contain relevant information, respond with exactly: \"{self.unanswered_message}\". "
-                        "Do not use external knowledge under any circumstances.\n"
-                        "- Keep answers concise and clear, with a hard limit of 120 words.\n"
-                        "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n\n"
-                    ).format(tone=tone, role=role, tone_description=tone_description)
-
-                user_content = (
-                    "Context (each block shows the text and attached provenance in [METADATA]):\n"
-                    f"{context}\n\n"
-                    "Provenance policy: If and only if you used ANY information from the Context above, append a plain text block titled 'Provenance' listing ONLY the sources actually used. If you relied solely on external knowledge, DO NOT include any 'Provenance' block.\n"
-                    "Rules: If you used any fact not supported by the Context, append '[EXT_KNOWLEDGE_USED]' on a new line at the end."
+                # Reuse shared prompt builder
+                system_content, user_content = self._build_prompt(
+                    context=context,
+                    user_message=user_message,
+                    use_external_knowledge=use_external_knowledge,
+                    chat_history=chat_history,
+                    role=role,
+                    tone=tone
                 )
-                if chat_history:
-                    user_content += f"{chat_history}"
-                user_content += f"\nUser: {user_message}\nBot:"
 
                 # Log request
                 log_llm_request(
@@ -1132,6 +1103,10 @@ class LLMManager:
                 llm_duration = int((time.time() - llm_request_start) * 1000)
 
                 response_text = getattr(response, "text", None) or ""
+
+                # Debug prints (match OpenAI branch)
+                print("\n=== DEBUG: RAW LLM RESPONSE ===")
+                print(response_text)
 
                 # External knowledge flag
                 used_external = False

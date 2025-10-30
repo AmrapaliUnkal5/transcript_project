@@ -370,9 +370,30 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
         if not text:
             return text
         import re
-        # Remove everything from the first 'Provenance' header (with or without a colon) to the end
-        # Handles: "Provenance:" or "Provenance" on its own line
-        return re.sub(r"(?is)provenance\s*:?(?:\r?\n|\s|$)[\s\S]*$", "", text).rstrip()
+        # 1) Remove everything from the first 'Provenance' header to the end
+        cleaned = re.sub(r"(?is)provenance\s*:?(?:\r?\n|\s|$)[\s\S]*$", "", text).rstrip()
+        if cleaned != text:
+            return cleaned
+        # 2) Fallback: some LLMs (e.g., Gemini) emit trailing lines like
+        #    "source: File filename: ..." without a 'Provenance' header.
+        lines = text.splitlines()
+        i = len(lines) - 1
+        # Walk upward collecting contiguous provenance-like lines at the end
+        while i >= 0:
+            raw = lines[i].strip()
+            if raw == "":
+                i -= 1
+                continue
+            if re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE):
+                i -= 1
+                continue
+            # stop once we hit a non provenance-like line
+            break
+        # If we consumed any lines from the bottom, slice them off
+        tail_start = i + 1
+        if tail_start < len(lines):
+            return "\n".join(lines[:tail_start]).rstrip()
+        return text.rstrip()
 
     cleaned_bot_reply_text = strip_provenance_block(bot_reply_text)
 
@@ -389,11 +410,30 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
         # Find start of Provenance block (case-insensitive), allowing optional colon or newline after the header
         # Matches: "Provenance:", "Provenance :", or a line with just "Provenance" followed by newline
         prov_match = re.search(r"(?is)provenance\s*:?(?:\r?\n|\s)", text, re.IGNORECASE)
-        if not prov_match:
-            return sources
-        start_idx = prov_match.end()
-        tail = text[start_idx:]
-        lines = tail.splitlines()
+        lines = []
+        if prov_match:
+            start_idx = prov_match.end()
+            tail = text[start_idx:]
+            lines = tail.splitlines()
+        else:
+            # Fallback: parse a trailing block of lines beginning with 'source:'
+            all_lines = text.splitlines()
+            i = len(all_lines) - 1
+            block = []
+            while i >= 0:
+                raw = all_lines[i].strip()
+                if raw == "":
+                    i -= 1
+                    # keep skipping blank lines at end
+                    continue
+                if re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE):
+                    block.append(all_lines[i])
+                    i -= 1
+                    continue
+                break
+            lines = list(reversed(block)) if block else []
+            if not lines:
+                return sources
         for line in lines:
             raw = line.strip()
             if not raw:
