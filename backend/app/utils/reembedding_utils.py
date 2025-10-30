@@ -8,6 +8,7 @@ import time
 import os
 import shutil
 from datetime import datetime
+import hashlib
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 
 logger = logging.getLogger(__name__)
@@ -699,12 +700,15 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
                 }
 
                 if use_markdown_chunking:
-                    # Use markdown-aware chunking
+                    # Use markdown-aware chunking with bot-scoped file_id to avoid cross-bot ID collisions
                     logger.info(f"🔪 Using markdown-aware chunking for {node.url}")
+                    website_hash = hashlib.md5(node.url.encode()).hexdigest()
+                    file_id_unique = f"web-{bot_id}-{website_hash}"
+
                     markdown_chunks = chunk_markdown_text(
                         markdown_text=nodes_text,
                         file_name=node.title or "No Title",
-                        file_id=node.website_id,
+                        file_id=file_id_unique,
                         file_type="website",
                         bot_id=bot_id,
                         user_id=user_id,
@@ -714,7 +718,15 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
                     # Re-embed each chunk
                     for chunk_data in markdown_chunks:
                         chunk_text_value = chunk_data["text"]
-                        chunk_metadata = {**base_metadata, **chunk_data["metadata"]}
+                        chunk_metadata = chunk_data["metadata"]
+
+                        # Ensure website-specific fields are set and not overridden
+                        chunk_metadata.update({
+                            "source": "website",
+                            "website_url": node.url,
+                            "url": node.url,
+                            "title": node.title or "No Title",
+                        })
 
                         add_document(
                             bot_id=bot_id,
@@ -731,15 +743,24 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
                     logger.info(f"🔪 Using legacy chunking for {node.url}")
                     text_chunks = chunk_text(nodes_text, bot_id=bot_id, user_id=user_id, db=db)
 
-                    # Re-embed each chunk with proper IDs
+                    # Build a bot-scoped base id to avoid cross-bot collisions
+                    website_hash = hashlib.md5(node.url.encode()).hexdigest()
+                    file_id_unique = f"web-{bot_id}-{website_hash}"
+
+                    # Re-embed each chunk with proper bot-scoped IDs and website metadata
                     for i, chunk_text_value in enumerate(text_chunks):
-                        chunk_id = f"{node.website_id}_{i}" if len(text_chunks) > 1 else node.website_id
+                        chunk_id = file_id_unique if len(text_chunks) == 1 else f"{file_id_unique}_{i+1}"
 
                         chunk_metadata = {
-                            "id": chunk_id,
                             **base_metadata,
+                            "id": chunk_id,
                             "chunk_number": i + 1,
-                            "total_chunks": len(text_chunks)
+                            "total_chunks": len(text_chunks),
+                            # Ensure correct website fields
+                            "source": "website",
+                            "website_url": node.url,
+                            "url": node.url,
+                            "title": node.title or "No Title",
                         }
 
                         add_document(

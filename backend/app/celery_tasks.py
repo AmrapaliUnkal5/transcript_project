@@ -2103,9 +2103,11 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action
             try:
                 logger.info(f"Preparing to add document to vector DB", extra={"bot_id": bot_id, "url": url})
                 website_id = hashlib.md5(url.encode()).hexdigest()
+                # Use a bot-scoped file_id to avoid cross-bot ID collisions in Qdrant
+                file_id_unique = f"web-{bot_id}-{website_id}"
 
                 metadata = {
-                    "id": website_id,
+                    "id": file_id_unique,
                     "source": "website",
                     "website_url": url,
                     "title": node.title or "No Title",
@@ -2125,7 +2127,7 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action
                     markdown_chunks = chunk_markdown_text(
                         markdown_text=node.nodes_text,
                         file_name=node.title or "No Title",
-                        file_id=website_id,
+                        file_id=file_id_unique,
                         file_type="website",
                         bot_id=bot_id,
                         user_id=user_id,
@@ -2164,9 +2166,12 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action
 
                     for i, chunk in enumerate(text_chunks):
                         chunk_metadata = metadata.copy()
-                        chunk_metadata["id"] = f"{website_id}_{i}" if len(text_chunks) > 1 else website_id
+                        # Bot-scoped, chunk-scoped ID to prevent collisions across bots
+                        chunk_metadata["id"] = f"{file_id_unique}_{i+1}" if len(text_chunks) > 1 else file_id_unique
                         chunk_metadata["chunk_number"] = i + 1
                         chunk_metadata["total_chunks"] = len(text_chunks)
+                        # Ensure proper source for website content
+                        chunk_metadata["source"] = "website"
 
                         if user_id:
                             logger.info(
