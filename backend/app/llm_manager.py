@@ -860,7 +860,22 @@ class LLMManager:
                 _mn = (model_name or "").lower()
                 _is_gpt5_small = _mn.startswith("gpt-5") and ("mini" in _mn or "nano" in _mn)
                 _cap = 3000 if _is_gpt5_small else 300
-                request_payload[_token_param_key(provider, model_name)] = _cap
+                _max_key = _token_param_key(provider, model_name)
+                request_payload[_max_key] = _cap
+
+                # --- Print/log request parameters so they show up in logs ---
+                _prompt_chars = len(system_content) + len(user_content)
+                _temp_val = request_payload.get("temperature")
+                print(
+                    f"LLM request params -> provider=openai model={model_name} stream=False "
+                    f"{_max_key}={_cap} temperature={'n/a' if _temp_val is None else _temp_val} "
+                    f"prompt_chars={_prompt_chars}"
+                )
+                logger.info(
+                    f"LLM request params | provider={provider} model={model_name} stream=False "
+                    f"{_max_key}={_cap} temperature={'n/a' if _temp_val is None else _temp_val} "
+                    f"system_len={len(system_content)} user_len={len(user_content)} prompt_chars={_prompt_chars}"
+                )
 
                 response = self.llm.chat.completions.create(**request_payload)
                 llm_duration = int((time.time() - llm_request_start) * 1000)
@@ -1091,6 +1106,18 @@ class LLMManager:
                     "temperature": temperature,
                     "max_output_tokens": 300
                 }
+                # Print/log request parameters for Gemini
+                _prompt_chars_g = len(system_content) + len(user_content)
+                print(
+                    f"LLM request params -> provider=gemini model={model_name} stream=False "
+                    f"max_output_tokens={generation_config['max_output_tokens']} temperature={generation_config['temperature']} "
+                    f"prompt_chars={_prompt_chars_g}"
+                )
+                logger.info(
+                    f"LLM request params | provider={provider} model={model_name} stream=False "
+                    f"max_output_tokens={generation_config['max_output_tokens']} temperature={generation_config['temperature']} "
+                    f"system_len={len(system_content)} user_len={len(user_content)} prompt_chars={_prompt_chars_g}"
+                )
                 # Some Gemini SDK versions support system_instruction; otherwise include as first part
                 try:
                     response = self.llm.generate_content(
