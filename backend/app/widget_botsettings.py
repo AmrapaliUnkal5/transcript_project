@@ -501,9 +501,12 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
         if not text:
             return text
         import re
-        # 1) Remove everything from the first 'Provenance' header to the end
-        cleaned = re.sub(r"(?is)provenance\s*:?(?:\r?\n|\s|$)[\s\S]*$", "", text).rstrip()
+        # 0) Remove any echoed [METADATA] lines that LLM may have copied from context
+        text = re.sub(r"(?im)^\s*\[METADATA\][^\n]*\n?", "", text)
+        # 1) Remove everything from the first 'Provenance' (incl. misspellings) to the end
+        cleaned = re.sub(r"(?is)(?:provenance|provience|providence)\s*:?(?:\r?\n|\s|$)[\s\S]*$", "", text).rstrip()
         if cleaned != text:
+            cleaned = re.sub(r"(?m)^[ \t]*\*[ \t]+", "• ", cleaned)
             return cleaned
         # 2) Fallback: remove trailing contiguous 'source: ...' lines
         lines = text.splitlines()
@@ -519,8 +522,10 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
             break
         tail_start = i + 1
         if tail_start < len(lines):
-            return "\n".join(lines[:tail_start]).rstrip()
-        return text.rstrip()
+            body = "\n".join(lines[:tail_start]).rstrip()
+            body = re.sub(r"(?m)^[ \t]*\*[ \t]+", "• ", body)
+            return body
+        return re.sub(r"(?m)^[ \t]*\*[ \t]+", "• ", text.rstrip())
 
     cleaned_bot_reply_text = strip_provenance_block(bot_reply_text)
 
@@ -579,6 +584,38 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
                 break
             lines = list(reversed(block)) if block else []
             if not lines:
+                # Second fallback: parse any echoed [METADATA] lines to infer sources
+                meta_matches = re.findall(r"(?im)^\s*\[METADATA\]\s*([^\n]+)$", text)
+                for meta in meta_matches:
+                    src_type = None
+                    display = None
+                    m_src = re.search(r"source\s*:\s*(youtube|website|file|upload)", meta, re.IGNORECASE)
+                    if m_src:
+                        src_type = m_src.group(1).lower()
+                    if src_type in ("youtube", "website"):
+                        m_url = re.search(r"(website_url|url)\s*:\s*([^;,\"]+)", meta, re.IGNORECASE)
+                        if m_url:
+                            display = m_url.group(2).strip().lstrip('@')
+                    else:
+                        m_fn = re.search(r"file_name\s*:\s*([^;,\"]+)", meta, re.IGNORECASE)
+                        if m_fn:
+                            display = m_fn.group(1).strip()
+                    if src_type and display and display.lower() != 'unknown':
+                        sources.append({
+                            'type': 'youtube' if src_type == 'youtube' else ('website' if src_type == 'website' else 'file'),
+                            'display': display
+                        })
+                # Deduplicate
+                if sources:
+                    seen = set()
+                    deduped = []
+                    for s in sources:
+                        key = (s['type'], s['display'])
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        deduped.append(s)
+                    return deduped
                 return sources
         for line in lines:
             raw = line.strip()

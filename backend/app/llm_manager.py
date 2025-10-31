@@ -625,7 +625,7 @@ class LLMManager:
                 "- These metadata lines are independent: greeting/farewell does NOT imply external knowledge.\n\n"
 
                 "### Formatting:\n"
-                "- For lists or multiple points: Use bullet points with '• ' or '- '.\n"
+                "- For lists or multiple points: Use bullet points with '• ' (do NOT use '*').\n"
                 "- For step-by-step instructions: Use numbered lists ('1.', '2.', etc.).\n"
                 "- For comparisons or data: Use Markdown tables (| col | col |).\n"
                 "- For code examples: Use fenced code blocks ```language.\n"
@@ -659,7 +659,7 @@ class LLMManager:
                 "- These JSON lines MUST appear as plain text only (never inside code blocks, tables, or markdown formatting).\n\n"
 
                 "### Formatting:\n"
-                "- For lists or multiple points: Use bullet points with '• ' or '- '.\n"
+                "- For lists or multiple points: Use bullet points with '• ' (do NOT use '*').\n"
                 "- For step-by-step instructions: Use numbered lists ('1.', '2.', etc.).\n"
                 "- For comparisons or data: Use Markdown tables (| col | col |).\n"
                 "- For code examples: Use fenced code blocks ```language.\n"
@@ -671,7 +671,7 @@ class LLMManager:
         user_content = (
             "Context (each block shows the text and attached provenance in [METADATA]):\n"
             f"{context}\n\n"
-            "Provenance policy: If and only if you used ANY information from the Context above, append a plain text block titled 'Provenance' listing ONLY the sources actually used. If you relied solely on external knowledge, DO NOT include any 'Provenance' block.\n"
+            "Provenance policy: If and only if you used ANY information from the Context above, append a plain text block titled 'Provenance' listing ONLY the sources actually used. If you relied solely on external knowledge, DO NOT include any 'Provenance' block.\nAlways spell the header exactly 'Provenance' (NOT 'Providence' or 'Provience')."
             "Format each line EXACTLY as follows (case-insensitive for keys is OK, but use these field names):\n"
             "- For YouTube: 'source: YouTube url: <URL>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
             "- For Website: 'source: Website url: <URL>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
@@ -1150,6 +1150,13 @@ class LLMManager:
                     used_external = True
 
                 clean_response = re.sub(r"\[ext_knowledge_used\]", "", response_text, flags=re.IGNORECASE).strip()
+                # Defensive cleanup for Gemini outputs
+                # 1) Remove any echoed [METADATA] lines anywhere
+                clean_response = re.sub(r"(?im)^\s*\[METADATA\][^\n]*\n?", "", clean_response)
+                # 2) Normalize bullet markers: replace leading '*' with '• '
+                clean_response = re.sub(r"(?m)^[ \t]*\*[ \t]+", "• ", clean_response)
+                # 3) Collapse excessive blank lines
+                clean_response = re.sub(r"\n{3,}", "\n\n", clean_response)
 
                 # Log response
                 log_llm_response(
