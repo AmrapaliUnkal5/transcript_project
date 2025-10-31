@@ -597,6 +597,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
    not bot_reply_dict.get("is_default_response", False) and
    not bot_reply_dict.get("is_greeting_response", False) and
     not bot_reply_dict.get("is_farewell_response", False) and
+    not bot_reply_dict.get("not_answered", False) and
    (similar_docs or bot_reply_dict.get("used_external", False))):
 
         # Prefer LLM-provided Provenance lines for sources

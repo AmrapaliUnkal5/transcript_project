@@ -515,7 +515,18 @@ class LLMManager:
             gemini_api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
             if not gemini_api_key:
                 raise ValueError("GEMINI_API_KEY is not set")
-            genai.configure(api_key=gemini_api_key)
+            # Dynamic API selection:
+            # - For 1.5 models, force API v1 so IDs like gemini-1.5-*-001 resolve for generateContent
+            # - For 2.0/2.5 models, use default configuration
+            _mn = (model_name or "").lower()
+            if _mn.startswith("gemini-1.5"):
+                genai.configure(
+                    api_key=gemini_api_key,
+                    client_options={"api_endpoint": "https://generativelanguage.googleapis.com/v1"}
+                )
+            else:
+                # Defaults to current SDK base (compatible with 2.0/2.5)
+                genai.configure(api_key=gemini_api_key)
 
             print(f"🔄 Using Google Gemini with model: {model_name}")
             # Return the configured GenerativeModel instance
@@ -1149,7 +1160,22 @@ class LLMManager:
                 if "[ext_knowledge_used]" in (response_text or "").lower():
                     used_external = True
 
-                clean_response = re.sub(r"\[ext_knowledge_used\]", "", response_text, flags=re.IGNORECASE).strip()
+                clean_response = re.sub(r"\[ext_knowledge_used\]", "", response_text or "", flags=re.IGNORECASE).strip()
+                # Greeting/Farewell flags appended by LLM as JSON; detect and strip
+                is_greeting_response = False
+                is_farewell_response = False
+                lower_resp = (response_text or "").lower()
+                if '"is_greeting_response": true' in lower_resp:
+                    is_greeting_response = True
+                if '"is_farewell_response": true' in lower_resp:
+                    is_farewell_response = True
+                # Remove any JSON metadata blocks containing those flags
+                clean_response = re.sub(
+                    r"\{[^{}]*\"is_(greeting|farewell)_response\"\s*:\s*(true|false)[^{}]*\}",
+                    "",
+                    clean_response,
+                    flags=re.IGNORECASE,
+                ).strip()
                 # Defensive cleanup for Gemini outputs
                 # 1) Remove any echoed [METADATA] lines anywhere
                 clean_response = re.sub(r"(?im)^\s*\[METADATA\][^\n]*\n?", "", clean_response)
@@ -1173,7 +1199,9 @@ class LLMManager:
                 final_message = clean_response if clean_response else (self.unanswered_message or "I'm sorry, I don't have an answer for this question.")
                 return {
                     "message": final_message,
-                    "used_external": used_external
+                    "used_external": used_external,
+                    "is_greeting_response": is_greeting_response,
+                    "is_farewell_response": is_farewell_response
                 }
             else:
                 # ✅ Log unsupported provider error
