@@ -790,6 +790,15 @@ class LLMManager:
                 }
                 logger.debug("final_prompt: %s", final_prompt)
                 
+                # For GPT-5 variants, add a fast-answer directive (does not disable internal reasoning, but biases brevity)
+                if (model_name or "").lower().startswith("gpt-5"):
+                    fast_directive = (
+                        "CRITICAL: Respond with the final answer only. Do NOT provide step-by-step reasoning, "
+                        "self-reflection, or lengthy planning. Keep the response as short as possible while "
+                        "remaining correct and helpful."
+                    )
+                    system_content = fast_directive + "\n\n" + system_content
+
                 # ✅ Log OpenAI LLM request details
                 log_llm_request(
                     user_id=self.user_id,
@@ -859,7 +868,7 @@ class LLMManager:
                 # Set output token cap: 3000 for GPT-5 mini/nano, else 300
                 _mn = (model_name or "").lower()
                 _is_gpt5_small = _mn.startswith("gpt-5") and ("mini" in _mn or "nano" in _mn)
-                _cap = 3000 if _is_gpt5_small else 300
+                _cap = 3000  if _is_gpt5_small else 300
                 _max_key = _token_param_key(provider, model_name)
                 request_payload[_max_key] = _cap
 
