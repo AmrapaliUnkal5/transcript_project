@@ -834,11 +834,20 @@ def save_scraped_nodes(url_list, bot_id, db: Session, action_user_id: int = None
                 print(f"❌ Website '{domain}' not found or was deleted for bot_id={bot_id}. Skipping all updates.")
                 return  # Exit early if the website is not valid
 
+        # Decide content mode once per save based on bot setting
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        use_markdown_chunking = bool(bot and bot.markdown_chunking is True)
+
         for item in url_list:
             url = item["url"]
             title = item.get("title", "No Title")  # Default to "No Title" if missing
             word_count = item["word_count"]
-            markdown_content = item.get("markdown", item.get("text", ""))  # Use markdown if available, fallback to text
+            # Choose content based on markdown_chunking setting
+            content_for_node = (
+                item.get("markdown", item.get("text", ""))
+                if use_markdown_chunking
+                else item.get("text", "")
+            )
             print("title",title)
             print("url",url)
             print("word_count",word_count)
@@ -856,13 +865,13 @@ def save_scraped_nodes(url_list, bot_id, db: Session, action_user_id: int = None
                 if not existing_node.title or existing_node.title != title:
                     existing_node.title = title
                 
-                # Update nodes_text field with markdown content
-                existing_node.nodes_text = markdown_content
+                # Update nodes_text field based on configured content mode
+                existing_node.nodes_text = content_for_node
                 existing_node.nodes_text_count = word_count
                 existing_node.status = "Extracted"
                 existing_node.updated_by = action_user_id
                 existing_node.last_embedded = None
-                print("Website node updated with markdown content")
+                print("Website node updated with", "markdown content" if use_markdown_chunking else "text content")
                 #Add notification only for existing and updated nodes
                 event_type = "SCRAPED_URL_SAVED"
                 event_data = f"URL '{url}' for bot added successfully. {word_count} words extracted."
@@ -1055,7 +1064,14 @@ def scrape_selected_nodes(url_list, bot_id, db: Session, action_user_id: int = N
                     if node:
                         node.status = "Failed"
                         node.error_code = "Word count exceeds your subscription plan limit."
-                        node.nodes_text = item.get("markdown", item.get("text", ""))
+                        # Decide content mode based on bot setting
+                        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+                        use_markdown_chunking = bool(bot and bot.markdown_chunking is True)
+                        node.nodes_text = (
+                            item.get("markdown", item.get("text", ""))
+                            if use_markdown_chunking
+                            else item.get("text", "")
+                        )
                         node.title = item.get("title", "No Title")
                         node.updated_at = datetime.utcnow()
                         node.updated_by = action_user_id

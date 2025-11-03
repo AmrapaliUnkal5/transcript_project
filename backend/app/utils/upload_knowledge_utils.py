@@ -142,38 +142,39 @@ def extract_text_from_image(image_bytes: bytes) -> str:
         logger.warning(f"⚠️ Error extracting text from image: {e}")
         return ""
 
-def extract_text_from_docx(docx_content: bytes) -> str:
+def extract_text_from_docx(docx_content: bytes, use_markdown_chunking: bool = False) -> str:
     """Extracts text from a DOCX file using multiple methods."""
     try:
-        #Method 1: Try docling first
+        # Method 1 (optional): Try docling first only when markdown chunking is enabled
         temp_path = None
-        try:
-            from docling.document_converter import DocumentConverter
-            import tempfile
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_file:
-                temp_file.write(docx_content)
-                temp_path = temp_file.name
+        if use_markdown_chunking:
+            try:
+                from docling.document_converter import DocumentConverter
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_file:
+                    temp_file.write(docx_content)
+                    temp_path = temp_file.name
 
-            converter = DocumentConverter()  # defaults are enough for DOCX
-            result = converter.convert(temp_path)
-            md_text = result.document.export_to_markdown()
+                converter = DocumentConverter()  # defaults are enough for DOCX
+                result = converter.convert(temp_path)
+                md_text = result.document.export_to_markdown()
 
-            if md_text.strip():
-                logger.info(f"✅ Successfully extracted {len(md_text)} characters using docling (Markdown).")
-                return md_text.strip()
-            else:
-                logger.warning("⚠️ Docling returned empty content; falling back to other extractors.")
+                if md_text.strip():
+                    logger.info(f"✅ Successfully extracted {len(md_text)} characters using docling (Markdown).")
+                    return md_text.strip()
+                else:
+                    logger.warning("⚠️ Docling returned empty content; falling back to other extractors.")
 
-        except ImportError as import_err:
-            logger.warning(f"⚠️ Docling import failed: {import_err}, trying other methods.")
-        except Exception as docling_err:
-            logger.warning(f"⚠️ Docling extraction failed: {docling_err}, trying other methods.")
-        finally:
-            if temp_path and os.path.exists(temp_path):
-                try:
-                    os.unlink(temp_path)
-                except Exception as e:
-                    logger.warning(f"⚠️ Failed to delete temp file {temp_path}: {e}")
+            except ImportError as import_err:
+                logger.warning(f"⚠️ Docling import failed: {import_err}, trying other methods.")
+            except Exception as docling_err:
+                logger.warning(f"⚠️ Docling extraction failed: {docling_err}, trying other methods.")
+            finally:
+                if temp_path and os.path.exists(temp_path):
+                    try:
+                        os.unlink(temp_path)
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to delete temp file {temp_path}: {e}")
 
         # Method 2: Try docx2txt (more reliable for both formats)
         try:
