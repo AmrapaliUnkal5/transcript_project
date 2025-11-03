@@ -381,7 +381,14 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
     logger.info(f"💬 DEBUG: User message: '{user_message}'")
     
     # Ensure chat session exists
-    interaction = db.query(Interaction).filter_by(bot_id=bot_id, user_id=user_id, archived=False).first()
+    #interaction = db.query(Interaction).filter_by(bot_id=bot_id, user_id=user_id, archived=False).first()
+
+    interaction = (
+    db.query(Interaction)
+      .filter_by(bot_id=bot_id, user_id=user_id, archived=False)
+      .order_by(Interaction.interaction_id.desc())
+      .first()
+)
     if not interaction:
         logger.info(f"🆕 DEBUG: Creating new interaction", extra={"bot_id": bot_id, "user_id": user_id})
         interaction = Interaction(bot_id=bot_id, user_id=user_id)
