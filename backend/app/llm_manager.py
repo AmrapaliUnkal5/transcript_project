@@ -505,6 +505,16 @@ class LLMManager:
             print(f"🔄 Using OpenAI with model: {model_name}")
             return OpenAI(api_key=api_key)
             
+        elif provider == "deepseek":
+            # DeepSeek via OpenAI-compatible API
+            deepseek_api_key = getattr(settings, "DEEPSEEK_API_KEY", None) or os.getenv("DEEPSEEK_API_KEY")
+            if not deepseek_api_key:
+                raise ValueError("DEEPSEEK_API_KEY is not set")
+
+            print(f"🔄 Using DeepSeek with model: {model_name}")
+            # OpenAI SDK with base_url to DeepSeek's OpenAI-compatible endpoint
+            return OpenAI(api_key=deepseek_api_key, base_url="https://api.deepseek.com/v1")
+
         elif provider in ("google", "gemini"):
             # For Google Gemini models
             try:
@@ -799,7 +809,7 @@ class LLMManager:
                 db.close()
         
         try:
-            if provider == "openai":
+            if provider in ("openai", "deepseek"):
                 system_content, user_content = self._build_prompt(
                     context=context,
                     user_message=user_message,
@@ -825,7 +835,7 @@ class LLMManager:
                     )
                     system_content = fast_directive + "\n\n" + system_content
 
-                # ✅ Log OpenAI LLM request details
+                # ✅ Log OpenAI/DeepSeek LLM request details
                 log_llm_request(
                     user_id=self.user_id,
                     bot_id=self.bot_id,
@@ -844,7 +854,7 @@ class LLMManager:
                 )
                 
                 # ✅ Log detailed prompt structure
-                ai_logger.info("OpenAI prompt prepared", extra={
+                ai_logger.info("OpenAI-compatible prompt prepared", extra={
                     "ai_task": {
                         "event_type": "openai_prompt_prepared",
                         "user_id": self.user_id,
@@ -863,7 +873,7 @@ class LLMManager:
                 def _token_param_key(pvd: str, model: str) -> str:
                     p = (pvd or "").lower()
                     m = (model or "").lower()
-                    # OpenAI: newer models may require max_completion_tokens; classic chat uses max_tokens
+                    # OpenAI/DeepSeek: newer OpenAI GPT-5 models may require max_completion_tokens; classic chat uses max_tokens
                     if p == "openai":
                         if m.startswith("gpt-5"):
                             return "max_completion_tokens"
@@ -902,7 +912,7 @@ class LLMManager:
                 _prompt_chars = len(system_content) + len(user_content)
                 _temp_val = request_payload.get("temperature")
                 print(
-                    f"LLM request params -> provider=openai model={model_name} stream=False "
+                    f"LLM request params -> provider={provider} model={model_name} stream=False "
                     f"{_max_key}={_cap} temperature={'n/a' if _temp_val is None else _temp_val} "
                     f"prompt_chars={_prompt_chars}"
                 )
