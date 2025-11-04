@@ -532,6 +532,21 @@ class LLMManager:
             # Return the configured GenerativeModel instance
             return genai.GenerativeModel(model_name=model_name)
 
+        elif provider in ("anthropic", "claude"):
+            # For Anthropic Claude models
+            try:
+                import anthropic  # Local import to avoid hard dependency when unused
+            except Exception as import_err:
+                raise ValueError(f"anthropic package is not installed: {import_err}")
+
+            anthropic_api_key = getattr(settings, "ANTHROPIC_API_KEY", None) or os.getenv("ANTHROPIC_API_KEY")
+            if not anthropic_api_key:
+                raise ValueError("ANTHROPIC_API_KEY is not set")
+
+            print(f"🔄 Using Anthropic Claude with model: {model_name}")
+            # Return configured Anthropic client; message creation will be done in generate()
+            return anthropic.Anthropic(api_key=anthropic_api_key)
+
         elif provider == "huggingface":
             # For HuggingFace models
             huggingface_api_key = settings.HUGGINGFACE_API_KEY
@@ -1085,6 +1100,134 @@ class LLMManager:
                 )
                 
                 return response_content
+            elif provider in ("anthropic", "claude"):
+                # Anthropic Claude (messages API)
+                # Reuse shared prompt builder
+                system_content, user_content = self._build_prompt(
+                    context=context,
+                    user_message=user_message,
+                    use_external_knowledge=use_external_knowledge,
+                    chat_history=chat_history,
+                    role=role,
+                    tone=tone
+                )
+
+                # Log request
+                log_llm_request(
+                    user_id=self.user_id,
+                    bot_id=self.bot_id,
+                    model_name=model_name,
+                    provider=provider,
+                    temperature=temperature,
+                    query=user_message,
+                    context_length=len(context),
+                    use_external_knowledge=use_external_knowledge,
+                    chat_history_msgs=len(chat_history.split('\n')) if chat_history else 0,
+                    extra={
+                        "system_prompt": system_content[:200] + "..." if len(system_content) > 200 else system_content,
+                        "user_content_length": len(user_content),
+                        "max_output_tokens": 300
+                    }
+                )
+
+                # Prepare and send Anthropic request
+                llm_request_start = time.time()
+                request_payload = {
+                    "model": model_name,
+                    "system": system_content,
+                    "messages": [
+                        {"role": "user", "content": user_content}
+                    ],
+                    "max_tokens": 300,
+                    "temperature": temperature,
+                }
+
+                _prompt_chars_a = len(system_content) + len(user_content)
+                print(
+                    f"LLM request params -> provider=anthropic model={model_name} stream=False "
+                    f"max_tokens={request_payload['max_tokens']} temperature={request_payload['temperature']} "
+                    f"prompt_chars={_prompt_chars_a}"
+                )
+                logger.info(
+                    f"LLM request params | provider={provider} model={model_name} stream=False "
+                    f"max_tokens={request_payload['max_tokens']} temperature={request_payload['temperature']} "
+                    f"system_len={len(system_content)} user_len={len(user_content)} prompt_chars={_prompt_chars_a}"
+                )
+
+                # self.llm is an anthropic.Anthropic client
+                response = self.llm.messages.create(**request_payload)
+                llm_duration = int((time.time() - llm_request_start) * 1000)
+
+                # Extract text from Anthropic response
+                def _anthropic_extract_text(resp):
+                    try:
+                        parts = getattr(resp, "content", []) or []
+                    except Exception:
+                        parts = []
+                    texts = []
+                    for part in parts:
+                        # SDK objects have .text; dicts use ['text']
+                        t = getattr(part, "text", None)
+                        if not isinstance(t, str) and isinstance(part, dict):
+                            t = part.get("text")
+                        if isinstance(t, str):
+                            texts.append(t)
+                    return "".join(texts)
+
+                response_text = _anthropic_extract_text(response)
+
+                # Debug prints (match other branches)
+                print("\n=== DEBUG: RAW LLM RESPONSE ===")
+                print(response_text)
+
+                # External knowledge flag
+                used_external = False
+                if "[ext_knowledge_used]" in (response_text or "").lower():
+                    used_external = True
+
+                # Remove external-knowledge flags: full-line or inline, any casing
+                clean_response = re.sub(r"(?im)^\s*\[ext_knowledge_used\]\s*$", "", response_text or "")
+                clean_response = re.sub(r"\[ext_knowledge_used\]", "", clean_response, flags=re.IGNORECASE)
+                # Remove optional JSON ext flag if present
+                clean_response = re.sub(r"\{.*?\"is_(ext)_response\"\s*:\s*(true|false).*?\}", "", clean_response, flags=re.IGNORECASE | re.DOTALL)
+                # Tidy excessive blank lines after removals
+                clean_response = re.sub(r"\n{3,}", "\n\n", clean_response).strip()
+
+                # Greeting/Farewell flags appended by LLM as JSON; detect and strip
+                is_greeting_response = False
+                is_farewell_response = False
+                lower_resp = (response_text or "").lower()
+                if '"is_greeting_response": true' in lower_resp:
+                    is_greeting_response = True
+                if '"is_farewell_response": true' in lower_resp:
+                    is_farewell_response = True
+
+                clean_response = re.sub(
+                    r"\{[^{}]*\"is_(greeting|farewell)_response\"\s*:\s*(true|false)[^{}]*\}",
+                    "",
+                    clean_response,
+                    flags=re.IGNORECASE,
+                ).strip()
+
+                # Log response
+                log_llm_response(
+                    user_id=self.user_id,
+                    bot_id=self.bot_id,
+                    model_name=model_name,
+                    provider=provider,
+                    duration_ms=llm_duration,
+                    response_length=len(clean_response),
+                    success=True,
+                    response=clean_response,
+                )
+
+                final_message = clean_response if clean_response else (self.unanswered_message or "I'm sorry, I don't have an answer for this question.")
+                return {
+                    "message": final_message,
+                    "used_external": used_external,
+                    "is_greeting_response": is_greeting_response,
+                    "is_farewell_response": is_farewell_response
+                }
             elif provider in ("google", "gemini"):
                 # Google Gemini (Generative AI)
                 try:

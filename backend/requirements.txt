@@ -42,6 +42,7 @@ langchain
 langchain_openai
 openai
 google-generativeai==0.8
+anthropic==0.72.0
 tiktoken
 pdfplumber
 yt-dlp
