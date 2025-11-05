@@ -630,12 +630,24 @@ class LLMManager:
         }
         tone_description = tone_descriptions.get(tone, "")
 
+        # CRITICAL: Add explicit instructions for Qwen models
+        qwen_specific_directive = (
+            "CRITICAL FOR QWEN MODELS: You MUST NOT output any thinking process, reasoning steps, analysis, "
+            "or internal monologue. Completely skip all <think> tags, reasoning blocks, or step-by-step analysis. "
+            "Go directly from reading the input to providing the final answer."
+        )
         if use_external_knowledge:
             system_content = (
                 "You are a {tone} {role}. {tone_description}\n\n"
+                "### CRITICAL RESPONSE RULES:\n"
+                "- **ABSOLUTELY NO THINKING PROCESS**: Do NOT show any reasoning, analysis, step-by-step thinking, or internal monologue.\n"
+                "- **NO TAGS**: Do NOT use <think>, <reasoning>, <analysis>, or any other thinking tags.\n"
+                "- **DIRECT ANSWER ONLY**: Start immediately with the final answer - no planning, no preamble, no chain-of-thought.\n"
+                "- **INTERNAL PROCESSING ONLY**: All thinking and reasoning must happen internally and never be shown in the output.\n"
+                "{qwen_directive}\n\n"
                 "### Response Guidelines:\n"
                 "- Answer the user's question using the provided Context.\n"
-                "- No introductions, no preamble, no chain-of-thought, no reasoning notes, no planning, or any tags like <think>, 'Reasoning:', 'Thoughts:', or 'Analysis:' and no disclaimers — start directly with the answer.\n"
+                #"- No introductions, no preamble, no chain-of-thought, no reasoning notes, no planning, or any tags like <think>, 'Reasoning:', 'Thoughts:', or 'Analysis:' and no disclaimers — start directly with the answer.\n"
                 "- If the Context does not contain the needed information, you MUST use your general knowledge.\n"
                 "- IMPORTANT: If ANY part of the answer comes from outside the Context (even basic facts), you MUST add '[EXT_KNOWLEDGE_USED]' on a NEW LINE at the VERY END of your response.\n"
                 "- These metadata lines MUST be plain text only (never inside code blocks, tables, or markdown). Append them AFTER the main answer, each on its own line.\n"
@@ -678,13 +690,19 @@ class LLMManager:
                 "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
                 "- For emphasis: Use **bold** text.\n"
                 "- Keep formatting consistent and clear.\n\n"
-            ).format(tone=tone, role=role, tone_description=tone_description)
+            ).format(tone=tone, role=role, tone_description=tone_description, qwen_directive=qwen_specific_directive)
         else:
             system_content = (
                 "You are a {tone} {role}. {tone_description}\n\n"
+                "### CRITICAL RESPONSE RULES:\n"
+                "- **ABSOLUTELY NO THINKING PROCESS**: Do NOT show any reasoning, analysis, step-by-step thinking, or internal monologue.\n"
+                "- **NO TAGS**: Do NOT use <think>, <reasoning>, <analysis>, or any other thinking tags.\n"
+                "- **DIRECT ANSWER ONLY**: Start immediately with the final answer - no planning, no preamble, no chain-of-thought.\n"
+                "- **INTERNAL PROCESSING ONLY**: All thinking and reasoning must happen internally and never be shown in the output.\n"
+                "{qwen_directive}\n\n"
                 "### Response Guidelines:\n"
                 "- Answer the user's question based on the provided context. "
-                "- No introductions, no preamble, no chain-of-thought, no reasoning notes, no planning, or any tags like <think>, 'Reasoning:', 'Thoughts:', or 'Analysis:' and no disclaimers — start directly with the answer.\n"
+                #"- No introductions, no preamble, no chain-of-thought, no reasoning notes, no planning, or any tags like <think>, 'Reasoning:', 'Thoughts:', or 'Analysis:' and no disclaimers — start directly with the answer.\n"
                 f"If the context does not contain relevant information, respond with exactly: \"{self.unanswered_message}\". "
                 "Do not use external knowledge under any circumstances.\n"
                 "- Keep answers concise and clear, with a hard limit of 120 words.\n"
@@ -713,7 +731,7 @@ class LLMManager:
                 "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
                 "- For emphasis: Use **bold** text.\n"
                 "- Keep formatting consistent and clear.\n\n"
-            ).format(tone=tone, role=role, tone_description=tone_description)
+            ).format(tone=tone, role=role, tone_description=tone_description, qwen_directive=qwen_specific_directive)
 
         user_content = (
             "Context (each block shows the text and attached provenance in [METADATA]):\n"
