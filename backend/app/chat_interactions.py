@@ -598,7 +598,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
    not bot_reply_dict.get("is_greeting_response", False) and
     not bot_reply_dict.get("is_farewell_response", False) and
     not bot_reply_dict.get("not_answered", False) and
-   (similar_docs or bot_reply_dict.get("used_external", False))):
+   (similar_docs)):
 
         # Prefer LLM-provided Provenance lines for sources
         prov_sources = extract_provenance_sources(bot_reply_text)
@@ -627,72 +627,74 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
                         'url': ''
                     })
             # Optionally include External Knowledge if used
-            if bot_reply_dict.get("used_external", False):
-                document_sources.append({
-                    'source': 'External Knowledge',
-                    'file_name': 'General Knowledge',
-                    'website_url': '',
-                    'url': ''
-                })
-        else:
+            # (Disabled: do not send sources when info comes from External Knowledge only)
+            # if bot_reply_dict.get("used_external", False):
+            #     document_sources.append({
+            #         'source': 'External Knowledge',
+            #         'file_name': 'General Knowledge',
+            #         'website_url': '',
+            #         'url': ''
+            #     })
+       # else:
             # No Provenance sources
-            if bot_reply_dict.get("used_external", False):
-                # If model says external knowledge was used and no Provenance was provided,
-                # do NOT fall back to similar_docs; show only External Knowledge
-                document_sources.append({
-                    'source': 'External Knowledge',
-                    'website_url': '',
-                    'url': ''
-                })
-            elif similar_docs:
-                # Otherwise, fallback to retrieval hits so sources still show
-                for doc in similar_docs[:3]:
-                    md = (doc.get('metadata') or {})
-                    src = (md.get('source') or '').lower()
-                    file_name = md.get('file_name') or ''
-                    website_url = md.get('website_url') or ''
-                    url = md.get('url') or ''
-                    if src == 'youtube' and (url or website_url):
-                        document_sources.append({
-                            'source': 'youtube',
-                            'file_name': '',
-                            'website_url': '',
-                            'url': url or website_url
-                        })
-                    elif src == 'website' and (website_url or url):
-                        document_sources.append({
-                            'source': 'website',
-                            'file_name': '',
-                            'website_url': website_url or url,
-                            'url': ''
-                        })
-                    elif file_name:
-                        document_sources.append({
-                            'source': 'upload',
-                            'file_name': file_name,
-                            'website_url': '',
-                            'url': ''
-                        })
-    # Deduplicate sources list (in case of duplicates from fallback or LLM)
-    if document_sources:
-        seen_keys = set()
-        deduped_sources = []
-        for s in document_sources:
-            src_type = (s.get('source') or '').lower().strip()
-            if src_type == 'youtube':
-                key_val = (s.get('url') or s.get('website_url') or '').lower().strip()
-            elif src_type == 'website':
-                key_val = (s.get('website_url') or s.get('url') or '').lower().strip()
-            elif src_type == 'external knowledge':
-                key_val = 'external'
-            else:
-                key_val = (s.get('file_name') or '').lower().strip()
-            key = (src_type, key_val)
-            if key in seen_keys:
-                continue
-            seen_keys.add(key)
-            deduped_sources.append(s)
-        document_sources = deduped_sources
+            # (Disabled: if only External Knowledge was used, do not include sources)
+            # if bot_reply_dict.get("used_external", False):
+            #     # If model says external knowledge was used and no Provenance was provided,
+            #     # do NOT fall back to similar_docs; show only External Knowledge
+            #     document_sources.append({
+            #         'source': 'External Knowledge',
+            #         'website_url': '',
+            #         'url': ''
+            #     })
+    #         elif similar_docs:
+    #             # Otherwise, fallback to retrieval hits so sources still show
+    #             for doc in similar_docs[:3]:
+    #                 md = (doc.get('metadata') or {})
+    #                 src = (md.get('source') or '').lower()
+    #                 file_name = md.get('file_name') or ''
+    #                 website_url = md.get('website_url') or ''
+    #                 url = md.get('url') or ''
+    #                 if src == 'youtube' and (url or website_url):
+    #                     document_sources.append({
+    #                         'source': 'youtube',
+    #                         'file_name': '',
+    #                         'website_url': '',
+    #                         'url': url or website_url
+    #                     })
+    #                 elif src == 'website' and (website_url or url):
+    #                     document_sources.append({
+    #                         'source': 'website',
+    #                         'file_name': '',
+    #                         'website_url': website_url or url,
+    #                         'url': ''
+    #                     })
+    #                 elif file_name:
+    #                     document_sources.append({
+    #                         'source': 'upload',
+    #                         'file_name': file_name,
+    #                         'website_url': '',
+    #                         'url': ''
+    #                     })
+    # # Deduplicate sources list (in case of duplicates from fallback or LLM)
+    # if document_sources:
+    #     seen_keys = set()
+    #     deduped_sources = []
+    #     for s in document_sources:
+    #         src_type = (s.get('source') or '').lower().strip()
+    #         if src_type == 'youtube':
+    #             key_val = (s.get('url') or s.get('website_url') or '').lower().strip()
+    #         elif src_type == 'website':
+    #             key_val = (s.get('website_url') or s.get('url') or '').lower().strip()
+    #         elif src_type == 'external knowledge':
+    #             key_val = 'external'
+    #         else:
+    #             key_val = (s.get('file_name') or '').lower().strip()
+    #         key = (src_type, key_val)
+    #         if key in seen_keys:
+    #             continue
+    #         seen_keys.add(key)
+    #         deduped_sources.append(s)
+    #     document_sources = deduped_sources
 
     final_is_social = (
             is_greeting(request.message_text)
