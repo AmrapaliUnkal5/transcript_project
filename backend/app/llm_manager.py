@@ -515,6 +515,15 @@ class LLMManager:
             # OpenAI SDK with base_url to DeepSeek's OpenAI-compatible endpoint
             return OpenAI(api_key=deepseek_api_key, base_url="https://api.deepseek.com/v1")
 
+        elif provider == "groq":
+            # Groq via OpenAI-compatible API
+            groq_api_key = getattr(settings, "GROQ_API_KEY", None) or os.getenv("GROQ_API_KEY")
+            if not groq_api_key:
+                raise ValueError("GROQ_API_KEY is not set")
+
+            print(f"🔄 Using Groq with model: {model_name}")
+            return OpenAI(api_key=groq_api_key, base_url="https://api.groq.com/openai/v1")
+
         elif provider in ("google", "gemini"):
             # For Google Gemini models
             try:
@@ -621,17 +630,37 @@ class LLMManager:
         }
         tone_description = tone_descriptions.get(tone, "")
 
+        # CRITICAL: Add explicit instructions for Qwen models
+        # qwen_specific_directive = (
+        #     "CRITICAL FOR QWEN MODELS: You MUST NOT output any thinking process, reasoning steps, analysis, "
+        #     "or internal monologue. Completely skip all <think> tags, reasoning blocks, or step-by-step analysis. "
+        #     "Go directly from reading the input to providing the final answer."
+        # )
+        qwen_specific_directive = (
+            "CRITICAL FOR QWEN MODELS: You MUST NOT output ANY thinking tags AT ALL - not even empty <think></think> tags. "
+            "Completely omit ALL thinking-related XML tags including: <think>, </think>, <reasoning>, </reasoning>, etc. "
+            "Do NOT output empty thinking tags. Do NOT output thinking tags with just whitespace. "
+            "Your output should contain ONLY the final answer with no XML tags of any kind for thinking or reasoning."
+        )
         if use_external_knowledge:
             system_content = (
                 "You are a {tone} {role}. {tone_description}\n\n"
+                "### CRITICAL RESPONSE RULES:\n"
+                "- **ABSOLUTELY NO THINKING PROCESS**: Do NOT show any reasoning, analysis, step-by-step thinking, or internal monologue.\n"
+                "- **NO TAGS**: Do NOT use <think>, <reasoning>, <analysis>, or any other thinking tags.\n"
+                "- **DIRECT ANSWER ONLY**: Start immediately with the final answer - no planning, no preamble, no chain-of-thought.\n"
+                "- **INTERNAL PROCESSING ONLY**: All thinking and reasoning must happen internally and never be shown in the output.\n"
+                "{qwen_directive}\n\n"
                 "### Response Guidelines:\n"
                 "- Answer the user's question using the provided Context.\n"
+                #"- No introductions, no preamble, no chain-of-thought, no reasoning notes, no planning, or any tags like <think>, 'Reasoning:', 'Thoughts:', or 'Analysis:' and no disclaimers — start directly with the answer.\n"
                 "- If the Context does not contain the needed information, you MUST use your general knowledge.\n"
+                "- NEVER say you don't know, never say the information is unavailable.\n"
                 "- IMPORTANT: If ANY part of the answer comes from outside the Context (even basic facts), you MUST add '[EXT_KNOWLEDGE_USED]' on a NEW LINE at the VERY END of your response.\n"
                 "- These metadata lines MUST be plain text only (never inside code blocks, tables, or markdown). Append them AFTER the main answer, each on its own line.\n"
                 "- Keep answers concise and clear, with a hard limit of 120 words.\n"
                 "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
-                "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
+                #"- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
                 "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
 
                 "### External Knowledge Decision Rules:\n"
@@ -668,17 +697,24 @@ class LLMManager:
                 "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
                 "- For emphasis: Use **bold** text.\n"
                 "- Keep formatting consistent and clear.\n\n"
-            ).format(tone=tone, role=role, tone_description=tone_description)
+            ).format(tone=tone, role=role, tone_description=tone_description, qwen_directive=qwen_specific_directive)
         else:
             system_content = (
                 "You are a {tone} {role}. {tone_description}\n\n"
+                "### CRITICAL RESPONSE RULES:\n"
+                "- **ABSOLUTELY NO THINKING PROCESS**: Do NOT show any reasoning, analysis, step-by-step thinking, or internal monologue.\n"
+                "- **NO TAGS**: Do NOT use <think>, <reasoning>, <analysis>, or any other thinking tags.\n"
+                "- **DIRECT ANSWER ONLY**: Start immediately with the final answer - no planning, no preamble, no chain-of-thought.\n"
+                "- **INTERNAL PROCESSING ONLY**: All thinking and reasoning must happen internally and never be shown in the output.\n"
+                "{qwen_directive}\n\n"
                 "### Response Guidelines:\n"
                 "- Answer the user's question based on the provided context. "
+                #"- No introductions, no preamble, no chain-of-thought, no reasoning notes, no planning, or any tags like <think>, 'Reasoning:', 'Thoughts:', or 'Analysis:' and no disclaimers — start directly with the answer.\n"
                 f"If the context does not contain relevant information, respond with exactly: \"{self.unanswered_message}\". "
                 "Do not use external knowledge under any circumstances.\n"
                 "- Keep answers concise and clear, with a hard limit of 120 words.\n"
                 "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
-                "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
+                #"- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
                 "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
 
                 "### Social Interactions:\n"
@@ -702,7 +738,7 @@ class LLMManager:
                 "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
                 "- For emphasis: Use **bold** text.\n"
                 "- Keep formatting consistent and clear.\n\n"
-            ).format(tone=tone, role=role, tone_description=tone_description)
+            ).format(tone=tone, role=role, tone_description=tone_description, qwen_directive=qwen_specific_directive)
 
         user_content = (
             "Context (each block shows the text and attached provenance in [METADATA]):\n"
@@ -809,7 +845,7 @@ class LLMManager:
                 db.close()
         
         try:
-            if provider in ("openai", "deepseek"):
+            if provider in ("openai", "deepseek", "groq"):
                 system_content, user_content = self._build_prompt(
                     context=context,
                     user_message=user_message,
@@ -954,6 +990,12 @@ class LLMManager:
                 # Debug prints (ALWAYS show for troubleshooting)
                 print("\n=== DEBUG: RAW LLM RESPONSE ===")
                 print(response_content)  # Show exactly what the LLM returned
+
+                # CRITICAL: Strip ALL thinking tags for Qwen models
+                if "qwen" in self.model_name.lower():
+                    response_content = self._strip_all_thinking_tags(response_content)
+                    print("=== AFTER THINKING TAG REMOVAL ===")
+                    print(response_content)
 
                 # Check for flag (case-insensitive) — support both legacy bracket tag and JSON flag
                 used_external = False
@@ -1404,3 +1446,36 @@ class LLMManager:
                         "message": "I'm sorry, I'm experiencing some technical difficulties at the moment. Please try again later.",
                         "not_answered": True
                     }
+        
+    def _strip_all_thinking_tags(self, text: str) -> str:
+        """Remove ALL thinking tags (including empty ones) from model output."""
+        if not text:
+            return text
+        
+        cleaned = text
+        
+        # Remove ALL thinking tags - including empty ones, any casing, any whitespace
+        thinking_patterns = [
+            # Empty think tags with various whitespace
+            r'(?is)<\s*think\s*>\s*<\s*/\s*think\s*>',
+            r'(?is)<\s*think\s*>\s*<\s*/\s*think\s*>\s*',
+            # Individual opening and closing think tags
+            r'(?is)<\s*think\s*>',
+            r'(?is)<\s*/\s*think\s*>',
+            # Any think tags with minimal content (just whitespace/newlines)
+            r'(?is)<\s*think\s*>\s*\n*\s*<\s*/\s*think\s*>',
+            # Other thinking-related tags
+            r'(?is)<\s*reasoning\s*>[\s\S]*?<\s*/\s*reasoning\s*>',
+            r'(?is)<\s*analysis\s*>[\s\S]*?<\s*/\s*analysis\s*>',
+        ]
+        
+        for pattern in thinking_patterns:
+            cleaned = re.sub(pattern, "", cleaned)
+        
+        # Remove any leading/trailing whitespace that results from tag removal
+        cleaned = cleaned.strip()
+        
+        # Remove any double newlines caused by tag removal
+        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+        
+        return cleaned
