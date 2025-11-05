@@ -515,6 +515,15 @@ class LLMManager:
             # OpenAI SDK with base_url to DeepSeek's OpenAI-compatible endpoint
             return OpenAI(api_key=deepseek_api_key, base_url="https://api.deepseek.com/v1")
 
+        elif provider == "groq":
+            # Groq via OpenAI-compatible API
+            groq_api_key = getattr(settings, "GROQ_API_KEY", None) or os.getenv("GROQ_API_KEY")
+            if not groq_api_key:
+                raise ValueError("GROQ_API_KEY is not set")
+
+            print(f"🔄 Using Groq with model: {model_name}")
+            return OpenAI(api_key=groq_api_key, base_url="https://api.groq.com/openai/v1")
+
         elif provider in ("google", "gemini"):
             # For Google Gemini models
             try:
@@ -626,12 +635,13 @@ class LLMManager:
                 "You are a {tone} {role}. {tone_description}\n\n"
                 "### Response Guidelines:\n"
                 "- Answer the user's question using the provided Context.\n"
+                "- No introductions, no preamble, no chain-of-thought, no reasoning notes, no planning, or any tags like <think>, 'Reasoning:', 'Thoughts:', or 'Analysis:' and no disclaimers — start directly with the answer.\n"
                 "- If the Context does not contain the needed information, you MUST use your general knowledge.\n"
                 "- IMPORTANT: If ANY part of the answer comes from outside the Context (even basic facts), you MUST add '[EXT_KNOWLEDGE_USED]' on a NEW LINE at the VERY END of your response.\n"
                 "- These metadata lines MUST be plain text only (never inside code blocks, tables, or markdown). Append them AFTER the main answer, each on its own line.\n"
                 "- Keep answers concise and clear, with a hard limit of 120 words.\n"
                 "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
-                "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
+                #"- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
                 "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
 
                 "### External Knowledge Decision Rules:\n"
@@ -674,11 +684,12 @@ class LLMManager:
                 "You are a {tone} {role}. {tone_description}\n\n"
                 "### Response Guidelines:\n"
                 "- Answer the user's question based on the provided context. "
+                "- No introductions, no preamble, no chain-of-thought, no reasoning notes, no planning, or any tags like <think>, 'Reasoning:', 'Thoughts:', or 'Analysis:' and no disclaimers — start directly with the answer.\n"
                 f"If the context does not contain relevant information, respond with exactly: \"{self.unanswered_message}\". "
                 "Do not use external knowledge under any circumstances.\n"
                 "- Keep answers concise and clear, with a hard limit of 120 words.\n"
                 "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
-                "- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
+                #"- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
                 "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
 
                 "### Social Interactions:\n"
@@ -808,8 +819,27 @@ class LLMManager:
             finally:
                 db.close()
         
+        # def _strip_internal_thoughts_and_provenance(text: str) -> str:
+        #     """Remove chain-of-thought, <think> blocks, and any provenance blocks from model output."""
+        #     if not text:
+        #         return text
+        #     cleaned = text
+        #     # Remove <think> ... </think> blocks (any casing, multiline)
+        #     cleaned = re.sub(r"(?is)<\s*think\s*>[\s\S]*?<\s*/\s*think\s*>", "", cleaned)
+        #     # Remove common reasoning headers at the beginning (Reasoning:, Thoughts:, Analysis:)
+        #     cleaned = re.sub(r"(?im)^(reasoning|thoughts?|analysis|plan)\s*:\s*[\s\S]*?(?:\n\s*\n|\Z)", "", cleaned)
+        #     # Remove inline markers like "Let's think step by step" at the start
+        #     cleaned = re.sub(r"(?im)^\s*let'?s\s+think\s+step\s+by\s+step[\.!]?\s*", "", cleaned)
+        #     # Strip any Provenance blocks entirely (header to end)
+        #     cleaned = re.sub(r"(?is)(?:^|\n)\s*(provenance|provience|providence)\s*:?[\s\S]*$", "", cleaned).rstrip()
+        #     # Also remove any leftover [METADATA] echoed lines
+        #     cleaned = re.sub(r"(?im)^\s*\[metadata\][^\n]*\n?", "", cleaned)
+        #     # Tidy repeated blank lines
+        #     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+        #     return cleaned
+
         try:
-            if provider in ("openai", "deepseek"):
+            if provider in ("openai", "deepseek", "groq"):
                 system_content, user_content = self._build_prompt(
                     context=context,
                     user_message=user_message,
