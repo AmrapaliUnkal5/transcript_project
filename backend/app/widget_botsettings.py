@@ -663,14 +663,13 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
             deduped.append(s)
         return deduped
 
-    # Only show sources if similar to preview logic
+    # Only show sources if not social/blank responses; allow Provenance even without retrieval hits
     if (
         not is_greeting(request.message_text)
         and not bot_reply_dict.get("is_default_response", False)
         and not bot_reply_dict.get("is_greeting_response", False)
         and not bot_reply_dict.get("is_farewell_response", False)
         and not bot_reply_dict.get("not_answered", False)
-        and (similar_docs)
     ):
         # Prefer LLM-provided Provenance lines for sources
         prov_sources = extract_provenance_sources(bot_reply_text)
