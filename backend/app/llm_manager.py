@@ -631,10 +631,16 @@ class LLMManager:
         tone_description = tone_descriptions.get(tone, "")
 
         # CRITICAL: Add explicit instructions for Qwen models
+        # qwen_specific_directive = (
+        #     "CRITICAL FOR QWEN MODELS: You MUST NOT output any thinking process, reasoning steps, analysis, "
+        #     "or internal monologue. Completely skip all <think> tags, reasoning blocks, or step-by-step analysis. "
+        #     "Go directly from reading the input to providing the final answer."
+        # )
         qwen_specific_directive = (
-            "CRITICAL FOR QWEN MODELS: You MUST NOT output any thinking process, reasoning steps, analysis, "
-            "or internal monologue. Completely skip all <think> tags, reasoning blocks, or step-by-step analysis. "
-            "Go directly from reading the input to providing the final answer."
+            "CRITICAL FOR QWEN MODELS: You MUST NOT output ANY thinking tags AT ALL - not even empty <think></think> tags. "
+            "Completely omit ALL thinking-related XML tags including: <think>, </think>, <reasoning>, </reasoning>, etc. "
+            "Do NOT output empty thinking tags. Do NOT output thinking tags with just whitespace. "
+            "Your output should contain ONLY the final answer with no XML tags of any kind for thinking or reasoning."
         )
         if use_external_knowledge:
             system_content = (
@@ -649,6 +655,7 @@ class LLMManager:
                 "- Answer the user's question using the provided Context.\n"
                 #"- No introductions, no preamble, no chain-of-thought, no reasoning notes, no planning, or any tags like <think>, 'Reasoning:', 'Thoughts:', or 'Analysis:' and no disclaimers — start directly with the answer.\n"
                 "- If the Context does not contain the needed information, you MUST use your general knowledge.\n"
+                "- NEVER say you don't know, never say the information is unavailable.\n"
                 "- IMPORTANT: If ANY part of the answer comes from outside the Context (even basic facts), you MUST add '[EXT_KNOWLEDGE_USED]' on a NEW LINE at the VERY END of your response.\n"
                 "- These metadata lines MUST be plain text only (never inside code blocks, tables, or markdown). Append them AFTER the main answer, each on its own line.\n"
                 "- Keep answers concise and clear, with a hard limit of 120 words.\n"
@@ -837,25 +844,6 @@ class LLMManager:
             finally:
                 db.close()
         
-        # def _strip_internal_thoughts_and_provenance(text: str) -> str:
-        #     """Remove chain-of-thought, <think> blocks, and any provenance blocks from model output."""
-        #     if not text:
-        #         return text
-        #     cleaned = text
-        #     # Remove <think> ... </think> blocks (any casing, multiline)
-        #     cleaned = re.sub(r"(?is)<\s*think\s*>[\s\S]*?<\s*/\s*think\s*>", "", cleaned)
-        #     # Remove common reasoning headers at the beginning (Reasoning:, Thoughts:, Analysis:)
-        #     cleaned = re.sub(r"(?im)^(reasoning|thoughts?|analysis|plan)\s*:\s*[\s\S]*?(?:\n\s*\n|\Z)", "", cleaned)
-        #     # Remove inline markers like "Let's think step by step" at the start
-        #     cleaned = re.sub(r"(?im)^\s*let'?s\s+think\s+step\s+by\s+step[\.!]?\s*", "", cleaned)
-        #     # Strip any Provenance blocks entirely (header to end)
-        #     cleaned = re.sub(r"(?is)(?:^|\n)\s*(provenance|provience|providence)\s*:?[\s\S]*$", "", cleaned).rstrip()
-        #     # Also remove any leftover [METADATA] echoed lines
-        #     cleaned = re.sub(r"(?im)^\s*\[metadata\][^\n]*\n?", "", cleaned)
-        #     # Tidy repeated blank lines
-        #     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
-        #     return cleaned
-
         try:
             if provider in ("openai", "deepseek", "groq"):
                 system_content, user_content = self._build_prompt(
@@ -1002,6 +990,12 @@ class LLMManager:
                 # Debug prints (ALWAYS show for troubleshooting)
                 print("\n=== DEBUG: RAW LLM RESPONSE ===")
                 print(response_content)  # Show exactly what the LLM returned
+
+                # CRITICAL: Strip ALL thinking tags for Qwen models
+                if "qwen" in self.model_name.lower():
+                    response_content = self._strip_all_thinking_tags(response_content)
+                    print("=== AFTER THINKING TAG REMOVAL ===")
+                    print(response_content)
 
                 # Check for flag (case-insensitive) — support both legacy bracket tag and JSON flag
                 used_external = False
@@ -1452,3 +1446,36 @@ class LLMManager:
                         "message": "I'm sorry, I'm experiencing some technical difficulties at the moment. Please try again later.",
                         "not_answered": True
                     }
+        
+    def _strip_all_thinking_tags(self, text: str) -> str:
+        """Remove ALL thinking tags (including empty ones) from model output."""
+        if not text:
+            return text
+        
+        cleaned = text
+        
+        # Remove ALL thinking tags - including empty ones, any casing, any whitespace
+        thinking_patterns = [
+            # Empty think tags with various whitespace
+            r'(?is)<\s*think\s*>\s*<\s*/\s*think\s*>',
+            r'(?is)<\s*think\s*>\s*<\s*/\s*think\s*>\s*',
+            # Individual opening and closing think tags
+            r'(?is)<\s*think\s*>',
+            r'(?is)<\s*/\s*think\s*>',
+            # Any think tags with minimal content (just whitespace/newlines)
+            r'(?is)<\s*think\s*>\s*\n*\s*<\s*/\s*think\s*>',
+            # Other thinking-related tags
+            r'(?is)<\s*reasoning\s*>[\s\S]*?<\s*/\s*reasoning\s*>',
+            r'(?is)<\s*analysis\s*>[\s\S]*?<\s*/\s*analysis\s*>',
+        ]
+        
+        for pattern in thinking_patterns:
+            cleaned = re.sub(pattern, "", cleaned)
+        
+        # Remove any leading/trailing whitespace that results from tag removal
+        cleaned = cleaned.strip()
+        
+        # Remove any double newlines caused by tag removal
+        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+        
+        return cleaned
