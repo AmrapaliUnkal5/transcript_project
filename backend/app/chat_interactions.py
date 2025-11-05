@@ -589,16 +589,12 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     print ("bot_reply_dict for debugging=>",bot_reply_dict)
     document_sources = []
     
-    # Only show sources if:
-    # 1. Not a greeting
-    # 2. Not a default "no answer" response
-    # 3. We have similar docs
+    # Only show sources if not social/blank responses; allow Provenance even without retrieval hits
     if (not is_greeting(request.message_text) and 
    not bot_reply_dict.get("is_default_response", False) and
    not bot_reply_dict.get("is_greeting_response", False) and
     not bot_reply_dict.get("is_farewell_response", False) and
-    not bot_reply_dict.get("not_answered", False) and
-   (similar_docs)):
+    not bot_reply_dict.get("not_answered", False)):
 
         # Prefer LLM-provided Provenance lines for sources
         prov_sources = extract_provenance_sources(bot_reply_text)
