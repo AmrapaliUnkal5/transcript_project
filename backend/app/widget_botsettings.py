@@ -670,7 +670,7 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
         and not bot_reply_dict.get("is_greeting_response", False)
         and not bot_reply_dict.get("is_farewell_response", False)
         and not bot_reply_dict.get("not_answered", False)
-        and (similar_docs or bot_reply_dict.get("used_external", False))
+        and (similar_docs)
     ):
         # Prefer LLM-provided Provenance lines for sources
         prov_sources = extract_provenance_sources(bot_reply_text)
@@ -698,23 +698,25 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
                         'url': ''
                     })
             # Optionally include External Knowledge if used
-            if bot_reply_dict.get("used_external", False):
-                document_sources.append({
-                    'source': 'External Knowledge',
-                    'file_name': 'General Knowledge',
-                    'website_url': '',
-                    'url': ''
-                })
-        else:
+            # (Disabled: do not send sources when info comes from External Knowledge only)
+            # if bot_reply_dict.get("used_external", False):
+            #     document_sources.append({
+            #         'source': 'External Knowledge',
+            #         'file_name': 'General Knowledge',
+            #         'website_url': '',
+            #         'url': ''
+            #     })
+        #else:
             # No Provenance sources
-            if bot_reply_dict.get("used_external", False):
-                # If model says external knowledge was used and no Provenance was provided,
-                # do NOT fall back to similar_docs; show only External Knowledge
-                document_sources.append({
-                    'source': 'External Knowledge',
-                    'website_url': '',
-                    'url': ''
-                })
+            # (Disabled: if only External Knowledge was used, do not include sources)
+            # if bot_reply_dict.get("used_external", False):
+            #     # If model says external knowledge was used and no Provenance was provided,
+            #     # do NOT fall back to similar_docs; show only External Knowledge
+            #     document_sources.append({
+            #         'source': 'External Knowledge',
+            #         'website_url': '',
+            #         'url': ''
+            #     })
     #         elif similar_docs:
     #             # Otherwise, fallback to retrieval hits so sources still show
     #             for doc in similar_docs[:3]:
