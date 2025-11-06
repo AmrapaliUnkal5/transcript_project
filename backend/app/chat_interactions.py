@@ -489,11 +489,14 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
             if 'source' not in raw.lower():
                 # if we hit a non-provenance-like line, stop
                 break
-            # Extract source type
-            m_src = re.search(r"source\s*:\s*(youtube|website|file)", raw, re.IGNORECASE)
+            # Extract source type (accept common variants)
+            m_src = re.search(r"source\s*:\s*(youtube|website|file|upload)", raw, re.IGNORECASE)
             if not m_src:
                 continue
             src_type = m_src.group(1).lower()
+            if src_type == 'upload':
+                # Normalize 'upload' to 'file'
+                src_type = 'file'
             # Extract value depending on type
             display = None
             if src_type in ('youtube', 'website'):
@@ -503,9 +506,16 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
                     # Remove any leading '@' or stray punctuation
                     display = display.lstrip('@').strip()
             elif src_type == 'file':
+                # Primary: explicit 'filename:' field
                 m_fn = re.search(r'filename\s*:\s*([^;,\"]+)', raw, re.IGNORECASE)
                 if m_fn:
                     display = m_fn.group(1).strip()
+                else:
+                    # Fallback: capture filename immediately after 'source: File '
+                    # Example: 'source: File My Doc.pdf; chunk_number: 1; ...'
+                    m_fallback = re.search(r'source\s*:\s*file\s+([^;\n]+)', raw, re.IGNORECASE)
+                    if m_fallback:
+                        display = m_fallback.group(1).strip()
             if not display or display.lower() == 'unknown':
                 continue
             sources.append({
