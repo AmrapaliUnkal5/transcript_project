@@ -617,11 +617,16 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
                         deduped.append(s)
                     return deduped
                 return sources
+        consecutive_blank = 0
         for line in lines:
             raw = line.strip()
             if not raw:
-                # stop at first blank line after provenance
-                break
+                # allow sparse blank lines; stop only after 3 consecutive blanks
+                consecutive_blank += 1
+                if consecutive_blank >= 3:
+                    break
+                continue
+            consecutive_blank = 0
             # Accept with or without leading dash
             if raw.startswith('-'):
                 raw = raw.lstrip('-').strip()
