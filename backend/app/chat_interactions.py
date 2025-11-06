@@ -388,7 +388,8 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
             if raw == "":
                 i -= 1
                 continue
-            if re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE):
+            #if re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE):
+            if re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE) or re.match(r"^\s*-?\s*(file|website|youtube)\b", raw, re.IGNORECASE):
                 i -= 1
                 continue
             # stop once we hit a non provenance-like line
@@ -432,7 +433,8 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
                     i -= 1
                     # keep skipping blank lines at end
                     continue
-                if re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE):
+                #if re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE):
+                if re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE) or re.match(r"^\s*-?\s*(file|website|youtube)\b", raw, re.IGNORECASE):
                     block.append(all_lines[i])
                     i -= 1
                     continue
@@ -485,15 +487,24 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
             # Accept with or without leading dash
             if raw.startswith('-'):
                 raw = raw.lstrip('-').strip()
-            # Must contain a source field
-            if 'source' not in raw.lower():
-                # if we hit a non-provenance-like line, stop
+            # # Must contain a source field
+            # if 'source' not in raw.lower():
+            #     # if we hit a non-provenance-like line, stop
+            # Line must look like a provenance entry: either starts with 'source:' or with a known type keyword
+            if not (re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE) or re.match(r"^\s*-?\s*(youtube|website|file)\b", raw, re.IGNORECASE)):
                 break
             # Extract source type (accept common variants)
             m_src = re.search(r"source\s*:\s*(youtube|website|file|upload)", raw, re.IGNORECASE)
-            if not m_src:
-                continue
-            src_type = m_src.group(1).lower()
+            # if not m_src:
+            #     continue
+            # src_type = m_src.group(1).lower()
+            if m_src:
+                src_type = m_src.group(1).lower()
+            else:
+                m_head = re.match(r"^\s*-?\s*(youtube|website|file)\b", raw, re.IGNORECASE)
+                if not m_head:
+                    continue
+                src_type = m_head.group(1).lower()
             if src_type == 'upload':
                 # Normalize 'upload' to 'file'
                 src_type = 'file'
@@ -513,7 +524,10 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
                 else:
                     # Fallback: capture filename immediately after 'source: File '
                     # Example: 'source: File My Doc.pdf; chunk_number: 1; ...'
-                    m_fallback = re.search(r'source\s*:\s*file\s+([^;\n]+)', raw, re.IGNORECASE)
+                    #m_fallback = re.search(r'source\s*:\s*file\s+([^;\n]+)', raw, re.IGNORECASE)
+                     # Fallback: capture filename immediately after 'File ' with or without 'source:' prefix
+                    # Examples: 'source: File My Doc.pdf; ...' OR 'File My Doc.pdf; ...'
+                    m_fallback = re.search(r'(?:source\s*:\s*)?file\s+([^;\n]+)', raw, re.IGNORECASE)
                     if m_fallback:
                         display = m_fallback.group(1).strip()
             if not display or display.lower() == 'unknown':
