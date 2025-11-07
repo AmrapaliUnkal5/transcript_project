@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, APIRouter, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Bot, ScrapedNode, UserSubscription, SubscriptionPlan, YouTubeVideo, File
+from app.models import Bot, ScrapedNode, UserSubscription, SubscriptionPlan, YouTubeVideo, File, LLMModel
 from app.schemas import BotCreation, BotUpdateFields, UserOut, BotRename
 from app.dependency import get_current_user
 from app.utils.logger import get_module_logger
@@ -114,6 +114,18 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
                            extra={"request_id": request_id, "user_id": user_id,
                                  "embedding_model_id": embedding_model_id, "llm_model_id": llm_model_id})
 
+        # Resolve default secondary LLM by name/provider (e.g., qwen/qwen3-32b on Groq)
+        secondary_llm_id = None
+        try:
+            qwen = db.query(LLMModel).filter(
+                func.lower(LLMModel.name) == "qwen/qwen3-32b",
+                func.lower(LLMModel.provider) == "groq"
+            ).first()
+            if qwen:
+                secondary_llm_id = qwen.id
+        except Exception:
+            secondary_llm_id = None
+
         # Create a new bot
         db_bot = Bot(
             bot_name=bot.bot_name,
@@ -124,6 +136,7 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
             external_knowledge=bot.external_knowledge,
             embedding_model_id=embedding_model_id,
             llm_model_id=llm_model_id,
+            secondary_llm=secondary_llm_id,
             created_by=action_user_id,
             updated_by=action_user_id
         )

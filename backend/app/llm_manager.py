@@ -8,7 +8,7 @@ import requests
 from app.database import SessionLocal
 from app.models import LLMModel as LLMModelDB, Bot
 from app.config import settings
-from app.utils.model_selection import get_llm_model_for_bot
+from app.utils.model_selection import get_llm_model_for_bot, get_secondary_llm_for_bot
 from lingua import Language, LanguageDetectorBuilder
 from app.addon_service import AddonService
 import logging
@@ -451,6 +451,25 @@ class LLMManager:
                         "max_input_tokens": 4096,  # Default for medium-sized models
                         "max_output_tokens": 512
                     }
+            # Load secondary model info for fallback (from bot.secondary_llm or default qwen)
+            try:
+                if bot_id and user_id:
+                    secondary_llm = get_secondary_llm_for_bot(db, bot_id, user_id)
+                    if secondary_llm:
+                        self.secondary_model_info = {
+                            "name": secondary_llm.name,
+                            "provider": secondary_llm.provider,
+                            "model_type": secondary_llm.model_type,
+                            "endpoint": secondary_llm.endpoint,
+                            "max_input_tokens": secondary_llm.max_input_tokens,
+                            "max_output_tokens": secondary_llm.max_output_tokens
+                        }
+                    else:
+                        self.secondary_model_info = None
+                else:
+                    self.secondary_model_info = None
+            except Exception:
+                self.secondary_model_info = None
         finally:
             db.close()
             
@@ -712,6 +731,12 @@ class LLMManager:
                 #"- No introductions, no preamble, no chain-of-thought, no reasoning notes, no planning, or any tags like <think>, 'Reasoning:', 'Thoughts:', or 'Analysis:' and no disclaimers — start directly with the answer.\n"
                 f"If the context does not contain relevant information, respond with exactly: \"{self.unanswered_message}\". "
                 "Do not use external knowledge under any circumstances.\n"
+                "\n### Relevance and Evidence Rules (STRICT):\n"
+                "- Before answering, internally locate 1–3 exact sentences in the Context that DIRECTLY answer the user's question.\n"
+                "- If you cannot locate at least one exact supporting sentence that clearly answers the question, reply with exactly: \"" + self.unanswered_message + "\".\n"
+                "- Do NOT guess, infer, generalize, or define terms not explicitly covered by the Context.\n"
+                "- Ignore tangential or loosely related sections; they do NOT justify an answer.\n"
+                "- If the user asks for a definition or concept that the Context does not define or explain, reply with exactly: \"" + self.unanswered_message + "\".\n"
                 "- Keep answers concise and clear, with a hard limit of 120 words.\n"
                 "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
                 #"- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
@@ -849,7 +874,7 @@ class LLMManager:
                 system_content, user_content = self._build_prompt(
                     context=context,
                     user_message=user_message,
-                    use_external_knowledge=use_external_knowledge,
+                    use_external_knowledge=False,
                     chat_history=chat_history,
                     role=role,
                     tone=tone
@@ -880,7 +905,7 @@ class LLMManager:
                     temperature=temperature,
                     query=user_message,
                     context_length=len(context),
-                    use_external_knowledge=use_external_knowledge,
+                    use_external_knowledge=False,
                     chat_history_msgs=len(chat_history.split('\n')) if chat_history else 0,
                     extra={
                         "system_prompt": system_content[:200] + "..." if len(system_content) > 200 else system_content,
@@ -1072,6 +1097,16 @@ class LLMManager:
                 # If model returns empty content, provide a safe fallback message
                 final_message = clean_response if clean_response else (self.unanswered_message or "I'm sorry, I don't have an answer for this question.")
 
+                # Secondary fallback: call configured secondary LLM with only user history
+                if use_external_knowledge and ((self.unanswered_message or "").lower() in (final_message or "").lower()):
+                    try:
+                        info = getattr(self, "secondary_model_info", None) or {}
+                        print(f"⚡ Secondary LLM fallback triggered | provider={info.get('provider')} model={info.get('name')}")
+                    except Exception:
+                        print("⚡ Secondary LLM fallback triggered")
+                    secondary = self._secondary_general_knowledge_answer(user_message=user_message, chat_history=chat_history, role=role, tone=tone, temperature=temperature)
+                    return secondary
+
                 return {
                     "message": final_message,
                     "used_external": used_external,
@@ -1151,6 +1186,16 @@ class LLMManager:
                     }
                 )
                 
+                # Fallback to secondary LLM if unanswered and external knowledge enabled
+                if use_external_knowledge and isinstance(response_content, str) and ((self.unanswered_message or "").lower() in (response_content or "").lower()):
+                    try:
+                        info = getattr(self, "secondary_model_info", None) or {}
+                        print(f"⚡ Secondary LLM fallback triggered | provider={info.get('provider')} model={info.get('name')}")
+                    except Exception:
+                        print("⚡ Secondary LLM fallback triggered")
+                    secondary = self._secondary_general_knowledge_answer(user_message=user_message, chat_history=chat_history, role=role, tone=tone, temperature=temperature)
+                    return secondary
+
                 return response_content
             elif provider in ("anthropic", "claude"):
                 # Anthropic Claude (messages API)
@@ -1158,7 +1203,7 @@ class LLMManager:
                 system_content, user_content = self._build_prompt(
                     context=context,
                     user_message=user_message,
-                    use_external_knowledge=use_external_knowledge,
+                    use_external_knowledge=False,
                     chat_history=chat_history,
                     role=role,
                     tone=tone
@@ -1173,7 +1218,7 @@ class LLMManager:
                     temperature=temperature,
                     query=user_message,
                     context_length=len(context),
-                    use_external_knowledge=use_external_knowledge,
+                    use_external_knowledge=False,
                     chat_history_msgs=len(chat_history.split('\n')) if chat_history else 0,
                     extra={
                         "system_prompt": system_content[:200] + "..." if len(system_content) > 200 else system_content,
@@ -1274,6 +1319,14 @@ class LLMManager:
                 )
 
                 final_message = clean_response if clean_response else (self.unanswered_message or "I'm sorry, I don't have an answer for this question.")
+                if use_external_knowledge and ((self.unanswered_message or "").lower() in (final_message or "").lower()):
+                    try:
+                        info = getattr(self, "secondary_model_info", None) or {}
+                        print(f"⚡ Secondary LLM fallback triggered | provider={info.get('provider')} model={info.get('name')}")
+                    except Exception:
+                        print("⚡ Secondary LLM fallback triggered")
+                    secondary = self._secondary_general_knowledge_answer(user_message=user_message, chat_history=chat_history, role=role, tone=tone, temperature=temperature)
+                    return secondary
                 return {
                     "message": final_message,
                     "used_external": used_external,
@@ -1392,6 +1445,14 @@ class LLMManager:
                 )
 
                 final_message = clean_response if clean_response else (self.unanswered_message or "I'm sorry, I don't have an answer for this question.")
+                if use_external_knowledge and ((self.unanswered_message or "").lower() in (final_message or "").lower()):
+                    try:
+                        info = getattr(self, "secondary_model_info", None) or {}
+                        print(f"⚡ Secondary LLM fallback triggered | provider={info.get('provider')} model={info.get('name')}")
+                    except Exception:
+                        print("⚡ Secondary LLM fallback triggered")
+                    secondary = self._secondary_general_knowledge_answer(user_message=user_message, chat_history=chat_history, role=role, tone=tone, temperature=temperature)
+                    return secondary
                 return {
                     "message": final_message,
                     "used_external": used_external,
@@ -1479,3 +1540,100 @@ class LLMManager:
         cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
         
         return cleaned
+
+    def _secondary_general_knowledge_answer(self, user_message: str, chat_history: str = "", role: str = "Service Assistant", tone: str = "Friendly", temperature: float = 0.7) -> dict:
+        """Answer using only general knowledge via the bot's secondary LLM. Sends no context or metadata."""
+        model_info = getattr(self, "secondary_model_info", None)
+        if not model_info:
+            print("⚠️ Secondary LLM not configured; returning unanswered message")
+            return {
+                "message": self.unanswered_message,
+                "used_external": False,
+                "not_answered": True,
+                "is_default_response": True
+            }
+
+        provider = (model_info.get("provider") or "").lower()
+        model_name = model_info.get("name") or ""
+        print(f"🔁 Secondary LLM starting | provider={provider} model={model_name}")
+
+        # Minimal system instruction; no external-knowledge wording needed
+        qwen_directive = (
+            "CRITICAL FOR QWEN MODELS: Do NOT output any <think> or reasoning tags; output only the final answer."
+        )
+        system_content = (
+            f"You are a {tone} {role}. Provide a concise, correct answer using your general knowledge. "
+            "Do not include chain-of-thought.\n" + qwen_directive
+        )
+        user_content = (f"{chat_history}" if chat_history else "") + f"\nUser: {user_message}\nBot:"
+
+        # OpenAI-compatible providers
+        if provider in ("openai", "deepseek", "groq"):
+            try:
+                client = None
+                if provider == "openai":
+                    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+                elif provider == "deepseek":
+                    client = OpenAI(api_key=(getattr(settings, "DEEPSEEK_API_KEY", None) or os.getenv("DEEPSEEK_API_KEY")), base_url="https://api.deepseek.com/v1")
+                elif provider == "groq":
+                    client = OpenAI(api_key=(getattr(settings, "GROQ_API_KEY", None) or os.getenv("GROQ_API_KEY")), base_url="https://api.groq.com/openai/v1")
+
+                request_payload = {
+                    "model": model_info.get("name"),
+                    "messages": [
+                        {"role": "system", "content": system_content},
+                        {"role": "user", "content": user_content}
+                    ],
+                    "temperature": temperature,
+                    "max_tokens": 300
+                }
+                response = client.chat.completions.create(**request_payload)
+                print("✅ Secondary LLM request sent")
+
+                def _extract_text(msg):
+                    try:
+                        content = getattr(msg, "content", None)
+                    except Exception:
+                        content = None
+                    if isinstance(content, str):
+                        return content
+                    if isinstance(content, list):
+                        parts = []
+                        for part in content:
+                            if isinstance(part, dict):
+                                if isinstance(part.get("text"), str):
+                                    parts.append(part.get("text"))
+                                elif part.get("type") == "text" and isinstance(part.get("text"), str):
+                                    parts.append(part.get("text"))
+                            elif isinstance(part, str):
+                                parts.append(part)
+                        return "".join(parts)
+                    return content or ""
+
+                response_message = response.choices[0].message if response.choices else None
+                response_text = _extract_text(response_message) if response_message else ""
+                if "qwen" in (model_name or "").lower():
+                    response_text = self._strip_all_thinking_tags(response_text)
+
+                final_message = (response_text or "").strip() or (self.unanswered_message or "")
+                print(f"✅ Secondary LLM response received | length={len(final_message)}")
+                return {
+                    "message": final_message,
+                    "used_external": True
+                }
+            except Exception as e:
+                print(f"❌ Secondary LLM error: {str(e)}")
+                return {
+                    "message": self.unanswered_message,
+                    "used_external": False,
+                    "not_answered": True,
+                    "is_default_response": True
+                }
+
+        # Unsupported provider for secondary path
+        return {
+            "message": self.unanswered_message,
+            "used_external": False,
+            "not_answered": True,
+            "is_default_response": True
+        }

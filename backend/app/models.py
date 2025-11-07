@@ -97,6 +97,7 @@ class Bot(Base):
     external_knowledge = Column(Boolean, nullable=False, server_default='false')
     embedding_model_id = Column(Integer, ForeignKey("embedding_models.id"), nullable=True)
     llm_model_id = Column(Integer, ForeignKey("llm_models.id"), nullable=True)
+    secondary_llm = Column(Integer, ForeignKey("llm_models.id"), nullable=True)
     message_count = Column(Integer, default=0)
     window_bg_color = Column(String, nullable=True, default="#F9FAFB")
     welcome_message = Column(Text, nullable=True, default="Hello! How can I help you?")
@@ -132,7 +133,8 @@ class Bot(Base):
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")
-    llm_model = relationship("LLMModel", back_populates="bots")
+    llm_model = relationship("LLMModel", back_populates="bots", foreign_keys=[llm_model_id])
+    secondary_llm_model = relationship("LLMModel", foreign_keys=[secondary_llm])
     files = relationship("File", back_populates="bot", cascade="all, delete-orphan")
 
     #Audit fields
@@ -540,8 +542,9 @@ class LLMModel(Base):
     max_input_tokens = Column(Integer, nullable=True, default=4096)  # Max context window tokens 
     max_output_tokens = Column(Integer, nullable=True, default=1024)  # Max response tokens
 
-    # Add relationship
-    bots = relationship("Bot", back_populates="llm_model")
+    # Add relationships (disambiguate multiple FKs from Bot to LLMModel)
+    bots = relationship("Bot", back_populates="llm_model", foreign_keys=[Bot.llm_model_id])
+    bots_secondary = relationship("Bot", foreign_keys=[Bot.secondary_llm], viewonly=True)
     
     def __str__(self):
         """Return a string representation of the model for display in UI"""
