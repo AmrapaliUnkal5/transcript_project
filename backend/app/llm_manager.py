@@ -21,6 +21,7 @@ from app.utils.ai_logger import (
     log_llm_response, 
     ai_logger
 )
+from typing import Optional, Tuple
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -737,6 +738,9 @@ class LLMManager:
                 "- Do NOT guess, infer, generalize, or define terms not explicitly covered by the Context.\n"
                 "- Ignore tangential or loosely related sections; they do NOT justify an answer.\n"
                 "- If the user asks for a definition or concept that the Context does not define or explain, reply with exactly: \"" + self.unanswered_message + "\".\n"
+                "- Your final answer must be fully supported by the Context; introducing any fact, number, definition, or claim not present in the Context is strictly forbidden.\n"
+                "- If you are uncertain, or cannot find precise support, reply with exactly: \"" + self.unanswered_message + "\". Do not attempt a partial or best-guess answer.\n"
+                "- Never produce any content from general knowledge, training data, or prior knowledge when the Context is insufficient.\n"
                 "- Keep answers concise and clear, with a hard limit of 120 words.\n"
                 "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
                 #"- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
@@ -910,7 +914,7 @@ class LLMManager:
                     extra={
                         "system_prompt": system_content[:200] + "..." if len(system_content) > 200 else system_content,
                         "user_content_length": len(user_content),
-                        "max_tokens": 300
+                        "max_tokens": 400
                     }
                 )
                 
@@ -927,7 +931,7 @@ class LLMManager:
                         "user_content_preview": user_content[:150] + "..." if len(user_content) > 150 else user_content,
                         "use_external_knowledge": use_external_knowledge,
                         "temperature": temperature,
-                        "max_output_tokens": 300
+                        "max_output_tokens": 400
                     }
                 })
                 
@@ -965,7 +969,7 @@ class LLMManager:
                 # Set output token cap: 3000 for GPT-5 mini/nano, else 300
                 _mn = (model_name or "").lower()
                 _is_gpt5_small = _mn.startswith("gpt-5") and ("mini" in _mn or "nano" in _mn)
-                _cap = 3000  if _is_gpt5_small else 300
+                _cap = 3000  if _is_gpt5_small else 400
                 _max_key = _token_param_key(provider, model_name)
                 request_payload[_max_key] = _cap
 
@@ -1223,7 +1227,7 @@ class LLMManager:
                     extra={
                         "system_prompt": system_content[:200] + "..." if len(system_content) > 200 else system_content,
                         "user_content_length": len(user_content),
-                        "max_output_tokens": 300
+                        "max_output_tokens": 400
                     }
                 )
 
@@ -1235,7 +1239,7 @@ class LLMManager:
                     "messages": [
                         {"role": "user", "content": user_content}
                     ],
-                    "max_tokens": 300,
+                    "max_tokens": 400,
                     "temperature": temperature,
                 }
 
@@ -1364,7 +1368,7 @@ class LLMManager:
                     extra={
                         "system_prompt": system_content[:200] + "..." if len(system_content) > 200 else system_content,
                         "user_content_length": len(user_content),
-                        "max_tokens": 300
+                        "max_tokens": 400
                     }
                 )
 
@@ -1372,7 +1376,7 @@ class LLMManager:
                 llm_request_start = time.time()
                 generation_config = {
                     "temperature": temperature,
-                    "max_output_tokens": 300
+                    "max_output_tokens": 400
                 }
                 # Print/log request parameters for Gemini
                 _prompt_chars_g = len(system_content) + len(user_content)
@@ -1557,15 +1561,49 @@ class LLMManager:
         model_name = model_info.get("name") or ""
         print(f"🔁 Secondary LLM starting | provider={provider} model={model_name}")
 
-        # Minimal system instruction; no external-knowledge wording needed
         qwen_directive = (
             "CRITICAL FOR QWEN MODELS: Do NOT output any <think> or reasoning tags; output only the final answer."
         )
         system_content = (
-            f"You are a {tone} {role}. Provide a concise, correct answer using your general knowledge. "
-            "Do not include chain-of-thought.\n" + qwen_directive
+            f"You are a {tone} {role}. Answer accurately using your general-world knowledge.\n"
+            "- Keep the reply under 180 words.\n"
+            "- Do NOT mention missing tools or browsing; just answer.\n"
+            '- If you genuinely do not know, respond with "I\'m not sure about that."\n'
+            "- Never invent citations. Do not include chain-of-thought.\n"
+            + qwen_directive
         )
         user_content = (f"{chat_history}" if chat_history else "") + f"\nUser: {user_message}\nBot:"
+        default_message = self.unanswered_message or "I'm sorry, I don't have an answer for this question."
+        uncertain_markers = [
+            "i'm not sure",
+            "i am not sure",
+            "i do not know",
+            "i don't know",
+            "as an ai language model",
+            "cannot help with that",
+            "don't have information",
+            "no information on that",
+        ]
+
+        def _finalize_secondary_output(raw_text: Optional[str]) -> Tuple[str, bool]:
+            """Return cleaned message and whether it should be treated as unanswered."""
+            if not raw_text:
+                return default_message, True
+
+            cleaned = raw_text.strip()
+            cleaned = self._strip_all_thinking_tags(cleaned)
+            cleaned = re.sub(r"\s+\n", "\n", cleaned)
+            cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+
+            lower_cleaned = cleaned.lower()
+            if any(marker in lower_cleaned for marker in uncertain_markers):
+                return default_message, True
+
+            cleaned = re.sub(r"(?i)\b(as an ai language model|i do not have access to external resources)[^.\n]*\.*", "", cleaned).strip()
+            if not cleaned:
+                return default_message, True
+
+            return cleaned, False
 
         # OpenAI-compatible providers
         if provider in ("openai", "deepseek", "groq"):
@@ -1578,15 +1616,35 @@ class LLMManager:
                 elif provider == "groq":
                     client = OpenAI(api_key=(getattr(settings, "GROQ_API_KEY", None) or os.getenv("GROQ_API_KEY")), base_url="https://api.groq.com/openai/v1")
 
+                def _token_param_key(pvd: str, model: str) -> str:
+                    p = (pvd or "").lower()
+                    m = (model or "").lower()
+                    if p == "openai" and m.startswith("gpt-5"):
+                        return "max_completion_tokens"
+                    return "max_tokens"
+
+                def _should_send_temperature(pvd: str, model: str) -> bool:
+                    p = (pvd or "").lower()
+                    m = (model or "").lower()
+                    if p == "openai" and m.startswith("gpt-5"):
+                        return False
+                    return True
+
                 request_payload = {
                     "model": model_info.get("name"),
                     "messages": [
                         {"role": "system", "content": system_content},
                         {"role": "user", "content": user_content}
                     ],
-                    "temperature": temperature,
-                    "max_tokens": 300
                 }
+                if _should_send_temperature(provider, model_name):
+                    request_payload["temperature"] = temperature
+
+                _mn = (model_name or "").lower()
+                _is_gpt5_small = _mn.startswith("gpt-5") and ("mini" in _mn or "nano" in _mn)
+                _token_cap = 3000 if _is_gpt5_small else 400
+                request_payload[_token_param_key(provider, model_name)] = _token_cap
+
                 response = client.chat.completions.create(**request_payload)
                 print("✅ Secondary LLM request sent")
 
@@ -1612,19 +1670,98 @@ class LLMManager:
 
                 response_message = response.choices[0].message if response.choices else None
                 response_text = _extract_text(response_message) if response_message else ""
-                if "qwen" in (model_name or "").lower():
-                    response_text = self._strip_all_thinking_tags(response_text)
-
-                final_message = (response_text or "").strip() or (self.unanswered_message or "")
-                print(f"✅ Secondary LLM response received | length={len(final_message)}")
+                final_message, flagged_unanswered = _finalize_secondary_output(response_text)
+                print(
+                    f"✅ Secondary LLM response received | length={len(final_message)} "
+                    f"unanswered={flagged_unanswered}"
+                )
                 return {
                     "message": final_message,
-                    "used_external": True
+                    "used_external": not flagged_unanswered,
+                    "not_answered": flagged_unanswered
                 }
             except Exception as e:
                 print(f"❌ Secondary LLM error: {str(e)}")
                 return {
                     "message": self.unanswered_message,
+                    "used_external": False,
+                    "not_answered": True,
+                    "is_default_response": True
+                }
+
+        elif provider in ("google", "gemini"):
+            try:
+                import google.generativeai as genai  # local import
+            except Exception as import_err:
+                print(f"❌ Gemini SDK import failed: {import_err}")
+                return {
+                    "message": default_message,
+                    "used_external": False,
+                    "not_answered": True,
+                    "is_default_response": True
+                }
+
+            gemini_api_key = getattr(settings, "GEMINI_API_KEY", None) or os.getenv("GEMINI_API_KEY")
+            if not gemini_api_key:
+                print("❌ GEMINI_API_KEY not set for secondary LLM")
+                return {
+                    "message": default_message,
+                    "used_external": False,
+                    "not_answered": True,
+                    "is_default_response": True
+                }
+
+            _mn = (model_name or "").lower()
+            endpoint_overrides = {
+                "gemini-pro": "https://generativelanguage.googleapis.com/v1",
+                "gemini-1.0": "https://generativelanguage.googleapis.com/v1",
+                "gemini-1.5": "https://generativelanguage.googleapis.com/v1",
+                "gemini-ultra": "https://generativelanguage.googleapis.com/v1",
+            }
+            try:
+                override_endpoint = next(
+                    (endpoint for prefix, endpoint in endpoint_overrides.items() if _mn.startswith(prefix)),
+                    None
+                )
+                if override_endpoint:
+                    genai.configure(api_key=gemini_api_key, client_options={"api_endpoint": override_endpoint})
+                else:
+                    genai.configure(api_key=gemini_api_key)
+            except Exception as cfg_err:
+                print(f"❌ Gemini configuration failed: {cfg_err}")
+                return {
+                    "message": default_message,
+                    "used_external": False,
+                    "not_answered": True,
+                    "is_default_response": True
+                }
+
+            generation_config = {
+                "temperature": temperature,
+                "max_output_tokens": min(model_info.get("max_output_tokens") or 400, 512),
+            }
+
+            try:
+                model = genai.GenerativeModel(model_name=model_name)
+                print("📨 Sending prompt to Gemini secondary model")
+                prompt_parts = [system_content, user_content]
+                try:
+                    response = model.generate_content(prompt_parts, generation_config=generation_config)
+                except TypeError:
+                    response = model.generate_content(prompt_parts)
+
+                response_text = getattr(response, "text", "") or ""
+                final_message, flagged_unanswered = _finalize_secondary_output(response_text)
+                print(f"✅ Secondary Gemini response received | length={len(final_message)} unanswered={flagged_unanswered}")
+                return {
+                    "message": final_message,
+                    "used_external": not flagged_unanswered,
+                    "not_answered": flagged_unanswered
+                }
+            except Exception as e:
+                print(f"❌ Secondary Gemini error: {e}")
+                return {
+                    "message": default_message,
                     "used_external": False,
                     "not_answered": True,
                     "is_default_response": True
