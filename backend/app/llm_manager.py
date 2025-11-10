@@ -640,7 +640,10 @@ class LLMManager:
             return HuggingFaceLLM(default_model, huggingface_api_key, 4096, 512)
 
     def _build_prompt(self, context: str, user_message: str, use_external_knowledge: bool, chat_history: str, role: str, tone: str):
-        """Build shared system and user content used across providers."""
+        """Build shared system and user content used across providers, with stricter controls for Llama models."""
+        # Detect Llama models (Groq/OpenAI-compatible names often contain 'llama' or 'llama-3')
+        model_name_lower = (self.model_name or "").lower()
+        is_llama = ("llama" in model_name_lower)
         tone_descriptions = {
             "Professional": "Maintain a formal, polite, and technical style. Use complete sentences and avoid contractions.",
             "Casual": "Write in a friendly, conversational style. Use contractions and light humor if appropriate.",
@@ -662,6 +665,24 @@ class LLMManager:
             "Do NOT output empty thinking tags. Do NOT output thinking tags with just whitespace. "
             "Your output should contain ONLY the final answer with no XML tags of any kind for thinking or reasoning."
         )
+        # Llama-specific strict directive (only applies when external knowledge is disabled)
+        llama_strict_directive = ""
+        if is_llama and not use_external_knowledge:
+            llama_strict_directive = (
+                "\n### CRITICAL LLAMA-SPECIFIC INSTRUCTIONS:\n"
+                "- YOU ARE IN STRICT CONTEXT-ONLY MODE. Your training knowledge is DISABLED.\n"
+                "- BEFORE answering, you MUST perform this verification:\n"
+                "  1. Read the user's question carefully\n"
+                "  2. Search the Context for EXACT information that answers it\n"
+                "  3. If you cannot find EXPLICIT support in the Context, you MUST respond with the unanswered message\n"
+                "- FORBIDDEN: Using any knowledge from your training data, even if you're confident it's correct\n"
+                "- FORBIDDEN: Making logical inferences beyond what's explicitly stated in the Context\n"
+                "- FORBIDDEN: Providing definitions, explanations, or facts not present in the Context\n"
+                "- FORBIDDEN: Combining general knowledge with Context information\n"
+                "- If the Context mentions a topic but doesn't answer the specific question, respond with the unanswered message\n"
+                "- When in doubt, ALWAYS choose the unanswered message over risking an answer from your training\n"
+            )
+
         if use_external_knowledge:
             system_content = (
                 "You are a {tone} {role}. {tone_description}\n\n"
@@ -670,7 +691,8 @@ class LLMManager:
                 "- **NO TAGS**: Do NOT use <think>, <reasoning>, <analysis>, or any other thinking tags.\n"
                 "- **DIRECT ANSWER ONLY**: Start immediately with the final answer - no planning, no preamble, no chain-of-thought.\n"
                 "- **INTERNAL PROCESSING ONLY**: All thinking and reasoning must happen internally and never be shown in the output.\n"
-                "{qwen_directive}\n\n"
+                "{qwen_directive}\n"
+                "{llama_directive}\n\n"
                 "### Response Guidelines:\n"
                 "- Answer the user's question using the provided Context.\n"
                 #"- No introductions, no preamble, no chain-of-thought, no reasoning notes, no planning, or any tags like <think>, 'Reasoning:', 'Thoughts:', or 'Analysis:' and no disclaimers — start directly with the answer.\n"
@@ -717,7 +739,7 @@ class LLMManager:
                 "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
                 "- For emphasis: Use **bold** text.\n"
                 "- Keep formatting consistent and clear.\n\n"
-            ).format(tone=tone, role=role, tone_description=tone_description, qwen_directive=qwen_specific_directive)
+            ).format(tone=tone, role=role, tone_description=tone_description, qwen_directive=qwen_specific_directive, llama_directive=llama_strict_directive)
         else:
             system_content = (
                 "You are a {tone} {role}. {tone_description}\n\n"
@@ -726,7 +748,8 @@ class LLMManager:
                 "- **NO TAGS**: Do NOT use <think>, <reasoning>, <analysis>, or any other thinking tags.\n"
                 "- **DIRECT ANSWER ONLY**: Start immediately with the final answer - no planning, no preamble, no chain-of-thought.\n"
                 "- **INTERNAL PROCESSING ONLY**: All thinking and reasoning must happen internally and never be shown in the output.\n"
-                "{qwen_directive}\n\n"
+                "{qwen_directive}\n"
+                "{llama_directive}\n\n"
                 "### Response Guidelines:\n"
                 "- Answer the user's question based on the provided context. "
                 #"- No introductions, no preamble, no chain-of-thought, no reasoning notes, no planning, or any tags like <think>, 'Reasoning:', 'Thoughts:', or 'Analysis:' and no disclaimers — start directly with the answer.\n"
@@ -767,7 +790,7 @@ class LLMManager:
                 "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
                 "- For emphasis: Use **bold** text.\n"
                 "- Keep formatting consistent and clear.\n\n"
-            ).format(tone=tone, role=role, tone_description=tone_description, qwen_directive=qwen_specific_directive)
+            ).format(tone=tone, role=role, tone_description=tone_description, qwen_directive=qwen_specific_directive, llama_directive=llama_strict_directive)
 
         user_content = (
             "Context (each block shows the text and attached provenance in [METADATA]):\n"
@@ -779,6 +802,12 @@ class LLMManager:
             "- For Files: 'source: File filename: <FILE_NAME>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
             "Rules: Do NOT output 'file_name: unknown'. Do NOT include extra fields. Only include items actually used. If you used any fact not supported by the Context, append '[EXT_KNOWLEDGE_USED]' on a new line at the end."
         )
+        # Add extra verification instruction for Llama in strict mode
+        if is_llama and not use_external_knowledge:
+            user_content += (
+                "\nVERIFICATION REQUIRED: Before answering, confirm that you found explicit support in the Context above. "
+                f"If you cannot find direct support, respond with exactly: \"{self.unanswered_message}\"\n"
+            )
         if chat_history:
             user_content += f"{chat_history}"
         user_content += f"\nUser: {user_message}\nBot:"

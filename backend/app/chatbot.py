@@ -534,10 +534,7 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         llm = LLMManager(bot_id=bot_id, user_id=user_id,unanswered_message=unanswered_message)
         logger.info(f"🤖 DEBUG: LLM Manager initialized")
 
-        # Modify the context to include the unanswered message instruction
-        if not use_external_knowledge:
-            context += f"\n\nIf you cannot answer the question based on the context above, respond with exactly: \"{unanswered_message}\""
-            logger.info(f"🤖 DEBUG: Added unanswered message instruction to context")
+        # Rely on centralized prompt builder to enforce unanswered behavior; avoid mixing instructions into context
         
         # Pass the formatted history to the LLM
         bot_reply_dict  = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, 
