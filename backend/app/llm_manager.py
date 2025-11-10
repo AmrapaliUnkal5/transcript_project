@@ -670,7 +670,7 @@ class LLMManager:
         if is_llama and not use_external_knowledge:
             llama_strict_directive = (
                 "\n### ⚠️ CRITICAL LLAMA-SPECIFIC INSTRUCTIONS - READ CAREFULLY ⚠️\n"
-                "YOU ARE IN MAXIMUM SECURITY CONTEXT-ONLY MODE:\n"
+                "YOU ARE IN MAXIMUM SECURITY CONTEXT-ONLY MODE, DO NOT HALLUCINATE:\n"
                 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 "1. YOUR TRAINING DATA IS COMPLETELY DISABLED\n"
                 "   - You CANNOT use any knowledge from your training\n"
