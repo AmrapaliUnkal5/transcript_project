@@ -1348,7 +1348,7 @@ class LLMManager:
                 system_content, user_content = self._build_prompt(
                     context=context,
                     user_message=user_message,
-                    use_external_knowledge=use_external_knowledge,
+                    use_external_knowledge=False,
                     chat_history=chat_history,
                     role=role,
                     tone=tone
