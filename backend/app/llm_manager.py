@@ -701,6 +701,9 @@ class LLMManager:
                 f"   → ALWAYS output: \"{self.unanswered_message}\"\n"
                 "   → Better to refuse than to hallucinate\n"
                 "   → Your reputation depends on ZERO hallucinations\n"
+                "\nSTRICT OUTPUT RULE FOR UNANSWERED CASE:\n"
+                f"- If you cannot find explicit Context support, output EXACTLY: \"{self.unanswered_message}\" and NOTHING ELSE.\n"
+                "- Do NOT add provenance, explanations, extra sentences, formatting, or metadata in this case.\n"
                 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             )
 
@@ -837,6 +840,9 @@ class LLMManager:
                 f"If ANY other combination → Output exactly: \"{self.unanswered_message}\"\n"
                 "\n"
                 "REMEMBER: Writing 'source: None' means you failed! If you can't cite a real source, use the unanswered message!\n"
+                "\nSTRICT OUTPUT RULE FOR UNANSWERED CASE:\n"
+                f"- If you cannot find explicit Context support, output EXACTLY: \"{self.unanswered_message}\" and NOTHING ELSE.\n"
+                "- Do NOT add provenance, explanations, extra sentences, formatting, or metadata in this case.\n"
                 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             )
         if chat_history:
