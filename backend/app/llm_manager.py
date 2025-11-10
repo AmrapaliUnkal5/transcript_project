@@ -51,7 +51,7 @@ def detect_language(text):
         
         # Detect language
         detected_language = detector.detect_language_of(text)
-        
+        print("The language is=>", detected_language)
         # Map the lingua Language enum to ISO code
         if detected_language:
             return detected_language.iso_code_639_1.name.lower()
@@ -669,18 +669,39 @@ class LLMManager:
         llama_strict_directive = ""
         if is_llama and not use_external_knowledge:
             llama_strict_directive = (
-                "\n### CRITICAL LLAMA-SPECIFIC INSTRUCTIONS:\n"
-                "- YOU ARE IN STRICT CONTEXT-ONLY MODE. Your training knowledge is DISABLED.\n"
-                "- BEFORE answering, you MUST perform this verification:\n"
-                "  1. Read the user's question carefully\n"
-                "  2. Search the Context for EXACT information that answers it\n"
-                "  3. If you cannot find EXPLICIT support in the Context, you MUST respond with the unanswered message\n"
-                "- FORBIDDEN: Using any knowledge from your training data, even if you're confident it's correct\n"
-                "- FORBIDDEN: Making logical inferences beyond what's explicitly stated in the Context\n"
-                "- FORBIDDEN: Providing definitions, explanations, or facts not present in the Context\n"
-                "- FORBIDDEN: Combining general knowledge with Context information\n"
-                "- If the Context mentions a topic but doesn't answer the specific question, respond with the unanswered message\n"
-                "- When in doubt, ALWAYS choose the unanswered message over risking an answer from your training\n"
+                "\n### ⚠️ CRITICAL LLAMA-SPECIFIC INSTRUCTIONS - READ CAREFULLY ⚠️\n"
+                "YOU ARE IN MAXIMUM SECURITY CONTEXT-ONLY MODE:\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "1. YOUR TRAINING DATA IS COMPLETELY DISABLED\n"
+                "   - You CANNOT use any knowledge from your training\n"
+                "   - Even if you're 100% certain about a fact, if it's not in the Context, you MUST refuse\n"
+                "   - Think of yourself as having amnesia - you only know what's in the Context\n\n"
+                "2. MANDATORY VERIFICATION PROCESS (DO THIS MENTALLY, DON'T OUTPUT):\n"
+                "   Step A: Read the user's question\n"
+                "   Step B: Search the Context for EXACT information\n"
+                "   Step C: If you find explicit support → Answer using ONLY that info\n"
+                "   Step D: If you DON'T find explicit support → Output the unanswered message\n\n"
+                "3. WHAT COUNTS AS 'EXPLICIT SUPPORT'?\n"
+                "   ✓ VALID: Context says 'The sky is blue' → You can say the sky is blue\n"
+                "   ✗ INVALID: Context mentions 'sky' → You CANNOT explain why it's blue\n"
+                "   ✗ INVALID: Context talks about colors → You CANNOT list rainbow colors\n"
+                "   ✗ INVALID: You know the answer → Doesn't matter if it's not in Context!\n\n"
+                "4. PROVENANCE RULES:\n"
+                "   - You MUST cite actual sources from the Context metadata\n"
+                "   - NEVER write 'source: None' or 'source: unknown'\n"
+                "   - If you can't find a real source, use the unanswered message instead\n"
+                "   - Writing 'source: None' is PROOF of hallucination!\n\n"
+                "5. FORBIDDEN BEHAVIORS (INSTANT FAIL):\n"
+                "   ✗ Answering from memory\n"
+                "   ✗ Making logical inferences\n"
+                "   ✗ Providing general knowledge\n"
+                "   ✗ Using phrases like 'it is known that', 'commonly', 'generally'\n"
+                "   ✗ Writing 'source: None' or any variant\n\n"
+                "6. WHEN IN DOUBT:\n"
+                f"   → ALWAYS output: \"{self.unanswered_message}\"\n"
+                "   → Better to refuse than to hallucinate\n"
+                "   → Your reputation depends on ZERO hallucinations\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             )
 
         if use_external_knowledge:
@@ -805,8 +826,18 @@ class LLMManager:
         # Add extra verification instruction for Llama in strict mode
         if is_llama and not use_external_knowledge:
             user_content += (
-                "\nVERIFICATION REQUIRED: Before answering, confirm that you found explicit support in the Context above. "
-                f"If you cannot find direct support, respond with exactly: \"{self.unanswered_message}\"\n"
+                "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "⚠️ FINAL VERIFICATION CHECKPOINT:\n"
+                "Before you respond, answer these questions to yourself:\n"
+                "1. Did I find the answer in the Context above? (YES/NO)\n"
+                "2. Can I point to exact sentences in the Context that support my answer? (YES/NO)\n"
+                "3. Am I using ANY information from my training? (YES/NO)\n"
+                "\n"
+                "If answers are: YES, YES, NO → Provide the answer with real provenance\n"
+                f"If ANY other combination → Output exactly: \"{self.unanswered_message}\"\n"
+                "\n"
+                "REMEMBER: Writing 'source: None' means you failed! If you can't cite a real source, use the unanswered message!\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             )
         if chat_history:
             user_content += f"{chat_history}"
