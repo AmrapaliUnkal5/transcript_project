@@ -116,6 +116,7 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
 
         # Resolve default secondary LLM by name/provider (e.g., qwen/qwen3-32b on Groq)
         secondary_llm_id = None
+        multilingual_llm_id = None
         try:
             qwen = db.query(LLMModel).filter(
                 func.lower(LLMModel.name) == "qwen/qwen3-32b",
@@ -123,8 +124,10 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
             ).first()
             if qwen:
                 secondary_llm_id = qwen.id
+                multilingual_llm_id = qwen.id
         except Exception:
             secondary_llm_id = None
+            multilingual_llm_id = None
 
         # Create a new bot
         db_bot = Bot(
@@ -137,6 +140,7 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
             embedding_model_id=embedding_model_id,
             llm_model_id=llm_model_id,
             secondary_llm=secondary_llm_id,
+            multilingual_llm=multilingual_llm_id,
             created_by=action_user_id,
             updated_by=action_user_id
         )

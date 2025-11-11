@@ -144,3 +144,13 @@ def get_secondary_llm_for_bot(db: Session, bot_id: int, user_id: int) -> Optiona
         return None
     model_id = bot.secondary_llm or 18
     return db.query(LLMModel).filter(LLMModel.id == model_id).first()
+
+def get_multilingual_llm_for_bot(db: Session, bot_id: int) -> Optional[LLMModel]:
+    """
+    Get the bot's configured multilingual LLM model.
+    Returns None if not set.
+    """
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if not bot or not bot.multilingual_llm:
+        return None
+    return db.query(LLMModel).filter(LLMModel.id == bot.multilingual_llm).first()

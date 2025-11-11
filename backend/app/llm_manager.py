@@ -8,7 +8,9 @@ import requests
 from app.database import SessionLocal
 from app.models import LLMModel as LLMModelDB, Bot
 from app.config import settings
-from app.utils.model_selection import get_llm_model_for_bot, get_secondary_llm_for_bot
+from app.utils.model_selection import get_llm_model_for_bot, get_secondary_llm_for_bot, get_multilingual_llm_for_bot
+from app.models import UserAddon
+from datetime import datetime
 from lingua import Language, LanguageDetectorBuilder
 from app.addon_service import AddonService
 import logging
@@ -639,7 +641,7 @@ class LLMManager:
             print(f"🔄 Using default HuggingFace LLM with model: {default_model}")
             return HuggingFaceLLM(default_model, huggingface_api_key, 4096, 512)
 
-    def _build_prompt(self, context: str, user_message: str, use_external_knowledge: bool, chat_history: str, role: str, tone: str):
+    def _build_prompt(self, context: str, user_message: str, use_external_knowledge: bool, chat_history: str, role: str, tone: str, response_language: str = None):
         """Build shared system and user content used across providers, with stricter controls for Llama models."""
         # Detect Llama models (Groq/OpenAI-compatible names often contain 'llama' or 'llama-3')
         model_name_lower = (self.model_name or "").lower()
@@ -652,6 +654,13 @@ class LLMManager:
             "Empathetic": "Respond with compassion and understanding. Acknowledge the user's feelings and provide reassurance."
         }
         tone_description = tone_descriptions.get(tone, "")
+
+        # Language directive to force responses in the detected language
+        language_directive = ""
+        if response_language:
+            language_directive = (
+                f"IMPORTANT: Respond strictly in '{response_language}'. Do not switch languages unless explicitly asked.\n\n"
+            )
 
         # CRITICAL: Add explicit instructions for Qwen models
         # qwen_specific_directive = (
@@ -715,7 +724,7 @@ class LLMManager:
 
         if use_external_knowledge:
             system_content = (
-                "You are a {tone} {role}. {tone_description}\n\n"
+                "{language_directive}You are a {tone} {role}. {tone_description}\n\n"
                 "### CRITICAL RESPONSE RULES:\n"
                 "- **ABSOLUTELY NO THINKING PROCESS**: Do NOT show any reasoning, analysis, step-by-step thinking, or internal monologue.\n"
                 "- **NO TAGS**: Do NOT use <think>, <reasoning>, <analysis>, or any other thinking tags.\n"
@@ -769,10 +778,17 @@ class LLMManager:
                 "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
                 "- For emphasis: Use **bold** text.\n"
                 "- Keep formatting consistent and clear.\n\n"
-            ).format(tone=tone, role=role, tone_description=tone_description, qwen_directive=qwen_specific_directive, llama_directive=llama_strict_directive)
+            ).format(
+                tone=tone,
+                role=role,
+                tone_description=tone_description,
+                qwen_directive=qwen_specific_directive,
+                llama_directive=llama_strict_directive,
+                language_directive=language_directive
+            )
         else:
             system_content = (
-                "You are a {tone} {role}. {tone_description}\n\n"
+                "{language_directive}You are a {tone} {role}. {tone_description}\n\n"
                 "### CRITICAL RESPONSE RULES:\n"
                 "- **ABSOLUTELY NO THINKING PROCESS**: Do NOT show any reasoning, analysis, step-by-step thinking, or internal monologue.\n"
                 "- **NO TAGS**: Do NOT use <think>, <reasoning>, <analysis>, or any other thinking tags.\n"
@@ -820,7 +836,14 @@ class LLMManager:
                 "- For hyperlinks: ALWAYS use [display text](URL). Do NOT bold URLs.\n"
                 "- For emphasis: Use **bold** text.\n"
                 "- Keep formatting consistent and clear.\n\n"
-            ).format(tone=tone, role=role, tone_description=tone_description, qwen_directive=qwen_specific_directive, llama_directive=llama_strict_directive)
+            ).format(
+                tone=tone,
+                role=role,
+                tone_description=tone_description,
+                qwen_directive=qwen_specific_directive,
+                llama_directive=llama_strict_directive,
+                language_directive=language_directive
+            )
 
         user_content = (
             "Context (each block shows the text and attached provenance in [METADATA]):\n"
@@ -912,8 +935,14 @@ class LLMManager:
             # Create a database session
             db = SessionLocal()
             try:
-                # Check if user has multilingual addon
-                has_multilingual = AddonService.check_addon_active(db, self.user_id, "Multilingual")
+                # Explicitly check for Multilingual Support addon by id = 1
+                has_multilingual = db.query(UserAddon).filter(
+                    UserAddon.user_id == self.user_id,
+                    UserAddon.addon_id == 1,
+                    UserAddon.is_active == True,
+                    UserAddon.status == "active",
+                    UserAddon.expiry_date > datetime.now()
+                ).first() is not None
                 
                 # ✅ Log multilingual check
                 ai_logger.info("Multilingual support check", extra={
@@ -938,10 +967,26 @@ class LLMManager:
                         }
                     })
                     return {
-                                "message": "Multilingual support is not enabled for your account. Please contact the website admin to enable multilingual support.",
-                                "not_answered": True,
-                                "is_default_response": True
-                            }
+                        "message": "Multilingual not supportted for this User. Please purchase the Addon",
+                        "not_answered": True,
+                        "is_default_response": True
+                    }
+
+                # User has multilingual support; try to switch to bot's multilingual LLM
+                multilingual_llm = get_multilingual_llm_for_bot(db, self.bot_id)
+                if multilingual_llm:
+                    # Override current model to multilingual model for this response
+                    self.model_name = multilingual_llm.name
+                    self.model_info = {
+                        "name": multilingual_llm.name,
+                        "provider": multilingual_llm.provider,
+                        "model_type": multilingual_llm.model_type,
+                        "endpoint": multilingual_llm.endpoint,
+                        "max_input_tokens": multilingual_llm.max_input_tokens,
+                        "max_output_tokens": multilingual_llm.max_output_tokens
+                    }
+                    # Re-initialize provider client with the new model
+                    self.llm = self._initialize_llm()
             finally:
                 db.close()
         
@@ -953,7 +998,8 @@ class LLMManager:
                     use_external_knowledge=False,
                     chat_history=chat_history,
                     role=role,
-                    tone=tone
+                    tone=tone,
+                    response_language=detected_lang
                 )
 
                 # Log the final prompt being sent to OpenAI
@@ -1195,7 +1241,8 @@ class LLMManager:
                 # Add external knowledge flag to prompt
                 if use_external_knowledge:
                     # Modify the prompt to include instructions about external knowledge
-                    enhanced_context = f"{context}"
+                    language_directive = f"Respond strictly in '{detected_lang}'. Do not switch languages unless explicitly asked.\n\n"
+                    enhanced_context = language_directive + f"{context}"
                     if chat_history:
                         enhanced_context += f"{chat_history}"
                     enhanced_context += "\n\nIf the context above doesn't answer the question, you can use your general knowledge."
@@ -1221,7 +1268,8 @@ class LLMManager:
                     response_content = self.llm.generate(enhanced_context, user_message, temperature, chat_history="")
                     llm_duration = int((time.time() - llm_request_start) * 1000)
                 else:
-                    enhanced_context = context
+                    language_directive = f"Respond strictly in '{detected_lang}'. Do not switch languages unless explicitly asked.\n\n"
+                    enhanced_context = language_directive + context
                     if chat_history:
                         enhanced_context += f"{chat_history}"
                     
@@ -1282,7 +1330,8 @@ class LLMManager:
                     use_external_knowledge=False,
                     chat_history=chat_history,
                     role=role,
-                    tone=tone
+                    tone=tone,
+                    response_language=detected_lang
                 )
 
                 # Log request
@@ -1423,7 +1472,8 @@ class LLMManager:
                     use_external_knowledge=False,
                     chat_history=chat_history,
                     role=role,
-                    tone=tone
+                    tone=tone,
+                    response_language=detected_lang
                 )
 
                 # Log request
