@@ -114,17 +114,31 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
                            extra={"request_id": request_id, "user_id": user_id,
                                  "embedding_model_id": embedding_model_id, "llm_model_id": llm_model_id})
 
-        # Resolve default secondary LLM by name/provider (e.g., qwen/qwen3-32b on Groq)
+        # Resolve default secondary LLM by name/provider (prefer Llama on Groq)
         secondary_llm_id = None
         multilingual_llm_id = None
         try:
-            qwen = db.query(LLMModel).filter(
+            # Secondary LLM default -> Llama (Groq)
+            llama_secondary = db.query(LLMModel).filter(
+                func.lower(LLMModel.name) == "llama-3.1-8b-instant",
+                func.lower(LLMModel.provider) == "groq"
+            ).first()
+            if not llama_secondary:
+                # Fallback: any Groq Llama model
+                llama_secondary = db.query(LLMModel).filter(
+                    func.lower(LLMModel.provider) == "groq",
+                    func.lower(LLMModel.name).like("%llama%")
+                ).order_by(LLMModel.id.desc()).first()
+            if llama_secondary:
+                secondary_llm_id = llama_secondary.id
+
+            # Multilingual LLM default remains Qwen unless changed elsewhere
+            qwen_multi = db.query(LLMModel).filter(
                 func.lower(LLMModel.name) == "qwen/qwen3-32b",
                 func.lower(LLMModel.provider) == "groq"
             ).first()
-            if qwen:
-                secondary_llm_id = qwen.id
-                multilingual_llm_id = qwen.id
+            if qwen_multi:
+                multilingual_llm_id = qwen_multi.id
         except Exception:
             secondary_llm_id = None
             multilingual_llm_id = None
