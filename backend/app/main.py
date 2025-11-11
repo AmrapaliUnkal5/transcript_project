@@ -120,7 +120,7 @@ class ForceHTTPSMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         return response
 
-#app.add_middleware(ForceHTTPSMiddleware)
+app.add_middleware(ForceHTTPSMiddleware)
 
 # Initialize the scheduler
 scheduler = init_scheduler()
@@ -140,7 +140,7 @@ if not zoho_product_id:
 # initialize_scheduler()
 
 # Add the logging middleware
-#app.add_middleware(LoggingMiddleware)
+app.add_middleware(LoggingMiddleware)
 
 # Mount static files directory only if it's not an S3 path
 if not settings.UPLOAD_BOT_DIR.startswith("s3://"):
