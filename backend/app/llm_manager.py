@@ -659,7 +659,8 @@ class LLMManager:
         language_directive = ""
         if response_language:
             language_directive = (
-                f"IMPORTANT: Respond strictly in '{response_language}'. Do not switch languages unless explicitly asked.\n\n"
+                f"IMPORTANT: Respond strictly in '{response_language}'. Do not switch languages unless explicitly asked.\n"
+                f"The Context may contain text in a different language; translate or interpret it internally as needed, but keep your final answer in '{response_language}'.\n\n"
             )
 
         # CRITICAL: Add explicit instructions for Qwen models
@@ -967,7 +968,7 @@ class LLMManager:
                         }
                     })
                     return {
-                        "message": "Multilingual not supportted for this User. Please purchase the Addon",
+                        "message": "Multilingual support is not enabled for your account. Please purchase the addon to enable multilingual support.",
                         "not_answered": True,
                         "is_default_response": True
                     }
@@ -993,6 +994,72 @@ class LLMManager:
             # IMPORTANT: After potential model switch above, refresh provider/model_name
             provider = (self.model_info.get("provider", "") or "").lower()
             model_name = self.model_info.get("name", "") or model_name
+        else:
+            # Cross-lingual scenario: user asked in English but context may be non-English (e.g., Hindi)
+            # Detect dominant language of the context (ignoring metadata lines)
+            try:
+                text_lines = []
+                for _line in (context or "").splitlines():
+                    if _line.startswith("[METADATA]") or _line.startswith("[CHUNK"):
+                        continue
+                    text_lines.append(_line)
+                context_text_only = "\n".join(text_lines).strip()
+                context_lang = detect_language(context_text_only) if context_text_only else 'en'
+            except Exception:
+                context_lang = 'en'
+
+            # Log cross-lingual detection
+            ai_logger.info("Cross-lingual context check", extra={
+                "ai_task": {
+                    "event_type": "crosslingual_context_check",
+                    "user_id": self.user_id,
+                    "bot_id": self.bot_id,
+                    "detected_user_language": detected_lang,
+                    "detected_context_language": context_lang
+                }
+            })
+
+            # If user language is English but context is not, and addon is active, switch to multilingual LLM
+            if detected_lang == 'en' and context_lang != 'en' and self.user_id:
+                db = SessionLocal()
+                try:
+                    has_multilingual = db.query(UserAddon).filter(
+                        UserAddon.user_id == self.user_id,
+                        UserAddon.addon_id == 1,
+                        UserAddon.is_active == True,
+                        UserAddon.status == "active",
+                        UserAddon.expiry_date > datetime.now()
+                    ).first() is not None
+
+                    ai_logger.info("Cross-lingual multilingual switch check", extra={
+                        "ai_task": {
+                            "event_type": "crosslingual_multilingual_switch_check",
+                            "user_id": self.user_id,
+                            "bot_id": self.bot_id,
+                            "has_multilingual_addon": has_multilingual,
+                            "context_language": context_lang
+                        }
+                    })
+
+                    if has_multilingual:
+                        multilingual_llm = get_multilingual_llm_for_bot(db, self.bot_id)
+                        if multilingual_llm:
+                            self.model_name = multilingual_llm.name
+                            self.model_info = {
+                                "name": multilingual_llm.name,
+                                "provider": multilingual_llm.provider,
+                                "model_type": multilingual_llm.model_type,
+                                "endpoint": multilingual_llm.endpoint,
+                                "max_input_tokens": multilingual_llm.max_input_tokens,
+                                "max_output_tokens": multilingual_llm.max_output_tokens
+                            }
+                            self.llm = self._initialize_llm()
+                finally:
+                    db.close()
+
+                # Refresh provider/model_name after switch
+                provider = (self.model_info.get("provider", "") or "").lower()
+                model_name = self.model_info.get("name", "") or model_name
         
         try:
             if provider in ("openai", "deepseek", "groq"):
