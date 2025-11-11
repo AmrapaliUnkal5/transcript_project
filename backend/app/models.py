@@ -97,6 +97,8 @@ class Bot(Base):
     external_knowledge = Column(Boolean, nullable=False, server_default='false')
     embedding_model_id = Column(Integer, ForeignKey("embedding_models.id"), nullable=True)
     llm_model_id = Column(Integer, ForeignKey("llm_models.id"), nullable=True)
+    secondary_llm = Column(Integer, ForeignKey("llm_models.id"), nullable=True)
+    multilingual_llm = Column(Integer, ForeignKey("llm_models.id"), nullable=True)
     message_count = Column(Integer, default=0)
     window_bg_color = Column(String, nullable=True, default="#F9FAFB")
     welcome_message = Column(Text, nullable=True, default="Hello! How can I help you?")
@@ -114,8 +116,8 @@ class Bot(Base):
     border_color = Column(String, nullable=True, default="#0a0a0a")
     chat_font_family = Column(String, nullable=True, default="Inter")
     selected_domain = Column(String, nullable=True)
-    chunk_size = Column(Integer, nullable=False, default=1000)
-    chunk_overlap = Column(Integer, nullable=False, default=100)
+    chunk_size = Column(Integer, nullable=False, default=512)
+    chunk_overlap = Column(Integer, nullable=False, default=75)
     theme_id= Column(String, nullable=False, default="basic")
     lead_generation_enabled = Column(Boolean, nullable=False, default=False)
     lead_form_config = Column(JSONB, nullable=True)
@@ -127,10 +129,14 @@ class Bot(Base):
     error_mail_sent= Column(Boolean,nullable=False,default=False)
     role = Column(String, nullable=False, server_default="Service Assistant")
     tone = Column(String, nullable=False, server_default="Friendly")
+    #hybrid_search = Column(Boolean, nullable=True, default=True)
+    markdown_chunking = Column(Boolean, nullable=True, default=True)
 
     # Add relationships
     embedding_model = relationship("EmbeddingModel", back_populates="bots")
-    llm_model = relationship("LLMModel", back_populates="bots")
+    llm_model = relationship("LLMModel", back_populates="bots", foreign_keys=[llm_model_id])
+    secondary_llm_model = relationship("LLMModel", foreign_keys=[secondary_llm])
+    multilingual_llm_model = relationship("LLMModel", foreign_keys=[multilingual_llm])
     files = relationship("File", back_populates="bot", cascade="all, delete-orphan")
 
     #Audit fields
@@ -538,8 +544,10 @@ class LLMModel(Base):
     max_input_tokens = Column(Integer, nullable=True, default=4096)  # Max context window tokens 
     max_output_tokens = Column(Integer, nullable=True, default=1024)  # Max response tokens
 
-    # Add relationship
-    bots = relationship("Bot", back_populates="llm_model")
+    # Add relationships (disambiguate multiple FKs from Bot to LLMModel)
+    bots = relationship("Bot", back_populates="llm_model", foreign_keys=[Bot.llm_model_id])
+    bots_secondary = relationship("Bot", foreign_keys=[Bot.secondary_llm], viewonly=True)
+    bots_multilingual = relationship("Bot", foreign_keys=[Bot.multilingual_llm], viewonly=True)
     
     def __str__(self):
         """Return a string representation of the model for display in UI"""

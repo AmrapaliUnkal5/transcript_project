@@ -136,3 +136,33 @@ def get_llm_model_for_bot(db: Session, bot_id: int, user_id: int) -> Optional[LL
         return db.query(LLMModel).filter(LLMModel.id == llm_model_id).first()
     
     return None 
+
+def get_secondary_llm_for_bot(db: Session, bot_id: int, user_id: int) -> Optional[LLMModel]:
+    """Get the bot's configured secondary LLM; prefer Groq Llama if missing."""
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if not bot:
+        return None
+    if bot.secondary_llm:
+        return db.query(LLMModel).filter(LLMModel.id == bot.secondary_llm).first()
+
+    # Fallback preference: Groq Llama 3.1 8B Instant, else any Groq Llama
+    llama = db.query(LLMModel).filter(
+        func.lower(LLMModel.name) == "llama-3.1-8b-instant",
+        func.lower(LLMModel.provider) == "groq"
+    ).first()
+    if not llama:
+        llama = db.query(LLMModel).filter(
+            func.lower(LLMModel.provider) == "groq",
+            func.lower(LLMModel.name).like("%llama%")
+        ).order_by(LLMModel.id.desc()).first()
+    return llama
+
+def get_multilingual_llm_for_bot(db: Session, bot_id: int) -> Optional[LLMModel]:
+    """
+    Get the bot's configured multilingual LLM model.
+    Returns None if not set.
+    """
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if not bot or not bot.multilingual_llm:
+        return None
+    return db.query(LLMModel).filter(LLMModel.id == bot.multilingual_llm).first()

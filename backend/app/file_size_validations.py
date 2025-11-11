@@ -299,9 +299,11 @@ async def validate_and_upload_files(
             file_id = generate_file_id(bot_id, original_filename)
             logger.info(f"🆔 DEBUG: Generated file_id: {file_id}")
             
-            # Create text file name with txt extension
-            text_filename = f"{file_id}.txt"
-            logger.info(f"📝 DEBUG: Text filename: {text_filename}")
+            # Determine text file extension based on bot.markdown_chunking setting
+            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+            use_markdown_chunking = bool(bot and bot.markdown_chunking is True)
+            text_filename = f"{file_id}.{'md' if use_markdown_chunking else 'txt'}"
+            logger.info(f"📝 DEBUG: Text filename: {text_filename} (markdown_chunking={use_markdown_chunking})")
             
             # Create path for the text file
             logger.info(f"📁 DEBUG: Creating hierarchical file path")

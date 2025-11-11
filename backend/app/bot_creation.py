@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, APIRouter, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Bot, ScrapedNode, UserSubscription, SubscriptionPlan, YouTubeVideo, File
+from app.models import Bot, ScrapedNode, UserSubscription, SubscriptionPlan, YouTubeVideo, File, LLMModel
 from app.schemas import BotCreation, BotUpdateFields, UserOut, BotRename
 from app.dependency import get_current_user
 from app.utils.logger import get_module_logger
@@ -92,6 +92,57 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
                               "plan_id": free_plan.id, "plan_name": free_plan.name})
 
     try:
+        # Get the user's active subscription plan to determine default models
+        # This needs to happen AFTER we potentially create the free plan subscription above
+        user_subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == "active"
+        ).order_by(UserSubscription.expiry_date.desc()).first()
+
+        embedding_model_id = None
+        llm_model_id = None
+
+        if user_subscription:
+            subscription_plan = db.query(SubscriptionPlan).filter(
+                SubscriptionPlan.id == user_subscription.subscription_plan_id
+            ).first()
+
+            if subscription_plan:
+                embedding_model_id = subscription_plan.default_embedding_model_id
+                llm_model_id = subscription_plan.default_llm_model_id
+                logger.info(f"Using models from subscription plan: {subscription_plan.name}",
+                           extra={"request_id": request_id, "user_id": user_id,
+                                 "embedding_model_id": embedding_model_id, "llm_model_id": llm_model_id})
+
+        # Resolve default secondary LLM by name/provider (prefer Llama on Groq)
+        secondary_llm_id = None
+        multilingual_llm_id = None
+        try:
+            # Secondary LLM default -> Llama (Groq)
+            llama_secondary = db.query(LLMModel).filter(
+                func.lower(LLMModel.name) == "llama-3.1-8b-instant",
+                func.lower(LLMModel.provider) == "groq"
+            ).first()
+            if not llama_secondary:
+                # Fallback: any Groq Llama model
+                llama_secondary = db.query(LLMModel).filter(
+                    func.lower(LLMModel.provider) == "groq",
+                    func.lower(LLMModel.name).like("%llama%")
+                ).order_by(LLMModel.id.desc()).first()
+            if llama_secondary:
+                secondary_llm_id = llama_secondary.id
+
+            # Multilingual LLM default remains Qwen unless changed elsewhere
+            qwen_multi = db.query(LLMModel).filter(
+                func.lower(LLMModel.name) == "qwen/qwen3-32b",
+                func.lower(LLMModel.provider) == "groq"
+            ).first()
+            if qwen_multi:
+                multilingual_llm_id = qwen_multi.id
+        except Exception:
+            secondary_llm_id = None
+            multilingual_llm_id = None
+
         # Create a new bot
         db_bot = Bot(
             bot_name=bot.bot_name,
@@ -100,6 +151,10 @@ def create_bot(request: Request, bot: BotCreation, db: Session = Depends(get_db)
             user_id=user_id,
             word_count=0,
             external_knowledge=bot.external_knowledge,
+            embedding_model_id=embedding_model_id,
+            llm_model_id=llm_model_id,
+            secondary_llm=secondary_llm_id,
+            multilingual_llm=multilingual_llm_id,
             created_by=action_user_id,
             updated_by=action_user_id
         )

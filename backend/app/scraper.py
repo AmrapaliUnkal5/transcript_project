@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from playwright.sync_api import sync_playwright
+from markdownify import markdownify as md
 from app.models import ScrapedNode,WebsiteDB, Bot, User, UserSubscription,SubscriptionPlan  # Import the model
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
@@ -25,6 +26,85 @@ NON_HTML_EXTENSIONS = (
     ".webp", ".ico", ".tiff", ".tif", ".mp4", ".mp3", ".zip", ".rar", ".exe",
     ".css", ".js", ".woff", ".woff2", ".ttf", ".eot", ".otf", ".avi", ".mov"
 )
+
+def clean_html_for_content(soup):
+    """
+    Clean HTML by removing navigation, footer, images, and other non-content elements.
+    Also removes hidden/invisible elements that shouldn't be indexed.
+
+    Args:
+        soup: BeautifulSoup object
+
+    Returns:
+        Cleaned BeautifulSoup object
+    """
+    print("[DEBUG] Starting HTML cleaning...")
+
+    # 1. Remove navigation elements
+    nav_selectors = [
+        'nav', 'header', '[role="navigation"]',
+        '.nav', '.navigation', '.navbar', '.menu',
+        '.header', '.top-bar', '.site-header',
+        '#navigation', '#nav', '#menu', '#header'
+    ]
+
+    for selector in nav_selectors:
+        for element in soup.select(selector):
+            print(f"[DEBUG] Removing navigation element: {selector}")
+            element.decompose()
+
+    # 2. Remove footer elements
+    footer_selectors = [
+        'footer', '[role="contentinfo"]',
+        '.footer', '.site-footer', '.page-footer',
+        '#footer', '#site-footer'
+    ]
+
+    for selector in footer_selectors:
+        for element in soup.select(selector):
+            print(f"[DEBUG] Removing footer element: {selector}")
+            element.decompose()
+
+    # 3. Remove all images
+    for img in soup.find_all('img'):
+        img.decompose()
+    print(f"[DEBUG] Removed all images")
+
+    # 4. Remove hidden elements (CSS visibility)
+    # Elements with display: none, visibility: hidden, or hidden attribute
+    hidden_elements = soup.find_all(style=lambda value: value and ('display:none' in value.replace(' ', '') or 'display: none' in value))
+    for element in hidden_elements:
+        print(f"[DEBUG] Removing hidden element (display:none): {element.name}")
+        element.decompose()
+
+    # Remove elements with hidden attribute
+    for element in soup.find_all(attrs={'hidden': True}):
+        print(f"[DEBUG] Removing element with hidden attribute")
+        element.decompose()
+
+    # Remove elements with aria-hidden="true" (screen reader hidden)
+    for element in soup.find_all(attrs={'aria-hidden': 'true'}):
+        print(f"[DEBUG] Removing aria-hidden element")
+        element.decompose()
+
+    # 5. Remove other common non-content elements
+    other_selectors = [
+        'aside', '.sidebar', '.widget',
+        '.social-links', '.social-media',
+        '.cookie-notice', '.popup', '.modal',
+        '.advertisement', '.ad', '.ads',
+        'template',  # HTML5 template tags (never visible)
+        'noscript',  # NoScript fallback content
+    ]
+
+    for selector in other_selectors:
+        for element in soup.select(selector):
+            print(f"[DEBUG] Removing non-content element: {selector}")
+            element.decompose()
+
+    print("[DEBUG] HTML cleaning completed")
+    return soup
+
 
 # Function to detect if JavaScript is needed
 def is_js_heavy(url):
@@ -112,7 +192,7 @@ def scrape_static_page(url):
 
         soup = BeautifulSoup(response.text, "html.parser")
         
-        # Extract title
+        # Extract title BEFORE cleaning (so we don't lose it)
         title = soup.title.string if soup.title else ""
         if title:
             title = title.strip()
@@ -122,7 +202,7 @@ def scrape_static_page(url):
             script.decompose()
         
         # Try multiple strategies to extract meaningful content
-        text = ""
+        html_content = None
         
         # Strategy 1: Look for main content areas
         main_content_selectors = [
@@ -134,36 +214,40 @@ def scrape_static_page(url):
         for selector in main_content_selectors:
             elements = soup.select(selector)
             if elements and elements[0].get_text(strip=True):
-                text = elements[0].get_text(separator=' ', strip=True)
+                html_content = str(elements[0])
                 print(f"[DEBUG] Found content using selector: {selector}")
                 break
         
-        # Strategy 2: If no main content found, extract from common text elements
-        if not text or len(text.strip()) < 50:
-            text_elements = soup.find_all(['p', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th'])
-            text_parts = []
-            for element in text_elements:
-                element_text = element.get_text(strip=True)
-                if element_text and len(element_text) > 10:  # Only include substantial text
-                    text_parts.append(element_text)
-            text = ' '.join(text_parts)
-            print(f"[DEBUG] Extracted text from multiple elements")
-        
-        # Strategy 3: Last resort - get all text from body
-        if not text or len(text.strip()) < 50:
+        # Strategy 2: If no main content found, get body
+        if not html_content or len(BeautifulSoup(html_content, "html.parser").get_text(strip=True)) < 50:
             body = soup.find('body')
             if body:
-                text = body.get_text(separator=' ', strip=True)
-                print(f"[DEBUG] Extracted all text from body")
+                html_content = str(body)
+                print(f"[DEBUG] Extracted HTML from body")
             else:
-                text = soup.get_text(separator=' ', strip=True)
-                print(f"[DEBUG] Extracted all text from document")
+                html_content = str(soup)
+                print(f"[DEBUG] Extracted HTML from entire document")
         
-        # Clean up the text
+        # ✅ CLEAN HTML: Remove navigation, footer, images
+        if html_content:
+            content_soup = BeautifulSoup(html_content, "html.parser")
+            content_soup = clean_html_for_content(content_soup)
+            html_content = str(content_soup)
+
+        # Convert HTML to Markdown (using ATX-style headings with #)
+        markdown_content = md(html_content, heading_style="ATX") if html_content else ""
+
+        # Clean up excessive newlines
+        markdown_content = re.sub(r'\n{3,}', '\n\n', markdown_content)
+        markdown_content = markdown_content.strip()
+
+        # Also keep plain text for word count
+        text = BeautifulSoup(html_content, "html.parser").get_text(separator=' ', strip=True) if html_content else ""
         text = ' '.join(text.split())  # Normalize whitespace
         
         print(f"[DEBUG] Static scraping results for {url}:")
         print(f"[DEBUG] - Title: {title}")
+        print(f"[DEBUG] - Markdown length: {len(markdown_content)} characters")
         print(f"[DEBUG] - Text length: {len(text)} characters")
         
         if not title and text:
@@ -171,7 +255,7 @@ def scrape_static_page(url):
         word_count = len(text.split())
         print(f"[DEBUG] - Word count: {word_count}")
         
-        return {"url": url, "title": title,"text": text,"word_count":word_count}
+        return {"url": url, "title": title, "text": text, "markdown": markdown_content, "word_count": word_count}
 
     except Exception as e:
         print(f"[ERROR] Error scraping {url} with BeautifulSoup: {e}")
@@ -254,8 +338,37 @@ def scrape_dynamic_page(url):
             # Extract title
             title = page.title() or ""
             
-            # Try multiple content extraction strategies
-            text = ""
+            # ✅ REMOVE HIDDEN ELEMENTS FROM DOM (using browser's rendering logic)
+            try:
+                print(f"[DEBUG] Removing hidden elements from DOM using browser logic...")
+                removed_count = page.evaluate("""
+                    () => {
+                        let count = 0;
+                        // Remove all elements that are not visible (using browser's rendering logic)
+                        const allElements = document.querySelectorAll('*');
+                        allElements.forEach(el => {
+                            const style = window.getComputedStyle(el);
+                            // Check if element is hidden by CSS
+                            if (
+                                style.display === 'none' ||
+                                style.visibility === 'hidden' ||
+                                style.opacity === '0' ||
+                                el.hidden ||
+                                el.getAttribute('aria-hidden') === 'true'
+                            ) {
+                                el.remove();
+                                count++;
+                            }
+                        });
+                        return count;
+                    }
+                """)
+                print(f"[DEBUG] Removed {removed_count} hidden elements from DOM")
+            except Exception as e:
+                print(f"[DEBUG] Could not remove hidden elements: {e}")
+
+            # Try to get HTML content
+            html_content = None
             
             # Strategy 1: Try to find main content areas
             main_selectors = [
@@ -267,43 +380,45 @@ def scrape_dynamic_page(url):
                 try:
                     elements = page.query_selector_all(selector)
                     if elements:
-                        extracted_text = page.inner_text(selector)
-                        if len(extracted_text.strip()) > 100:
-                            text = extracted_text
+                        html_content = page.inner_html(selector)
+                        if len(BeautifulSoup(html_content, "html.parser").get_text(strip=True)) > 100:
                             print(f"[DEBUG] Found content using selector: {selector}")
                             break
                 except:
                     continue
             
             # Strategy 2: Extract from body if main content not found
-            if not text or len(text.strip()) < 100:
+            if not html_content or len(BeautifulSoup(html_content, "html.parser").get_text(strip=True)) < 100:
                 try:
-                    text = page.inner_text("body")
-                    print(f"[DEBUG] Extracted content from body")
+                    html_content = page.inner_html("body")
+                    print(f"[DEBUG] Extracted HTML from body")
                 except:
                     pass
             
-            # Strategy 3: Try text_content as fallback
-            if not text or len(text.strip()) < 100:
-                try:
-                    text = page.text_content("body") or ""
-                    print(f"[DEBUG] Extracted content using text_content")
-                except:
-                    pass
+            # Remove script and style tags from HTML
+            if html_content:
+                soup = BeautifulSoup(html_content, "html.parser")
+                for script in soup(["script", "style"]):
+                    script.decompose()
+
+                # ✅ CLEAN HTML: Remove navigation, footer, images
+                soup = clean_html_for_content(soup)
+                html_content = str(soup)
             
-            # Strategy 4: Last resort - get all visible text
-            if not text or len(text.strip()) < 50:
-                try:
-                    text = page.evaluate("() => document.body.innerText") or ""
-                    print(f"[DEBUG] Extracted content using JavaScript evaluation")
-                except:
-                    text = ""
+            # Convert HTML to Markdown (using ATX-style headings with #)
+            markdown_content = md(html_content, heading_style="ATX") if html_content else ""
+
+            # Clean up excessive newlines
+            markdown_content = re.sub(r'\n{3,}', '\n\n', markdown_content)
+            markdown_content = markdown_content.strip()
             
-            # Clean up the text
-            text = ' '.join(text.split()) if text else ""
+            # Also get plain text for word count
+            text = BeautifulSoup(html_content, "html.parser").get_text(separator=' ', strip=True) if html_content else ""
+            text = ' '.join(text.split())
             
             print(f"[DEBUG] Dynamic scraping results for {url}:")
             print(f"[DEBUG] - Title: {title}")
+            print(f"[DEBUG] - Markdown length: {len(markdown_content)} characters")
             print(f"[DEBUG] - Text length: {len(text)} characters")
             
             if not title and text:
@@ -312,7 +427,7 @@ def scrape_dynamic_page(url):
             print(f"[DEBUG] - Word count: {word_count}")
             
             browser.close()
-            return {"url": url, "title": title,"text": text,"word_count":word_count}
+            return {"url": url, "title": title, "text": text, "markdown": markdown_content, "word_count": word_count}
             
     except Exception as e:
         print(f"[ERROR] Error scraping {url} with Playwright: {e}")
@@ -719,11 +834,20 @@ def save_scraped_nodes(url_list, bot_id, db: Session, action_user_id: int = None
                 print(f"❌ Website '{domain}' not found or was deleted for bot_id={bot_id}. Skipping all updates.")
                 return  # Exit early if the website is not valid
 
+        # Decide content mode once per save based on bot setting
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        use_markdown_chunking = bool(bot and bot.markdown_chunking is True)
+
         for item in url_list:
             url = item["url"]
             title = item.get("title", "No Title")  # Default to "No Title" if missing
             word_count = item["word_count"]
-            text_content = item.get("text", "")  # Get the text content
+            # Choose content based on markdown_chunking setting
+            content_for_node = (
+                item.get("markdown", item.get("text", ""))
+                if use_markdown_chunking
+                else item.get("text", "")
+            )
             print("title",title)
             print("url",url)
             print("word_count",word_count)
@@ -741,13 +865,13 @@ def save_scraped_nodes(url_list, bot_id, db: Session, action_user_id: int = None
                 if not existing_node.title or existing_node.title != title:
                     existing_node.title = title
                 
-                # Update nodes_text field with text content
-                existing_node.nodes_text = text_content
+                # Update nodes_text field based on configured content mode
+                existing_node.nodes_text = content_for_node
                 existing_node.nodes_text_count = word_count
                 existing_node.status = "Extracted"
                 existing_node.updated_by = action_user_id
                 existing_node.last_embedded = None
-                print("Website node updated with text content")
+                print("Website node updated with", "markdown content" if use_markdown_chunking else "text content")
                 #Add notification only for existing and updated nodes
                 event_type = "SCRAPED_URL_SAVED"
                 event_data = f"URL '{url}' for bot added successfully. {word_count} words extracted."
@@ -940,7 +1064,14 @@ def scrape_selected_nodes(url_list, bot_id, db: Session, action_user_id: int = N
                     if node:
                         node.status = "Failed"
                         node.error_code = "Word count exceeds your subscription plan limit."
-                        node.nodes_text = item.get("text", "")
+                        # Decide content mode based on bot setting
+                        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+                        use_markdown_chunking = bool(bot and bot.markdown_chunking is True)
+                        node.nodes_text = (
+                            item.get("markdown", item.get("text", ""))
+                            if use_markdown_chunking
+                            else item.get("text", "")
+                        )
                         node.title = item.get("title", "No Title")
                         node.updated_at = datetime.utcnow()
                         node.updated_by = action_user_id

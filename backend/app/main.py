@@ -200,7 +200,7 @@ app.add_middleware(
     expose_headers=["X-Captcha-ID","X-New-Token"],  
 )
 
-app.add_middleware(RoleBasedAccessMiddleware)
+#app.add_middleware(RoleBasedAccessMiddleware)
 templates = Jinja2Templates(directory="app/templates")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 

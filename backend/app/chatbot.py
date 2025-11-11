@@ -381,7 +381,14 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
     logger.info(f"💬 DEBUG: User message: '{user_message}'")
     
     # Ensure chat session exists
-    interaction = db.query(Interaction).filter_by(bot_id=bot_id, user_id=user_id, archived=False).first()
+    #interaction = db.query(Interaction).filter_by(bot_id=bot_id, user_id=user_id, archived=False).first()
+
+    interaction = (
+    db.query(Interaction)
+      .filter_by(bot_id=bot_id, user_id=user_id, archived=False)
+      .order_by(Interaction.interaction_id.desc())
+      .first()
+)
     if not interaction:
         logger.info(f"🆕 DEBUG: Creating new interaction", extra={"bot_id": bot_id, "user_id": user_id})
         interaction = Interaction(bot_id=bot_id, user_id=user_id)
@@ -416,7 +423,13 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         # db.add_all([user_msg, bot_msg])
         # db.commit()
         
-        return {"bot_reply": greeting_response,"is_default_response": True}
+        return {
+            "bot_reply": greeting_response,
+            "is_default_response": True,
+            "used_external": False,
+            "is_greeting_response": True,
+            "is_farewell_response": False
+        }
     
     # ✅ Check if this is a farewell message, to save tokens
     is_farewell_msg, farewell_response = is_farewell(user_message)
@@ -430,7 +443,13 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         # db.add_all([user_msg, bot_msg])
         # db.commit()
         
-        return {"bot_reply": farewell_response,"is_default_response": True}
+        return {
+            "bot_reply": farewell_response,
+            "is_default_response": True,
+            "used_external": False,
+            "is_greeting_response": False,
+            "is_farewell_response": True
+        }
     
     use_external_knowledge = bot.external_knowledge if bot else False
     temperature = bot.temperature if bot and bot.temperature is not None else 0.7
@@ -480,7 +499,43 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
                  "not_answered": True }
     else:
         # Note: vector_db.py returns documents with a "content" field
-        context = " ".join([doc.get("content", "") for doc in similar_docs])
+        # Build context with explicit chunk blocks and attached provenance metadata
+        context_blocks = []
+        for i, doc in enumerate(similar_docs):
+            content = doc.get("content", "")
+            md = doc.get("metadata", {}) or {}
+            file_name = md.get("file_name", "unknown")
+            chunk_number = md.get("chunk_number", "unknown")
+            section_hierarchy = md.get("section_hierarchy", [])
+            source_type = md.get("source", "upload")
+            # Prefer explicit URL fields when available (website_url for websites, url for youtube)
+            website_url = md.get("website_url", "")
+            url = md.get("url", "")
+            # Build a richer metadata string to help the LLM output better Provenance
+            metadata_parts = [
+                f"file_name: {file_name}",
+                f"chunk_number: {chunk_number}",
+                f"section_hierarchy: {section_hierarchy}",
+                f"source: {source_type}"
+            ]
+            if website_url:
+                metadata_parts.append(f"website_url: {website_url}")
+            if url:
+                metadata_parts.append(f"url: {url}")
+            metadata_str = "; ".join(metadata_parts)
+            context_blocks.append(
+                f"[CHUNK {i}]\n{content}\n[METADATA] {metadata_str}"
+            )
+            logger.info(
+                f"📄 DEBUG: Context chunk {i}",
+                extra={
+                    "bot_id": bot_id,
+                    "file_name": file_name,
+                    "chunk_number": chunk_number,
+                    "section_hierarchy": section_hierarchy,
+                },
+            )
+        context = "\n\n".join(context_blocks)
         logger.info(f"📄 DEBUG: Context prepared with {len(similar_docs)} documents, length: {len(context)} characters")
 
     try:
@@ -491,10 +546,7 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         llm = LLMManager(bot_id=bot_id, user_id=user_id,unanswered_message=unanswered_message)
         logger.info(f"🤖 DEBUG: LLM Manager initialized")
 
-        # Modify the context to include the unanswered message instruction
-        if not use_external_knowledge:
-            context += f"\n\nIf you cannot answer the question based on the context above, respond with exactly: \"{unanswered_message}\""
-            logger.info(f"🤖 DEBUG: Added unanswered message instruction to context")
+        # Rely on centralized prompt builder to enforce unanswered behavior; avoid mixing instructions into context
         
         # Pass the formatted history to the LLM
         bot_reply_dict  = llm.generate(context, user_message, use_external_knowledge=use_external_knowledge, 

@@ -1592,7 +1592,7 @@ const handleThemeSelect = async (themeId: string) => {
      
               <div className="flex items-center justify-between">
               <div>
-              <label className="block font-semibold">Knowledge Source</label>
+              <label className="block font-semibold">External Knowledge</label>
               <p className="text-sm text-gray-500">
               When enabled, external knowledge helps answer questions beyond your provided content.
               </p>

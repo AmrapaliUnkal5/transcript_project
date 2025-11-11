@@ -42,7 +42,7 @@ import asyncio
 from app.utils.reembedding_utils import reembed_all_bot_data
 import time
 from app.utils.upload_knowledge_utils import extract_text_from_file
-from app.utils.upload_knowledge_utils import chunk_text
+from app.utils.upload_knowledge_utils import chunk_text, chunk_markdown_text
 from app.config import settings
 from app.utils.file_storage import save_file, get_file_url, delete_file as delete_file_storage, FileStorageError
 # from app.grid_refresh_ws import broadcast_grid_refresh
@@ -50,6 +50,10 @@ from app.progress import get_file_status, get_website_status, get_youtube_status
 from app.utils.email_notifications import send_bot_activation_email, send_bot_error_email
 import time
 from datetime import datetime
+import pymupdf4llm
+import io
+from app.utils.upload_knowledge_utils import normalize_markdown_tables
+
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -256,6 +260,85 @@ def reembed_bots_for_subscription_plan(self, subscription_plan_id: int, old_embe
             "subscription_plan_id": subscription_plan_id
         } 
 
+
+@celery_app.task(bind=True, name='reembed_single_bot', max_retries=3)
+def reembed_single_bot(self, bot_id: int):
+    """
+    Re-embed all data for a single bot in the background.
+
+    Behavior:
+    - Marks bot.is_retrained = True before starting
+    - Calls async reembed_all_bot_data(bot_id, db)
+    - Clears bot.is_retrained = False at the end (success or error)
+    - Returns a compact summary
+    """
+    try:
+        logger.info(f"🔄 Starting single-bot re-embedding task for bot {bot_id}")
+
+        db = SessionLocal()
+
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        if not bot:
+            logger.error(f"❌ Bot with ID {bot_id} not found")
+            return {"status": "error", "error": "bot_not_found", "bot_id": bot_id}
+
+        # Mark as Retraining so UI can reflect progress
+        try:
+            bot.is_retrained = True
+            db.commit()
+            logger.info(f"✅ Marked bot {bot_id} as Retraining")
+        except Exception as mark_err:
+            logger.warning(f"⚠️ Could not set Retraining flag for bot {bot_id}: {str(mark_err)}")
+
+        # Run async function in a dedicated loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            results = loop.run_until_complete(reembed_all_bot_data(bot_id, db))
+        finally:
+            loop.close()
+
+        # Clear Retraining flag
+        try:
+            bot.is_retrained = False
+            db.commit()
+            logger.info(f"✅ Cleared Retraining flag for bot {bot_id}")
+        except Exception as clear_err:
+            logger.warning(f"⚠️ Could not clear Retraining flag for bot {bot_id}: {str(clear_err)}")
+
+        return {
+            "status": "completed",
+            "bot_id": bot_id,
+            "summary": results,
+        }
+
+    except Exception as e:
+        logger.exception(f"❌ Error in reembed_single_bot for bot {bot_id}: {str(e)}")
+
+        # Best-effort: clear flag on error
+        try:
+            db2 = SessionLocal()
+            try:
+                bot = db2.query(Bot).filter(Bot.bot_id == bot_id).first()
+                if bot:
+                    bot.is_retrained = False
+                    db2.commit()
+            finally:
+                db2.close()
+        except Exception:
+            pass
+
+        # Retry with backoff if allowed
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
+
+        return {"status": "error", "bot_id": bot_id, "error": str(e)}
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
+
 @celery_app.task(bind=True, name='process_youtube_videos_part1', max_retries=3)
 def process_youtube_videos_part1(self, bot_id: int, video_urls: List[str],  action_user_id: int):
     """
@@ -267,148 +350,150 @@ def process_youtube_videos_part1(self, bot_id: int, video_urls: List[str],  acti
     from app.models import Bot, User, SubscriptionPlan, UserSubscription
     from app.word_count_validation import validate_cumulative_word_count_sync_for_celery
 
-    db = next(get_db())
-    valid_videos = []
-    failed_videos = []
+    db = SessionLocal()
+    try:
+        valid_videos = []
+        failed_videos = []
 
-    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
-    user_id = bot.user_id if bot else None
+        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+        user_id = bot.user_id if bot else None
 
-    for url in video_urls:
-        try:
-            transcript_result = get_video_transcript(url)
-            if isinstance(transcript_result, tuple) and len(transcript_result) == 2:
-                transcript, metadata = transcript_result
-            else:
-                transcript, metadata = transcript_result, None
+        for url in video_urls:
+            try:
+                transcript_result = get_video_transcript(url)
+                if isinstance(transcript_result, tuple) and len(transcript_result) == 2:
+                    transcript, metadata = transcript_result
+                else:
+                    transcript, metadata = transcript_result, None
 
-            if not transcript:
-                reason = "Extraction Failed:Could not extract transcript from the YouTube video."
-                send_failure_notification(db, bot_id, url, reason)
+                if not transcript:
+                    reason = "Extraction Failed:Could not extract transcript from the YouTube video."
+                    send_failure_notification(db, bot_id, url, reason)
+
+                    existing_video = db.query(YouTubeVideo).filter(
+                        YouTubeVideo.video_url == url,
+                        YouTubeVideo.bot_id == bot_id,
+                        YouTubeVideo.is_deleted == False
+                    ).first()
+                    if existing_video:
+                        existing_video.status = "Failed"
+                        existing_video.error_code = reason
+                        existing_video.updated_by = action_user_id
+                        db.commit()
+                    else:
+                        logger.warning(
+                            f"No YouTubeVideo entry found for bot_id={bot_id}, url={url}. Possibly deleted.",
+                            extra={"bot_id": bot_id}
+                        )
+
+                    failed_videos.append({"url": url, "reason": reason})
+                    continue
+
+                if not metadata:
+                    if "youtu.be/" in url:
+                        extracted_video_id = url.split("youtu.be/")[-1].split("?")[0]
+                    elif "v=" in url:
+                        extracted_video_id = url.split("v=")[-1].split("&")[0]
+                    else:
+                        extracted_video_id = hashlib.md5(url.encode()).hexdigest()
+                else:
+                    extracted_video_id = metadata.get("video_id")
 
                 existing_video = db.query(YouTubeVideo).filter(
-                    YouTubeVideo.video_url == url,
+                    YouTubeVideo.video_id == extracted_video_id,
                     YouTubeVideo.bot_id == bot_id,
                     YouTubeVideo.is_deleted == False
                 ).first()
-                if existing_video:
-                    existing_video.status = "Failed"
-                    existing_video.error_code = reason
-                    existing_video.updated_by = action_user_id
-                    db.commit()
-                else:
+
+                if not existing_video:
                     logger.warning(
-                        f"No YouTubeVideo entry found for bot_id={bot_id}, url={url}. Possibly deleted.",
+                        f"[YouTubeTranscript] Video ID {extracted_video_id} not found in DB for bot_id={bot_id}. Possibly deleted or not inserted.",
                         extra={"bot_id": bot_id}
                     )
+                    failed_videos.append({
+                        "url": url,
+                        "reason": "Video not found in DB (possibly deleted)"
+                    })
+                    continue
 
-                failed_videos.append({"url": url, "reason": reason})
-                continue
+                word_count = len(transcript.split())
+                existing_word_count = existing_video.transcript_count if existing_video and existing_video.transcript_count else 0
+                word_diff = max(word_count - existing_word_count, 0)
 
-            if not metadata:
-                if "youtu.be/" in url:
-                    extracted_video_id = url.split("youtu.be/")[-1].split("?")[0]
-                elif "v=" in url:
-                    extracted_video_id = url.split("v=")[-1].split("&")[0]
-                else:
-                    extracted_video_id = hashlib.md5(url.encode()).hexdigest()
-            else:
-                extracted_video_id = metadata.get("video_id")
+                # ✅ Individual word count validation here
+                try:
+                    validate_cumulative_word_count_sync_for_celery(word_diff, {"user_id": user_id}, db)
+                except Exception as e:
+                    # Mark this video as failed due to word limit
+                    save_video_metadata(db, bot_id, url, transcript, metadata, action_user_id)
+                    if existing_video:
+                        existing_video.status = "Failed"
+                        existing_video.error_code = "Word count exceeds your subscription plan limit."
+                        existing_video.updated_by = action_user_id
+                        db.commit()
+                        add_notification(
+                                db=db,
+                                event_type="YOUTUBE_WORD_LIMIT_EXCEEDED",
+                                event_data=str(e),
+                                bot_id=bot_id,
+                                user_id=user_id
+                            )
+                    failed_videos.append({
+                        "url": url,
+                        "reason": f"Word count exceeded: {str(e)}"
+                    })
+                    continue  # Skip saving and move to next video
 
-            existing_video = db.query(YouTubeVideo).filter(
-                YouTubeVideo.video_id == extracted_video_id,
-                YouTubeVideo.bot_id == bot_id,
-                YouTubeVideo.is_deleted == False
-            ).first()
-
-            if not existing_video:
-                logger.warning(
-                    f"[YouTubeTranscript] Video ID {extracted_video_id} not found in DB for bot_id={bot_id}. Possibly deleted or not inserted.",
-                    extra={"bot_id": bot_id}
-                )
-                failed_videos.append({
+                valid_videos.append({
                     "url": url,
-                    "reason": "Video not found in DB (possibly deleted)"
+                    "transcript": transcript,
+                    "word_count": word_diff,
+                    "metadata": metadata,
+                    "video_id": extracted_video_id
                 })
-                continue
-
-            word_count = len(transcript.split())
-            existing_word_count = existing_video.transcript_count if existing_video and existing_video.transcript_count else 0
-            word_diff = max(word_count - existing_word_count, 0)
-
-
-            # ✅ Individual word count validation here
-            try:
-                validate_cumulative_word_count_sync_for_celery(word_diff, {"user_id": user_id}, db)
-            except Exception as e:
-                # Mark this video as failed due to word limit
                 save_video_metadata(db, bot_id, url, transcript, metadata, action_user_id)
-                if existing_video:
-                    existing_video.status = "Failed"
-                    existing_video.error_code = "Word count exceeds your subscription plan limit."
-                    existing_video.updated_by = action_user_id
-                    db.commit()
-                    add_notification(
-                            db=db,
-                            event_type="YOUTUBE_WORD_LIMIT_EXCEEDED",
-                            event_data=str(e),
-                            bot_id=bot_id,
-                            user_id=user_id
-                        )
-                failed_videos.append({
-                    "url": url,
-                    "reason": f"Word count exceeded: {str(e)}"
-                })
-                continue  # Skip saving and move to next video
 
-            valid_videos.append({
-                "url": url,
-                "transcript": transcript,
-                "word_count": word_diff,
-                "metadata": metadata,
-                "video_id": extracted_video_id
-            })
-            save_video_metadata(db, bot_id, url, transcript, metadata,action_user_id)
+            except Exception as e:
+                failed_videos.append({"url": url, "reason": str(e)})
 
-        except Exception as e:
-            failed_videos.append({"url": url, "reason": str(e)})
+        if not valid_videos:
+            raise Exception("❌ All videos failed. Nothing to process.")
 
-    if not valid_videos:
-        raise Exception("❌ All videos failed. Nothing to process.")
+        # ✅ Trigger YouTube Celery2 only for videos marked for training
+        videos_to_vectorize = (
+            db.query(YouTubeVideo)
+            .filter(
+                YouTubeVideo.bot_id == bot_id,
+                YouTubeVideo.status == "Extracted",
+                YouTubeVideo.transcript.isnot(None),
+                YouTubeVideo.is_deleted == False,
+                YouTubeVideo.processed_with_training == True   # 👈 required
+            )
+            .with_for_update(skip_locked=True)  # 👈 prevents race condition
+            .all()
+        )
 
+        if videos_to_vectorize:
+            for v in videos_to_vectorize:
+                v.status = "Embedding"
+                v.updated_by = action_user_id
+                db.add(v)
+            db.commit()
 
-    # for v in valid_videos:
-    #     save_video_metadata(db, bot_id, v["url"], v["transcript"], v["metadata"])
-    # ✅ Trigger YouTube Celery2 only for videos marked for training
-    videos_to_vectorize = (
-    db.query(YouTubeVideo)
-    .filter(
-        YouTubeVideo.bot_id == bot_id,
-        YouTubeVideo.status == "Extracted",
-        YouTubeVideo.transcript.isnot(None),
-        YouTubeVideo.is_deleted == False,
-        YouTubeVideo.processed_with_training == True   # 👈 required
-    )
-    .with_for_update(skip_locked=True)  # 👈 prevents race condition
-    .all()
-)
+            video_ids = [v.id for v in videos_to_vectorize]
+            process_youtube_videos_part2.delay(bot_id, video_ids, action_user_id)
 
-    if videos_to_vectorize:
-        for v in videos_to_vectorize:
-            v.status = "Embedding"
-            v.updated_by = action_user_id
-            db.add(v)
-        db.commit()
-
-        video_ids = [v.id for v in videos_to_vectorize]
-        process_youtube_videos_part2.delay(bot_id, video_ids, action_user_id)
-
-    return {
-        "status": "completed",
-        "message": f"✅ Saved {len(valid_videos)} video(s) to DB. Embedding will be triggered manually.",
-        "failed": failed_videos,
-        "bot_id": bot_id
-    }
+        return {
+            "status": "completed",
+            "message": f"✅ Saved {len(valid_videos)} video(s) to DB. Embedding will be triggered manually.",
+            "failed": failed_videos,
+            "bot_id": bot_id
+        }
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
 
 
 @celery_app.task(bind=True, name='process_file_upload_part1', max_retries=3)
@@ -420,14 +505,14 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
         bot_id: The ID of the chatbot
         file_data: Dictionary containing file metadata and paths
     """
+    db = SessionLocal()
     try:
         logger.info(f"📄 Starting Celery task to process file upload for bot {bot_id}")
         logger.info(f"File data received: {file_data}")
         from app.word_count_validation import validate_cumulative_word_count_sync_for_celery
         from app.utils.file_size_validations_utils import update_file_metadata_status_only
         
-        # Get database session
-        db = next(get_db())
+        # Using short-lived DB session for this task
         print("file database id",file_data.get("file_id_db"))
         
         # Get bot information (for notifications)
@@ -437,6 +522,8 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
             
         # Get user_id for embedding model selection
         user_id = bot.user_id
+        # Decide whether to use markdown-aware processing based on bot setting
+        use_markdown_chunking = bool(bot and bot.markdown_chunking is True)
         
         # Get file path
         file_path = file_data.get("file_path")
@@ -586,38 +673,69 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                                 
                                 logger.info(f"Successfully downloaded PDF from S3, got {len(archive_pdf_content)} bytes")
                                 
-                                # Try multiple PDF extraction libraries in sequence
-                                # 1. Try PyPDF2
-                                try:
-                                    import PyPDF2
-                                    import io
-                                    logger.info(f"Attempting extraction with PyPDF2")
-                                    
-                                    pdf_text = ""
+                                # Try markdown extraction first using pymupdf4llm (only if enabled)
+                                if use_markdown_chunking:
                                     try:
-                                        pdf_file_obj = io.BytesIO(archive_pdf_content)
-                                        pdf_reader = PyPDF2.PdfReader(pdf_file_obj)
-                                        logger.info(f"PDF has {len(pdf_reader.pages)} pages according to PyPDF2")
-                                        
-                                        for page_num in range(len(pdf_reader.pages)):
-                                            page = pdf_reader.pages[page_num]
-                                            page_text = page.extract_text()
-                                            if page_text:
-                                                pdf_text += page_text + "\n\n"
-                                                logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
+                                        import tempfile
+                                        logger.info(f"Attempting markdown extraction with pymupdf4llm")
+                                        print("Attempting markdown extraction with pymupdf4llm")
+
+                                        #Create temporary file for pymupdf4llm
+                                        temp_file_path = None
+                                        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+                                            temp_file.write(archive_pdf_content)
+                                            temp_file_path = temp_file.name
+
+                                        try:
+                                            md_text = pymupdf4llm.to_markdown(temp_file_path)
+                                            if md_text and md_text.strip():
+                                                md_text = normalize_markdown_tables(md_text)
+                                                file_content_text = md_text
+                                                logger.info(f"✅ Successfully extracted {len(md_text)} chars as markdown")
                                             else:
-                                                logger.warning(f"No text extracted from page {page_num+1} with PyPDF2")
-                                        
-                                        if pdf_text.strip():
-                                            logger.info(f"Successfully extracted {len(pdf_text)} chars with PyPDF2")
-                                            file_content_text = pdf_text
-                                        else:
-                                            logger.warning(f"PyPDF2 extraction yielded no text, trying next method")
-                                    except Exception as pypdf_err:
-                                        logger.error(f"PyPDF2 extraction error: {str(pypdf_err)}")
-                                except ImportError:
-                                    logger.warning(f"PyPDF2 not available, skipping this extraction method")
+                                                logger.warning("⚠️ Markdown extraction yielded no text, falling back to Docling extraction")
+                                        finally:
+                                            # Clean up temporary file
+                                            if temp_file_path and os.path.exists(temp_file_path):
+                                                os.unlink(temp_file_path)
+                                    except ImportError:
+                                        logger.warning("⚠️ pymupdf4llm not available, falling back to PyPDF2 extraction")
+                                    except Exception as markdown_err:
+                                        logger.error(f"❌ Markdown extraction error: {str(markdown_err)}, falling back to PyPDF2 extraction")
+                                else:
+                                    logger.info("Markdown extraction disabled; skipping pymupdf4llm")
                                 
+                                if not file_content_text:
+                                    try:
+                                        import PyPDF2
+                                        import io
+                                        logger.info(f"Attempting extraction with PyPDF2")
+
+                                        pdf_text = ""
+                                        try:
+                                            pdf_file_obj = io.BytesIO(archive_pdf_content)
+                                            pdf_reader = PyPDF2.PdfReader(pdf_file_obj)
+                                            logger.info(f"PDF has {len(pdf_reader.pages)} pages according to PyPDF2")
+
+                                            for page_num in range(len(pdf_reader.pages)):
+                                                page = pdf_reader.pages[page_num]
+                                                page_text = page.extract_text()
+                                                if page_text:
+                                                    pdf_text += page_text + "\n\n"
+                                                    logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
+                                                else:
+                                                    logger.warning(f"No text extracted from page {page_num+1} with PyPDF2")
+
+                                            if pdf_text.strip():
+                                                logger.info(f"Successfully extracted {len(pdf_text)} chars with PyPDF2")
+                                                file_content_text = pdf_text
+                                            else:
+                                                logger.warning(f"PyPDF2 extraction yielded no text, trying next method")
+                                        except Exception as pypdf_err:
+                                            logger.error(f"PyPDF2 extraction error: {str(pypdf_err)}")
+                                    except ImportError:
+                                        logger.warning(f"PyPDF2 not available, skipping this extraction method")
+
                                 # 2. If PyPDF2 failed, try pdfplumber
                                 if not file_content_text:
                                     try:
@@ -728,35 +846,49 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                                 logger.info(f"Found original PDF at {archive_path}")
                                 
                                 # Try multiple PDF extraction libraries in sequence
-                                # 1. Try PyPDF2
-                                try:
-                                    import PyPDF2
-                                    logger.info(f"Attempting extraction with PyPDF2")
-                                    
-                                    pdf_text = ""
-                                    with open(archive_path, 'rb') as pdf_file:
-                                        try:
-                                            pdf_reader = PyPDF2.PdfReader(pdf_file)
-                                            logger.info(f"PDF has {len(pdf_reader.pages)} pages according to PyPDF2")
-                                            
-                                            for page_num in range(len(pdf_reader.pages)):
-                                                page = pdf_reader.pages[page_num]
-                                                page_text = page.extract_text()
-                                                if page_text:
-                                                    pdf_text += page_text + "\n\n"
-                                                    logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
+                                # 1. Try pymupdf4llm (only if enabled)
+                                if use_markdown_chunking:
+                                    try:
+                                        logger.info(f"Attempting extraction with pymupdf4llm")
+                                        print("Attempting extraction with pymupdf4llm")
+                                        md_text = pymupdf4llm.to_markdown(archive_path)
+                                        md_text = normalize_markdown_tables(md_text)
+                                        file_content_text = md_text
+                                        logger.info(f"Extracted {len(md_text)} chars of markdown")
+                                    except ImportError:
+                                        logger.warning("⚠️ pymupdf4llm not available, falling back to Docling extraction")
+                                else:
+                                    logger.info("Markdown extraction disabled; skipping pymupdf4llm")
+
+                                if not file_content_text:
+                                    try:
+                                        import PyPDF2
+                                        logger.info(f"Attempting extraction with PyPDF2")
+
+                                        pdf_text = ""
+                                        with open(archive_path, 'rb') as pdf_file:
+                                            try:
+                                                pdf_reader = PyPDF2.PdfReader(pdf_file)
+                                                logger.info(f"PDF has {len(pdf_reader.pages)} pages according to PyPDF2")
+
+                                                for page_num in range(len(pdf_reader.pages)):
+                                                    page = pdf_reader.pages[page_num]
+                                                    page_text = page.extract_text()
+                                                    if page_text:
+                                                        pdf_text += page_text + "\n\n"
+                                                        logger.info(f"Extracted {len(page_text)} chars from page {page_num+1}")
+                                                    else:
+                                                        logger.warning(f"No text extracted from page {page_num+1} with PyPDF2")
+
+                                                if pdf_text.strip():
+                                                    logger.info(f"Successfully extracted {len(pdf_text)} chars with PyPDF2")
+                                                    file_content_text = pdf_text
                                                 else:
-                                                    logger.warning(f"No text extracted from page {page_num+1} with PyPDF2")
-                                            
-                                            if pdf_text.strip():
-                                                logger.info(f"Successfully extracted {len(pdf_text)} chars with PyPDF2")
-                                                file_content_text = pdf_text
-                                            else:
-                                                logger.warning(f"PyPDF2 extraction yielded no text, trying next method")
-                                        except Exception as pypdf_err:
-                                            logger.error(f"PyPDF2 extraction error: {str(pypdf_err)}")
-                                except ImportError:
-                                    logger.warning(f"PyPDF2 not available, skipping this extraction method")
+                                                    logger.warning(f"PyPDF2 extraction yielded no text, trying next method")
+                                            except Exception as pypdf_err:
+                                                logger.error(f"PyPDF2 extraction error: {str(pypdf_err)}")
+                                    except ImportError:
+                                        logger.warning(f"PyPDF2 not available, skipping this extraction method")
                                 
                                 # 2. If PyPDF2 failed, try pdfplumber
                                 if not file_content_text:
@@ -1260,7 +1392,7 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
                                             
                                             # Try primary DOCX extraction
                                             try:
-                                                text_from_docx = extract_text_from_docx(archive_content)
+                                                text_from_docx = extract_text_from_docx(archive_content, use_markdown_chunking)
                                                 if text_from_docx and text_from_docx.strip():
                                                     file_content_text = text_from_docx
                                                     logger.info(f"✅ DOCX text extraction successful: {len(file_content_text)} chars")
@@ -1464,31 +1596,37 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
         
         # Report failure if no more retries
         try:
-            db = next(get_db())
-            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
-            # Update the file status to failed
-            file_id = file_data.get("file_id")
-            if file_id:
+            db2 = SessionLocal()
+            try:
+                bot = db2.query(Bot).filter(Bot.bot_id == bot_id).first()
+                # Update the file status to failed
+                file_id = file_data.get("file_id")
+                if file_id:
+                    try:
+                        update_file_metadata_status_only(db2, {
+                            "file_id_db": file_data.get("file_id_db"),
+                            "status": "Failed",
+                            "error_message": f"Extraction Failed: {str(e)}",
+                            "updated_by": action_user_id
+                        })
+                        db2.commit()
+                        logger.info(f"✅ File ID {file_id} marked as 'failed' in DB after final retry failure.")
+                    except Exception as update_error:
+                        db2.rollback()
+                        logger.exception(f"❌ Failed to mark file {file_id} as failed in DB: {str(update_error)}")
+                add_notification(
+                    db=db2,
+                    event_type="FILE_EXTRACTION_FAILED",
+                    event_data=f'Failed to extract "{file_data.get("original_filename", "unknown file")}". Task failed after {self.max_retries} retries: {str(e)}',
+                    bot_id=bot_id,
+                    user_id=bot.user_id if bot else None
+                )
+                logger.info(f"Sent final failure notification after {self.max_retries} retries")
+            finally:
                 try:
-                    update_file_metadata_status_only(db, {
-                        "file_id_db": file_data.get("file_id_db"),
-                        "status": "Failed",
-                        "error_message": f"Extraction Failed: {str(e)}",
-                        "updated_by": action_user_id
-                    })
-                    db.commit()
-                    logger.info(f"✅ File ID {file_id} marked as 'failed' in DB after final retry failure.")
-                except Exception as update_error:
-                    db.rollback()
-                    logger.exception(f"❌ Failed to mark file {file_id} as failed in DB: {str(update_error)}")
-            add_notification(
-                db=db,
-                event_type="FILE_EXTRACTION_FAILED",
-                event_data=f'Failed to extract "{file_data.get("original_filename", "unknown file")}". Task failed after {self.max_retries} retries: {str(e)}',
-                bot_id=bot_id,
-                user_id=bot.user_id if bot else None
-            )
-            logger.info(f"Sent final failure notification after {self.max_retries} retries")
+                    db2.close()
+                except Exception:
+                    pass
         except Exception as notify_error:
             logger.exception(f"Failed to send final failure notification: {str(notify_error)}")
         
@@ -1498,6 +1636,11 @@ def process_file_upload_part1(self, bot_id: int, file_data: dict):
             "file_id": file_data.get("file_id"),
             "error": str(e)
         } 
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
 
 
 @celery_app.task(bind=True, name="process_file_upload_part2", max_retries=3)
@@ -1511,9 +1654,9 @@ def process_file_upload_part2(self, bot_id: int, file_id: str,action_user_id: in
         action_user_id: The ID of the user who performed the operation
     """
     from app.word_count_validation import update_bot_word_and_file_count
+    db = SessionLocal()
     try:
         logger.info(f"🧠 Starting vectorization for file_id: {file_id}, bot_id: {bot_id}")
-        db = next(get_db())
 
         # Fetch file record
         file_record = db.query(File).filter(
@@ -1582,30 +1725,65 @@ def process_file_upload_part2(self, bot_id: int, file_id: str,action_user_id: in
         file_type = file_record.file_type
 
         # ✅ Create metadata for embedding - ENSURE CONSISTENT FORMAT
-        metadata = {
-            "id": file_id,               # Primary identifier
-            "source": "upload",          # Source type for filtering
+        # ✅ Base metadata (applies to all chunks)
+        base_metadata = {
+            "id": file_id,
+            "source": "upload",
             "file_name": original_filename,
             "file_type": file_type,
-            "bot_id": bot_id             # Always include bot_id
+            "bot_id": bot_id
         }
 
         logger.info(f"📥 Adding document to vector database: {original_filename}")
 
         # ✅ Split text into chunks before storing in vector database
         print("bot_id",bot_id)
-        text_chunks = chunk_text(file_content_text, bot_id=bot_id, user_id=user_id, db=db)
-        logger.info(f"📄 Split text into {len(text_chunks)} chunks")
+        # Split the text into words
+        words = file_content_text.split()
 
-        # ✅ Store each chunk with proper metadata
-        for i, chunk in enumerate(text_chunks):
-            chunk_metadata = metadata.copy()
-            chunk_metadata["id"] = f"{file_id}_chunk_{i+1}" if len(text_chunks) > 1 else file_id
-            chunk_metadata["chunk_number"] = i + 1
-            chunk_metadata["total_chunks"] = len(text_chunks)
+        # Decide chunking strategy based on bot.markdown_chunking (True => markdown-aware, False/None => legacy)
+        use_markdown_chunking = bool(bot and bot.markdown_chunking is True)
 
-            # Add the chunk to the vector database with user_id for model selection
-            add_document(bot_id=bot_id, text=chunk, metadata=chunk_metadata, user_id=user_id)
+        if use_markdown_chunking:
+            # New: markdown-aware chunking with metadata
+            chunks_with_metadata = chunk_markdown_text(
+                file_content_text,
+                file_name=original_filename,
+                file_id=file_id,
+                file_type=file_type,
+                bot_id=bot_id,
+                user_id=user_id,
+                db=db
+            )
+            logger.info(f"📄 Split text into {len(chunks_with_metadata)} chunks")
+
+            # Store each chunk with merged metadata
+            for chunk in chunks_with_metadata:
+                chunk_metadata = {**base_metadata, **chunk["metadata"]}
+                add_document(
+                    bot_id=bot_id,
+                    text=chunk["text"],
+                    metadata=chunk_metadata,
+                    user_id=user_id
+                )
+        else:
+            # Legacy: character-based chunking
+            text_chunks = chunk_text(file_content_text, bot_id=bot_id, user_id=user_id, db=db)
+            logger.info(f"📄 Split text into {len(text_chunks)} chunks")
+
+            # Store each chunk and build metadata per chunk
+            for i, chunk in enumerate(text_chunks):
+                chunk_metadata = base_metadata.copy()
+                chunk_metadata["id"] = f"{file_id}_chunk_{i+1}" if len(text_chunks) > 1 else file_id
+                chunk_metadata["chunk_number"] = i + 1
+                chunk_metadata["total_chunks"] = len(text_chunks)
+
+                add_document(
+                    bot_id=bot_id,
+                    text=chunk,
+                    metadata=chunk_metadata,
+                    user_id=user_id
+                )
 
         # ✅ Update the database record
         file_record.status = "Success"
@@ -1655,30 +1833,41 @@ def process_file_upload_part2(self, bot_id: int, file_id: str,action_user_id: in
 
     except Exception as e:
         logger.exception(f"❌ Vectorization failed for file_id {file_id}: {str(e)}")
-        db = next(get_db())
-        file_record = db.query(File).filter(
-            File.bot_id == bot_id,
-            File.unique_file_name == file_id
-        ).first()
-        if file_record:
-            file_record.status = "Failed"
-            file_record.error_code = f"Embedding Failed: {str(e)}"
-            db.commit()
-        # Send failure notification
+        db2 = SessionLocal()
         try:
-            add_notification(
-                    db=db,
-                    event_type="FILE_PROCESSING_FAILED",
-                    event_data=f'Failed to process and embed Part 2"{original_filename}". Reason: {str(e)}',
-                    bot_id=bot_id,
-                    user_id=user_id
-                )
-            logger.info(f"Sent failure notification")
-        except Exception as notify_error:
-                logger.error(f"Error sending failure notification: {str(notify_error)}")
+            file_record = db2.query(File).filter(
+                File.bot_id == bot_id,
+                File.unique_file_name == file_id
+            ).first()
+            if file_record:
+                file_record.status = "Failed"
+                file_record.error_code = f"Embedding Failed: {str(e)}"
+                db2.commit()
+            # Send failure notification
+            try:
+                add_notification(
+                        db=db2,
+                        event_type="FILE_PROCESSING_FAILED",
+                        event_data=f'Failed to process and embed Part 2"{original_filename}". Reason: {str(e)}',
+                        bot_id=bot_id,
+                        user_id=user_id
+                    )
+                logger.info(f"Sent failure notification")
+            except Exception as notify_error:
+                    logger.error(f"Error sending failure notification: {str(notify_error)}")
+        finally:
+            try:
+                db2.close()
+            except Exception:
+                pass
 
         if self.request.retries < self.max_retries:
             raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
 
 
 @celery_app.task(bind=True, name='process_youtube_videos_part2', max_retries=3)
@@ -1690,9 +1879,9 @@ def process_youtube_videos_part2(self, bot_id: int, video_ids: List[int], action
     from app.youtube import send_failure_notification, send_success_notification
     from app.word_count_validation import update_word_usage
 
+    db = SessionLocal()
     try:
         logger.info(f"Starting Vectorization for  {bot_id}")
-        db = next(get_db())
         bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
         user_id = bot.user_id if bot else None
 
@@ -1770,6 +1959,11 @@ def process_youtube_videos_part2(self, bot_id: int, video_ids: List[int], action
     except Exception as e:
         logger.exception(f"❌ Error in YouTube vectorization task: {str(e)}")
         return {"status": "failed", "error": str(e), "bot_id": bot_id}
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
 
 
 @celery_app.task(bind=True, name='process_web_scraping_part1', max_retries=3)
@@ -1781,12 +1975,12 @@ def process_web_scraping_part1(self, bot_id: int, url_list: list, action_user_id
         bot_id: The ID of the chatbot
         url_list: List of URLs to scrape
     """
+    db = SessionLocal()
     try:
         logger.info(f"🌐 Starting Celery task to process {len(url_list)} web pages for bot {bot_id}")
         logger.info(f"URLs to process: {url_list}")
         
-        # Get database session
-        db = next(get_db())
+        # Using short-lived DB session for this task
         
         # Get bot information (for notifications)
         bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
@@ -1895,8 +2089,14 @@ def process_web_scraping_part1(self, bot_id: int, url_list: list, action_user_id
     except Exception as e:
         logger.exception(f"❌ Error in Celery task for processing web scraping: {str(e)}")
         try:
-            db = next(get_db())
-            mark_scraped_nodes_failed(db, bot_id, url_list, str(e))
+            db2 = SessionLocal()
+            try:
+                mark_scraped_nodes_failed(db2, bot_id, url_list, str(e))
+            finally:
+                try:
+                    db2.close()
+                except Exception:
+                    pass
         except Exception as mark_err:
             logger.exception(f"❌ Failed to update scraped nodes to FAILED: {str(mark_err)}")
         # Capture full stack trace
@@ -1910,12 +2110,18 @@ def process_web_scraping_part1(self, bot_id: int, url_list: list, action_user_id
         
         # Report failure if no more retries
         try:
-            db = next(get_db())
-            send_web_scraping_failure_notification(
-                db=db,
-                bot_id=bot_id,
-                reason=f"Task failed after {self.max_retries} retries: {str(e)}"
-            )
+            db3 = SessionLocal()
+            try:
+                send_web_scraping_failure_notification(
+                    db=db3,
+                    bot_id=bot_id,
+                    reason=f"Task failed after {self.max_retries} retries: {str(e)}"
+                )
+            finally:
+                try:
+                    db3.close()
+                except Exception:
+                    pass
         except Exception as notify_error:
             logger.exception(f"Failed to send failure notification: {str(notify_error)}")
         
@@ -1924,6 +2130,11 @@ def process_web_scraping_part1(self, bot_id: int, url_list: list, action_user_id
             "bot_id": bot_id,
             "error": str(e)
         } 
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
 
 @celery_app.task(bind=True, name="process_web_scraping_part2", max_retries=3)
 def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action_user_id: int):
@@ -1931,9 +2142,9 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action
     Celery task to vectorize selected scraped website nodes for a given bot.
     """
     from app.word_count_validation import update_word_usage
+    db = SessionLocal()
     try:
         logger.info(f"🚀 Starting vectorization of {len(scraped_node_ids)} scraped nodes for bot {bot_id}")
-        db = next(get_db())
 
         nodes = db.query(ScrapedNode).filter(
             ScrapedNode.id.in_(scraped_node_ids),
@@ -1954,9 +2165,11 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action
             try:
                 logger.info(f"Preparing to add document to vector DB", extra={"bot_id": bot_id, "url": url})
                 website_id = hashlib.md5(url.encode()).hexdigest()
+                # Use a bot-scoped file_id to avoid cross-bot ID collisions in Qdrant
+                file_id_unique = f"web-{bot_id}-{website_id}"
 
                 metadata = {
-                    "id": website_id,
+                    "id": file_id_unique,
                     "source": "website",
                     "website_url": url,
                     "title": node.title or "No Title",
@@ -1968,30 +2181,85 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action
                 bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
                 user_id = bot.user_id if bot else None
                 
+                # Decide chunking strategy based on bot.markdown_chunking (True => markdown-aware, False/None => legacy)
+                use_markdown_chunking = bool(bot and bot.markdown_chunking is True)
 
-                text_chunks = chunk_text(node.nodes_text)
-                logger.info(f"Split text into {len(text_chunks)} chunks", extra={"bot_id": bot_id, "url": url})
+                if use_markdown_chunking:
+                    # New: markdown-aware chunking for better context preservation
+                    markdown_chunks = chunk_markdown_text(
+                        markdown_text=node.nodes_text,
+                        file_name=node.title or "No Title",
+                        file_id=file_id_unique,
+                        file_type="website",
+                        bot_id=bot_id,
+                        user_id=user_id,
+                        db=db
+                    )
+                    logger.info(f"Split markdown into {len(markdown_chunks)} chunks", extra={"bot_id": bot_id, "url": url})
 
-                for i, chunk in enumerate(text_chunks):
-                    chunk_metadata = metadata.copy()
-                    chunk_metadata["id"] = f"{website_id}_{i}" if len(text_chunks) > 1 else website_id
-                    chunk_metadata["chunk_number"] = i + 1
-                    chunk_metadata["total_chunks"] = len(text_chunks)
+                    for chunk_data in markdown_chunks:
+                        chunk_text_value = chunk_data["text"]
+                        chunk_metadata = chunk_data["metadata"]
 
-                    if user_id:
-                        logger.info(f"Adding chunk {i+1}/{len(text_chunks)} to vector DB", 
-                                          extra={"bot_id": bot_id, "url": url, "user_id": user_id})
-                        add_document(bot_id, text=chunk, metadata=chunk_metadata, user_id=user_id)
-                    else:
-                        logger.warning(f"No user_id found for bot, adding chunk without user context",
-                                            extra={"bot_id": bot_id, "url": url})
-                        add_document(bot_id, text=chunk, metadata=chunk_metadata)
+                        # Update with website-specific fields (additive only, don't remove anything)
+                        chunk_metadata.update({
+                            "source": "website",
+                            "website_url": url,
+                            "url": url,
+                            "title": node.title or "No Title"
+                        })
+
+                        if user_id:
+                            logger.info(
+                                    f"Adding chunk {chunk_metadata['chunk_number']}/{chunk_metadata['total_chunks']} to vector DB",
+                                    extra={"bot_id": bot_id, "url": url, "user_id": user_id}
+                                )
+                            add_document(bot_id, text=chunk_text_value, metadata=chunk_metadata, user_id=user_id)
+                        else:
+                            logger.warning(
+                                f"No user_id found for bot, adding chunk without user context",
+                                extra={"bot_id": bot_id, "url": url}
+                            )
+                            add_document(bot_id, text=chunk_text_value, metadata=chunk_metadata)
+                else:
+                    # Legacy: character-based chunking
+                    text_chunks = chunk_text(node.nodes_text)
+                    logger.info(f"Split text into {len(text_chunks)} chunks", extra={"bot_id": bot_id, "url": url})
+
+                    for i, chunk in enumerate(text_chunks):
+                        chunk_metadata = metadata.copy()
+                        # Bot-scoped, chunk-scoped ID to prevent collisions across bots
+                        chunk_metadata["id"] = f"{file_id_unique}_{i+1}" if len(text_chunks) > 1 else file_id_unique
+                        chunk_metadata["chunk_number"] = i + 1
+                        chunk_metadata["total_chunks"] = len(text_chunks)
+                        # Ensure proper source for website content
+                        chunk_metadata["source"] = "website"
+
+                        if user_id:
+                            logger.info(
+                                f"Adding chunk {i+1}/{len(text_chunks)} to vector DB",
+                                extra={"bot_id": bot_id, "url": url, "user_id": user_id}
+                            )
+                            add_document(bot_id, text=chunk, metadata=chunk_metadata, user_id=user_id)
+                        else:
+                            logger.warning(
+                                f"No user_id found for bot, adding chunk without user context",
+                                extra={"bot_id": bot_id, "url": url}
+                            )
+                            add_document(bot_id, text=chunk, metadata=chunk_metadata)
 
                 total_words_embedded += len(node.nodes_text.split())
                 print("count of words embeded in website", total_words_embedded)
-                logger.info(f"Successfully added document chunks to vector DB",
-                                  extra={"bot_id": bot_id, "url": url,
-                                        "document_id": website_id, "chunk_count": len(text_chunks)})
+                chunk_count = len(markdown_chunks) if use_markdown_chunking else len(text_chunks)
+                logger.info(
+                    f"Successfully added document chunks to vector DB",
+                    extra={
+                        "bot_id": bot_id,
+                        "url": url,
+                        "document_id": website_id,
+                        "chunk_count": chunk_count
+                    }
+                )
                 
 
                 node.status = "Success"
@@ -2027,6 +2295,11 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action
     except Exception as e:
         logger.exception(f"❌ Error in vectorizing scraped nodes for bot {bot_id}: {str(e)}")
         raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
 
 @celery_app.task(bind=True, name='monitor_bot_training_status', max_retries=3)
 def monitor_bot_training_status(self, bot_id: int):

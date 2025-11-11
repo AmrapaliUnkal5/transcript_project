@@ -4,6 +4,7 @@ from sqladmin.authentication import AuthenticationBackend
 from starlette.responses import RedirectResponse
 from app.config import settings
 from app.database import engine
+from app.database import SessionLocal
 from app.models import (
     User, Bot, File, Interaction, Language, UserAddon, 
     UserAuthProvider, ChatMessage, 
@@ -118,6 +119,11 @@ class BotAdmin(BaseModelView, model=Bot):
             print(f"🔍 BotAdmin.on_model_change called - is_created: {is_created}")
             print(f"🔍 Model data: {model.__dict__}")
             print(f"🔍 Form data: {data}")
+
+            if 'lead_form_config' in data:
+                if data['lead_form_config'] == {}:
+                    data['lead_form_config'] = None  # Convert {} to None
+                    print(f"🔧 Fixed lead_form_config: {{}} → None")
             
             # Only trigger re-embedding if this is an update (not a new creation)
             if not is_created:
@@ -144,24 +150,19 @@ class BotAdmin(BaseModelView, model=Bot):
                     bot = session.query(Bot).filter(Bot.bot_id == model.bot_id).first()
                     if bot:
                         bot.embedding_model_id = int(new_embedding_model_id)
+                        # Mark bot as Retraining so UI can show progress state immediately
+                        bot.is_retrained = True
                         session.commit()
                         print(f"✅ Updated bot {model.bot_id} with new embedding model ID: {new_embedding_model_id}")
+                        print(f"✅ Marked bot {model.bot_id} as Retraining")
                     else:
                         print(f"❌ Could not find bot with ID {model.bot_id} in database")
                     
-                    # Run the comprehensive re-embedding in the background to avoid blocking the admin UI
-                    # This will now re-embed files, web scraping data, and YouTube data
-                    task = asyncio.create_task(reembed_all_bot_data(model.bot_id, session))
-                    
-                    def callback(future):
-                        try:
-                            result = future.result()
-                            print(f"✅ Re-embedding task completed for bot {model.bot_id}: {result}")
-                        except Exception as e:
-                            print(f"❌ Re-embedding task failed for bot {model.bot_id}: {str(e)}")
-                    
-                    task.add_done_callback(callback)
+                    # Enqueue re-embedding as a Celery task so it runs fully in the background
+                    from app.celery_tasks import reembed_single_bot
+                    task = reembed_single_bot.delay(model.bot_id)
                     print(f"✅ Comprehensive re-embedding task started for bot {model.bot_id}")
+                    print(f"✅ Celery Task ID: {task.id}")
                     
                     # Return None since we've already called the parent method
                     return None
@@ -384,17 +385,17 @@ class SubscriptionPlanAdmin(BaseModelView, model=SubscriptionPlan):
                     old_embedding_model_id_int = int(old_embedding_model_id) if old_embedding_model_id is not None else None
                     
                     # Import the Celery task here to avoid circular imports
-                    from app.celery_tasks import reembed_bots_for_subscription_plan
+                    # from app.celery_tasks import reembed_bots_for_subscription_plan
                     
                     # Submit the Celery task to reembed affected bots
-                    task = reembed_bots_for_subscription_plan.delay(
-                        subscription_plan_id=model.id,
-                        old_embedding_model_id=old_embedding_model_id_int or 0,  # Use 0 if None
-                        new_embedding_model_id=new_embedding_model_id_int
-                    )
+                    # task = reembed_bots_for_subscription_plan.delay(
+                    #     subscription_plan_id=model.id,
+                    #     old_embedding_model_id=old_embedding_model_id_int or 0,  # Use 0 if None
+                    #     new_embedding_model_id=new_embedding_model_id_int
+                    # )
                     
-                    print(f"✅ Scheduled reembedding task for subscription plan {model.id}")
-                    print(f"✅ Task ID: {task.id}")
+                    # print(f"✅ Scheduled reembedding task for subscription plan {model.id}")
+                    # print(f"✅ Task ID: {task.id}")
                 else:
                     print(f"⏩ No change in default embedding model for subscription plan {model.id}. Skipping reembedding.")
                     await super().on_model_change(data, model, is_created, request)

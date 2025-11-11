@@ -42,6 +42,10 @@ SMTP_CONFIG = {
 # Optional API keys - properly handled if not set
 HUGGINGFACE_API_KEY = config("HUGGINGFACE_API_KEY", default=None)
 OPENAI_API_KEY = config("OPENAI_API_KEY", default=None)
+GEMINI_API_KEY = config("GEMINI_API_KEY", default=None)
+DEEPSEEK_API_KEY= config("DEEPSEEK_API_KEY", default=None)
+ANTHROPIC_API_KEY= config("ANTHROPIC_API_KEY", default=None)
+GROQ_API_KEY = config("GROQ_API_KEY", default=None)
 QDRANT_URL = config("QDRANT_URL", default="http://159.89.165.123:6333")
 QDRANT_API_KEY = config("QDRANT_API_KEY", default=None)
 
@@ -55,6 +59,10 @@ class Settings(BaseSettings):
     SERVER_URL: str = config("SERVER_URL")  # Add the SERVER_URL here
     HUGGINGFACE_API_KEY: Optional[str] = HUGGINGFACE_API_KEY  # Use Optional to handle None values
     OPENAI_API_KEY: Optional[str] = OPENAI_API_KEY  # Add OpenAI API key
+    GEMINI_API_KEY: Optional[str] = GEMINI_API_KEY  # Add Gemini API key
+    DEEPSEEK_API_KEY: Optional[str] =DEEPSEEK_API_KEY
+    ANTHROPIC_API_KEY: Optional[str] =ANTHROPIC_API_KEY
+    GROQ_API_KEY: Optional[str] = GROQ_API_KEY
     QDRANT_URL: str = QDRANT_URL
     QDRANT_API_KEY: Optional[str] = QDRANT_API_KEY
     WIDGET_API_URL:str =config("WIDGET_API_URL")

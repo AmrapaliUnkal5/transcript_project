@@ -1,6 +1,6 @@
 from app.models import File, Bot, User, EmbeddingModel, ScrapedNode, YouTubeVideo
-from app.vector_db import add_document
-from app.utils.upload_knowledge_utils import extract_text_from_file
+from app.vector_db import add_document, get_qdrant_client
+from app.utils.upload_knowledge_utils import extract_text_from_file, chunk_markdown_text, chunk_text
 import aiofiles
 import asyncio
 import logging
@@ -8,8 +8,226 @@ import time
 import os
 import shutil
 from datetime import datetime
+import hashlib
+from qdrant_client.models import Filter, FieldCondition, MatchValue
 
 logger = logging.getLogger(__name__)
+
+async def delete_file_embeddings(file_name: str, bot_id: int, db):
+    """
+    Delete all embeddings for a specific file from the vector database.
+
+    Args:
+        file_name: The original filename used in metadata
+        bot_id: Bot ID
+        db: Database session
+
+    Returns:
+        Number of embeddings deleted
+    """
+    try:
+        deleted_count = 0
+
+        # Use Qdrant only
+        qdrant_client = get_qdrant_client()
+        if not qdrant_client:
+            logger.error(f"❌ Qdrant client not available")
+            return 0
+
+        try:
+            collection_name = "unified_vector_store"
+
+            # Create filter to find all documents for this file using file_name + bot_id
+            metadata_filter = Filter(
+                must=[
+                    FieldCondition(key="bot_id", match=MatchValue(value=bot_id)),
+                    FieldCondition(key="file_name", match=MatchValue(value=file_name))
+                ]
+            )
+
+            # Get all points matching this filter
+            scroll_result = qdrant_client.scroll(
+                collection_name=collection_name,
+                scroll_filter=metadata_filter,
+                limit=1000
+            )
+
+            # Keep scrolling until we have all points
+            all_point_ids = []
+            offset = None
+            while True:
+                scroll_result = qdrant_client.scroll(
+                    collection_name=collection_name,
+                    scroll_filter=metadata_filter,
+                    limit=1000,
+                    offset=offset
+                )
+
+                if scroll_result[0]:  # [0] is the points list
+                    all_point_ids.extend([point.id for point in scroll_result[0]])
+
+                offset = scroll_result[1]  # [1] is the next offset
+                if not offset:
+                    break
+
+            if all_point_ids:
+                logger.info(f"🗑️ Found {len(all_point_ids)} embeddings to delete in Qdrant for file {file_name}")
+                qdrant_client.delete(
+                    collection_name=collection_name,
+                    points_selector=all_point_ids
+                )
+                deleted_count = len(all_point_ids)
+                logger.info(f"✅ Deleted {deleted_count} embeddings from Qdrant")
+            else:
+                logger.info(f"ℹ️ No embeddings found for file {file_name}")
+
+        except Exception as e:
+            logger.error(f"❌ Error deleting from Qdrant: {str(e)}")
+            return 0
+
+        return deleted_count
+
+    except Exception as e:
+        logger.error(f"❌ Error in delete_file_embeddings: {str(e)}")
+        return 0
+
+async def delete_scraped_node_embeddings(url: str, bot_id: int, db):
+    """
+    Delete all embeddings for a specific scraped node from the vector database.
+
+    Args:
+        url: The website URL used in metadata
+        bot_id: Bot ID
+        db: Database session
+
+    Returns:
+        Number of embeddings deleted
+    """
+    try:
+        # Use Qdrant only
+        qdrant_client = get_qdrant_client()
+        if not qdrant_client:
+            logger.error(f"❌ Qdrant client not available")
+            return 0
+
+        try:
+            collection_name = "unified_vector_store"
+
+            # Create filter to find all documents for this website using url + bot_id
+            metadata_filter = Filter(
+                must=[
+                    FieldCondition(key="bot_id", match=MatchValue(value=bot_id)),
+                    FieldCondition(key="url", match=MatchValue(value=url))
+                ]
+            )
+
+            # Get all points matching this filter
+            all_point_ids = []
+            offset = None
+            while True:
+                scroll_result = qdrant_client.scroll(
+                    collection_name=collection_name,
+                    scroll_filter=metadata_filter,
+                    limit=1000,
+                    offset=offset
+                )
+
+                if scroll_result[0]:
+                    all_point_ids.extend([point.id for point in scroll_result[0]])
+
+                offset = scroll_result[1]
+                if not offset:
+                    break
+
+            if all_point_ids:
+                logger.info(f"🗑️ Found {len(all_point_ids)} embeddings to delete in Qdrant for website {url}")
+                qdrant_client.delete(
+                    collection_name=collection_name,
+                    points_selector=all_point_ids
+                )
+                deleted_count = len(all_point_ids)
+                logger.info(f"✅ Deleted {deleted_count} embeddings from Qdrant")
+                return deleted_count
+            else:
+                logger.info(f"ℹ️ No embeddings found for website {url}")
+                return 0
+
+        except Exception as e:
+            logger.error(f"❌ Error deleting from Qdrant: {str(e)}")
+            return 0
+
+    except Exception as e:
+        logger.error(f"❌ Error in delete_scraped_node_embeddings: {str(e)}")
+        return 0
+
+async def delete_youtube_video_embeddings(url: str, bot_id: int, db):
+    """
+    Delete all embeddings for a specific YouTube video from the vector database.
+
+    Args:
+        url: The YouTube video URL used in metadata
+        bot_id: Bot ID
+        db: Database session
+
+    Returns:
+        Number of embeddings deleted
+    """
+    try:
+        # Use Qdrant only
+        qdrant_client = get_qdrant_client()
+        if not qdrant_client:
+            logger.error(f"❌ Qdrant client not available")
+            return 0
+
+        try:
+            collection_name = "unified_vector_store"
+
+            # Create filter to find all documents for this video using url + bot_id
+            metadata_filter = Filter(
+                must=[
+                    FieldCondition(key="bot_id", match=MatchValue(value=bot_id)),
+                    FieldCondition(key="url", match=MatchValue(value=url))
+                ]
+            )
+
+            # Get all points matching this filter
+            all_point_ids = []
+            offset = None
+            while True:
+                scroll_result = qdrant_client.scroll(
+                    collection_name=collection_name,
+                    scroll_filter=metadata_filter,
+                    limit=1000,
+                    offset=offset
+                )
+
+                if scroll_result[0]:
+                    all_point_ids.extend([point.id for point in scroll_result[0]])
+
+                offset = scroll_result[1]
+                if not offset:
+                    break
+
+            if all_point_ids:
+                logger.info(f"🗑️ Found {len(all_point_ids)} embeddings to delete in Qdrant for video {url}")
+                qdrant_client.delete(
+                    collection_name=collection_name,
+                    points_selector=all_point_ids
+                )
+                deleted_count = len(all_point_ids)
+                logger.info(f"✅ Deleted {deleted_count} embeddings from Qdrant")
+                return deleted_count
+            else:
+                logger.info(f"ℹ️ No embeddings found for video {url}")
+                return 0
+
+        except Exception as e:
+            logger.error(f"❌ Error deleting from Qdrant: {str(e)}")
+            return 0
+
+    except Exception as e:
+        logger.error(f"❌ Error in delete_youtube_video_embeddings: {str(e)}")
+        return 0
 
 async def reembed_all_files(bot_id: int, db):
     """Re-embed all files for a specific bot with the current embedding model.
@@ -159,25 +377,87 @@ async def reembed_all_files(bot_id: int, db):
                 error_count += 1
                 continue
             
-            # Create metadata for re-embedding
-            metadata = {
-                "id": file.unique_file_name,
-                "source": "re-embed",
-                "file_path": file.file_path,
-                "file_name": file.file_name,
-                "bot_id": bot_id,
-                "user_id": user_id,
-                "temp_collection": temp_collection_name,  # Add this to use the same temporary collection for all files
-                "model_name": model_name  # Add this to ensure consistent model usage
-            }
-            
             # Update embedding_status in database
             file.status = "Embedding"
             db.commit()
             
-            # Add document with new embedding
+            # Delete old embeddings for this file BEFORE re-embedding
             try:
-                add_document(bot_id, text, metadata, force_model=model_name)  # Force using the same model
+                logger.info(f"🗑️ Deleting old embeddings for file: {file.file_name}")
+                deleted_count = await delete_file_embeddings(file.file_name, bot_id, db)
+                logger.info(f"✅ Deleted {deleted_count} old embeddings for {file.file_name}")
+            except Exception as e:
+                logger.warning(f"⚠️ Error deleting old embeddings for {file.file_name}: {str(e)}")
+                # Continue with re-embedding anyway
+
+            # Re-embed with proper chunking
+            try:
+                # Check if bot uses markdown chunking
+                use_markdown_chunking = bool(bot.markdown_chunking is True)
+
+                if use_markdown_chunking:
+                    # Use markdown-aware chunking
+                    logger.info(f"🔪 Using markdown-aware chunking for {file.file_name}")
+                    chunks_with_metadata = chunk_markdown_text(
+                        text,
+                        file_name=file.file_name,
+                        file_id=file.unique_file_name,
+                        file_type=file.file_type or "text/plain",
+                        bot_id=bot_id,
+                        user_id=user_id,
+                        db=db
+                    )
+
+                    # Re-embed each chunk
+                    for chunk_data in chunks_with_metadata:
+                        chunk_text_value = chunk_data["text"]
+                        chunk_metadata = chunk_data["metadata"]
+
+                        # Add the new model info but keep original metadata
+                        chunk_metadata["user_id"] = user_id
+                        chunk_metadata["is_reembed"] = True
+
+                        add_document(
+                            bot_id=bot_id,
+                            text=chunk_text_value,
+                            metadata=chunk_metadata,
+                            user_id=user_id,
+                            force_model=model_name
+                        )
+
+                    logger.info(f"✅ Re-embedded {len(chunks_with_metadata)} chunks for {file.file_name}")
+
+                else:
+                    # Use legacy chunking
+                    logger.info(f"🔪 Using legacy chunking for {file.file_name}")
+                    text_chunks = chunk_text(text, bot_id=bot_id, user_id=user_id, db=db)
+
+                    # Re-embed each chunk with proper IDs
+                    for i, chunk_text_value in enumerate(text_chunks):
+                        chunk_id = f"{file.unique_file_name}_chunk_{i+1}" if len(text_chunks) > 1 else file.unique_file_name
+
+                        chunk_metadata = {
+                            "id": chunk_id,
+                            "source": "upload",  # Keep original source
+                            "file_name": file.file_name,
+                            "file_type": file.file_type or "text/plain",
+                            "file_id": file.unique_file_name,
+                            "bot_id": bot_id,
+                            "user_id": user_id,
+                            "chunk_number": i + 1,
+                            "total_chunks": len(text_chunks),
+                            "is_reembed": True  # Add flag to indicate re-embedding
+                        }
+
+                        add_document(
+                            bot_id=bot_id,
+                            text=chunk_text_value,
+                            metadata=chunk_metadata,
+                            user_id=user_id,
+                            force_model=model_name
+                        )
+
+                    logger.info(f"✅ Re-embedded {len(text_chunks)} chunks for {file.file_name}")
                 
                 # Update status in DB
                 file.status = "Success"
@@ -186,8 +466,9 @@ async def reembed_all_files(bot_id: int, db):
                 
                 success_count += 1
                 logger.info(f"✅ Successfully re-embedded file: {file.file_name}")
+
             except Exception as e:
-                error_msg = f"Error adding document to vector DB: {str(e)}"
+                error_msg = f"Error re-embedding file {file.file_name}: {str(e)}"
                 logger.error(f"❌ {error_msg}")
                 if not first_error_message:
                     first_error_message = error_msg
@@ -389,26 +670,108 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
                 
             logger.info(f"🌐 Processing content with {len(nodes_text)} characters from {node.url}")
             
-            # Create metadata for re-embedding
-            metadata = {
-                "id": f"node-{node.id}",
-                "source": "web-scrape-reembed",
-                "url": node.url,
-                "title": node.title,
-                "bot_id": bot_id,
-                "user_id": user_id,
-                "website_id": node.website_id,
-                "temp_collection": temp_collection_name,
-                "model_name": model_name
-            }
-            
             # Update embedding_status in database
             node.status = "Embedding"
             db.commit()
             
-            # Add document with new embedding
+            # Delete old embeddings for this node BEFORE re-embedding
             try:
-                add_document(bot_id, nodes_text, metadata, force_model=model_name)
+                logger.info(f"🗑️ Deleting old embeddings for scraped node: {node.url}")
+                deleted_count = await delete_scraped_node_embeddings(node.url, bot_id, db)
+                logger.info(f"✅ Deleted {deleted_count} old embeddings for {node.url}")
+            except Exception as e:
+                logger.warning(f"⚠️ Error deleting old embeddings for {node.url}: {str(e)}")
+                # Continue with re-embedding anyway
+
+            # Re-embed with proper chunking
+            try:
+                # Check if bot uses markdown chunking
+                use_markdown_chunking = bool(bot.markdown_chunking is True)
+
+                # Create base metadata
+                base_metadata = {
+                    "source": "website",  # Keep original source
+                    "website_url": node.url,
+                    "url": node.url,
+                    "title": node.title or "No Title",
+                    "bot_id": bot_id,
+                    "user_id": user_id,
+                    "is_reembed": True
+                }
+
+                if use_markdown_chunking:
+                    # Use markdown-aware chunking with bot-scoped file_id to avoid cross-bot ID collisions
+                    logger.info(f"🔪 Using markdown-aware chunking for {node.url}")
+                    website_hash = hashlib.md5(node.url.encode()).hexdigest()
+                    file_id_unique = f"web-{bot_id}-{website_hash}"
+
+                    markdown_chunks = chunk_markdown_text(
+                        markdown_text=nodes_text,
+                        file_name=node.title or "No Title",
+                        file_id=file_id_unique,
+                        file_type="website",
+                        bot_id=bot_id,
+                        user_id=user_id,
+                        db=db
+                    )
+
+                    # Re-embed each chunk
+                    for chunk_data in markdown_chunks:
+                        chunk_text_value = chunk_data["text"]
+                        chunk_metadata = chunk_data["metadata"]
+
+                        # Ensure website-specific fields are set and not overridden
+                        chunk_metadata.update({
+                            "source": "website",
+                            "website_url": node.url,
+                            "url": node.url,
+                            "title": node.title or "No Title",
+                        })
+
+                        add_document(
+                            bot_id=bot_id,
+                            text=chunk_text_value,
+                            metadata=chunk_metadata,
+                            user_id=user_id,
+                            force_model=model_name
+                        )
+
+                    logger.info(f"✅ Re-embedded {len(markdown_chunks)} chunks for {node.url}")
+                    
+                else:
+                    # Use legacy chunking
+                    logger.info(f"🔪 Using legacy chunking for {node.url}")
+                    text_chunks = chunk_text(nodes_text, bot_id=bot_id, user_id=user_id, db=db)
+
+                    # Build a bot-scoped base id to avoid cross-bot collisions
+                    website_hash = hashlib.md5(node.url.encode()).hexdigest()
+                    file_id_unique = f"web-{bot_id}-{website_hash}"
+
+                    # Re-embed each chunk with proper bot-scoped IDs and website metadata
+                    for i, chunk_text_value in enumerate(text_chunks):
+                        chunk_id = file_id_unique if len(text_chunks) == 1 else f"{file_id_unique}_{i+1}"
+
+                        chunk_metadata = {
+                            **base_metadata,
+                            "id": chunk_id,
+                            "chunk_number": i + 1,
+                            "total_chunks": len(text_chunks),
+                            # Ensure correct website fields
+                            "source": "website",
+                            "website_url": node.url,
+                            "url": node.url,
+                            "title": node.title or "No Title",
+                        }
+
+                        add_document(
+                            bot_id=bot_id,
+                            text=chunk_text_value,
+                            metadata=chunk_metadata,
+                            user_id=user_id,
+                            force_model=model_name
+                        )
+
+                    logger.info(f"✅ Re-embedded {len(text_chunks)} chunks for {node.url}")
                 
                 # Update status in DB
                 node.status = "Success"
@@ -417,8 +780,9 @@ async def reembed_all_scraped_nodes(bot_id: int, db):
                 
                 success_count += 1
                 logger.info(f"✅ Successfully re-embedded scraped node: {node.url}")
+
             except Exception as e:
-                error_msg = f"Error adding document to vector DB: {str(e)}"
+                error_msg = f"Error re-embedding scraped node {node.url}: {str(e)}"
                 logger.error(f"❌ {error_msg}")
                 if not first_error_message:
                     first_error_message = error_msg
@@ -598,26 +962,56 @@ async def reembed_all_youtube_videos(bot_id: int, db):
             transcript_text = video.transcript
             logger.info(f"📺 Processing transcript with {len(transcript_text)} characters from {video.video_title}")
             
-            # Create metadata for re-embedding
-            metadata = {
-                "id": f"youtube-{video.id}",
-                "source": "youtube-reembed",
-                "video_id": video.video_id,
-                "video_title": video.video_title,
-                "channel_name": video.channel_name,
-                "bot_id": bot_id,
-                "user_id": user_id,
-                "temp_collection": temp_collection_name,
-                "model_name": model_name
-            }
-            
             # Update embedding_status in database
             video.status = "Embedding"
             db.commit()
             
-            # Add document with new embedding
+            # Delete old embeddings for this video BEFORE re-embedding
             try:
-                add_document(bot_id, transcript_text, metadata, force_model=model_name)
+                logger.info(f"🗑️ Deleting old embeddings for YouTube video: {video.video_title}")
+                deleted_count = await delete_youtube_video_embeddings(video.video_url, bot_id, db)
+                logger.info(f"✅ Deleted {deleted_count} old embeddings for {video.video_title}")
+            except Exception as e:
+                logger.warning(f"⚠️ Error deleting old embeddings for {video.video_title}: {str(e)}")
+                # Continue with re-embedding anyway
+
+            # Re-embed with proper chunking
+            try:
+                # YouTube videos always use legacy chunking (transcripts are plain text)
+                logger.info(f"🔪 Using chunking for YouTube video: {video.video_title}")
+                text_chunks = chunk_text(transcript_text)
+
+                # Create base metadata matching initial embed (plus is_reembed)
+                base_metadata = {
+                    "source": "youtube",
+                    "source_id": video.video_id,
+                    "title": video.video_title,
+                    "url": video.video_url,
+                    "channel_name": video.channel_name,
+                    "bot_id": bot_id,
+                    "is_reembed": True
+                }
+
+                # Re-embed each chunk with IDs matching initial embed format
+                for i, chunk_text_value in enumerate(text_chunks):
+                    chunk_id = f"youtube-{video.id}-chunk-{i+1}"
+
+                    chunk_metadata = {
+                        "id": chunk_id,
+                        **base_metadata,
+                        "chunk_number": i + 1,
+                        "total_chunks": len(text_chunks)
+                    }
+
+                    add_document(
+                        bot_id=bot_id,
+                        text=chunk_text_value,
+                        metadata=chunk_metadata,
+                        user_id=user_id,
+                        force_model=model_name
+                    )
+
+                logger.info(f"✅ Re-embedded {len(text_chunks)} chunks for {video.video_title}")
                 
                 # Update status in DB
                 video.status = "Success"
@@ -626,8 +1020,9 @@ async def reembed_all_youtube_videos(bot_id: int, db):
                 
                 success_count += 1
                 logger.info(f"✅ Successfully re-embedded YouTube video: {video.video_title}")
+
             except Exception as e:
-                error_msg = f"Error adding document to vector DB: {str(e)}"
+                error_msg = f"Error re-embedding YouTube video {video.video_title}: {str(e)}"
                 logger.error(f"❌ {error_msg}")
                 if not first_error_message:
                     first_error_message = error_msg

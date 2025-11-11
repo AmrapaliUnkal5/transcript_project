@@ -163,7 +163,8 @@ def get_transcript_with_apify(video_url):
         
         # Run the Actor and wait for it to finish
         print(f"🚀 Starting Apify actor 'dz_omar/youtube-transcript-extractor'")
-        run = client.actor("dz_omar/youtube-transcript-extractor").call(run_input=run_input)
+        #run = client.actor("dz_omar/youtube-transcript-extractor").call(run_input=run_input)
+        run = client.actor("dz_omar/youtube-transcript-metadata-extractor").call(run_input=run_input)
         print(f"✅ Apify actor run completed with ID: {run.get('id')}")
         print(f"📊 Dataset ID: {run.get('defaultDatasetId')}")
         

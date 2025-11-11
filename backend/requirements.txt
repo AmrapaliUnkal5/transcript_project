@@ -41,6 +41,8 @@ qdrant_client
 langchain
 langchain_openai
 openai
+google-generativeai==0.8
+anthropic==0.72.0
 tiktoken
 pdfplumber
 yt-dlp
@@ -59,3 +61,11 @@ boto3==1.35.0
 # SAML SSO Dependencies
 cryptography>=41.0.0
 lxml>=4.9.0
+
+# Docling
+docling
+pymupdf4llm
+markdownify
+
+# Hybrid Search Dependencies
+#fastembed>=0.2.0

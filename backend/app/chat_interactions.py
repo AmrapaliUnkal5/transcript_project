@@ -363,10 +363,189 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
 
     # ✅ Extract actual response string
     bot_reply_text = bot_reply_dict["bot_reply"]
-    
-    # ✅ Parse response for formatting
+
+    # ✅ Strip Provenance block from the user-facing message
+    def strip_provenance_block(text: str) -> str:
+        print("I am getting executed strip_provenance_block")
+        if not text:
+            return text
+        import re
+        # 0) Remove any echoed [METADATA] lines that LLM may have copied from context
+        text = re.sub(r"(?im)^\s*\[METADATA\][^\n]*\n?", "", text)
+        # 1) Remove everything from the first 'Provenance' (incl. common misspellings) to the end
+        cleaned = re.sub(r"(?is)(?:provenance|provience|providence)\s*:?(?:\r?\n|\s|$)[\s\S]*$", "", text).rstrip()
+        if cleaned != text:
+            # Normalize bullets: replace leading '*' with '• '
+            cleaned = re.sub(r"(?m)^[ \t]*\*[ \t]+", "• ", cleaned)
+            return cleaned
+        # 2) Fallback: some LLMs (e.g., Gemini) emit trailing lines like
+        #    "source: File filename: ..." without a 'Provenance' header.
+        lines = text.splitlines()
+        i = len(lines) - 1
+        # Walk upward collecting contiguous provenance-like lines at the end
+        while i >= 0:
+            raw = lines[i].strip()
+            if raw == "":
+                i -= 1
+                continue
+            #if re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE):
+            if re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE) or re.match(r"^\s*-?\s*(file|website|youtube)\b", raw, re.IGNORECASE):
+                i -= 1
+                continue
+            # stop once we hit a non provenance-like line
+            break
+        # If we consumed any lines from the bottom, slice them off
+        tail_start = i + 1
+        if tail_start < len(lines):
+            body = "\n".join(lines[:tail_start]).rstrip()
+            body = re.sub(r"(?m)^[ \t]*\*[ \t]+", "• ", body)
+            return body
+        return re.sub(r"(?m)^[ \t]*\*[ \t]+", "• ", text.rstrip())
+
+    cleaned_bot_reply_text = strip_provenance_block(bot_reply_text)
+
+    # ✅ Parse response for formatting using cleaned text
     from app.utils.response_parser import parse_llm_response
-    formatted_content = parse_llm_response(bot_reply_text)
+    formatted_content = parse_llm_response(cleaned_bot_reply_text)
+
+    # ✅ Extract Provenance-based sources from the LLM response
+    def extract_provenance_sources(text: str):
+        sources = []
+        if not text:
+            return sources
+        import re
+        # Find start of Provenance block (case-insensitive), allowing optional colon or newline after the header
+        # Matches: "Provenance:", "Provenance :", or a line with just "Provenance" followed by newline
+        prov_match = re.search(r"(?is)provenance\s*:?(?:\r?\n|\s)", text, re.IGNORECASE)
+        lines = []
+        if prov_match:
+            start_idx = prov_match.end()
+            tail = text[start_idx:]
+            lines = tail.splitlines()
+        else:
+            # Fallback: parse a trailing block of lines beginning with 'source:'
+            all_lines = text.splitlines()
+            i = len(all_lines) - 1
+            block = []
+            while i >= 0:
+                raw = all_lines[i].strip()
+                if raw == "":
+                    i -= 1
+                    # keep skipping blank lines at end
+                    continue
+                #if re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE):
+                if re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE) or re.match(r"^\s*-?\s*(file|website|youtube)\b", raw, re.IGNORECASE):
+                    block.append(all_lines[i])
+                    i -= 1
+                    continue
+                break
+            lines = list(reversed(block)) if block else []
+            if not lines:
+                # Second fallback: parse any echoed [METADATA] lines to infer sources
+                meta_matches = re.findall(r"(?im)^\s*\[METADATA\]\s*([^\n]+)$", text)
+                for meta in meta_matches:
+                    src_type = None
+                    display = None
+                    m_src = re.search(r"source\s*:\s*(youtube|website|file|upload)", meta, re.IGNORECASE)
+                    if m_src:
+                        src_type = m_src.group(1).lower()
+                    if src_type in ("youtube", "website"):
+                        m_url = re.search(r"(website_url|url)\s*:\s*([^;,\"]+)", meta, re.IGNORECASE)
+                        if m_url:
+                            display = m_url.group(2).strip().lstrip('@')
+                    else:
+                        m_fn = re.search(r"file_name\s*:\s*([^;,\"]+)", meta, re.IGNORECASE)
+                        if m_fn:
+                            display = m_fn.group(1).strip()
+                    if src_type and display and display.lower() != 'unknown':
+                        sources.append({
+                            'type': 'youtube' if src_type == 'youtube' else ('website' if src_type == 'website' else 'file'),
+                            'display': display
+                        })
+                # Deduplicate
+                if sources:
+                    seen = set()
+                    deduped = []
+                    for s in sources:
+                        key = (s['type'], s['display'])
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        deduped.append(s)
+                    return deduped
+                return sources
+        consecutive_blank = 0
+        for line in lines:
+            raw = line.strip()
+            if not raw:
+                # allow sparse blank lines; stop only after 3 consecutive blanks
+                consecutive_blank += 1
+                if consecutive_blank >= 3:
+                    break
+                continue
+            consecutive_blank = 0
+            # Accept with or without leading dash
+            if raw.startswith('-'):
+                raw = raw.lstrip('-').strip()
+            # # Must contain a source field
+            # if 'source' not in raw.lower():
+            #     # if we hit a non-provenance-like line, stop
+            # Line must look like a provenance entry: either starts with 'source:' or with a known type keyword
+            if not (re.match(r"^\s*-?\s*source\s*:\s*", raw, re.IGNORECASE) or re.match(r"^\s*-?\s*(youtube|website|file)\b", raw, re.IGNORECASE)):
+                break
+            # Extract source type (accept common variants)
+            m_src = re.search(r"source\s*:\s*(youtube|website|file|upload)", raw, re.IGNORECASE)
+            # if not m_src:
+            #     continue
+            # src_type = m_src.group(1).lower()
+            if m_src:
+                src_type = m_src.group(1).lower()
+            else:
+                m_head = re.match(r"^\s*-?\s*(youtube|website|file)\b", raw, re.IGNORECASE)
+                if not m_head:
+                    continue
+                src_type = m_head.group(1).lower()
+            if src_type == 'upload':
+                # Normalize 'upload' to 'file'
+                src_type = 'file'
+            # Extract value depending on type
+            display = None
+            if src_type in ('youtube', 'website'):
+                m_url = re.search(r'url\s*:\s*([^;,\"]+)', raw, re.IGNORECASE)
+                if m_url:
+                    display = m_url.group(1).strip()
+                    # Remove any leading '@' or stray punctuation
+                    display = display.lstrip('@').strip()
+            elif src_type == 'file':
+                # Primary: explicit 'filename:' field
+                m_fn = re.search(r'filename\s*:\s*([^;,\"]+)', raw, re.IGNORECASE)
+                if m_fn:
+                    display = m_fn.group(1).strip()
+                else:
+                    # Fallback: capture filename immediately after 'source: File '
+                    # Example: 'source: File My Doc.pdf; chunk_number: 1; ...'
+                    #m_fallback = re.search(r'source\s*:\s*file\s+([^;\n]+)', raw, re.IGNORECASE)
+                     # Fallback: capture filename immediately after 'File ' with or without 'source:' prefix
+                    # Examples: 'source: File My Doc.pdf; ...' OR 'File My Doc.pdf; ...'
+                    m_fallback = re.search(r'(?:source\s*:\s*)?file\s+([^;\n]+)', raw, re.IGNORECASE)
+                    if m_fallback:
+                        display = m_fallback.group(1).strip()
+            if not display or display.lower() == 'unknown':
+                continue
+            sources.append({
+                'type': 'youtube' if src_type == 'youtube' else ('website' if src_type == 'website' else 'file'),
+                'display': display
+            })
+        # Deduplicate by (type, display)
+        seen = set()
+        deduped = []
+        for s in sources:
+            key = (s['type'], s['display'])
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(s)
+        return deduped
     
     # ✅ Log LLM generation completion
     ai_logger.info("LLM response generation completed", extra={
@@ -381,11 +560,11 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
         }
     })
 
-    # ✅ Store bot response in DB
+    # ✅ Store bot response in DB (cleaned)
     bot_message = ChatMessage(
         interaction_id=request.interaction_id,
         sender="bot",
-        message_text=bot_reply_text,
+        message_text=cleaned_bot_reply_text,
         not_answered=bot_reply_dict.get("not_answered", False)
     )
     db.add(bot_message)
@@ -439,35 +618,109 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     print ("bot_reply_dict for debugging=>",bot_reply_dict)
     document_sources = []
     
-    # Only show sources if:
-    # 1. Not a greeting
-    # 2. Not a default "no answer" response
-    # 3. We have similar docs
+    # Only show sources if not social/blank responses; allow Provenance even without retrieval hits
     if (not is_greeting(request.message_text) and 
    not bot_reply_dict.get("is_default_response", False) and
    not bot_reply_dict.get("is_greeting_response", False) and
     not bot_reply_dict.get("is_farewell_response", False) and
-   (similar_docs or bot_reply_dict.get("used_external", False))):
-    
-        if bot_reply_dict.get("used_external", False):
-            # If external knowledge was used, add that as a source
-            document_sources.append({
-                'source': 'External Knowledge',
-                'file_name': 'General Knowledge',
-                'website_url': '',
-                'url': ''
-            })
-        elif similar_docs:
-            # Otherwise use the highest scoring document
-            highest_score_doc = max(similar_docs, key=lambda x: x.get('score', 0))
-            metadata = highest_score_doc.get('metadata', {})
-            
-            document_sources.append({
-                'source': metadata.get('source', 'Unknown source'),
-                'file_name': metadata.get('file_name', 'Unknown source'),
-                'website_url': metadata.get('website_url', 'Unknown source'),
-                'url': metadata.get('url', 'Unknown source')
-            })
+    not bot_reply_dict.get("not_answered", False)):
+
+        # Prefer LLM-provided Provenance lines for sources
+        prov_sources = extract_provenance_sources(bot_reply_text)
+        if prov_sources:
+            # Map to existing frontend shape so it renders by type
+            for s in prov_sources:
+                if s['type'] == 'youtube':
+                    document_sources.append({
+                        'source': 'youtube',
+                        'file_name': '',
+                        'website_url': '',
+                        'url': s['display']
+                    })
+                elif s['type'] == 'website':
+                    document_sources.append({
+                        'source': 'website',
+                        'file_name': '',
+                        'website_url': s['display'],
+                        'url': ''
+                    })
+                else:
+                    document_sources.append({
+                        'source': 'upload',
+                        'file_name': s['display'],
+                        'website_url': '',
+                        'url': ''
+                    })
+            # Optionally include External Knowledge if used
+            # (Disabled: do not send sources when info comes from External Knowledge only)
+            # if bot_reply_dict.get("used_external", False):
+            #     document_sources.append({
+            #         'source': 'External Knowledge',
+            #         'file_name': 'General Knowledge',
+            #         'website_url': '',
+            #         'url': ''
+            #     })
+       # else:
+            # No Provenance sources
+            # (Disabled: if only External Knowledge was used, do not include sources)
+            # if bot_reply_dict.get("used_external", False):
+            #     # If model says external knowledge was used and no Provenance was provided,
+            #     # do NOT fall back to similar_docs; show only External Knowledge
+            #     document_sources.append({
+            #         'source': 'External Knowledge',
+            #         'website_url': '',
+            #         'url': ''
+            #     })
+    #         elif similar_docs:
+    #             # Otherwise, fallback to retrieval hits so sources still show
+    #             for doc in similar_docs[:3]:
+    #                 md = (doc.get('metadata') or {})
+    #                 src = (md.get('source') or '').lower()
+    #                 file_name = md.get('file_name') or ''
+    #                 website_url = md.get('website_url') or ''
+    #                 url = md.get('url') or ''
+    #                 if src == 'youtube' and (url or website_url):
+    #                     document_sources.append({
+    #                         'source': 'youtube',
+    #                         'file_name': '',
+    #                         'website_url': '',
+    #                         'url': url or website_url
+    #                     })
+    #                 elif src == 'website' and (website_url or url):
+    #                     document_sources.append({
+    #                         'source': 'website',
+    #                         'file_name': '',
+    #                         'website_url': website_url or url,
+    #                         'url': ''
+    #                     })
+    #                 elif file_name:
+    #                     document_sources.append({
+    #                         'source': 'upload',
+    #                         'file_name': file_name,
+    #                         'website_url': '',
+    #                         'url': ''
+    #                     })
+    # # Deduplicate sources list (in case of duplicates from fallback or LLM)
+    # if document_sources:
+    #     seen_keys = set()
+    #     deduped_sources = []
+    #     for s in document_sources:
+    #         src_type = (s.get('source') or '').lower().strip()
+    #         if src_type == 'youtube':
+    #             key_val = (s.get('url') or s.get('website_url') or '').lower().strip()
+    #         elif src_type == 'website':
+    #             key_val = (s.get('website_url') or s.get('url') or '').lower().strip()
+    #         elif src_type == 'external knowledge':
+    #             key_val = 'external'
+    #         else:
+    #             key_val = (s.get('file_name') or '').lower().strip()
+    #         key = (src_type, key_val)
+    #         if key in seen_keys:
+    #             continue
+    #         seen_keys.add(key)
+    #         deduped_sources.append(s)
+    #     document_sources = deduped_sources
+
     final_is_social = (
             is_greeting(request.message_text)
             or bot_reply_dict.get("is_greeting_response", False)
@@ -475,7 +728,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
             )
 
     return {
-        "message": bot_reply_text,
+        "message": cleaned_bot_reply_text,
         "message_id": bot_message.message_id,
         "formatted_content": formatted_content,
         "sources": document_sources,
