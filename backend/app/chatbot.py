@@ -423,7 +423,13 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         # db.add_all([user_msg, bot_msg])
         # db.commit()
         
-        return {"bot_reply": greeting_response,"is_default_response": True}
+        return {
+            "bot_reply": greeting_response,
+            "is_default_response": True,
+            "used_external": False,
+            "is_greeting_response": True,
+            "is_farewell_response": False
+        }
     
     # ✅ Check if this is a farewell message, to save tokens
     is_farewell_msg, farewell_response = is_farewell(user_message)
@@ -437,7 +443,13 @@ def generate_response(bot_id: int, user_id: int, user_message: str, db: Session 
         # db.add_all([user_msg, bot_msg])
         # db.commit()
         
-        return {"bot_reply": farewell_response,"is_default_response": True}
+        return {
+            "bot_reply": farewell_response,
+            "is_default_response": True,
+            "used_external": False,
+            "is_greeting_response": False,
+            "is_farewell_response": True
+        }
     
     use_external_knowledge = bot.external_knowledge if bot else False
     temperature = bot.temperature if bot and bot.temperature is not None else 0.7
