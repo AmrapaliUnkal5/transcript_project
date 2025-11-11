@@ -989,6 +989,10 @@ class LLMManager:
                     self.llm = self._initialize_llm()
             finally:
                 db.close()
+            
+            # IMPORTANT: After potential model switch above, refresh provider/model_name
+            provider = (self.model_info.get("provider", "") or "").lower()
+            model_name = self.model_info.get("name", "") or model_name
         
         try:
             if provider in ("openai", "deepseek", "groq"):
