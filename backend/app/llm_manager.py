@@ -821,11 +821,6 @@ class LLMManager:
                 #"- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
                 "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
 
-                "### Metadata Flags:\n"
-                "- ALWAYS append exactly one JSON line at the VERY END in plain text (not in a code block): {{\"not_answered\": true|false}}.\n"
-                "- This JSON MUST use lowercase booleans and ASCII characters regardless of the answer language.\n"
-                f"- Set \"not_answered\": true ONLY if you could not answer and therefore output the exact unanswered message: \"{self.unanswered_message}\"; otherwise set it to false.\n\n"
-
                 "### Social Interactions:\n"
                 "- Handle greetings/farewells with short, natural replies (max 1 short sentence).\n"
                 "- CRITICAL: A greeting is ONLY a simple hello/hi WITHOUT any question or request.\n"
@@ -865,6 +860,11 @@ class LLMManager:
             "- For Website: 'source: Website url: <URL>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
             "- For Files: 'source: File filename: <FILE_NAME>; chunk_number: <N>; section_hierarchy: <[...]>'\n"
             "Rules: Do NOT output 'file_name: unknown'. Do NOT include extra fields. Only include items actually used. If you used any fact not supported by the Context, append '[EXT_KNOWLEDGE_USED]' on a new line at the end."
+            "### Metadata Flags:\n"
+            "- ALWAYS append exactly one JSON line at the VERY END in plain text (not in a code block): {{\"not_answered\": true|false}}.\n"
+            "- This JSON MUST use lowercase booleans and ASCII characters regardless of the answer language.\n"
+            f"- Set \"not_answered\": true ONLY if you could not answer and therefore output the exact unanswered message: \"{self.unanswered_message}\"; otherwise set it to false.\n\n"
+
         )
         # Add extra verification instruction for Llama in strict mode
         if is_llama and not use_external_knowledge:
