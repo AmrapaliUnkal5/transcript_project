@@ -129,7 +129,6 @@ def test_apify_transcript(video_url):
         #run = client.actor("dz_omar/youtube-transcript-extractor").call(run_input=run_input)
         run = client.actor("dz_omar/youtube-transcript-metadata-extractor").call(run_input=run_input)
 
-        
         logger.info(f"Apify run completed. Dataset ID: {run['defaultDatasetId']}")
         
         # Fetch the transcript from the dataset
