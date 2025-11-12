@@ -745,6 +745,11 @@ class LLMManager:
                 #"- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
                 "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
 
+                "### Metadata Flags:\n"
+                "- ALWAYS append exactly one JSON line at the VERY END in plain text (not in a code block): {{\"not_answered\": true|false}}.\n"
+                "- This JSON MUST use lowercase booleans and ASCII characters regardless of the answer language.\n"
+                f"- Set \"not_answered\": true ONLY if you could not answer and therefore output the exact unanswered message: \"{self.unanswered_message}\"; otherwise set it to false.\n\n"
+
                 "### External Knowledge Decision Rules:\n"
                 "- DO NOT add '[EXT_KNOWLEDGE_USED]' if every factual element in your answer can be found in the Context text, even if you paraphrase, summarize, combine, or reorganize it.\n"
                 "- ONLY add '[EXT_KNOWLEDGE_USED]' if you introduce any fact/number/date/definition/claim that is NOT present in the Context.\n"
@@ -815,6 +820,11 @@ class LLMManager:
                 "- Use the full length only when necessary for step-by-step instructions, recipes, or detailed guides.\n"
                 #"- No introductions, no preamble, and no disclaimers — start directly with the answer.\n"
                 "- Tone effects (casual, empathy, friendly closers) may be included, but ONLY after the main answer, never before it.\n\n"
+
+                "### Metadata Flags:\n"
+                "- ALWAYS append exactly one JSON line at the VERY END in plain text (not in a code block): {{\"not_answered\": true|false}}.\n"
+                "- This JSON MUST use lowercase booleans and ASCII characters regardless of the answer language.\n"
+                f"- Set \"not_answered\": true ONLY if you could not answer and therefore output the exact unanswered message: \"{self.unanswered_message}\"; otherwise set it to false.\n\n"
 
                 "### Social Interactions:\n"
                 "- Handle greetings/farewells with short, natural replies (max 1 short sentence).\n"
@@ -1217,14 +1227,21 @@ class LLMManager:
 
                 # Check for flag (case-insensitive) — support both legacy bracket tag and JSON flag
                 used_external = False
+                not_answered_flag = False
                 lower_resp = response_content.lower()
                 if '"is_ext_response": true' in lower_resp or '[ext_knowledge_used]' in lower_resp:
                     used_external = True
+                if '"not_answered": true' in lower_resp:
+                    not_answered_flag = True
+                elif '"not_answered": false' in lower_resp:
+                    not_answered_flag = False
                 print(f"External knowledge flag detected: {used_external}")
 
                 # Clean response (remove flags if present)
                 clean_response = re.sub(r'\{.*?"is_(ext)_response":\s*(true|false).*?\}', '', response_content or "", flags=re.IGNORECASE | re.DOTALL).strip()
                 clean_response = re.sub(r'\[ext_knowledge_used\]', '', clean_response, flags=re.IGNORECASE).strip()
+                # Remove any JSON block carrying not_answered
+                clean_response = re.sub(r'\{.*?"not_answered"\s*:\s*(true|false).*?\}', '', clean_response, flags=re.IGNORECASE | re.DOTALL).strip()
                 # Default flags
                 is_greeting_response = False
                 is_farewell_response = False
@@ -1291,7 +1308,7 @@ class LLMManager:
                 final_message = clean_response if clean_response else (self.unanswered_message or "I'm sorry, I don't have an answer for this question.")
 
                 # Secondary fallback: call configured secondary LLM with only user history
-                if use_external_knowledge and ((self.unanswered_message or "").lower() in (final_message or "").lower()):
+                if use_external_knowledge and (not_answered_flag or ((self.unanswered_message or "").lower() in (final_message or "").lower())):
                     try:
                         info = getattr(self, "secondary_model_info", None) or {}
                         print(f"⚡ Secondary LLM fallback triggered | provider={info.get('provider')} model={info.get('name')}")
@@ -1304,7 +1321,8 @@ class LLMManager:
                     "message": final_message,
                     "used_external": used_external,
                     "is_greeting_response": is_greeting_response,
-                    "is_farewell_response": is_farewell_response
+                    "is_farewell_response": is_farewell_response,
+                    "not_answered": not_answered_flag
                 }
                 
             elif provider == "huggingface":
@@ -1475,6 +1493,7 @@ class LLMManager:
 
                 # External knowledge flag
                 used_external = False
+                not_answered_flag = False
                 if "[ext_knowledge_used]" in (response_text or "").lower():
                     used_external = True
 
@@ -1483,6 +1502,13 @@ class LLMManager:
                 clean_response = re.sub(r"\[ext_knowledge_used\]", "", clean_response, flags=re.IGNORECASE)
                 # Remove optional JSON ext flag if present
                 clean_response = re.sub(r"\{.*?\"is_(ext)_response\"\s*:\s*(true|false).*?\}", "", clean_response, flags=re.IGNORECASE | re.DOTALL)
+                # Detect and strip not_answered JSON metadata
+                lower_resp_meta = (response_text or "").lower()
+                if '"not_answered": true' in lower_resp_meta:
+                    not_answered_flag = True
+                elif '"not_answered": false' in lower_resp_meta:
+                    not_answered_flag = False
+                clean_response = re.sub(r"\{[^{}]*\"not_answered\"\s*:\s*(true|false)[^{}]*\}", "", clean_response, flags=re.IGNORECASE).strip()
                 # Tidy excessive blank lines after removals
                 clean_response = re.sub(r"\n{3,}", "\n\n", clean_response).strip()
 
@@ -1515,7 +1541,7 @@ class LLMManager:
                 )
 
                 final_message = clean_response if clean_response else (self.unanswered_message or "I'm sorry, I don't have an answer for this question.")
-                if use_external_knowledge and ((self.unanswered_message or "").lower() in (final_message or "").lower()):
+                if use_external_knowledge and (not_answered_flag or ((self.unanswered_message or "").lower() in (final_message or "").lower())):
                     try:
                         info = getattr(self, "secondary_model_info", None) or {}
                         print(f"⚡ Secondary LLM fallback triggered | provider={info.get('provider')} model={info.get('name')}")
@@ -1527,7 +1553,8 @@ class LLMManager:
                     "message": final_message,
                     "used_external": used_external,
                     "is_greeting_response": is_greeting_response,
-                    "is_farewell_response": is_farewell_response
+                    "is_farewell_response": is_farewell_response,
+                    "not_answered": not_answered_flag
                 }
             elif provider in ("google", "gemini"):
                 # Google Gemini (Generative AI)
@@ -1602,6 +1629,7 @@ class LLMManager:
 
                 # External knowledge flag
                 used_external = False
+                not_answered_flag = False
                 if "[ext_knowledge_used]" in (response_text or "").lower():
                     used_external = True
 
@@ -1614,9 +1642,14 @@ class LLMManager:
                     is_greeting_response = True
                 if '"is_farewell_response": true' in lower_resp:
                     is_farewell_response = True
+                # Detect and strip not_answered JSON metadata
+                if '"not_answered": true' in lower_resp:
+                    not_answered_flag = True
+                elif '"not_answered": false' in lower_resp:
+                    not_answered_flag = False
                 # Remove any JSON metadata blocks containing those flags
                 clean_response = re.sub(
-                    r"\{[^{}]*\"is_(greeting|farewell)_response\"\s*:\s*(true|false)[^{}]*\}",
+                    r"\{[^{}]*(\"is_(greeting|farewell)_response\"|\"not_answered\")\s*:\s*(true|false)[^{}]*\}",
                     "",
                     clean_response,
                     flags=re.IGNORECASE,
@@ -1642,7 +1675,7 @@ class LLMManager:
                 )
 
                 final_message = clean_response if clean_response else (self.unanswered_message or "I'm sorry, I don't have an answer for this question.")
-                if use_external_knowledge and ((self.unanswered_message or "").lower() in (final_message or "").lower()):
+                if use_external_knowledge and (not_answered_flag or ((self.unanswered_message or "").lower() in (final_message or "").lower())):
                     try:
                         info = getattr(self, "secondary_model_info", None) or {}
                         print(f"⚡ Secondary LLM fallback triggered | provider={info.get('provider')} model={info.get('name')}")
@@ -1654,7 +1687,8 @@ class LLMManager:
                     "message": final_message,
                     "used_external": used_external,
                     "is_greeting_response": is_greeting_response,
-                    "is_farewell_response": is_farewell_response
+                    "is_farewell_response": is_farewell_response,
+                    "not_answered": not_answered_flag
                 }
             else:
                 # ✅ Log unsupported provider error
