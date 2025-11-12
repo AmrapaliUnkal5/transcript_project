@@ -1308,7 +1308,7 @@ class LLMManager:
                 final_message = clean_response if clean_response else (self.unanswered_message or "I'm sorry, I don't have an answer for this question.")
 
                 # Secondary fallback: call configured secondary LLM with only user history
-                if use_external_knowledge and ((self.unanswered_message or "").lower() in (final_message or "").lower()):
+                if use_external_knowledge and (not_answered_flag or ((self.unanswered_message or "").lower() in (final_message or "").lower())):
                     try:
                         info = getattr(self, "secondary_model_info", None) or {}
                         print(f"⚡ Secondary LLM fallback triggered | provider={info.get('provider')} model={info.get('name')}")
@@ -1541,7 +1541,7 @@ class LLMManager:
                 )
 
                 final_message = clean_response if clean_response else (self.unanswered_message or "I'm sorry, I don't have an answer for this question.")
-                if use_external_knowledge and ((self.unanswered_message or "").lower() in (final_message or "").lower()):
+                if use_external_knowledge and (not_answered_flag or ((self.unanswered_message or "").lower() in (final_message or "").lower())):
                     try:
                         info = getattr(self, "secondary_model_info", None) or {}
                         print(f"⚡ Secondary LLM fallback triggered | provider={info.get('provider')} model={info.get('name')}")
@@ -1675,7 +1675,7 @@ class LLMManager:
                 )
 
                 final_message = clean_response if clean_response else (self.unanswered_message or "I'm sorry, I don't have an answer for this question.")
-                if use_external_knowledge and ((self.unanswered_message or "").lower() in (final_message or "").lower()):
+                if use_external_knowledge and (not_answered_flag or ((self.unanswered_message or "").lower() in (final_message or "").lower())):
                     try:
                         info = getattr(self, "secondary_model_info", None) or {}
                         print(f"⚡ Secondary LLM fallback triggered | provider={info.get('provider')} model={info.get('name')}")
