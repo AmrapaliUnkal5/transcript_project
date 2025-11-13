@@ -1357,7 +1357,8 @@ def format_subscription_data_for_hosted_page(
    
     # Apply tax only if country = India and state != Rajasthan
     if should_apply_tax:
-        subscription_data["plan"]["tax_id"] = os.getenv("ZOHO_TAX_ID" ,"2818287000000032409")
+        default_tax_id = "2818287000000032409" if os.getenv("PROFILE") == "dev" else "08AAMCB2740B1Z0"
+        subscription_data["plan"]["tax_id"] = os.getenv("ZOHO_TAX_ID", default_tax_id)
         subscription_data["plan"]["tax_exemption_code"] = ""
          
     # Handle customer data based on whether they're existing or new
@@ -1472,12 +1473,13 @@ def format_subscription_data_for_hosted_page(
         #     for code, count in addon_counts.items()
         # ]
 
+        default_tax_id = "2818287000000032409" if os.getenv("PROFILE") == "dev" else "08AAMCB2740B1Z0"
         subscription_data["addons"] = [
             {
                 "addon_code": code, 
                 "quantity": count,
                 # Apply tax to each addon if needed
-                **({"tax_id": os.getenv("ZOHO_TAX_ID" ,"2818287000000032409"), "tax_exemption_code": ""} if should_apply_tax else {})
+                **({"tax_id": os.getenv("ZOHO_TAX_ID", default_tax_id), "tax_exemption_code": ""} if should_apply_tax else {})
             } 
             for code, count in addon_counts.items()
         ]

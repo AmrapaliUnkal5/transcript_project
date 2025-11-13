@@ -28,6 +28,7 @@ from sqlalchemy.future import select       # for select()
 from sqlalchemy.ext.asyncio import AsyncSession  # for AsyncSession type hint
 import secrets
 from app.utils.file_storage import resolve_file_url
+import os
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -817,7 +818,7 @@ def check_and_record_addon_usage(
         user_addons = db.query(UserAddon).join(Addon).filter(
             UserAddon.user_id == user_id,
             #UserAddon.addon_id == 3,  # Message addon
-            UserAddon.addon_id == 6,
+            UserAddon.addon_id == (6 if os.getenv("PROFILE") == "dev" else 3),
             UserAddon.is_active == True,
             or_(
                 UserAddon.expiry_date == None,

@@ -11,6 +11,7 @@ from typing import List
 from app.schemas import ConversationTrendResponse
 from collections import defaultdict
 import re
+import os
 
 router = APIRouter()
 
@@ -217,7 +218,7 @@ def get_usage_metrics(
             active_addons = db.query(UserAddon).join(Addon).filter(
                 UserAddon.user_id == current_user["user_id"],
                 #UserAddon.addon_id == 3,  # Message addon
-                UserAddon.addon_id == 6,
+                UserAddon.addon_id == (6 if os.getenv("PROFILE") == "dev" else 3),
                 UserAddon.is_active == True,
                 or_(
                     UserAddon.expiry_date == None,
