@@ -48,6 +48,7 @@ ANTHROPIC_API_KEY= config("ANTHROPIC_API_KEY", default=None)
 GROQ_API_KEY = config("GROQ_API_KEY", default=None)
 QDRANT_URL = config("QDRANT_URL", default="http://159.89.165.123:6333")
 QDRANT_API_KEY = config("QDRANT_API_KEY", default=None)
+ZOHO_TAX_ID = config("ZOHO_TAX_ID", default=None)
 
 class Settings(BaseSettings):
     SECRET_KEY: str = "d75e89c82a0c7d588441cca9849935dd7c43c831a0191ffd821ba2abd307f4f3"
@@ -65,6 +66,7 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = GROQ_API_KEY
     QDRANT_URL: str = QDRANT_URL
     QDRANT_API_KEY: Optional[str] = QDRANT_API_KEY
+    ZOHO_TAX_ID: Optional[str] = ZOHO_TAX_ID
     WIDGET_API_URL:str =config("WIDGET_API_URL")
     # Add folder path settings
     UPLOAD_BOT_DIR: str = UPLOAD_BOT_DIR
