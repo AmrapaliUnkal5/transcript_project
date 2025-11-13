@@ -291,8 +291,8 @@ async def create_subscription_checkout(
             }
 
             # Apply tax_id only for India and non-Rajasthan states
-            if should_apply_tax:
-                update_data["plan"]["tax_id"] = os.getenv("ZOHO_TAX_ID" ,"2818287000000032409")
+            if should_apply_tax and settings.ZOHO_TAX_ID:
+                update_data["plan"]["tax_id"] = settings.ZOHO_TAX_ID
                 update_data["plan"]["tax_exemption_code"] = ""
 
             # Include customer details if we successfully fetched them
@@ -339,7 +339,7 @@ async def create_subscription_checkout(
                         "addon_code": code, 
                         "quantity": count,
                         # Apply tax to each addon if needed
-                        **({"tax_id": os.getenv("ZOHO_TAX_ID" ,"2818287000000032409"), "tax_exemption_code": ""} if should_apply_tax else {})
+                        **({"tax_id": settings.ZOHO_TAX_ID, "tax_exemption_code": ""} if should_apply_tax and settings.ZOHO_TAX_ID else {})
                     } 
                     for code, count in addon_counts.items()
                 ]

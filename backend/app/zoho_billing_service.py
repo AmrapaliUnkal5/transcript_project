@@ -8,6 +8,7 @@ from app.models import SubscriptionPlan, Addon, UserSubscription
 import json
 from app.utils.logger import get_module_logger
 import time
+from app.config import settings
 
 # Create a logger for this module
 logger = get_module_logger(__name__)
@@ -1356,8 +1357,8 @@ def format_subscription_data_for_hosted_page(
     }
    
     # Apply tax only if country = India and state != Rajasthan
-    if should_apply_tax:
-        subscription_data["plan"]["tax_id"] = os.getenv("ZOHO_TAX_ID" ,"2818287000000032409")
+    if should_apply_tax and settings.ZOHO_TAX_ID:
+        subscription_data["plan"]["tax_id"] = settings.ZOHO_TAX_ID
         subscription_data["plan"]["tax_exemption_code"] = ""
          
     # Handle customer data based on whether they're existing or new
@@ -1477,7 +1478,7 @@ def format_subscription_data_for_hosted_page(
                 "addon_code": code, 
                 "quantity": count,
                 # Apply tax to each addon if needed
-                **({"tax_id": os.getenv("ZOHO_TAX_ID" ,"2818287000000032409"), "tax_exemption_code": ""} if should_apply_tax else {})
+                **({"tax_id": settings.ZOHO_TAX_ID, "tax_exemption_code": ""} if should_apply_tax and settings.ZOHO_TAX_ID else {})
             } 
             for code, count in addon_counts.items()
         ]
