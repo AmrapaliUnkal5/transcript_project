@@ -595,3 +595,67 @@ def start_training(
         "bot_id": bot_id,
         "success":True
     }
+
+@router.get("/training/pending-counts/{bot_id}")
+def get_pending_training_counts(
+    bot_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserOut = Depends(get_current_user)
+):
+    """
+    Return counts of items selected for training (processed_with_training=True)
+    that are currently Extracting or Extracted for the specified bot.
+    """
+    logger.info(f"📊 DEBUG: GET /training/pending-counts called", extra={"bot_id": bot_id})
+
+    # Verify bot exists and belongs to current subscription owner/team
+    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
+    if not bot:
+        logger.error(f"❌ DEBUG: Bot not found for pending counts", extra={"bot_id": bot_id})
+        raise HTTPException(status_code=404, detail="Bot not found")
+
+    try:
+        # Files
+        files_count = db.query(FileModel).filter(
+            FileModel.bot_id == bot_id,
+            FileModel.processed_with_training == True,
+            FileModel.status.in_(["Extracting", "Extracted"])
+        ).count()
+
+        # Scraped website nodes
+        scraped_count = db.query(ScrapedNode).filter(
+            ScrapedNode.bot_id == bot_id,
+            ScrapedNode.processed_with_training == True,
+            ScrapedNode.is_deleted == False,
+            ScrapedNode.status.in_(["Extracting", "Extracted"])
+        ).count()
+
+        # YouTube videos
+        videos_count = db.query(YouTubeVideo).filter(
+            YouTubeVideo.bot_id == bot_id,
+            YouTubeVideo.processed_with_training == True,
+            YouTubeVideo.is_deleted == False,
+            YouTubeVideo.status.in_(["Extracting", "Extracted"])
+        ).count()
+
+        threshold_env = os.getenv("RETRAIN_HEAVY_THRESHOLD", "2")
+        try:
+            threshold = max(1, int(threshold_env))
+        except ValueError:
+            threshold = 50
+
+        any_over_threshold = any([files_count > threshold, scraped_count > threshold, videos_count > threshold])
+
+        result = {
+            "files_extracted_or_extracting": files_count,
+            "scraped_extracted_or_extracting": scraped_count,
+            "videos_extracted_or_extracting": videos_count,
+            "threshold": threshold,
+            "any_over_threshold": any_over_threshold,
+        }
+
+        logger.info(f"📊 DEBUG: Pending counts computed", extra=result | {"bot_id": bot_id})
+        return result
+    except Exception as e:
+        logger.exception(f"❌ DEBUG: Failed to compute pending counts: {str(e)}", extra={"bot_id": bot_id})
+        raise HTTPException(status_code=500, detail="Failed to compute pending counts")

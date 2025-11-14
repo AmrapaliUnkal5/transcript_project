@@ -70,6 +70,7 @@ export const FileUpload = () => {
   const [totalSize, setTotalSize] = useState<number>(0);
   const [totalWordCount, setTotalWordCount] = useState<number>(0);
   const [isRetraining, setIsRetraining] = useState(false);
+  const [showHeavyOverlay, setShowHeavyOverlay] = useState(false);
   // const [activeTab, setActiveTab] = useState(user.subscription_plan_id === 1 || user.subscription_plan_id === 2
   //   ? "websitescraping"
   //   : "websiteSub");
@@ -549,6 +550,47 @@ export const FileUpload = () => {
     }
   };
 
+  // Hide heavy overlay when bot returns to active
+  useEffect(() => {
+    const current = (realtimeStatus?.overall_status || status?.overall_status || "").toString().toLowerCase();
+    if (["active", "success", "failed", "error", "complete", "pending"].includes(current)) {
+      setShowHeavyOverlay(false);
+      if (selectedBot?.id) {
+        try { localStorage.removeItem(`heavyTraining:${selectedBot.id}`); } catch {}
+      }
+    }
+  }, [realtimeStatus, status]);
+
+  // If heavy flag persisted for this bot, restore overlay on mount/navigation (unless already completed)
+  useEffect(() => {
+    if (!selectedBot?.id) return;
+    try {
+      const key = `heavyTraining:${selectedBot.id}`;
+      const hasFlag = localStorage.getItem(key) === "true";
+      const current = (realtimeStatus?.overall_status || status?.overall_status || "").toString().toLowerCase();
+      if (hasFlag && !["active", "success", "failed", "error", "complete", "pending"].includes(current)) {
+        setShowHeavyOverlay(true);
+      }
+    } catch {}
+  }, [selectedBot, realtimeStatus, status]);
+
+  // When status becomes Retraining (e.g., from CreateBot flow), auto-check counts and show overlay if heavy
+  useEffect(() => {
+    const current = (realtimeStatus?.overall_status || status?.overall_status || "").toString().toLowerCase();
+    if ((current === "retraining" || current === "training") && selectedBot?.id && !showHeavyOverlay) {
+      (async () => {
+        try {
+          const counts = await authApi.getPendingTrainingCounts(selectedBot.id);
+          if (counts?.any_over_threshold) {
+            setShowHeavyOverlay(true);
+            try { localStorage.setItem(`heavyTraining:${selectedBot.id}`, "true"); } catch {}
+          }
+        } catch {
+          // ignore
+        }
+      })();
+    }
+  }, [realtimeStatus, status, selectedBot, showHeavyOverlay]);
   useEffect(() => {
     if (!selectedBot) {
       const storedBot = localStorage.getItem("selectedBot");
@@ -811,6 +853,17 @@ export const FileUpload = () => {
       const processResponse = await authApi.update_processed_with_training(selectedBot.id);
       // 4. Force refresh status from backend
       refreshStatus();
+
+      // 4.5 Pre-check heavy workload threshold and show overlay if needed
+      try {
+        const counts = await authApi.getPendingTrainingCounts(selectedBot.id);
+        if (counts?.any_over_threshold) {
+          setShowHeavyOverlay(true);
+          try { localStorage.setItem(`heavyTraining:${selectedBot.id}`, "true"); } catch {}
+        }
+      } catch (e) {
+        // Non-fatal: proceed without overlay
+      }
       if (response.success) {
         // Update local state
         setSelectedBot({
@@ -1400,18 +1453,34 @@ const filteredFiles = React.useMemo(() => {
   }
 
   return (
-    <div className="space-y-6">
-      <BotTrainingStatusProgress 
-      status={status} 
-      selectedBot={selectedBot} 
-      isConnected={isConnected}
-      refreshStatus={refreshStatus}
-    />
-      <ToastContainer />
-      {/* {loading && <Loader />} */}
+    <div className="space-y-6 relative">
+      {showHeavyOverlay && (
+        <div className="absolute inset-0 z-30 bg-white/30 backdrop-blur-sm flex items-start justify-center pt-32 pointer-events-none">
+          <div className="pointer-events-auto bg-white shadow-lg rounded-xl px-6 py-5 border border-gray-200">
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5 animate-spin text-[#5348CB]" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+              <div className="text-sm text-gray-800">
+                This may take a few minutes. Please wait while we process your training items in the background.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className={showHeavyOverlay ? "filter blur-sm" : ""}>
+        <BotTrainingStatusProgress 
+          status={status} 
+          selectedBot={selectedBot} 
+          isConnected={isConnected}
+          refreshStatus={refreshStatus}
+        />
+        <ToastContainer />
+        {/* {loading && <Loader />} */}
 
-     {/* Tabs Section */}
-     <UsageSummary
+        {/* Tabs Section */}
+        <UsageSummary
   usagePercentage={usagePercentage}
   totalWordsUsed={totalWordsUsed}
   planLimit={userUsage.planLimit}
@@ -1424,9 +1493,9 @@ const filteredFiles = React.useMemo(() => {
   // Add these new props for dynamic updates
 
   setUserUsage={setUserUsage}
-/>
+        />
 
-      <div className="flex justify-between items-center w-full border-b border-gray-300 dark:border-gray-700">
+        <div className="flex justify-between items-center w-full border-b border-gray-300 dark:border-gray-700">
 
         <div className="flex">
           <button
@@ -2121,6 +2190,8 @@ const filteredFiles = React.useMemo(() => {
           </div>
         </div>
       )}
+
+      </div>
 
       {/* Delete Confirmation Modal */}
       {confirmDelete && (
