@@ -22,8 +22,8 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,  # Prefetch one task at a time
     task_acks_late=True,  # Acknowledge tasks after execution
     task_track_started=True,  # Track task started status
-    task_time_limit=1800,  # 30 minute time limit
-    task_soft_time_limit=1500,  # 25 minute soft time limit
+    task_time_limit=14400,  # 4 hour time limit
+    task_soft_time_limit=14100,  # 3 hour 55 minute soft time limit
 )
 
 if __name__ == '__main__':
