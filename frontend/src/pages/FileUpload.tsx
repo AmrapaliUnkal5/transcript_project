@@ -1455,15 +1455,25 @@ const filteredFiles = React.useMemo(() => {
   return (
     <div className="space-y-6 relative">
       {showHeavyOverlay && (
-        <div className="absolute inset-0 z-30 bg-white/30 backdrop-blur-sm flex items-start justify-center pt-32 pointer-events-none">
-          <div className="pointer-events-auto bg-white shadow-lg rounded-xl px-6 py-5 border border-gray-200">
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5 animate-spin text-[#5348CB]" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-              </svg>
-              <div className="text-sm text-gray-800">
-                This may take a few minutes. Please wait while we process your training items in the background.
+        <div className="absolute inset-0 z-30 bg-white/30 backdrop-blur-sm flex items-start justify-center pt-72 pointer-events-none">
+          <div className="pointer-events-auto bg-white shadow-xl rounded-xl px-7 py-6 border border-gray-200 max-w-md w-full">
+            <div className="flex items-start gap-4">
+              <div className="flex flex-col items-center mt-1">
+                <svg className="w-9 h-9 animate-spin text-[#5348CB]" viewBox="0 0 24 24">
+                  <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+              </div>
+              <div className="space-y-1.5 text-sm text-gray-800">
+                <div className="font-semibold text-gray-900">
+                  Training in progress
+                </div>
+                <p>
+                  This may take a few minutes while we process your training items in the background.
+                </p>
+                <p className="text-xs text-gray-500">
+                  You&apos;ll receive an email when your bot is activated and ready to use.
+                </p>
               </div>
             </div>
           </div>
