@@ -219,6 +219,26 @@ def check_user_subscription(user_id: int, db: Session = Depends(get_db)):
     )
     return {"exists": bool(subscription)}
 
+@router.get("/user/has-prior-subscription/{user_id}")
+def has_prior_subscription(user_id: int, db: Session = Depends(get_db)):
+    """
+    Returns whether the user has any prior subscription record that should
+    disqualify access to the Explorer (Free) plan again.
+
+    Rules:
+    - Count any subscription whose status is NOT in ['cancelled', 'pending'].
+    - This treats statuses like 'active' and 'upgraded' as prior subscriptions.
+    - We intentionally ignore 'cancelled' and 'pending' to match product rules.
+    """
+    prior = (
+        db.query(UserSubscription)
+        .filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status.notin_(["cancelled", "pending"]),
+        )
+        .first()
+    )
+    return {"has_prior": bool(prior)}
 @router.delete("/user/delete-account")
 def delete_user_account(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """

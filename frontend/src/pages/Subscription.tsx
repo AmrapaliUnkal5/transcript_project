@@ -277,6 +277,7 @@ export const Subscription = () => {
   const [showPendingNotification, setShowPendingNotification] = useState(false);
   const [effectivePlanId, setEffectivePlanId] = useState<number | null>(null);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [hasAnySubscriptionRecord, setHasAnySubscriptionRecord] = useState<boolean>(false);
   // Address form modal state
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [pendingCheckoutData, setPendingCheckoutData] = useState<{
@@ -679,18 +680,37 @@ export const Subscription = () => {
     const checkFreePlanValidity = async () => {
       if (currentPlanId === 1 && user?.user_id) {
         try {
-          const response = await authApi.checkUserSubscription(user.user_id);
-          if (!response.exists) {
+          // Validate that the free plan actually exists for this user
+          const freeResp = await authApi.checkUserSubscription(user.user_id);
+          if (!freeResp.exists) {
             setEffectivePlanId(null); // treat as no current plan
           } else {
             setEffectivePlanId(currentPlanId); // valid free plan
           }
+          // Separately determine prior subscription history (excluding cancelled/pending)
+          try {
+            const priorResp = await authApi.hasPriorSubscription(user.user_id);
+            setHasAnySubscriptionRecord(Boolean(priorResp?.has_prior));
+          } catch {
+            setHasAnySubscriptionRecord(true);
+          }
         } catch (err) {
           console.error("Failed to validate free plan", err);
           setEffectivePlanId(currentPlanId); // fallback to original
+          // Best-effort: assume they have/had a subscription if call fails
+          setHasAnySubscriptionRecord(true);
         }
       } else {
         setEffectivePlanId(currentPlanId ?? null); // plans other than 1
+        // Independently record that they have/had some subscription if user_id exists
+        if (user?.user_id) {
+          try {
+            const r = await authApi.hasPriorSubscription(user.user_id);
+            setHasAnySubscriptionRecord(Boolean(r?.has_prior));
+          } catch {
+            setHasAnySubscriptionRecord(true);
+          }
+        }
       }
     };
 
@@ -789,7 +809,10 @@ export const Subscription = () => {
   const renderPlanCard = (plan: any) => {
     const PlanIcon = planIcons[plan.name as keyof typeof planIcons] || Compass;
     const planAccent = getPlanAccentColor(plan.name);
-    const isCurrent = effectivePlanId === plan.id; //changed
+    const subStatus = (user?.subscription_status || "").toLowerCase();
+    const isNonCurrentStatus =
+      hasPendingSubscription || subStatus === "pending" || subStatus === "cancelled";
+    const isCurrent = effectivePlanId === plan.id && !isNonCurrentStatus; // ignore pending/cancelled when marking current
     const hasBadge = planBadges[plan.name as keyof typeof planBadges];
     const selectedAddonCount = getSelectedAddonCount(plan.id);
     const isExpiredCurrentPlan = isCurrent && isExpiredPlan;
@@ -999,7 +1022,7 @@ export const Subscription = () => {
             return; // Explorer cannot be renewed; disable action
           } else if (plan.name.toLowerCase() === "enterprise") {
             window.open("/customersupport", "_blank"); // Redirect to Customer Support
-          } else if (plan.name.toLowerCase() === "explorer" && !effectivePlanId) {
+          } else if (plan.name.toLowerCase() === "explorer" && !effectivePlanId && !hasAnySubscriptionRecord) {
             navigate("/dashboard/create-bot");
           } else {
             handleSubscribe(plan.id);
@@ -1008,7 +1031,7 @@ export const Subscription = () => {
         >
           {plan.name.toLowerCase() === "enterprise" ? (
     "Contact Us" // Changed from "Subscribe" to "Contact Us"
-  ) : plan.name.toLowerCase() === "explorer" && !effectivePlanId ? (
+  ) : plan.name.toLowerCase() === "explorer" && !effectivePlanId && !hasAnySubscriptionRecord ? (
             "Continue with Free Plan"
           ) : isCurrent ? (
             isExpiredPlan ? (
@@ -1402,7 +1425,7 @@ export const Subscription = () => {
       )}
 
       {/* Current Subscription Info - Only show if user has a subscription */}
-      {user?.subscription_plan_id && (
+      {user?.subscription_plan_id && !((user?.subscription_status || "").toLowerCase() === "pending" || (user?.subscription_status || "").toLowerCase() === "cancelled" || hasPendingSubscription) && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-8">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Current Subscription

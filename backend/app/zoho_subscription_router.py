@@ -2672,7 +2672,12 @@ async def get_subscription_status(
     db: Session = Depends(get_db),
     current_user: Union[dict, User] = Depends(get_current_user),
 ):
-    """Get subscription status for a user, including pending subscriptions"""
+    """Get subscription status for a user.
+    
+    Rules:
+    - Step 1: Try to find an active subscription (most recent by payment_date).
+    - Step 2: If no active one, get the latest one regardless of status (by payment_date).
+    """
     try:
         # Verify that the requested user_id matches the current user or is admin
         if isinstance(current_user, dict):
@@ -2685,10 +2690,25 @@ async def get_subscription_status(
         if requester_id != user_id and not is_admin:
             raise HTTPException(status_code=403, detail="Not authorized to view this user's subscription")
             
-        # Get the latest subscription for the user
-        subscription = db.query(UserSubscription).filter(
-            UserSubscription.user_id == user_id
-        ).order_by(UserSubscription.updated_at.desc()).first()
+        # Step 1: Try to find active subscription (latest by payment_date)
+        subscription = (
+            db.query(UserSubscription)
+            .filter(
+                UserSubscription.user_id == user_id,
+                UserSubscription.status == "active",
+            )
+            .order_by(UserSubscription.payment_date.desc())
+            .first()
+        )
+
+        # Step 2: If no active one, get the latest regardless of status (by payment_date)
+        if not subscription:
+            subscription = (
+                db.query(UserSubscription)
+                .filter(UserSubscription.user_id == user_id)
+                .order_by(UserSubscription.payment_date.desc())
+                .first()
+            )
         
         if not subscription:
             return {"status": "none", "message": "No subscription found"}
