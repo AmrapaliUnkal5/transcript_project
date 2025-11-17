@@ -1468,11 +1468,8 @@ const filteredFiles = React.useMemo(() => {
                 <div className="font-semibold text-gray-900">
                   Training in progress
                 </div>
-                <p>
-                  This may take a few minutes while we process your training items in the background.
-                </p>
-                <p className="text-xs text-gray-500">
-                  You&apos;ll receive an email when your bot is activated and ready to use.
+                <p className="text-xs text-gray-600">
+                  This may take several minutes to complete. You&apos;ll receive an email when your bot is ready.
                 </p>
               </div>
             </div>

@@ -2158,7 +2158,6 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action
             return {"status": "skipped", "message": "No scraped nodes to process", "bot_id": bot_id}
 
         logger.info(f"🎯 Found {len(nodes)} scraped nodes to vectorize for bot {bot_id}")
-        total_words_embedded = 0
 
         for node in nodes:
             url = node.url
@@ -2248,8 +2247,12 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action
                             )
                             add_document(bot_id, text=chunk, metadata=chunk_metadata)
 
-                total_words_embedded += len(node.nodes_text.split())
-                print("count of words embeded in website", total_words_embedded)
+                # ✅ Per-node word count and status update
+                node_word_count = len(node.nodes_text.split())
+                logger.info(
+                    f"count of words embedded for website node",
+                    extra={"bot_id": bot_id, "url": url, "words": node_word_count}
+                )
                 chunk_count = len(markdown_chunks) if use_markdown_chunking else len(text_chunks)
                 logger.info(
                     f"Successfully added document chunks to vector DB",
@@ -2260,12 +2263,26 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action
                         "chunk_count": chunk_count
                     }
                 )
-                
 
                 node.status = "Success"
                 node.last_embedded = datetime.now()
                 node.updated_by = action_user_id if action_user_id else user_id
-                logger.info(f"✅ Vectorization complete for {url}", extra={"bot_id": bot_id})
+
+                # Commit this node's status immediately so progress can be reflected
+                db.commit()
+                logger.info(f"✅ Vectorization committed for {url}", extra={"bot_id": bot_id})
+
+                # Update word usage per node (same logic, different timing)
+                if node_word_count > 0:
+                    update_word_usage(db, bot_id, node_word_count)
+                    logger.info(
+                        f"✅ Word usage updated for website node",
+                        extra={
+                            "bot_id": bot_id,
+                            "url": url,
+                            "words_added": node_word_count
+                        }
+                    )
 
             except Exception as db_err:
                 node.status = "Failed"
@@ -2274,17 +2291,9 @@ def process_web_scraping_part2(self, bot_id: int, scraped_node_ids: list, action
                 import traceback
                 logger.error(traceback.format_exc())
 
-        db.commit()
-        if total_words_embedded > 0:
-              # or wherever it's defined
-            update_word_usage(db, bot_id, total_words_embedded)
-            logger.info(
-                        f"✅ Word usage updated: {total_words_embedded} words added to bot {bot_id}",
-                        extra={
-                            "bot_id": bot_id,
-                            "words_added": total_words_embedded
-                        }
-                    )
+                # Commit failure status immediately as well
+                db.commit()
+                logger.info(f"❌ Failure committed for {url}", extra={"bot_id": bot_id})
         # Check if all training is complete for this bot
         if check_if_bot_training_complete(bot_id, db):
             logger.info(f"All training complete for bot {bot_id}, starting monitoring")

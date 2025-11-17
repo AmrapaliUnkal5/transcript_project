@@ -638,7 +638,7 @@ def get_pending_training_counts(
             YouTubeVideo.status.in_(["Extracting", "Extracted"])
         ).count()
 
-        threshold_env = os.getenv("RETRAIN_HEAVY_THRESHOLD", "2")
+        threshold_env = os.getenv("RETRAIN_HEAVY_THRESHOLD", "50")
         try:
             threshold = max(1, int(threshold_env))
         except ValueError:
