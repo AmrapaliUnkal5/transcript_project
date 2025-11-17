@@ -1867,7 +1867,7 @@ const renderStepContent = () => {
 };  
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-white py-8  ">
-      <ToastContainer />
+      <ToastContainer autoClose={3000} />
       <div
         className="text-center text-[26px] "
         style={{

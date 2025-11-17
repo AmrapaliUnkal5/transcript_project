@@ -180,7 +180,7 @@ const Investigation = () => {
 
   return (
     <div className="space-y-6">
-      <ToastContainer />
+      <ToastContainer autoClose={3000} />
       {/* {loading && <Loader />} */}
 
       <div
