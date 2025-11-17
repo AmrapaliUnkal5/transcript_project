@@ -427,6 +427,17 @@ async def cancel_subscription(
         subscription.updated_at = datetime.now()
         note = "Cancelled at term end by user"
         subscription.notes = f"{(subscription.notes or '').strip()} | {note}".strip(" |")
+
+        # Also disable auto-renew for all active associated add-ons for this user
+        active_addons = db.query(UserAddon).filter(
+            UserAddon.user_id == user_id,
+            UserAddon.status == "active",
+            UserAddon.auto_renew == True
+        ).all()
+        for ua in active_addons:
+            ua.auto_renew = False
+            ua.updated_at = datetime.now()
+
         db.commit()
 
         return CancelSubscriptionResponse(success=True, message="Subscription will not auto-renew.")
@@ -1767,6 +1778,7 @@ async def _handle_cancelled_subscription(db: Session, zoho_subscription_id: str,
     for addon in user_addons:
         addon.status = "cancelled"
         addon.is_active = False
+        addon.auto_renew = False
         addon.updated_at = datetime.now()
     
     db.commit()
