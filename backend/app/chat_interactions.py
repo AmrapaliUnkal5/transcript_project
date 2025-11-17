@@ -168,40 +168,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
         }
     })
 
-    def is_greeting(msg):
-        greetings = ["hi", "hello", "hey", "good morning", "good evening", "good afternoon", "how are you"]
-        msg = msg.strip().lower()
-        return msg in greetings
-
-    # ✅ Start clustering in background thread if sender is user
-    if request.sender.lower() == "user" and not is_greeting(request.message_text):
-        ai_logger.info("Starting background clustering", extra={
-            "ai_task": {
-                "event_type": "clustering_initiated",
-                "bot_id": interaction.bot_id,
-                "message_id": user_message.message_id
-            }
-        })
-        
-        threading.Thread(
-            target=async_cluster_question,
-            args=(interaction.bot_id, request.message_text,user_message.message_id)
-        ).start()
-
-        print("Word cloud thread started")
-        threading.Thread(
-            target=async_update_word_cloud,
-            args=(interaction.bot_id, request.message_text)
-        ).start()
-    else:
-        ai_logger.info("Skipping clustering for greeting or bot message", extra={
-            "ai_task": {
-                "event_type": "clustering_skipped",
-                "reason": "greeting_or_bot_message",
-                "sender": request.sender,
-                "is_greeting": is_greeting(request.message_text)
-            }
-        })
+    # Note: Clustering/word cloud will be decided AFTER LLM flags are available
         
 
     # ✅ Log start of vector database retrieval
@@ -560,22 +527,50 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
         }
     })
 
-    # ✅ Store bot response in DB (cleaned)
+    # Update user message with LLM-derived flags
+    llm_is_greeting = bool(bot_reply_dict.get("is_greeting_response", False))
+    llm_is_farewell = bool(bot_reply_dict.get("is_farewell_response", False))
+    llm_not_answered = bool(bot_reply_dict.get("not_answered", False))
+
+    db.query(ChatMessage)\
+        .filter(ChatMessage.message_id == user_message.message_id)\
+        .update({
+            "is_greeting": llm_is_greeting,
+            "is_farewell": llm_is_farewell,
+            "not_answered": llm_not_answered
+        })
+    db.commit()
+
+    # ✅ Store bot response in DB (cleaned) including LLM flags
     bot_message = ChatMessage(
         interaction_id=request.interaction_id,
         sender="bot",
         message_text=cleaned_bot_reply_text,
-        not_answered=bot_reply_dict.get("not_answered", False)
+        not_answered=llm_not_answered,
+        is_greeting=llm_is_greeting,
+        is_farewell=llm_is_farewell
     )
     db.add(bot_message)
     db.commit()
 
-     # If bot couldn't answer, update the user question as well
-    if bot_reply_dict.get("not_answered", False):
-        db.query(ChatMessage)\
-            .filter(ChatMessage.message_id == user_message.message_id)\
-            .update({"not_answered": True})
-        db.commit()
+    # Start clustering/word cloud only if not greeting/farewell
+    if request.sender.lower() == "user" and not llm_is_greeting and not llm_is_farewell:
+        ai_logger.info("Starting background clustering post-LLM", extra={
+            "ai_task": {
+                "event_type": "clustering_initiated_post_llm",
+                "bot_id": interaction.bot_id,
+                "message_id": user_message.message_id
+            }
+        })
+        threading.Thread(
+            target=async_cluster_question,
+            args=(interaction.bot_id, request.message_text, user_message.message_id)
+        ).start()
+
+        threading.Thread(
+            target=async_update_word_cloud,
+            args=(interaction.bot_id, request.message_text)
+        ).start()
 
     # ✅ Log bot message stored
     ai_logger.info("Bot response stored", extra={
@@ -619,8 +614,7 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     document_sources = []
     
     # Only show sources if not social/blank responses; allow Provenance even without retrieval hits
-    if (not is_greeting(request.message_text) and 
-   not bot_reply_dict.get("is_default_response", False) and
+    if (not bot_reply_dict.get("is_default_response", False) and
    not bot_reply_dict.get("is_greeting_response", False) and
     not bot_reply_dict.get("is_farewell_response", False) and
     not bot_reply_dict.get("not_answered", False)):
@@ -722,10 +716,9 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
     #     document_sources = deduped_sources
 
     final_is_social = (
-            is_greeting(request.message_text)
-            or bot_reply_dict.get("is_greeting_response", False)
-            or bot_reply_dict.get("is_farewell_response", False)
-            )
+        bot_reply_dict.get("is_greeting_response", False)
+        or bot_reply_dict.get("is_farewell_response", False)
+    )
 
     return {
         "message": cleaned_bot_reply_text,
@@ -859,7 +852,9 @@ def get_bot_questions(bot_id: int, db: Session = Depends(get_db)):
         .join(Interaction)\
         .filter(
             Interaction.bot_id == bot_id,
-            ChatMessage.sender == "user"
+            ChatMessage.sender == "user",
+            ChatMessage.is_greeting == False,
+            ChatMessage.is_farewell == False
         )\
         .all()
 
@@ -868,13 +863,10 @@ def get_bot_questions(bot_id: int, db: Session = Depends(get_db)):
     for msg in messages:
         msg_text = msg.message_text.strip()
         if msg_text:  # Only process non-empty messages
-            # Check if it's not a greeting (case-insensitive)
-            is_greet, _ = is_greeting(msg_text)
-            if not is_greet:
-                # Use lowercase as key to detect duplicates, but store original text
-                lower_text = msg_text.lower()
-                if lower_text not in unique_questions:
-                    unique_questions[lower_text] = msg_text
+            # Use lowercase as key to detect duplicates, but store original text
+            lower_text = msg_text.lower()
+            if lower_text not in unique_questions:
+                unique_questions[lower_text] = msg_text
     
     return {
         "questions": list(unique_questions.values()),
@@ -893,14 +885,15 @@ def get_unanswered_questions(
     - List of unique unanswered questions (case-insensitive duplicates removed)
     - Count of unique questions
     """
-    skip_greetings = True
     # Query to get all unanswered user messages for the bot
     messages = db.query(ChatMessage)\
         .join(Interaction, ChatMessage.interaction_id == Interaction.interaction_id)\
         .filter(
             Interaction.bot_id == bot_id,
             ChatMessage.sender == "user",
-            ChatMessage.not_answered == True
+            ChatMessage.not_answered == True,
+            ChatMessage.is_greeting == False,
+            ChatMessage.is_farewell == False
         )\
         .all()
 
@@ -909,12 +902,6 @@ def get_unanswered_questions(
     for msg in messages:
         msg_text = msg.message_text.strip()
         if msg_text:  # Only process non-empty messages
-            # Skip greetings if enabled
-            if skip_greetings:
-                is_greet, _ = is_greeting(msg_text)
-                if is_greet:
-                    continue
-            
             # Use lowercase as key to detect duplicates
             lower_text = msg_text.lower()
             if lower_text not in unique_questions:

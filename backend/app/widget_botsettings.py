@@ -463,24 +463,7 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
     db.refresh(user_message)
     print("here 2")
 
-    def is_greeting(msg):
-        greetings = ["hi", "hello", "hey", "good morning", "good evening", "good afternoon", "how are you"]
-        msg = msg.strip().lower()
-        return msg in greetings
-
-    # ✅ Start clustering in background thread if sender is user
-    if request.sender.lower() == "user" and not is_greeting(request.message_text):
-        threading.Thread(
-            target=async_cluster_question,
-            args=(interaction.bot_id, request.message_text,user_message.message_id)
-        ).start()
-
-        print("Word cloud thread started")
-        threading.Thread(
-            target=async_update_word_cloud,
-            args=(interaction.bot_id, request.message_text)
-        ).start()
-        
+    # Note: Clustering/word cloud will be decided AFTER LLM flags are available
 
     # ✅ Retrieve context using vector database
     similar_docs = retrieve_similar_docs(interaction.bot_id, request.message_text)
@@ -535,22 +518,43 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
     from app.utils.response_parser import parse_llm_response
     formatted_content = parse_llm_response(cleaned_bot_reply_text)
 
-    # ✅ Store bot response in DB (cleaned)
+    # Update user message with LLM flags
+    llm_is_greeting = bool(bot_reply_dict.get("is_greeting_response", False))
+    llm_is_farewell = bool(bot_reply_dict.get("is_farewell_response", False))
+    llm_not_answered = bool(bot_reply_dict.get("not_answered", False))
+
+    db.query(ChatMessage)\
+        .filter(ChatMessage.message_id == user_message.message_id)\
+        .update({
+            "is_greeting": llm_is_greeting,
+            "is_farewell": llm_is_farewell,
+            "not_answered": llm_not_answered
+        })
+    db.commit()
+
+    # ✅ Store bot response in DB (cleaned) including LLM flags
     bot_message = ChatMessage(
         interaction_id=real_interaction_id,
         sender="bot",
         message_text=cleaned_bot_reply_text,
-        not_answered=bot_reply_dict.get("not_answered", False)
+        not_answered=llm_not_answered,
+        is_greeting=llm_is_greeting,
+        is_farewell=llm_is_farewell
     )
     db.add(bot_message)
     db.commit()
 
-    # If bot couldn't answer, update the user question as well
-    if bot_reply_dict.get("not_answered", False):
-        db.query(ChatMessage)\
-            .filter(ChatMessage.message_id == user_message.message_id)\
-            .update({"not_answered": True})
-        db.commit()
+    # Start clustering/word cloud only if not greeting/farewell
+    if request.sender.lower() == "user" and not llm_is_greeting and not llm_is_farewell:
+        threading.Thread(
+            target=async_cluster_question,
+            args=(interaction.bot_id, request.message_text,user_message.message_id)
+        ).start()
+
+        threading.Thread(
+            target=async_update_word_cloud,
+            args=(interaction.bot_id, request.message_text)
+        ).start()
         
     messageid_data_token = create_tokens(bot_message.message_id)
     print("bot_message.message_id",messageid_data_token)
