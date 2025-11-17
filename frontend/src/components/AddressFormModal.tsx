@@ -395,6 +395,15 @@ const STATES_BY_COUNTRY: { [key: string]: string[] } = {
   ]
 };
 
+// Sorted helpers (do not mutate originals)
+const SORTED_COUNTRIES = [...COUNTRIES].sort((a, b) =>
+  a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+);
+const getSortedStates = (countryCode: string): string[] => {
+  const list = STATES_BY_COUNTRY[countryCode] || [];
+  return [...list].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+};
+
 export const AddressFormModal: React.FC<AddressFormModalProps> = ({
   isOpen,
   onClose,
@@ -684,7 +693,7 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
               }`}
             >
               <option value="">Select State/Province</option>
-              {STATES_BY_COUNTRY[addressData.country].map(state => (
+              {getSortedStates(addressData.country).map(state => (
                 <option key={state} value={state}>{state}</option>
               ))}
             </select>
@@ -716,7 +725,7 @@ export const AddressFormModal: React.FC<AddressFormModalProps> = ({
             }`}
           >
             <option value="">Select Country</option>
-            {COUNTRIES.map(country => (
+            {SORTED_COUNTRIES.map(country => (
               <option key={country.code} value={country.code}>
                 {country.name}
               </option>
