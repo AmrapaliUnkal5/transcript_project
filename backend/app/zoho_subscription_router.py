@@ -1651,7 +1651,8 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
             
             # All addons should expire with the user's current subscription end date
             # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
-            addon_expiry = None if addon.id == 3 else expiry_date
+            #Currently message addon is also recurring hence this above logic is no longer require hence making id == 0 
+            addon_expiry = None if addon.id == 0 else expiry_date
             
             created_rows = 0
             desired_count = max(int(addon_quantity), 1)
@@ -1874,7 +1875,8 @@ async def handle_subscription_created(payload: Dict[str, Any], db: Session):
                 
                 # All addons should expire with the user's current subscription end date
                 # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
-                addon_expiry = None if addon.id == 3 else expiry_date
+                #Currently message addon is also recurring hence this above logic is no longer require hence making id == 0 
+                addon_expiry = None if addon.id == 0 else expiry_date
                 
                 # Create UserAddon record
                 user_addon = UserAddon(
@@ -1971,7 +1973,7 @@ def create_fresh_user_token(db: Session, user_id: int):
     # Get message addon (ID 3) details if exists
     message_addon = db.query(UserAddon).filter(
         UserAddon.user_id == user_id,
-        UserAddon.addon_id == 3,
+        UserAddon.addon_id == 0,
         UserAddon.is_active == True
     ).order_by(UserAddon.expiry_date.desc()).first()
     
@@ -2062,7 +2064,8 @@ async def handle_subscription_renewed(payload: Dict[str, Any], db: Session):
                 
                 # All addons should expire with the user's current subscription end date
                 # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
-                existing_addon.expiry_date = None if addon.id == 3 else expiry_date
+                #Currently message addon is also recurring hence this above logic is no longer require hence making id == 0 
+                existing_addon.expiry_date = None if addon.id == 0 else expiry_date
                 
                 existing_addon.updated_at = datetime.now()
                 logger.info(f"Updated existing add-on {addon.name} (ID: {addon.id}) for user {subscription.user_id}")
@@ -2462,7 +2465,8 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
             
             # All addons should expire with the user's current subscription end date
             # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
-            addon_expiry = None if addon.id == 3 else subscription.expiry_date
+            #Currently message addon is also recurring hence this above logic is no longer require hence making id == 0 
+            addon_expiry = None if addon.id == 0 else subscription.expiry_date
             
             created_rows = 0
             desired_count = max(int(quantity), 1)
@@ -2547,7 +2551,8 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
                     # Create addon record
                     current_time = datetime.now()
                     # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
-                    addon_expiry = None if matching_addon.id == 3 else subscription.expiry_date
+                    #Currently message addon is also recurring hence this above logic is no longer require hence making id == 0 
+                    addon_expiry = None if matching_addon.id == 0 else subscription.expiry_date
                     
                     # Check for existing addon
                     existing_addon = db.query(UserAddon).filter(

@@ -86,8 +86,9 @@ class AddonService:
         current_time = datetime.now()
         
         # All addons should expire with the user's current subscription end date
-        # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
-        expiry_date = None if addon.id == 3 else subscription.expiry_date
+        # Exception: Additional Messages (addon id == 3) should have no expiry (NULL).. 
+        # Currently message addon is also recurring hence this above logic is no longer require hence making id == 0 
+        expiry_date = None if addon.id == 0 else subscription.expiry_date
         
         # Create as many rows as requested by quantity
         created_addons: List[UserAddon] = []
@@ -241,7 +242,8 @@ class AddonService:
             
             # All addons should expire with the user's current subscription end date
             # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
-            addon_expiry = None if addon.id == 3 else subscription.expiry_date
+            #Currently message addon is also recurring hence this above logic is no longer require hence making id == 0 
+            addon_expiry = None if addon.id == 0 else subscription.expiry_date
             
             # Check if there's already a pending record for this addon
             existing_pending = db.query(UserAddon).filter(
@@ -490,7 +492,7 @@ class AddonService:
                 addon = db.query(Addon).filter(Addon.zoho_addon_code == code).first()
                 if not addon:
                     continue
-                expiry_date = None if addon.id == 3 else subscription.expiry_date
+                expiry_date = None if addon.id == 0 else subscription.expiry_date
                 existing_pending = db.query(UserAddon).filter(
                     UserAddon.user_id == user_id,
                     UserAddon.addon_id == addon.id,

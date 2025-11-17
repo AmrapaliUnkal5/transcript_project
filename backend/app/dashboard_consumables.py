@@ -196,7 +196,7 @@ def get_usage_metrics(
             UserAddon.user_id == user_id,
             UserAddon.is_active == True,
             #Addon.id == 3,  # Additional Messages addon
-            Addon.id == 6, 
+            Addon.id == (6 if os.getenv("PROFILE") == "dev" else 3), 
         ).scalar() or 0
 
         chat_messages_used = (user.total_message_count + total_initial_count) or 0

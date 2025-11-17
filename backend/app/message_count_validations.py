@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends,Query, Request
 from sqlalchemy.orm import Session
 from datetime import datetime
 from sqlalchemy import func, or_
+import os
 
 from app.database import get_db
 from app.dependency import get_current_user
@@ -53,7 +54,7 @@ async def get_user_msgusage(
             UserAddon.user_id == current_user["user_id"],
             UserAddon.is_active == True,
             #Addon.id == 3,
-            Addon.id == 6,  # Additional Messages addon
+            Addon.id == (6 if os.getenv("PROFILE") == "dev" else 3),  # Additional Messages addon
             or_(
                 UserAddon.expiry_date == None,
                 UserAddon.expiry_date >= datetime.utcnow()
@@ -150,7 +151,7 @@ def check_external_knowledge_addon_for_user(
         user_id = current_user["user_id"]
         ek_addon = db.query(UserAddon).join(Addon).filter(
             UserAddon.user_id == user_id,
-            Addon.id == 7,
+            Addon.id == (7 if os.getenv("PROFILE") == "dev" else 6),
             UserAddon.is_active == True,
             or_(
                 UserAddon.expiry_date == None,
