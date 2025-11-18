@@ -46,6 +46,7 @@ GEMINI_API_KEY = config("GEMINI_API_KEY", default=None)
 DEEPSEEK_API_KEY= config("DEEPSEEK_API_KEY", default=None)
 ANTHROPIC_API_KEY= config("ANTHROPIC_API_KEY", default=None)
 GROQ_API_KEY = config("GROQ_API_KEY", default=None)
+XAI_API_KEY = config("XAI_API_KEY", default=None)
 QDRANT_URL = config("QDRANT_URL", default="http://159.89.165.123:6333")
 QDRANT_API_KEY = config("QDRANT_API_KEY", default=None)
 ZOHO_TAX_ID = config("ZOHO_TAX_ID", default=None)
@@ -64,6 +65,7 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY: Optional[str] =DEEPSEEK_API_KEY
     ANTHROPIC_API_KEY: Optional[str] =ANTHROPIC_API_KEY
     GROQ_API_KEY: Optional[str] = GROQ_API_KEY
+    XAI_API_KEY: Optional[str] = XAI_API_KEY
     QDRANT_URL: str = QDRANT_URL
     QDRANT_API_KEY: Optional[str] = QDRANT_API_KEY
     ZOHO_TAX_ID: Optional[str] = ZOHO_TAX_ID

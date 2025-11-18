@@ -546,6 +546,15 @@ class LLMManager:
             print(f"🔄 Using Groq with model: {model_name}")
             return OpenAI(api_key=groq_api_key, base_url="https://api.groq.com/openai/v1")
 
+        elif provider == "grok":
+            # xAI Grok via OpenAI-compatible API
+            xai_api_key = getattr(settings, "XAI_API_KEY", None) or os.getenv("XAI_API_KEY")
+            if not xai_api_key:
+                raise ValueError("XAI_API_KEY is not set")
+
+            print(f"🔄 Using Grok (xAI) with model: {model_name}")
+            return OpenAI(api_key=xai_api_key, base_url="https://api.x.ai/v1")
+
         elif provider in ("google", "gemini"):
             # For Google Gemini models
             try:
@@ -730,6 +739,7 @@ class LLMManager:
                 "- **ABSOLUTELY NO THINKING PROCESS**: Do NOT show any reasoning, analysis, step-by-step thinking, or internal monologue.\n"
                 "- **NO TAGS**: Do NOT use <think>, <reasoning>, <analysis>, or any other thinking tags.\n"
                 "- **DIRECT ANSWER ONLY**: Start immediately with the final answer - no planning, no preamble, no chain-of-thought.\n"
+                "- **NO GREETINGS OR FLUFF**: Do NOT start with greetings or phrases like \"I'm happy to help\", \"Sure\", \"Of course\", \"Hello\", \"Hi\" or apologies. Begin your first sentence directly with the factual answer content.\n"
                 "- **INTERNAL PROCESSING ONLY**: All thinking and reasoning must happen internally and never be shown in the output.\n"
                 "{qwen_directive}\n"
                 "{llama_directive}\n\n"
@@ -799,6 +809,7 @@ class LLMManager:
                 "- **ABSOLUTELY NO THINKING PROCESS**: Do NOT show any reasoning, analysis, step-by-step thinking, or internal monologue.\n"
                 "- **NO TAGS**: Do NOT use <think>, <reasoning>, <analysis>, or any other thinking tags.\n"
                 "- **DIRECT ANSWER ONLY**: Start immediately with the final answer - no planning, no preamble, no chain-of-thought.\n"
+                "- **NO GREETINGS OR FLUFF**: Do NOT start with greetings or phrases like \"I'm happy to help\", \"Sure\", \"Of course\", \"Hello\", \"Hi\" or apologies. Begin your first sentence directly with the factual answer content.\n"
                 "- **INTERNAL PROCESSING ONLY**: All thinking and reasoning must happen internally and never be shown in the output.\n"
                 "{qwen_directive}\n"
                 "{llama_directive}\n\n"
@@ -1072,7 +1083,7 @@ class LLMManager:
                 model_name = self.model_info.get("name", "") or model_name
         
         try:
-            if provider in ("openai", "deepseek", "groq"):
+            if provider in ("openai", "deepseek", "groq", "grok"):
                 system_content, user_content = self._build_prompt(
                     context=context,
                     user_message=user_message,
@@ -1841,7 +1852,7 @@ class LLMManager:
             return cleaned, False
 
         # OpenAI-compatible providers
-        if provider in ("openai", "deepseek", "groq"):
+        if provider in ("openai", "deepseek", "groq", "grok"):
             try:
                 client = None
                 if provider == "openai":
@@ -1850,6 +1861,8 @@ class LLMManager:
                     client = OpenAI(api_key=(getattr(settings, "DEEPSEEK_API_KEY", None) or os.getenv("DEEPSEEK_API_KEY")), base_url="https://api.deepseek.com/v1")
                 elif provider == "groq":
                     client = OpenAI(api_key=(getattr(settings, "GROQ_API_KEY", None) or os.getenv("GROQ_API_KEY")), base_url="https://api.groq.com/openai/v1")
+                elif provider == "grok":
+                    client = OpenAI(api_key=(getattr(settings, "XAI_API_KEY", None) or os.getenv("XAI_API_KEY")), base_url="https://api.x.ai/v1")
 
                 def _token_param_key(pvd: str, model: str) -> str:
                     p = (pvd or "").lower()
