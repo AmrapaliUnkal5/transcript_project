@@ -1483,7 +1483,7 @@ const filteredFiles = React.useMemo(() => {
           isConnected={isConnected}
           refreshStatus={refreshStatus}
         />
-        <ToastContainer />
+        <ToastContainer autoClose={3000}/>
         {/* {loading && <Loader />} */}
 
         {/* Tabs Section */}

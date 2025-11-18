@@ -240,7 +240,7 @@ export const ScriptGeneratePage = () => {
     
     <div className="p-4 text-black" >
       
-    <ToastContainer position="top-right" autoClose={5000}  />
+    <ToastContainer position="top-right" autoClose={3000}  />
     <div className="flex items-center gap-3 mb-4">
       <h2 style={{
         fontFamily: "Instrument Sans, sans-serif",

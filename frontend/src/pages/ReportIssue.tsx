@@ -152,7 +152,7 @@ export const ReportIssue = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white text-white py-12 px-4 sm:px-6 lg:px-8 ">
-      <ToastContainer position="top-right" autoClose={5000} />
+      <ToastContainer position="top-right" autoClose={3000} />
       {isSubmitted ? (
         <div className="text-center">
           <h2 className="text-3xl font-extrabold text-blue-900">Thank You!</h2>
