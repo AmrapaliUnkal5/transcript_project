@@ -770,20 +770,27 @@ def get_frequently_asked_questions(bot_id: int, db: Session = Depends(get_db), l
         faqs = pg_clusterer.get_faqs(db, bot_id, limit)
 
         if not faqs:
-            example_questions = db.query(ChatMessage.message_text)\
-                .filter(ChatMessage.interaction_id.has(bot_id=bot_id))\
-                .filter(ChatMessage.sender == "user")\
-                .order_by(ChatMessage.timestamp.desc())\
-                .limit(5)\
+            example_questions = (
+                db.query(ChatMessage.message_text)
+                .filter(ChatMessage.interaction_id.has(bot_id=bot_id))
+                .filter(ChatMessage.sender == "user")
+                .filter(ChatMessage.is_greeting == False)
+                .filter(ChatMessage.is_farewell == False)
+                .order_by(ChatMessage.timestamp.desc())
+                .limit(5)
                 .all()
+            )
 
             if example_questions:
-                faqs = [{
-                    "question": example_questions[0][0],
-                    "similar_questions": [q[0] for q in example_questions[1:]],
-                    "count": 1,
-                    "cluster_id": f"{bot_id}-0"
-                }]
+                # Also ensure we skip any legacy/manual greetings that may not have flags
+                filtered_examples = [q[0] for q in example_questions if not is_greeting(q[0])[0]]
+                if filtered_examples:
+                    faqs = [{
+                        "question": filtered_examples[0],
+                        "similar_questions": filtered_examples[1:],
+                        "count": 1,
+                        "cluster_id": f"{bot_id}-0"
+                    }]
 
         logger.info(f"Returning {len(faqs)} FAQs for bot {bot_id}")
         return faqs
@@ -863,6 +870,10 @@ def get_bot_questions(bot_id: int, db: Session = Depends(get_db)):
     for msg in messages:
         msg_text = msg.message_text.strip()
         if msg_text:  # Only process non-empty messages
+            # Safeguard: also skip manual greetings if any remain in historical data
+            manual_greet, _ = is_greeting(msg_text)
+            if manual_greet:
+                continue
             # Use lowercase as key to detect duplicates, but store original text
             lower_text = msg_text.lower()
             if lower_text not in unique_questions:
@@ -902,6 +913,10 @@ def get_unanswered_questions(
     for msg in messages:
         msg_text = msg.message_text.strip()
         if msg_text:  # Only process non-empty messages
+            # Safeguard: also skip manual greetings if any remain in historical data
+            manual_greet, _ = is_greeting(msg_text)
+            if manual_greet:
+                continue
             # Use lowercase as key to detect duplicates
             lower_text = msg_text.lower()
             if lower_text not in unique_questions:
