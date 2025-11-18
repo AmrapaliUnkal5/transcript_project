@@ -372,8 +372,17 @@ def send_message(request: SendMessageRequest, db: Session = Depends(get_db)):
         import re
         # 0) Remove any echoed [METADATA] lines that LLM may have copied from context
         text = re.sub(r"(?im)^\s*\[METADATA\][^\n]*\n?", "", text)
-        # 1) Remove everything from the first 'Provenance' (incl. common misspellings) to the end
-        cleaned = re.sub(r"(?is)(?:provenance|provience|providence)\s*:?(?:\r?\n|\s|$)[\s\S]*$", "", text).rstrip()
+        # 1) Remove everything from the first 'Provenance' (incl. common misspellings) to the end.
+        #    Be tolerant of markdown like **Provenance** or *Provenance*.
+        cleaned = re.sub(
+            r"(?is)"
+            r"(?:\*{0,3}\s*)?"                       # optional leading markdown (*, **, ***)
+            r"(?:provenance|provience|providence)"   # header word (common spellings)
+            r"(?:\s*\*{0,3})?"                       # optional trailing markdown
+            r"\s*:?(?:\r?\n|\s|$)[\s\S]*$",          # optional colon + whitespace/newline, then rest
+            "",
+            text,
+        ).rstrip()
         if cleaned != text:
             # Normalize bullets: replace leading '*' with '• '
             cleaned = re.sub(r"(?m)^[ \t]*\*[ \t]+", "• ", cleaned)
