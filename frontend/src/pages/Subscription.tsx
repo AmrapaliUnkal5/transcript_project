@@ -1269,50 +1269,50 @@ export const Subscription = () => {
     );
     const planName = pendingPlan?.name || "Selected plan";
 
-    return (
-      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg p-6 mb-8">
-        <div className="flex items-start">
-          <div className="flex-shrink-0">
-            <AlertTriangle
-              className="h-5 w-5 text-yellow-500"
-              aria-hidden="true"
-            />
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-              Incomplete Checkout Detected
-            </h3>
-            <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
-              <p>
-                You have an incomplete checkout for the{" "}
-                <strong>{planName}</strong> plan. Would you like to continue
-                with this checkout or start a new one?
-              </p>
-              <div className="mt-4 flex space-x-4">
-                <button
-                  onClick={() => handleAbandonedCheckout("continue")}
-                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors"
-                >
-                  Continue Checkout
-                </button>
-                <button
-                  onClick={() => handleAbandonedCheckout("cancel")}
-                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
-                >
-                  Cancel & Start Fresh
-                </button>
-                <button
-                  onClick={() => setShowPendingNotification(false)}
-                  className="px-4 py-2 bg-transparent text-yellow-700 dark:text-yellow-300 hover:text-yellow-800 dark:hover:text-yellow-200"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    // return (
+    //   <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg p-6 mb-8">
+    //     <div className="flex items-start">
+    //       <div className="flex-shrink-0">
+    //         <AlertTriangle
+    //           className="h-5 w-5 text-yellow-500"
+    //           aria-hidden="true"
+    //         />
+    //       </div>
+    //       <div className="ml-3">
+    //         <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+    //           Incomplete Checkout Detected
+    //         </h3>
+    //         <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+    //           <p>
+    //             You have an incomplete checkout for the{" "}
+    //             <strong>{planName}</strong> plan. Would you like to continue
+    //             with this checkout or start a new one?
+    //           </p>
+    //           <div className="mt-4 flex space-x-4">
+    //             <button
+    //               onClick={() => handleAbandonedCheckout("continue")}
+    //               className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors"
+    //             >
+    //               Continue Checkout
+    //             </button>
+    //             <button
+    //               onClick={() => handleAbandonedCheckout("cancel")}
+    //               className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+    //             >
+    //               Cancel & Start Fresh
+    //             </button>
+    //             <button
+    //               onClick={() => setShowPendingNotification(false)}
+    //               className="px-4 py-2 bg-transparent text-yellow-700 dark:text-yellow-300 hover:text-yellow-800 dark:hover:text-yellow-200"
+    //             >
+    //               Dismiss
+    //             </button>
+    //           </div>
+    //         </div>
+    //       </div>
+    //     </div>
+    //   </div>
+    // );
   };
 
   const PhoneNumberRequiredModal = () => (

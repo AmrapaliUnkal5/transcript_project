@@ -2706,11 +2706,14 @@ async def get_subscription_status(
             .first()
         )
 
-        # Step 2: If no active one, get the latest regardless of status (by payment_date)
+        # Step 2: If no active one, get the latest regardless of status except 'pending' (by payment_date)
         if not subscription:
             subscription = (
                 db.query(UserSubscription)
-                .filter(UserSubscription.user_id == user_id)
+                .filter(
+                    UserSubscription.user_id == user_id,
+                    UserSubscription.status != "pending"
+                )
                 .order_by(UserSubscription.payment_date.desc())
                 .first()
             )

@@ -50,7 +50,10 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
     if not subscription:
         subscription = (
             db.query(UserSubscription)
-            .filter(UserSubscription.user_id == current_user["user_id"])
+            .filter(
+                UserSubscription.user_id == current_user["user_id"],
+                UserSubscription.status != "pending"
+            )
             .order_by(UserSubscription.payment_date.desc())
             .first()
         )
@@ -80,7 +83,7 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
             "payment_date": "",
             "expiry_date": "",
             "auto_renew": "",
-            "status": "Active",
+            "status": "N/A",
         }
 
 
