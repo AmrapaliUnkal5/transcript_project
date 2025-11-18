@@ -436,6 +436,17 @@ fetchCaptcha: async () => {
   return response.data;
 },
 
+  getPendingTrainingCounts: async (botId: number) => {
+    const response = await api.get(`/training/pending-counts/${botId}`);
+    return response.data as {
+      files_extracted_or_extracting: number;
+      scraped_extracted_or_extracting: number;
+      videos_extracted_or_extracting: number;
+      threshold: number;
+      any_over_threshold: boolean;
+    };
+  },
+
   startChat: async (botId: number, userId: number) => {
     const response = await api.post("/chat/start_chat", { bot_id: botId, user_id: userId });
     return response.data;
