@@ -771,8 +771,8 @@ class LLMManager:
                 "- CRITICAL: A farewell is ONLY a simple goodbye WITHOUT any question or request.\n"
                 "  Examples of pure farewells: 'bye', 'goodbye', 'see you', 'take care'\n"
                 "  NOT farewells: 'bye, but first tell me X', 'goodbye and thanks for the info'\n"
-                "- ONLY append {{\"is_greeting_response\": true}} if the user INPUT is a pure greeting with NO questions.\n"
-                "- ONLY append {{\"is_farewell_response\": true}} if the user INPUT is a pure farewell with NO questions.\n"
+                "- ONLY append {{\"is_greeting_response\": true}} if the user INPUT is a pure greeting.\n"
+                "- ONLY append {{\"is_farewell_response\": true}} if the user INPUT is a pure farewell.\n"
                 "- If the user asks ANY question (even with 'hi'), DO NOT add greeting/farewell metadata.\n"
                 "- These metadata lines are independent: greeting/farewell does NOT imply external knowledge.\n\n"
 
@@ -829,8 +829,8 @@ class LLMManager:
                 "- CRITICAL: A farewell is ONLY a simple goodbye WITHOUT any question or request.\n"
                 "  Examples of pure farewells: 'bye', 'goodbye', 'see you', 'take care'\n"
                 "  NOT farewells: 'bye, but first tell me X', 'goodbye and thanks for the info'\n"
-                "- ONLY append {{\"is_greeting_response\": true}} if the user INPUT is a pure greeting with NO questions.\n"
-                "- ONLY append {{\"is_farewell_response\": true}} if the user INPUT is a pure farewell with NO questions.\n"
+                "- ONLY append {{\"is_greeting_response\": true}} if the user INPUT is a pure greeting.\n"
+                "- ONLY append {{\"is_farewell_response\": true}} if the user INPUT is a pure farewell.\n"
                 "- If the user asks ANY question (even with 'hi'), DO NOT add greeting/farewell metadata.\n"
                 "- These JSON lines MUST appear as plain text only (never inside code blocks, tables, or markdown formatting).\n\n"
 
@@ -1267,6 +1267,14 @@ class LLMManager:
                 # Remove any JSON metadata blocks like {"is_greeting_response": true} or {"is_farewell_response": false}
 
                 clean_response = re.sub(r'\{.*?"is_(greeting|farewell)_response":\s*(true|false).*?\}', '', clean_response, flags=re.IGNORECASE | re.DOTALL).strip()
+
+                # If the LLM emitted only metadata (e.g., {"is_greeting_response": true}) with no actual text,
+                # provide a sensible default reply instead of falling back to the unanswered message.
+                if not clean_response:
+                    if is_greeting_response:
+                        clean_response = "Hello! How can I help you today?"
+                    elif is_farewell_response:
+                        clean_response = "Goodbye! Have a great day!"
 
 
                 # Backend safeguard: if external knowledge is enabled and Context is empty, force used_external=True

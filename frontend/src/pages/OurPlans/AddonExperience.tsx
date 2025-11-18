@@ -17,6 +17,7 @@ export default function AddonExperience() {
   const Additional_messages = addons.find(addon => addon.name === "Additional Messages");
   const Additional_word_capacity=addons.find(addon => addon.name === "Additional Word Capacity");
   const Additional_Ai_admin_users=addons.find(addon => addon.name === "Additional AI Admin Users");
+  const External_knowledge = addons.find(addon => addon.name === "External Knowledge");
 
 
   // Format price helper
@@ -148,6 +149,92 @@ export default function AddonExperience() {
                   </Box>
                 </Box>
               
+            </Grid>
+
+            <Grid item   xs={12} sm={12} md={4} textAlign={["center", "left"]}>
+              <Box
+                px={2}
+                py={3}
+                sx={{
+                  background:
+                    "linear-gradient(135deg, #54479D99 0%, #47359014 100%)",
+                  borderWidth: 1,
+                  borderColor: "#8B96D661",
+                  borderRadius: "12px",
+                }}
+              >
+                <StyledImage
+                  src="/images/icons/icon-rectangle-v.png"
+                  sx={{
+                    width: "63px",
+                    height: "63x",
+                    margin: ["auto", "unset"],
+                  }}
+                />
+
+                <Typography
+                  variant="h3"
+                  fontWeight={600}
+                  fontSize={["20px", "22px"]}
+                  mt={[3, 5]}
+                  mb={2}
+                  lineHeight={1.4}
+                >
+                  External Knowledge
+                </Typography>
+
+                <Typography
+                  variant="body1"
+                  color={"#9F9F9F"}
+                  sx={{
+                    fontSize: ["14px", "16px"],
+                  }}
+                  minHeight={128}
+                >
+                  External knowledge helps answer questions beyond your provided content.
+                </Typography>
+
+                <Box
+                  display={"flex"}
+                  alignItems={"center"}
+                  gap={1}
+                  justifyContent={"space-between"}
+                >
+                  <Box display={"flex"} alignItems={"center"} gap={1}>
+                       <Typography
+                      variant="h6"
+                      fontWeight={600}
+                      fontSize="20px"
+                      lineHeight={1.5}
+                      mb={1}
+                       >
+                      ${formatPrice(External_knowledge?.price)} 
+                      </Typography>
+
+                    <Typography
+                      variant="h6"
+                      fontWeight={"400"}
+                      fontSize={"14px"}
+                    >/month
+                    </Typography>
+                  </Box>
+                  <Button
+                  href="/signup"
+                    sx={{
+                     background: 'linear-gradient(180deg, #F4F4F6 0%, #7C7C7C 100%)',
+                      color: "#363637",
+                      textTransform: "none",
+                      borderRadius: "20px",
+                      fontSize: "16px",
+                      px: 3,
+                      width: "96px",
+                      height: "52px",
+                    }}
+                  >
+                    Get
+                  </Button>
+                </Box>
+              </Box>
             </Grid>
 
             <Grid item   xs={12} sm={12} md={4} textAlign={["center", "left"]}>
