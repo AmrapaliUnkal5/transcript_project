@@ -1651,7 +1651,8 @@ async def _handle_active_subscription(db: Session, user_id: int, zoho_subscripti
             
             # All addons should expire with the user's current subscription end date
             # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
-            addon_expiry = None if addon.id == 3 else expiry_date
+            #Currently message addon is also recurring hence this above logic is no longer require hence making id == 0 
+            addon_expiry = None if addon.id == 0 else expiry_date
             
             created_rows = 0
             desired_count = max(int(addon_quantity), 1)
@@ -1874,7 +1875,8 @@ async def handle_subscription_created(payload: Dict[str, Any], db: Session):
                 
                 # All addons should expire with the user's current subscription end date
                 # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
-                addon_expiry = None if addon.id == 3 else expiry_date
+                #Currently message addon is also recurring hence this above logic is no longer require hence making id == 0 
+                addon_expiry = None if addon.id == 0 else expiry_date
                 
                 # Create UserAddon record
                 user_addon = UserAddon(
@@ -1971,7 +1973,7 @@ def create_fresh_user_token(db: Session, user_id: int):
     # Get message addon (ID 3) details if exists
     message_addon = db.query(UserAddon).filter(
         UserAddon.user_id == user_id,
-        UserAddon.addon_id == 3,
+        UserAddon.addon_id == 0,
         UserAddon.is_active == True
     ).order_by(UserAddon.expiry_date.desc()).first()
     
@@ -2062,7 +2064,8 @@ async def handle_subscription_renewed(payload: Dict[str, Any], db: Session):
                 
                 # All addons should expire with the user's current subscription end date
                 # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
-                existing_addon.expiry_date = None if addon.id == 3 else expiry_date
+                #Currently message addon is also recurring hence this above logic is no longer require hence making id == 0 
+                existing_addon.expiry_date = None if addon.id == 0 else expiry_date
                 
                 existing_addon.updated_at = datetime.now()
                 logger.info(f"Updated existing add-on {addon.name} (ID: {addon.id}) for user {subscription.user_id}")
@@ -2462,7 +2465,8 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
             
             # All addons should expire with the user's current subscription end date
             # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
-            addon_expiry = None if addon.id == 3 else subscription.expiry_date
+            #Currently message addon is also recurring hence this above logic is no longer require hence making id == 0 
+            addon_expiry = None if addon.id == 0 else subscription.expiry_date
             
             created_rows = 0
             desired_count = max(int(quantity), 1)
@@ -2547,7 +2551,8 @@ async def handle_addon_payment_success(payload: Dict[str, Any], db: Session):
                     # Create addon record
                     current_time = datetime.now()
                     # Exception: Additional Messages (addon id == 3) should have no expiry (NULL)
-                    addon_expiry = None if matching_addon.id == 3 else subscription.expiry_date
+                    #Currently message addon is also recurring hence this above logic is no longer require hence making id == 0 
+                    addon_expiry = None if matching_addon.id == 0 else subscription.expiry_date
                     
                     # Check for existing addon
                     existing_addon = db.query(UserAddon).filter(
@@ -2672,7 +2677,12 @@ async def get_subscription_status(
     db: Session = Depends(get_db),
     current_user: Union[dict, User] = Depends(get_current_user),
 ):
-    """Get subscription status for a user, including pending subscriptions"""
+    """Get subscription status for a user.
+    
+    Rules:
+    - Step 1: Try to find an active subscription (most recent by payment_date).
+    - Step 2: If no active one, get the latest one regardless of status (by payment_date).
+    """
     try:
         # Verify that the requested user_id matches the current user or is admin
         if isinstance(current_user, dict):
@@ -2685,10 +2695,28 @@ async def get_subscription_status(
         if requester_id != user_id and not is_admin:
             raise HTTPException(status_code=403, detail="Not authorized to view this user's subscription")
             
-        # Get the latest subscription for the user
-        subscription = db.query(UserSubscription).filter(
-            UserSubscription.user_id == user_id
-        ).order_by(UserSubscription.updated_at.desc()).first()
+        # Step 1: Try to find active subscription (latest by payment_date)
+        subscription = (
+            db.query(UserSubscription)
+            .filter(
+                UserSubscription.user_id == user_id,
+                UserSubscription.status == "active",
+            )
+            .order_by(UserSubscription.payment_date.desc())
+            .first()
+        )
+
+        # Step 2: If no active one, get the latest regardless of status except 'pending' (by payment_date)
+        if not subscription:
+            subscription = (
+                db.query(UserSubscription)
+                .filter(
+                    UserSubscription.user_id == user_id,
+                    UserSubscription.status != "pending"
+                )
+                .order_by(UserSubscription.payment_date.desc())
+                .first()
+            )
         
         if not subscription:
             return {"status": "none", "message": "No subscription found"}

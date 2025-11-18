@@ -119,7 +119,8 @@ async def google_auth(request: Request, payload: TokenPayload, db: Session = Dep
         # Step 2: If no active one, get the latest one regardless of status
         if not user_subscription:
             user_subscription = db.query(UserSubscription).filter(
-                UserSubscription.user_id == user.user_id
+                UserSubscription.user_id == user.user_id,
+                UserSubscription.status != 'pending'
             ).order_by(UserSubscription.payment_date.desc()).first()
 
 
@@ -289,7 +290,8 @@ async def facebook_login(
         # Step 2: If no active one, get the latest one regardless of status
         if not user_subscription:
             user_subscription = db.query(UserSubscription).filter(
-                UserSubscription.user_id == subscription_user_id
+                UserSubscription.user_id == subscription_user_id,
+                UserSubscription.status != 'pending'
             ).order_by(UserSubscription.payment_date.desc()).first()
 
 

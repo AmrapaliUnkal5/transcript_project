@@ -251,7 +251,7 @@ def check_message_limit(
             UserAddon.user_id == user_id,
             UserAddon.is_active == True,
             #Addon.id == 3,
-            Addon.id == 6,
+            Addon.id == (6 if os.getenv("PROFILE") == "dev" else 3),
             or_(
                 UserAddon.expiry_date == None,
                 UserAddon.expiry_date >= datetime.utcnow()

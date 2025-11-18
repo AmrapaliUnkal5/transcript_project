@@ -725,6 +725,12 @@ getAllCustomers: async () => {
   return response.data; // Expected format: { exists: true/false }
   },
 
+  // New: has the user had any prior subscription (excluding cancelled and pending)
+  hasPriorSubscription: async (userId: number) => {
+    const response = await api.get(`/user/has-prior-subscription/${userId}`);
+    return response.data as { has_prior: boolean };
+  },
+
   refreshToken: async () => {
   const response = await api.get("/auth/refresh-token");
   return response.data;
