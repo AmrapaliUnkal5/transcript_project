@@ -177,6 +177,48 @@ def retrieve_transcript_context(record_id: int, query_text: str, top_k: int = 5,
         logger.warning("[QDRANT] Client unavailable in retrieve_transcript_context")
         return ""
 
+
+def add_field_answer_embedding_to_qdrant(record_id: int, user_id: int, label: str, answer: str, model: str = "text-embedding-3-large") -> bool:
+    """
+    Adds an answered dynamic field to transcript_vector_store so future questions can retrieve it.
+    """
+    if not answer or not answer.strip():
+        return False
+
+    client = get_qdrant_client()
+    if not client:
+        return False
+
+    try:
+        openai_client = OpenAIClient(api_key=settings.OPENAI_API_KEY)
+        emb = openai_client.embeddings.create(model=model, input=f"{label}: {answer}")
+        vector = emb.data[0].embedding
+    except Exception as e:
+        logger.error(f"[QDRANT] Field answer embedding failed: {e}")
+        return False
+
+    normalized_vector = normalize_embedding(vector)
+
+    collection_name = "transcript_vector_store"
+    _get_or_create_collection(client, collection_name, len(normalized_vector))
+
+    original_id = f"record:{record_id}:field:{label}:{hashlib.md5(answer.encode('utf-8')).hexdigest()}"
+    point_id = uuid.UUID(hashlib.md5(original_id.encode()).hexdigest())
+
+    payload = {
+        "record_id": record_id,
+        "user_id": user_id,
+        "text": f"{label}: {answer}",
+        "source": "field_answer",
+        "label": label,
+        "embedding_model": model,
+    }
+
+    client.upsert(
+        collection_name=collection_name,
+        points=[PointStruct(id=str(point_id), vector=normalized_vector, payload=payload)],
+    )
+    return True
     try:
         openai_client = OpenAIClient(api_key=settings.OPENAI_API_KEY)
         emb = openai_client.embeddings.create(model=model, input=query_text)

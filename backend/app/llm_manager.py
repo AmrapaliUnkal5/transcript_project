@@ -482,6 +482,19 @@ class LLMManager:
         """Get model information from the database."""
         db = SessionLocal()
         try:
+            # Hard-coded support for OpenAI models used by transcript project without touching Evolra DB
+            _mn = (model_name or "").strip().lower()
+            if _mn in ("gpt-4o-mini", "gpt-4o mini", "openai-gpt-4o-mini"):
+                # Reasonable defaults for 4o mini
+                return {
+                    "name": "gpt-4o-mini",
+                    "provider": "openai",
+                    "model_type": "chat",
+                    "endpoint": None,
+                    "max_input_tokens": 128000,
+                    "max_output_tokens": 4096,
+                }
+
             # Try to get the model by case-insensitive name
             model = db.query(LLMModelDB).filter(
                 LLMModelDB.name.ilike(model_name)

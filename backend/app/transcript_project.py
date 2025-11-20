@@ -13,7 +13,7 @@ from app.models import TranscriptRecord, User
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
 from app.utils.file_storage import resolve_file_url
 from app.llm_manager import LLMManager
-from app.vector_db import add_transcript_embedding_to_qdrant, retrieve_transcript_context
+from app.vector_db import add_transcript_embedding_to_qdrant, retrieve_transcript_context, add_field_answer_embedding_to_qdrant
 
 router = APIRouter(prefix="/transcript", tags=["Transcript Project"])
 
@@ -51,6 +51,21 @@ def _strip_provenance_block(text: str) -> str:
             break
     return "\n".join(lines[: i + 1]).rstrip()
 
+def _build_retrieval_query(label: str) -> str:
+    """Expand a label into a richer retrieval query with synonyms/related terms."""
+    l = (label or "").strip().lower()
+    if l in ("diagnosis", "dx", "assessment", "impression"):
+        return "diagnosis assessment impression condition likely cause problem diagnosis plan"
+    if l in ("prescription", "medication", "rx", "treatment", "plan"):
+        return "prescription medication meds drug treatment therapy plan dosage"
+    if l in ("complaint", "chief complaint", "symptoms"):
+        return "complaint chief complaint symptoms presenting problem issues"
+    if l in ("history", "history of present illness", "hpi"):
+        return "history HPI details background timeline"
+    if l in ("exam", "examination", "findings"):
+        return "exam examination findings physical exam observations"
+    # default: include label and common medical terms
+    return f"{label} medical notes clinical context details"
 
 @router.post("/records")
 def create_record(
@@ -207,11 +222,12 @@ def summarize_record(
     if not context.strip():
         raise HTTPException(status_code=400, detail="No transcript available to summarize")
 
-    llm = LLMManager(bot_id=None, user_id=current_user.get("user_id"), unanswered_message="")
+    # Use OpenAI 4o mini specifically for transcript project (does not affect Evolra bots)
+    llm = LLMManager(model_name="gpt-4o-mini", bot_id=None, user_id=current_user.get("user_id"), unanswered_message="")
     user_message = (
         "You are a medical assistant. Summarize the patient's consultation as concise clinical notes with headings:\n"
         "Complaint, History, Exam, Assessment, Plan.\n"
-        "- Be robust to missing explicit keywords; infer clinically from statements.\n"
+        "- Be robust to missing explicit keywords; infer clinically from statements. If symptoms imply a probable diagnosis, write a reasonable provisional diagnosis.\n"
         "- Do NOT include any 'Provenance' or sources section in the output."
     )
     result = llm.generate(context=context, user_message=user_message, use_external_knowledge=False, temperature=0.3)
@@ -250,25 +266,52 @@ def generate_dynamic_fields(
     if not any_context:
         raise HTTPException(status_code=400, detail="No transcript available")
 
-    llm = LLMManager(bot_id=None, user_id=current_user.get("user_id"), unanswered_message="")
+    # Use OpenAI 4o mini specifically for transcript project
+    llm = LLMManager(model_name="gpt-4o-mini", bot_id=None, user_id=current_user.get("user_id"), unanswered_message="")
+
+    # Use existing field answers to avoid re-answering and to provide context/history
+    existing = record.dynamic_fields or {}
+    existing_context_lines = []
+    for k, v in existing.items():
+        if v and isinstance(v, str) and v.strip():
+            existing_context_lines.append(f"{k}: {v}")
+    existing_context = "\n".join(existing_context_lines)
 
     answers: Dict[str, str] = {}
     for label in fields:
-        # Retrieve focused context for each question
-        retrieved = retrieve_transcript_context(record.id, f"{label}", top_k=6, model="text-embedding-3-large")
-        context = retrieved if retrieved else (record.transcript_text or "")
+        # Skip if already answered with a non-empty value to save tokens
+        if label in existing and isinstance(existing[label], str) and existing[label].strip() and existing[label].strip().lower() != "not specified.":
+            continue
+
+        # Retrieve focused context for each question (expanded query)
+        retrieval_query = _build_retrieval_query(label)
+        retrieved = retrieve_transcript_context(record.id, retrieval_query, top_k=6, model="text-embedding-3-large")
+        transcript_context = retrieved if retrieved else (record.transcript_text or "")
+
+        # Build final context including prior answers as history
+        if existing_context:
+            context = f"Known prior answers:\n{existing_context}\n\nTranscript context:\n{transcript_context}"
+        else:
+            context = transcript_context
 
         q = (
             f"You are a medical assistant.\n"
-            f"Task: Provide the '{label}' succinctly based only on the provided transcript context.\n"
-            f"- Understand implied concepts even if the exact keyword '{label}' is not used (e.g., a plan implies prescription).\n"
-            f"- Prefer precise clinical phrasing. If truly absent, return 'Not specified'.\n"
-            f"- Do NOT include any 'Provenance' or sources in the output."
+            f"Task: Provide ONLY the '{label}' succinctly based on the provided context.\n"
+            f"- If explicit '{label}' is missing, infer a clinically sensible answer from symptoms and statements "
+            f"(e.g., a plan implies prescription; symptoms can imply a provisional diagnosis).\n"
+            f"- Return 'Not specified' only if it truly cannot be inferred from the context.\n"
+            f"- Do NOT include any 'Provenance' or sources; output only the answer for '{label}'.\n"
         )
         res = llm.generate(context=context, user_message=q, use_external_knowledge=False, temperature=0.2)
         ans = res["message"] if isinstance(res, dict) and "message" in res else (res if isinstance(res, str) else "")
-        ans = _strip_provenance_block(ans)
+        ans = _strip_provenance_block(ans).strip()
         answers[label] = ans
+
+        # Upsert this field answer as an embedding so future fields can retrieve it
+        try:
+            add_field_answer_embedding_to_qdrant(record.id, current_user.get("user_id"), label, ans, model="text-embedding-3-large")
+        except Exception:
+            pass
 
     # persist
     record.dynamic_fields = {**(record.dynamic_fields or {}), **answers}
