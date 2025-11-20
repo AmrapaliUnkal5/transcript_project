@@ -651,10 +651,11 @@ class LLMManager:
             return HuggingFaceLLM(default_model, huggingface_api_key, 4096, 512)
 
     def _build_prompt(self, context: str, user_message: str, use_external_knowledge: bool, chat_history: str, role: str, tone: str, response_language: str = None):
-        """Build shared system and user content used across providers, with stricter controls for Llama models."""
-        # Detect Llama models (Groq/OpenAI-compatible names often contain 'llama' or 'llama-3')
+        """Build shared system and user content used across providers, with stricter controls for certain models (Llama, Grok, Qwen)."""
+        # Detect model families from name
         model_name_lower = (self.model_name or "").lower()
         is_llama = ("llama" in model_name_lower)
+        is_grok = ("grok" in model_name_lower)
         tone_descriptions = {
             "Professional": "Maintain a formal, polite, and technical style. Use complete sentences and avoid contractions.",
             "Casual": "Write in a friendly, conversational style. Use contractions and light humor if appropriate.",
@@ -732,6 +733,28 @@ class LLMManager:
                 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             )
 
+        # Grok-specific strict directive: primary, context-only mode must NOT use training data
+        grok_strict_directive = ""
+        if is_grok and not use_external_knowledge:
+            grok_strict_directive = (
+                "\n### ⚠️ CRITICAL GROK-SPECIFIC INSTRUCTIONS (PRIMARY CONTEXT-ONLY MODE) ⚠️\n"
+                "YOU MUST TREAT YOUR TRAINING DATA AND GENERAL WORLD KNOWLEDGE AS DISABLED:\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "1. ALLOWED KNOWLEDGE:\n"
+                "   - You may ONLY use information explicitly present in the Context blocks above.\n"
+                "   - If a fact, definition, date, or explanation is NOT clearly stated in the Context, you MUST NOT include it in your answer.\n\n"
+                "2. WHEN CONTEXT IS INSUFFICIENT:\n"
+                f"   - If the Context does NOT clearly answer the question, you MUST reply with exactly: \"{self.unanswered_message}\" and NOTHING ELSE.\n"
+                "   - Do NOT try to be helpful by using your own knowledge about the world.\n"
+                "   - Do NOT guess or infer from general understanding of the topic.\n\n"
+                "3. FORBIDDEN SOURCES:\n"
+                "   - Do NOT use training data, prior knowledge, or internet information.\n"
+                "   - Even if you are 100% sure from your training, if the Context does not show it, you MUST act as if you do not know.\n\n"
+                "4. SAFETY RULE:\n"
+                f"   - When in doubt, ALWAYS respond with exactly: \"{self.unanswered_message}\".\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            )
+
         if use_external_knowledge:
             system_content = (
                 "{language_directive}You are a {tone} {role}. {tone_description}\n\n"
@@ -742,7 +765,8 @@ class LLMManager:
                 "- **NO GREETINGS OR FLUFF**: Do NOT start with greetings or phrases like \"I'm happy to help\", \"Sure\", \"Of course\", \"Hello\", \"Hi\" or apologies. Begin your first sentence directly with the factual answer content.\n"
                 "- **INTERNAL PROCESSING ONLY**: All thinking and reasoning must happen internally and never be shown in the output.\n"
                 "{qwen_directive}\n"
-                "{llama_directive}\n\n"
+                "{llama_directive}\n"
+                "{grok_directive}\n\n"
                 "### Response Guidelines:\n"
                 "- Answer the user's question using the provided Context.\n"
                 #"- No introductions, no preamble, no chain-of-thought, no reasoning notes, no planning, or any tags like <think>, 'Reasoning:', 'Thoughts:', or 'Analysis:' and no disclaimers — start directly with the answer.\n"
@@ -800,6 +824,7 @@ class LLMManager:
                 tone_description=tone_description,
                 qwen_directive=qwen_specific_directive,
                 llama_directive=llama_strict_directive,
+                grok_directive=grok_strict_directive,
                 language_directive=language_directive
             )
         else:
@@ -1792,7 +1817,9 @@ class LLMManager:
         return cleaned
 
     def _secondary_general_knowledge_answer(self, user_message: str, chat_history: str = "", role: str = "Service Assistant", tone: str = "Friendly", temperature: float = 0.7) -> dict:
-        """Answer using only general knowledge via the bot's secondary LLM. Sends no context or metadata."""
+        """
+        Answer using only general knowledge via the bot's secondary LLM. Sends no context or metadata.
+        """
         model_info = getattr(self, "secondary_model_info", None)
         if not model_info:
             print("⚠️ Secondary LLM not configured; returning unanswered message")
@@ -1851,8 +1878,84 @@ class LLMManager:
 
             return cleaned, False
 
-        # OpenAI-compatible providers
+        # OpenAI-compatible providers (OpenAI/DeepSeek/Groq) plus Grok with special handling
         if provider in ("openai", "deepseek", "groq", "grok"):
+            # Special-case Grok: call xAI HTTP API directly with Live Search enabled
+            if provider == "grok":
+                try:
+                    xai_api_key = getattr(settings, "XAI_API_KEY", None) or os.getenv("XAI_API_KEY")
+                    if not xai_api_key:
+                        print("❌ XAI_API_KEY not set for Grok secondary LLM")
+                        return {
+                            "message": default_message,
+                            "used_external": False,
+                            "not_answered": True,
+                            "is_default_response": True,
+                        }
+
+                    headers = {
+                        "Authorization": f"Bearer {xai_api_key}",
+                        "Content-Type": "application/json",
+                    }
+                    payload = {
+                        "model": model_name,
+                        "messages": [
+                            {"role": "system", "content": system_content},
+                            {"role": "user", "content": user_content},
+                        ],
+                        "temperature": temperature,
+                        "search_parameters": {
+                            "mode": "auto",
+                            "return_citations": True,
+                        },
+                    }
+                    print("📨 Sending prompt to Grok secondary model with live search")
+                    resp = requests.post(
+                        "https://api.x.ai/v1/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=60,
+                    )
+                    if resp.status_code != 200:
+                        print(f"❌ Grok secondary HTTP error: {resp.status_code} {resp.text}")
+                        return {
+                            "message": default_message,
+                            "used_external": False,
+                            "not_answered": True,
+                            "is_default_response": True,
+                        }
+                    data = resp.json()
+                    choices = data.get("choices") or []
+                    if not choices:
+                        print("❌ Grok secondary response missing choices")
+                        return {
+                            "message": default_message,
+                            "used_external": False,
+                            "not_answered": True,
+                            "is_default_response": True,
+                        }
+                    msg = choices[0].get("message") or {}
+                    response_text = msg.get("content") or ""
+                    final_message, flagged_unanswered = _finalize_secondary_output(response_text)
+                    print(
+                        f"✅ Secondary Grok response received | length={len(final_message)} "
+                        f"unanswered={flagged_unanswered}"
+                    )
+                    return {
+                        "message": final_message,
+                        "used_external": not flagged_unanswered,
+                        "not_answered": flagged_unanswered,
+                    }
+                except Exception as e:
+                    print(f"❌ Grok secondary LLM error: {str(e)}")
+                    return {
+                        "message": default_message,
+                        "used_external": False,
+                        "not_answered": True,
+                        "is_default_response": True,
+                    }
+
+            # Default OpenAI-compatible path for OpenAI / DeepSeek / Groq
             try:
                 client = None
                 if provider == "openai":
@@ -1861,8 +1964,6 @@ class LLMManager:
                     client = OpenAI(api_key=(getattr(settings, "DEEPSEEK_API_KEY", None) or os.getenv("DEEPSEEK_API_KEY")), base_url="https://api.deepseek.com/v1")
                 elif provider == "groq":
                     client = OpenAI(api_key=(getattr(settings, "GROQ_API_KEY", None) or os.getenv("GROQ_API_KEY")), base_url="https://api.groq.com/openai/v1")
-                elif provider == "grok":
-                    client = OpenAI(api_key=(getattr(settings, "XAI_API_KEY", None) or os.getenv("XAI_API_KEY")), base_url="https://api.x.ai/v1")
 
                 def _token_param_key(pvd: str, model: str) -> str:
                     p = (pvd or "").lower()
@@ -1926,7 +2027,7 @@ class LLMManager:
                 return {
                     "message": final_message,
                     "used_external": not flagged_unanswered,
-                    "not_answered": flagged_unanswered
+                    "not_answered": flagged_unanswered,
                 }
             except Exception as e:
                 print(f"❌ Secondary LLM error: {str(e)}")
