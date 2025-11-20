@@ -13,10 +13,43 @@ from app.models import TranscriptRecord, User
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
 from app.utils.file_storage import resolve_file_url
 from app.llm_manager import LLMManager
+from app.vector_db import add_transcript_embedding_to_qdrant, retrieve_transcript_context
 
 router = APIRouter(prefix="/transcript", tags=["Transcript Project"])
 
 TRANSCRIPT_DIR = "transcript_prject"
+
+
+def _strip_provenance_block(text: str) -> str:
+    """Remove any provenance/source blocks from model output."""
+    if not text:
+        return text
+    import re
+    # Remove any echoed [METADATA] lines
+    text = re.sub(r"(?im)^\s*\[METADATA\][^\n]*\n?", "", text)
+    # Remove from 'Provenance' (and common misspellings) to end
+    cleaned = re.sub(
+        r"(?is)"
+        r"(?:\*{0,3}\s*)?"
+        r"(?:provenance|provience|providence)"
+        r"(?:\s*\*{0,3})?"
+        r"\s*:?(?:\r?\n|\s|$)[\s\S]*$",
+        "",
+        text,
+    ).rstrip()
+    if cleaned != text:
+        cleaned = re.sub(r"(?m)^[ \t]*\*[ \t]+", "• ", cleaned)
+        return cleaned
+    # Fallback: strip trailing 'source:' style lines
+    lines = text.splitlines()
+    i = len(lines) - 1
+    while i >= 0:
+        raw = lines[i].strip().lower()
+        if raw.startswith("source:") or raw.startswith("file ") or raw.startswith("filename:"):
+            i -= 1
+        else:
+            break
+    return "\n".join(lines[: i + 1]).rstrip()
 
 
 @router.post("/records")
@@ -143,6 +176,13 @@ def transcribe_record(
     record.transcript_text = text
     db.commit()
 
+    # Index transcript into Qdrant
+    try:
+        add_transcript_embedding_to_qdrant(record.id, current_user.get("user_id"), text, model="text-embedding-3-large")
+    except Exception as e:
+        # Don't fail the request if indexing fails
+        pass
+
     return {"transcript": text}
 
 
@@ -153,23 +193,32 @@ def summarize_record(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Summarize transcript using existing LLMManager provider stack.
+    Summarize transcript using retrieval from transcript_vector_store and LLMManager.
     """
     record = db.query(TranscriptRecord).filter(
         TranscriptRecord.id == record_id, TranscriptRecord.user_id == current_user.get("user_id")
     ).first()
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
-    if not record.transcript_text:
+
+    # Retrieve context from vector store; fallback to raw transcript
+    retrieved = retrieve_transcript_context(record.id, "Create a clinical summary for this consultation", top_k=6, model="text-embedding-3-large")
+    context = retrieved if retrieved else (record.transcript_text or "")
+    if not context.strip():
         raise HTTPException(status_code=400, detail="No transcript available to summarize")
 
     llm = LLMManager(bot_id=None, user_id=current_user.get("user_id"), unanswered_message="")
-    context = record.transcript_text
-    user_message = "Summarize the patient's consultation in concise clinical notes with headings: Complaint, History, Exam, Assessment, Plan."
+    user_message = (
+        "You are a medical assistant. Summarize the patient's consultation as concise clinical notes with headings:\n"
+        "Complaint, History, Exam, Assessment, Plan.\n"
+        "- Be robust to missing explicit keywords; infer clinically from statements.\n"
+        "- Do NOT include any 'Provenance' or sources section in the output."
+    )
     result = llm.generate(context=context, user_message=user_message, use_external_knowledge=False, temperature=0.3)
 
     # llm.generate returns dict with "message" under many call sites; handle str fallback
     summary_text = result["message"] if isinstance(result, dict) and "message" in result else (result if isinstance(result, str) else "")
+    summary_text = _strip_provenance_block(summary_text)
     record.summary_text = summary_text
     db.commit()
 
@@ -184,7 +233,7 @@ def generate_dynamic_fields(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Generate answers for user-defined fields using the transcript as context.
+    Generate answers for user-defined fields using transcript vector retrieval as context.
     payload: { "fields": ["prescription", "diagnosis", ...] }
     """
     fields = payload.get("fields") or []
@@ -196,17 +245,29 @@ def generate_dynamic_fields(
     ).first()
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
-    if not record.transcript_text:
+    # Ensure there is at least some context available (either in vector store or raw)
+    any_context = (record.transcript_text or "").strip()
+    if not any_context:
         raise HTTPException(status_code=400, detail="No transcript available")
 
     llm = LLMManager(bot_id=None, user_id=current_user.get("user_id"), unanswered_message="")
-    context = record.transcript_text
 
     answers: Dict[str, str] = {}
     for label in fields:
-        q = f"You are a medical assistant. Based only on the transcript, provide the {label} succinctly. If absent, say 'Not specified'."
+        # Retrieve focused context for each question
+        retrieved = retrieve_transcript_context(record.id, f"{label}", top_k=6, model="text-embedding-3-large")
+        context = retrieved if retrieved else (record.transcript_text or "")
+
+        q = (
+            f"You are a medical assistant.\n"
+            f"Task: Provide the '{label}' succinctly based only on the provided transcript context.\n"
+            f"- Understand implied concepts even if the exact keyword '{label}' is not used (e.g., a plan implies prescription).\n"
+            f"- Prefer precise clinical phrasing. If truly absent, return 'Not specified'.\n"
+            f"- Do NOT include any 'Provenance' or sources in the output."
+        )
         res = llm.generate(context=context, user_message=q, use_external_knowledge=False, temperature=0.2)
         ans = res["message"] if isinstance(res, dict) and "message" in res else (res if isinstance(res, str) else "")
+        ans = _strip_provenance_block(ans)
         answers[label] = ans
 
     # persist

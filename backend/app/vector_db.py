@@ -15,6 +15,8 @@ from app.utils.ai_logger import ai_logger
 import numpy as np
 import uuid
 import hashlib
+from typing import Optional, List, Dict
+from openai import OpenAI as OpenAIClient
 
 # Initialize logger
 logger = get_module_logger(__name__)
@@ -97,6 +99,115 @@ def get_qdrant_client():
         logger.error(f"Failed to create Qdrant client: {str(e)}")
         return None
 
+
+# ================= Transcript vector store helpers =================
+def _get_or_create_collection(client: QdrantClient, collection_name: str, vector_size: int) -> None:
+    try:
+        client.get_collection(collection_name)
+        logger.info(f"[QDRANT] Collection exists: {collection_name}")
+    except Exception:
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+            shard_number=2,
+            quantization_config=ScalarQuantization(
+                scalar=ScalarQuantizationConfig(
+                    type=ScalarType.INT8,
+                    quantile=0.99,
+                    always_ram=True,
+                ),
+            ),
+        )
+        logger.info(f"[QDRANT] Created collection: {collection_name}")
+
+
+def add_transcript_embedding_to_qdrant(record_id: int, user_id: int, text: str, model: str = "text-embedding-3-large") -> bool:
+    """
+    Adds transcript text to a dedicated Qdrant collection keyed by record_id.
+    """
+    if not text or not text.strip():
+        logger.warning("[QDRANT] Empty transcript text; skipping embedding")
+        return False
+
+    client = get_qdrant_client()
+    if not client:
+        logger.warning("[QDRANT] Qdrant client unavailable")
+        return False
+
+    # Generate embedding via OpenAI embeddings
+    try:
+        openai_client = OpenAIClient(api_key=settings.OPENAI_API_KEY)
+        emb = openai_client.embeddings.create(model=model, input=text)
+        vector = emb.data[0].embedding
+    except Exception as e:
+        logger.error(f"[QDRANT] OpenAI embedding failed: {e}")
+        return False
+
+    normalized_vector = normalize_embedding(vector)
+
+    collection_name = "transcript_vector_store"
+    _get_or_create_collection(client, collection_name, len(normalized_vector))
+
+    # Use deterministic point id from record_id + hash of text chunk
+    original_id = f"record:{record_id}:{hashlib.md5(text.encode('utf-8')).hexdigest()}"
+    point_id = uuid.UUID(hashlib.md5(original_id.encode()).hexdigest())
+
+    payload = {
+        "record_id": record_id,
+        "user_id": user_id,
+        "text": text,
+        "source": "transcript",
+        "embedding_model": model,
+    }
+
+    client.upsert(
+        collection_name=collection_name,
+        points=[PointStruct(id=str(point_id), vector=normalized_vector, payload=payload)],
+    )
+    logger.info(f"[QDRANT] Upserted transcript embedding for record_id={record_id}")
+    return True
+
+
+def retrieve_transcript_context(record_id: int, query_text: str, top_k: int = 5, model: str = "text-embedding-3-large") -> str:
+    """
+    Retrieves most similar transcript chunks for a record_id from transcript_vector_store.
+    """
+    client = get_qdrant_client()
+    if not client:
+        logger.warning("[QDRANT] Client unavailable in retrieve_transcript_context")
+        return ""
+
+    try:
+        openai_client = OpenAIClient(api_key=settings.OPENAI_API_KEY)
+        emb = openai_client.embeddings.create(model=model, input=query_text)
+        qvec = normalize_embedding(emb.data[0].embedding)
+    except Exception as e:
+        logger.error(f"[QDRANT] Query embedding failed: {e}")
+        return ""
+
+    collection_name = "transcript_vector_store"
+    try:
+        client.get_collection(collection_name)
+    except Exception:
+        logger.info(f"[QDRANT] Collection {collection_name} not found")
+        return ""
+
+    query_filter = Filter(
+        must=[FieldCondition(key="record_id", match=MatchValue(value=record_id))]
+    )
+
+    try:
+        results = client.search(
+            collection_name=collection_name,
+            query_vector=qvec,
+            limit=top_k,
+            query_filter=query_filter,
+        )
+        texts = [r.payload.get("text", "") for r in results if r.payload and r.payload.get("text")]
+        return "\n".join(texts)
+    except Exception as e:
+        logger.error(f"[QDRANT] Search failed: {e}")
+        return ""
 
 def enable_quantization_for_existing_collection(collection_name: str = "unified_vector_store"):
     """
