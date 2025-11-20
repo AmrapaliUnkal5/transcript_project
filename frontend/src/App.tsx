@@ -51,6 +51,11 @@ import SuperAdminLogin from "./pages/SuperAdminLogin.tsx"
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import ReactGA from "react-ga4";
+import TranscriptWelcome from "./pages/TranscriptWelcome";
+import TranscriptNew from "./pages/TranscriptNew";
+import TranscriptList from "./pages/TranscriptList";
+import TranscriptDetail from "./pages/TranscriptDetail";
+import TranscriptUpload from "./pages/TranscriptUpload";
 const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID ;
 const TrackPageView = () => {
   const location = useLocation();
@@ -115,6 +120,11 @@ function App() {
                   }
                 >
                   <Route path="welcome" element={<Welcome />} />
+                  <Route path="transcript_welcome" element={<TranscriptWelcome />} />
+                  <Route path="transcript" element={<TranscriptList />} />
+                  <Route path="transcript/new" element={<TranscriptNew />} />
+                  <Route path="transcript/upload/:id" element={<TranscriptUpload />} />
+                  <Route path="transcript/:id" element={<TranscriptDetail />} />
                   <Route path="subscription" element={<Subscription />} />
                   <Route path="subscription/success" element={<SubscriptionSuccess />} />
                   <Route path="myaccount" element={<Settings />} />

@@ -147,6 +147,36 @@ class Bot(Base):
         status_indicator = " (active)" if self.is_active else " (inactive)"
         return f"{self.bot_name}{status_indicator}"
 
+
+# New transcript record model for medical recordings
+class TranscriptRecord(Base):
+    __tablename__ = "transcript_record"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Patient info
+    patient_name = Column(String, nullable=False)
+    age = Column(Integer, nullable=True)
+    bed_no = Column(String, nullable=True)
+    phone_no = Column(String, nullable=True)
+    visit_date = Column(TIMESTAMP, nullable=True)
+
+    # Files and artifacts
+    audio_path = Column(Text, nullable=True)  # relative or presigned URL
+
+    # AI outputs
+    transcript_text = Column(Text, nullable=True)
+    summary_text = Column(Text, nullable=True)
+    dynamic_fields = Column(JSONB, nullable=True)  # { label: answer }
+
+    # Meta
+    created_at = Column(TIMESTAMP, server_default=func.current_timestamp(), nullable=False)
+    updated_at = Column(TIMESTAMP, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+    # Relationship
+    user = relationship("User")
+
 class File(Base):
     __tablename__ = "files"
 

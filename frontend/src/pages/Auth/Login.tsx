@@ -383,8 +383,12 @@ export const Login = () => {
       const response = await authApi.login({ email, password });
       login(response.access_token, response.user);
 
-      // Redirect to welcome page after login
-      navigate("/dashboard/welcome", { replace: true });
+      // Redirect based on role after login
+      if (response?.user?.role === "transcript_access") {
+        navigate("/dashboard/transcript_welcome", { replace: true });
+      } else {
+        navigate("/dashboard/welcome", { replace: true });
+      }
     } catch (err) {
       if (err instanceof AxiosError) {
         setError(err.response?.data?.detail || "An unexpected error occurred");

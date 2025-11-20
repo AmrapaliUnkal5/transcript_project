@@ -106,7 +106,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         
         // Redirect logged-in users from root path to welcome
         if (location.pathname === "/") {
-          navigate("/dashboard/welcome");
+          if (parsedUserData?.role === "transcript_access") {
+            navigate("/dashboard/transcript_welcome");
+          } else {
+            navigate("/dashboard/welcome");
+          }
         }
       } catch (error) {
         console.error("Error parsing user data:", error);

@@ -930,6 +930,76 @@ updateBotExternalKnowledge: async (botId: number) => {
  
 };
 
+// Transcript project API
+export const transcriptApi = {
+  createRecord: async (data: {
+    patient_name: string;
+    age?: number;
+    bed_no?: string;
+    phone_no?: string;
+    visit_date?: string; // ISO
+  }): Promise<{ record_id: number }> => {
+    const response = await api.post('/transcript/records', data);
+    return response.data;
+  },
+
+  uploadAudio: async (recordId: number, file: File | Blob, filename: string): Promise<{ audio_path: string; url?: string }> => {
+    const form = new FormData();
+    form.append('file', file, filename);
+    const response = await api.post(`/transcript/records/${recordId}/audio`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  transcribe: async (recordId: number): Promise<{ transcript: string }> => {
+    const response = await api.post(`/transcript/records/${recordId}/transcribe`);
+    return response.data;
+  },
+
+  summarize: async (recordId: number): Promise<{ summary: string }> => {
+    const response = await api.post(`/transcript/records/${recordId}/summarize`);
+    return response.data;
+  },
+
+  generateFields: async (recordId: number, fields: string[]): Promise<{ fields: Record<string, string> }> => {
+    const response = await api.post(`/transcript/records/${recordId}/fields`, { fields });
+    return response.data;
+  },
+
+  listRecords: async (): Promise<{ records: Array<{
+    id: number;
+    patient_name: string;
+    age?: number;
+    bed_no?: string;
+    phone_no?: string;
+    visit_date?: string | null;
+    has_audio: boolean;
+    has_transcript: boolean;
+    has_summary: boolean;
+    created_at?: string | null;
+  }> }> => {
+    const response = await api.get('/transcript/records');
+    return response.data;
+  },
+
+  getRecord: async (recordId: number): Promise<{
+    id: number;
+    patient_name: string;
+    age?: number;
+    bed_no?: string;
+    phone_no?: string;
+    visit_date?: string | null;
+    audio_path?: string | null;
+    transcript_text?: string | null;
+    summary_text?: string | null;
+    dynamic_fields?: Record<string, string>;
+    created_at?: string | null;
+  }> => {
+    const response = await api.get(`/transcript/records/${recordId}`);
+    return response.data;
+  },
+};
 export const subscriptionApi = {
   getPlans: async () => {
     const response = await api.get("/subscriptionplans/");

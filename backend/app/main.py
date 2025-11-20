@@ -70,6 +70,7 @@ from app.investigation import router as investigation
 from app.utils.file_storage import resolve_file_url
 from app.progress import router as progress
 from app.grid_refresh_ws import router as grid_refresh_router
+from app.transcript_project import router as transcript_router
 
 # Import our custom logging components
 from app.utils.logging_config import setup_logging
@@ -145,6 +146,11 @@ app.add_middleware(LoggingMiddleware)
 # Mount static files directory only if it's not an S3 path
 if not settings.UPLOAD_BOT_DIR.startswith("s3://"):
     app.mount(f"/{settings.UPLOAD_BOT_DIR}", StaticFiles(directory=settings.UPLOAD_BOT_DIR), name=settings.UPLOAD_BOT_DIR)
+
+# Mount transcript project static if local
+if not os.getenv("TRANSCRIPT_DIR_S3", "false").lower() in ("1", "true", "yes"):
+    if os.path.exists("transcript_prject"):
+        app.mount("/transcript_prject", StaticFiles(directory="transcript_prject"), name="transcript_prject")
 app.include_router(botsettings_router)
 app.include_router(social_login_router)
 app.include_router(bot_conversations_router)
@@ -183,6 +189,7 @@ app.include_router(investigation)
 app.include_router(progress)
 app.include_router(grid_refresh_router)
 app.include_router(superadmin_router)
+app.include_router(transcript_router)
 
 # Start the add-on expiry scheduler
 start_addon_scheduler()
