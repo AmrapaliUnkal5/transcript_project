@@ -57,9 +57,6 @@ export const TranscriptList: React.FC = () => {
                     <th className="py-2 px-3">Patient</th>
                     <th className="py-2 px-3">Age</th>
                     <th className="py-2 px-3">Visit</th>
-                    <th className="py-2 px-3">Audio</th>
-                    <th className="py-2 px-3">Transcript</th>
-                    <th className="py-2 px-3">Summary</th>
                     <th className="py-2 px-3">View</th>
                   </tr>
                 </thead>
@@ -73,13 +70,6 @@ export const TranscriptList: React.FC = () => {
                       <td className="py-2 px-3">{r.patient_name}</td>
                       <td className="py-2 px-3">{r.age ?? "-"}</td>
                       <td className="py-2 px-3">{r.visit_date ? new Date(r.visit_date).toLocaleDateString() : "-"}</td>
-                      <td className="py-2 px-3">{r.has_audio ? "Yes" : "No"}</td>
-                      <td className="py-2 px-3">
-                        {r.has_transcript ? <span className="text-green-600">Yes</span> : "No"}
-                      </td>
-                      <td className="py-2 px-3">
-                        {r.has_summary ? <span className="text-green-600">Yes</span> : "No"}
-                      </td>
                       <td className="py-2 px-3">
                         <a
                           href={`/dashboard/transcript/${r.id}`}

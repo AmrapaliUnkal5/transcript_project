@@ -220,30 +220,52 @@ export const TranscriptUpload: React.FC = () => {
 
           <div className="mt-6">
             <h3 className="font-medium mb-2">Dynamic Fields</h3>
-            <div className="space-y-2">
-              {dynamicLabels.map((lbl, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <input
-                    className="border rounded px-3 py-2 flex-1"
-                    placeholder="Field label (e.g., prescription)"
-                    value={lbl}
-                    onChange={(e) => {
-                      const arr = [...dynamicLabels];
-                      arr[i] = e.target.value;
-                      setDynamicLabels(arr);
-                    }}
-                  />
-                  <button
-                    className="px-2 py-2 rounded border"
-                    onClick={() => {
-                      const arr = dynamicLabels.filter((_, idx) => idx !== i);
-                      setDynamicLabels(arr);
-                    }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+            <div className="space-y-4">
+              {dynamicLabels.map((lbl, i) => {
+                const answer = dynamicAnswers[lbl];
+                return (
+                  <div key={i} className="border rounded p-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        className="border rounded px-3 py-2 flex-1"
+                        placeholder="Field label (e.g., prescription)"
+                        value={lbl}
+                        onChange={(e) => {
+                          const arr = [...dynamicLabels];
+                          arr[i] = e.target.value;
+                          setDynamicLabels(arr);
+                        }}
+                      />
+                      <button
+                        className="px-2 py-2 rounded border"
+                        onClick={() => {
+                          const removed = dynamicLabels[i];
+                          const arr = dynamicLabels.filter((_, idx) => idx !== i);
+                          setDynamicLabels(arr);
+                          // Remove any existing answer tied to this label
+                          setDynamicAnswers((prev) => {
+                            const { [removed]: _drop, ...rest } = prev;
+                            return rest;
+                          });
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    {answer && (
+                      <div className="mt-3">
+                        <div className="text-sm text-gray-600 mb-1">Answer</div>
+                        <textarea
+                          className="w-full border rounded p-3"
+                          rows={4}
+                          value={answer}
+                          readOnly
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               <button
                 className="px-3 py-2 rounded border"
                 onClick={() => setDynamicLabels((a) => [...a, ""])}
@@ -266,16 +288,6 @@ export const TranscriptUpload: React.FC = () => {
                 )}
               </button>
             </div>
-            {!!Object.keys(dynamicAnswers).length && (
-              <div className="mt-4 space-y-3">
-                {Object.entries(dynamicAnswers).map(([k, v]) => (
-                  <div key={k}>
-                    <div className="text-sm font-semibold mb-1">{k}</div>
-                    <textarea className="w-full border rounded p-3" rows={4} value={v} readOnly />
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </div>
