@@ -817,7 +817,11 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
         "message_id": messageid_data_token,
         "formatted_content": formatted_content,
         "sources": document_sources,
-        "is_greeting": final_is_social
+        "is_greeting": final_is_social,
+        # Expose explicit LLM/social flags for parity with preview behavior
+        "is_greeting_response": bool(bot_reply_dict.get("is_greeting_response", False)) or is_greeting(request.message_text)[0],
+        "is_farewell_response": bool(bot_reply_dict.get("is_farewell_response", False)),
+        "not_answered": bool(bot_reply_dict.get("not_answered", False)),
     }
 
 def check_and_record_addon_usage(
