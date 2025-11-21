@@ -19,7 +19,7 @@ from app.utils.logger import get_module_logger
 from pydantic import BaseModel
 import threading 
 from app.chat_interactions import async_cluster_question, async_update_word_cloud, update_message_counts
-from app.chatbot import generate_response
+from app.chatbot import generate_response, is_greeting
 from app.vector_db import retrieve_similar_docs
 from app.fetchsubscriptionaddons import update_addon_usage_proper
 import uuid
@@ -704,7 +704,7 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
 
     # Only show sources if not social/blank responses; allow Provenance even without retrieval hits
     if (
-        not is_greeting(request.message_text)
+        not is_greeting(request.message_text)[0]
         and not bot_reply_dict.get("is_default_response", False)
         and not bot_reply_dict.get("is_greeting_response", False)
         and not bot_reply_dict.get("is_farewell_response", False)
@@ -807,7 +807,7 @@ def send_message_from_widget(request: SendMessageRequestWidget,background_tasks:
     #     document_sources = deduped_sources
 
     final_is_social = (
-        is_greeting(request.message_text)
+        is_greeting(request.message_text)[0]
         or bot_reply_dict.get("is_greeting_response", False)
         or bot_reply_dict.get("is_farewell_response", False)
     )
