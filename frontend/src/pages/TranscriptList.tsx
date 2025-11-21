@@ -29,7 +29,7 @@ export const TranscriptList: React.FC = () => {
     <div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b to-white dark:from-gray-900 dark:to-gray-800">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Patient's Records</h2>
+          <h2 className="text-xl font-semibold">Patient Records</h2>
           <button
             className="px-4 py-2 rounded bg-[#39489D] text-white"
             onClick={() => navigate("/dashboard/transcript/new")}

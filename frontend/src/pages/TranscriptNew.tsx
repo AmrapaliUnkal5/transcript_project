@@ -50,7 +50,7 @@ export const TranscriptNew: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               className="border rounded px-3 py-2"
-              placeholder="Patient Name *"
+              placeholder="First Name *"
               name="patient_name"
               value={form.patient_name}
               onChange={handleChange}

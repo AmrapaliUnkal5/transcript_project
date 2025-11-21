@@ -64,7 +64,6 @@ const TranscriptQnA: React.FC<TranscriptQnAProps> = ({ recordId, disabledReason 
           <div className="h-72 overflow-y-auto px-3 py-2 space-y-2">
             {messages.length === 0 ? (
               <div className="text-sm text-gray-500 px-2 py-2">
-                Ask about this patient's visits. Example: “What did I prescribe on 12 Nov 25?”
               </div>
             ) : (
               messages.map((m, idx) => {
