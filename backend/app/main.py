@@ -149,8 +149,8 @@ if not settings.UPLOAD_BOT_DIR.startswith("s3://"):
 
 # Mount transcript project static if local
 if not os.getenv("TRANSCRIPT_DIR_S3", "false").lower() in ("1", "true", "yes"):
-    if os.path.exists("transcript_prject"):
-        app.mount("/transcript_prject", StaticFiles(directory="transcript_prject"), name="transcript_prject")
+    if os.path.exists("transcript_project"):
+        app.mount("/transcript_project", StaticFiles(directory="transcript_project"), name="transcript_project")
 app.include_router(botsettings_router)
 app.include_router(social_login_router)
 app.include_router(bot_conversations_router)

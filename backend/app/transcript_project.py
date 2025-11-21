@@ -18,7 +18,7 @@ from app.word_count_validation import extract_text as extract_text_from_upload
 
 router = APIRouter(prefix="/transcript", tags=["Transcript Project"])
 
-TRANSCRIPT_DIR = "transcript_prject"
+TRANSCRIPT_DIR = "transcript_project"
 
 
 def _strip_provenance_block(text: str) -> str:
@@ -113,7 +113,7 @@ async def upload_audio(
 ):
     """
     Upload recorded or pre-recorded audio for the record.
-    Stores under transcript_prject/ and returns a resolvable URL/path.
+    Stores under transcript_project/ and returns a resolvable URL/path.
     """
     record = db.query(TranscriptRecord).filter(
         TranscriptRecord.id == record_id, TranscriptRecord.user_id == current_user.get("user_id")
@@ -153,7 +153,7 @@ async def upload_document(
 ):
     """
     Upload a document (pdf, docx, doc, txt, csv, png, jpg, jpeg) and extract text into transcript_text.
-    Stores the raw file under transcript_prject/ and indexes extracted text into Qdrant.
+    Stores the raw file under transcript_project/ and indexes extracted text into Qdrant.
     """
     record = db.query(TranscriptRecord).filter(
         TranscriptRecord.id == record_id, TranscriptRecord.user_id == current_user.get("user_id")
@@ -252,7 +252,7 @@ def transcribe_record(
     if not record.audio_path:
         raise HTTPException(status_code=400, detail="No audio uploaded for this record")
 
-    # If stored path is s3:// not supported here; assume local path under transcript_prject
+    # If stored path is s3:// not supported here; assume local path under transcript_project
     local_path = record.audio_path if os.path.isabs(record.audio_path) else os.path.join(TRANSCRIPT_DIR, os.path.basename(record.audio_path))
     if not os.path.exists(local_path):
         # try direct relative
