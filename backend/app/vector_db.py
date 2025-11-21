@@ -121,7 +121,7 @@ def _get_or_create_collection(client: QdrantClient, collection_name: str, vector
         logger.info(f"[QDRANT] Created collection: {collection_name}")
 
 
-def add_transcript_embedding_to_qdrant(record_id: int, user_id: int, text: str, model: str = "text-embedding-3-large") -> bool:
+def add_transcript_embedding_to_qdrant(record_id: int, user_id: int, text: str, model: str = "text-embedding-3-large", p_id: str | None = None) -> bool:
     """
     Adds transcript text to a dedicated Qdrant collection keyed by record_id.
     """
@@ -159,6 +159,8 @@ def add_transcript_embedding_to_qdrant(record_id: int, user_id: int, text: str, 
         "source": "transcript",
         "embedding_model": model,
     }
+    if p_id:
+        payload["p_id"] = p_id
 
     client.upsert(
         collection_name=collection_name,
@@ -178,7 +180,7 @@ def retrieve_transcript_context(record_id: int, query_text: str, top_k: int = 5,
         return ""
 
 
-def add_field_answer_embedding_to_qdrant(record_id: int, user_id: int, label: str, answer: str, model: str = "text-embedding-3-large") -> bool:
+def add_field_answer_embedding_to_qdrant(record_id: int, user_id: int, label: str, answer: str, model: str = "text-embedding-3-large", p_id: str | None = None) -> bool:
     """
     Adds an answered dynamic field to transcript_vector_store so future questions can retrieve it.
     """
@@ -213,6 +215,8 @@ def add_field_answer_embedding_to_qdrant(record_id: int, user_id: int, label: st
         "label": label,
         "embedding_model": model,
     }
+    if p_id:
+        payload["p_id"] = p_id
 
     client.upsert(
         collection_name=collection_name,

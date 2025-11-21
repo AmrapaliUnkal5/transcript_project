@@ -56,6 +56,7 @@ import TranscriptNew from "./pages/TranscriptNew";
 import TranscriptList from "./pages/TranscriptList";
 import TranscriptDetail from "./pages/TranscriptDetail";
 import TranscriptUpload from "./pages/TranscriptUpload";
+import TranscriptLookup from "./pages/TranscriptLookup";
 const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID ;
 const TrackPageView = () => {
   const location = useLocation();
@@ -123,6 +124,7 @@ function App() {
                   <Route path="transcript_welcome" element={<TranscriptWelcome />} />
                   <Route path="transcript" element={<TranscriptList />} />
                   <Route path="transcript/new" element={<TranscriptNew />} />
+                  <Route path="transcript/lookup" element={<TranscriptLookup />} />
                   <Route path="transcript/upload/:id" element={<TranscriptUpload />} />
                   <Route path="transcript/:id" element={<TranscriptDetail />} />
                   <Route path="subscription" element={<Subscription />} />

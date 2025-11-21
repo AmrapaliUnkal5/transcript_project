@@ -38,6 +38,13 @@ export const TranscriptWelcome: React.FC = () => {
             >
               View Recent Records
             </button>
+            <button
+              onClick={() => navigate("/dashboard/transcript/lookup")}
+              className="w-full px-5 py-4 bg-white border border-gray-200 text-gray-900 rounded-lg hover:bg-gray-50 transition dark:bg-gray-900 dark:border-gray-700 dark:text-white"
+              style={{ fontFamily: "Instrument Sans, sans-serif" }}
+            >
+              Patient Lookup
+            </button>
           </div>
         </div>
       </div>

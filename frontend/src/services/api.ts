@@ -934,11 +934,13 @@ updateBotExternalKnowledge: async (botId: number) => {
 export const transcriptApi = {
   createRecord: async (data: {
     patient_name: string;
+    patient_email?: string;
+    p_id?: string;
     age?: number;
     bed_no?: string;
     phone_no?: string;
     visit_date?: string; // ISO
-  }): Promise<{ record_id: number }> => {
+  }): Promise<{ record_id: number; p_id: string }> => {
     const response = await api.post('/transcript/records', data);
     return response.data;
   },
@@ -969,6 +971,8 @@ export const transcriptApi = {
 
   listRecords: async (): Promise<{ records: Array<{
     id: number;
+    p_id: string;
+    patient_email?: string;
     patient_name: string;
     age?: number;
     bed_no?: string;
@@ -985,6 +989,8 @@ export const transcriptApi = {
 
   getRecord: async (recordId: number): Promise<{
     id: number;
+    p_id: string;
+    patient_email?: string;
     patient_name: string;
     age?: number;
     bed_no?: string;
@@ -997,6 +1003,32 @@ export const transcriptApi = {
     created_at?: string | null;
   }> => {
     const response = await api.get(`/transcript/records/${recordId}`);
+    return response.data;
+  },
+
+  listPatients: async (): Promise<{ patients: Array<{
+    p_id: string;
+    patient_name?: string;
+    patient_email?: string | null;
+    phone_no?: string | null;
+    age?: number | null;
+    bed_no?: string | null;
+    visits: Array<{ id: number; visit_date?: string | null; created_at?: string | null; has_transcript?: boolean; has_summary?: boolean }>;
+  }> }> => {
+    const response = await api.get('/transcript/patients');
+    return response.data;
+  },
+
+  searchPatients: async (q: string): Promise<{ patients: Array<{
+    p_id: string;
+    patient_name?: string;
+    patient_email?: string | null;
+    phone_no?: string;
+    age?: number | null;
+    bed_no?: string | null;
+    visits: Array<{ id: number; visit_date?: string | null; created_at?: string | null }>;
+  }> }> => {
+    const response = await api.get('/transcript/patients/search', { params: { q } });
     return response.data;
   },
 };

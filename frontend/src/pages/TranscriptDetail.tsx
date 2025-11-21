@@ -47,7 +47,7 @@ export default function ImprovedTranscriptDetail() {
                   <User className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-white mb-1">{data.patient_name}</h1>
+                  <h1 className="text-3xl font-bold text-white mb-1">Patient ID: {data.p_id || "-"}</h1>
                   <div className="flex flex-wrap gap-4 text-blue-100">
                     <span className="flex items-center gap-1">
                       <User className="w-4 h-4" />

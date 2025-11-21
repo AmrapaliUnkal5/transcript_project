@@ -6,6 +6,7 @@ export const TranscriptNew: React.FC = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     patient_name: "",
+    patient_email: "",
     age: "" as string | number,
     bed_no: "",
     phone_no: "",
@@ -27,6 +28,7 @@ export const TranscriptNew: React.FC = () => {
     try {
       const payload: any = {
         patient_name: form.patient_name,
+        patient_email: form.patient_email || undefined,
         age: form.age ? Number(form.age) : undefined,
         bed_no: form.bed_no || undefined,
         phone_no: form.phone_no || undefined,
@@ -51,6 +53,14 @@ export const TranscriptNew: React.FC = () => {
               placeholder="Patient Name *"
               name="patient_name"
               value={form.patient_name}
+              onChange={handleChange}
+            />
+            <input
+              className="border rounded px-3 py-2"
+              placeholder="Patient Email (optional)"
+              name="patient_email"
+              type="email"
+              value={form.patient_email}
               onChange={handleChange}
             />
             <input

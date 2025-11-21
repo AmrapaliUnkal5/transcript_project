@@ -67,6 +67,10 @@ def _build_retrieval_query(label: str) -> str:
     # default: include label and common medical terms
     return f"{label} medical notes clinical context details"
 
+def _generate_pid() -> str:
+    return f"P{uuid.uuid4().hex[:8]}".upper()
+
+
 @router.post("/records")
 def create_record(
     data: Dict,
@@ -80,8 +84,12 @@ def create_record(
     if not patient_name:
         raise HTTPException(status_code=400, detail="patient_name is required")
 
+    p_id = data.get("p_id") or _generate_pid()
+
     record = TranscriptRecord(
         user_id=current_user.get("user_id"),
+        p_id=p_id,
+        patient_email=data.get("patient_email"),
         patient_name=patient_name,
         age=data.get("age"),
         bed_no=data.get("bed_no"),
@@ -92,7 +100,7 @@ def create_record(
     db.commit()
     db.refresh(record)
 
-    return {"record_id": record.id}
+    return {"record_id": record.id, "p_id": record.p_id}
 
 
 @router.post("/records/{record_id}/audio")
@@ -193,7 +201,7 @@ def transcribe_record(
 
     # Index transcript into Qdrant
     try:
-        add_transcript_embedding_to_qdrant(record.id, current_user.get("user_id"), text, model="text-embedding-3-large")
+        add_transcript_embedding_to_qdrant(record.id, current_user.get("user_id"), text, model="text-embedding-3-large", p_id=record.p_id)
     except Exception as e:
         # Don't fail the request if indexing fails
         pass
@@ -309,7 +317,7 @@ def generate_dynamic_fields(
 
         # Upsert this field answer as an embedding so future fields can retrieve it
         try:
-            add_field_answer_embedding_to_qdrant(record.id, current_user.get("user_id"), label, ans, model="text-embedding-3-large")
+            add_field_answer_embedding_to_qdrant(record.id, current_user.get("user_id"), label, ans, model="text-embedding-3-large", p_id=record.p_id)
         except Exception:
             pass
 
@@ -336,6 +344,8 @@ def list_records(
     for r in rows:
         data.append({
             "id": r.id,
+            "p_id": r.p_id,
+            "patient_email": r.patient_email,
             "patient_name": r.patient_name,
             "age": r.age,
             "bed_no": r.bed_no,
@@ -362,6 +372,8 @@ def get_record(
         raise HTTPException(status_code=404, detail="Record not found")
     return {
         "id": r.id,
+        "p_id": r.p_id,
+        "patient_email": r.patient_email,
         "patient_name": r.patient_name,
         "age": r.age,
         "bed_no": r.bed_no,
@@ -373,4 +385,93 @@ def get_record(
         "dynamic_fields": r.dynamic_fields or {},
         "created_at": r.created_at.isoformat() if r.created_at else None,
     }
+
+
+@router.get("/patients")
+def list_patients(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    rows = (
+        db.query(TranscriptRecord)
+        .filter(TranscriptRecord.user_id == current_user.get("user_id"))
+        .order_by(TranscriptRecord.visit_date.desc().nullslast(), TranscriptRecord.created_at.desc())
+        .all()
+    )
+    grouped: Dict[str, Dict] = {}
+    for r in rows:
+        g = grouped.setdefault(
+            r.p_id,
+            {
+                "p_id": r.p_id,
+                "patient_name": r.patient_name,
+                "patient_email": None,
+                "phone_no": None,
+                "age": None,
+                "bed_no": None,
+                "visits": [],
+            },
+        )
+        # Capture representative demographics from the most recent row
+        if g["age"] is None and r.age is not None:
+            g["age"] = r.age
+        if g["bed_no"] is None and r.bed_no:
+            g["bed_no"] = r.bed_no
+        if g["patient_email"] is None and r.patient_email:
+            g["patient_email"] = r.patient_email
+        if g["phone_no"] is None and r.phone_no:
+            g["phone_no"] = r.phone_no
+        g["visits"].append({
+            "id": r.id,
+            "visit_date": r.visit_date.isoformat() if r.visit_date else None,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "has_transcript": bool(r.transcript_text),
+            "has_summary": bool(r.summary_text),
+        })
+    # order visits
+    for g in grouped.values():
+        g["visits"].sort(key=lambda v: (v["visit_date"] or v["created_at"] or ""), reverse=True)
+    return {"patients": list(grouped.values())}
+
+
+@router.get("/patients/search")
+def search_patients(
+    q: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    q_like = f"%{q}%"
+    rows = (
+        db.query(TranscriptRecord)
+        .filter(
+            TranscriptRecord.user_id == current_user.get("user_id"),
+            (TranscriptRecord.p_id.ilike(q_like) | TranscriptRecord.patient_name.ilike(q_like) | TranscriptRecord.phone_no.ilike(q_like) | TranscriptRecord.patient_email.ilike(q_like))
+        )
+        .order_by(TranscriptRecord.created_at.desc())
+        .all()
+    )
+    grouped: Dict[str, Dict] = {}
+    for r in rows:
+        g = grouped.setdefault(
+            r.p_id,
+            {
+                "p_id": r.p_id,
+                "patient_name": r.patient_name,
+                "patient_email": None,
+                "phone_no": None,
+                "age": None,
+                "bed_no": None,
+                "visits": [],
+            },
+        )
+        if g["age"] is None and r.age is not None:
+            g["age"] = r.age
+        if g["bed_no"] is None and r.bed_no:
+            g["bed_no"] = r.bed_no
+        if g["patient_email"] is None and r.patient_email:
+            g["patient_email"] = r.patient_email
+        if g["phone_no"] is None and r.phone_no:
+            g["phone_no"] = r.phone_no
+        g["visits"].append({"id": r.id, "visit_date": r.visit_date.isoformat() if r.visit_date else None, "created_at": r.created_at.isoformat() if r.created_at else None})
+    return {"patients": list(grouped.values())}
 

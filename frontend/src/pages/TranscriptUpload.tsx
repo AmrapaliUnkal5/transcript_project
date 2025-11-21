@@ -45,9 +45,7 @@ export default function ImprovedTranscriptUpload() {
       if (!recordId) return;
       const rec = await transcriptApi.getRecord(recordId);
       setPatientHeader(
-        `${rec.patient_name}${rec.age ? " · " + rec.age : ""}${
-          rec.visit_date ? " · " + new Date(rec.visit_date).toLocaleDateString() : ""
-        }`
+        `Patient ID: ${rec.p_id}${rec.visit_date ? " · " + new Date(rec.visit_date).toLocaleDateString() : ""}`
       );
       setTranscript(rec.transcript_text || "");
       setSummary(rec.summary_text || "");
