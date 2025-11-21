@@ -166,16 +166,19 @@ export default function ImprovedTranscriptUpload() {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header Card */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
-            <h1 className="text-2xl font-bold mb-2">Medical Transcript</h1>
-            <div className="flex items-center gap-2 text-blue-100">
-              <span className="text-lg">{patientHeader}</span>
+          <div
+            className="p-4 text-white"
+            style={{ background: "linear-gradient(to right, rgb(36, 25, 105), rgb(64, 79, 142))" }}
+          >
+            <h1 className="text-xl font-semibold">Medical Transcript</h1>
+            <div className="flex items-center gap-2 text-white/80">
+              <span className="text-sm">{patientHeader}</span>
             </div>
           </div>
         </div>
 
         {/* Audio Upload Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-xl">
               <FileAudio className="w-6 h-6 text-blue-600 dark:text-blue-400" />
@@ -187,11 +190,11 @@ export default function ImprovedTranscriptUpload() {
           </div>
 
           {/* Upload Area */}
-          <div className="grid md:grid-cols-2 gap-4 mb-6">
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 hover:border-blue-500 transition-colors cursor-pointer group">
+          <div className="grid md:grid-cols-2 gap-4 mb-4">
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 hover:border-blue-500 transition-colors cursor-pointer group">
               <label className="cursor-pointer flex flex-col items-center gap-3">
-                <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-900 transition-colors">
-                  <Upload className="w-8 h-8 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+                <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-900 transition-colors">
+                  <Upload className="w-6 h-6 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
                 </div>
                 <div className="text-center">
                   <p className="font-medium text-gray-700 dark:text-gray-200">Upload Audio File</p>
@@ -201,14 +204,14 @@ export default function ImprovedTranscriptUpload() {
               </label>
             </div>
 
-            <div className="border-2 border-gray-300 dark:border-gray-600 rounded-xl p-6 flex flex-col items-center justify-center gap-3">
+            <div className="border-2 border-gray-300 dark:border-gray-600 rounded-xl p-4 flex flex-col items-center justify-center gap-3">
               {!isRecording ? (
                 <button
                   onClick={startRecording}
                   className="w-full flex flex-col items-center gap-3 group"
                 >
-                  <div className="p-4 bg-red-100 dark:bg-red-900 rounded-full group-hover:bg-red-200 dark:group-hover:bg-red-800 transition-colors">
-                    <Mic className="w-8 h-8 text-red-600 dark:text-red-400" />
+                  <div className="p-3 bg-red-100 dark:bg-red-900 rounded-full group-hover:bg-red-200 dark:group-hover:bg-red-800 transition-colors">
+                    <Mic className="w-6 h-6 text-red-600 dark:text-red-400" />
                   </div>
                   <div className="text-center">
                     <p className="font-medium text-gray-700 dark:text-gray-200">Record Audio</p>
@@ -218,8 +221,8 @@ export default function ImprovedTranscriptUpload() {
               ) : (
                 <div className="w-full flex flex-col items-center gap-4">
                   <div className="relative">
-                    <div className="p-4 bg-red-500 rounded-full animate-pulse">
-                      <Mic className="w-8 h-8 text-white" />
+                    <div className="p-3 bg-red-500 rounded-full animate-pulse">
+                      <Mic className="w-6 h-6 text-white" />
                     </div>
                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping"></div>
                   </div>
@@ -421,7 +424,11 @@ export default function ImprovedTranscriptUpload() {
             ))}
           </div>
 
-          <button className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all" onClick={handleGenerateFields} disabled={generating}>
+          <button
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-[#39489D] hover:bg-[#323f8a] text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+            onClick={handleGenerateFields}
+            disabled={generating}
+          >
             <Sparkles className="w-5 h-5" />
             {generating ? (
               <span className="inline-flex items-center">

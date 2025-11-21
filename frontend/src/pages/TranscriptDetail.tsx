@@ -37,7 +37,10 @@ export default function ImprovedTranscriptDetail() {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header with Patient Info */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
+          <div
+            className="p-4 text-white"
+            style={{ background: "linear-gradient(to right,rgb(36, 25, 105), rgb(64, 79, 142))" }}
+          >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-4">
                 <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl">
