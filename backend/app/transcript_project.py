@@ -13,7 +13,7 @@ from app.models import TranscriptRecord, User
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
 from app.utils.file_storage import resolve_file_url
 from app.llm_manager import LLMManager
-from app.vector_db import add_transcript_embedding_to_qdrant, retrieve_transcript_context, add_field_answer_embedding_to_qdrant
+from app.vector_db import add_transcript_embedding_to_qdrant, retrieve_transcript_context, add_field_answer_embedding_to_qdrant, retrieve_transcript_context_by_patient
 from app.word_count_validation import extract_text as extract_text_from_upload
 
 router = APIRouter(prefix="/transcript", tags=["Transcript Project"])
@@ -201,7 +201,8 @@ async def upload_document(
     db.commit()
 
     try:
-        add_transcript_embedding_to_qdrant(record.id, current_user.get("user_id"), record.transcript_text, model="text-embedding-3-large", p_id=record.p_id)
+        visit_iso = record.visit_date.isoformat() if record.visit_date else None
+        add_transcript_embedding_to_qdrant(record.id, current_user.get("user_id"), record.transcript_text, model="text-embedding-3-large", p_id=record.p_id, visit_date=visit_iso)
     except Exception:
         pass
 
@@ -265,7 +266,8 @@ def transcribe_record(
 
     # Index transcript into Qdrant
     try:
-        add_transcript_embedding_to_qdrant(record.id, current_user.get("user_id"), text, model="text-embedding-3-large", p_id=record.p_id)
+        visit_iso = record.visit_date.isoformat() if record.visit_date else None
+        add_transcript_embedding_to_qdrant(record.id, current_user.get("user_id"), text, model="text-embedding-3-large", p_id=record.p_id, visit_date=visit_iso)
     except Exception as e:
         # Don't fail the request if indexing fails
         pass
@@ -385,7 +387,8 @@ def generate_dynamic_fields(
 
         # Upsert this field answer as an embedding so future fields can retrieve it
         try:
-            add_field_answer_embedding_to_qdrant(record.id, current_user.get("user_id"), label, ans, model="text-embedding-3-large", p_id=record.p_id)
+            visit_iso = record.visit_date.isoformat() if record.visit_date else None
+            add_field_answer_embedding_to_qdrant(record.id, current_user.get("user_id"), label, ans, model="text-embedding-3-large", p_id=record.p_id, visit_date=visit_iso)
         except Exception:
             pass
 
@@ -395,6 +398,76 @@ def generate_dynamic_fields(
 
     return {"fields": answers}
 
+
+@router.post("/records/{record_id}/chat")
+def qna_chat(
+    record_id: int,
+    payload: Dict[str, List[Dict[str, str]] | str],
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Patient-level QnA over embedded transcript/dynamic-field chunks.
+    payload: { "question": str, "history": [{"role":"user|assistant","content":"..."}] }
+    """
+    question: str = (payload.get("question") or "").strip()
+    history: List[Dict[str, str]] = payload.get("history") or []
+    if not question:
+        raise HTTPException(status_code=400, detail="question is required")
+
+    record = db.query(TranscriptRecord).filter(
+        TranscriptRecord.id == record_id, TranscriptRecord.user_id == current_user.get("user_id")
+    ).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+
+    # Parse a loose date hint from the question (YYYY-MM-DD or '12 Nov 25/2025')
+    import re
+    visit_hint = None
+    m1 = re.search(r"(20\\d{2}-\\d{2}-\\d{2})", question)
+    if m1:
+        visit_hint = m1.group(1)
+    else:
+        m2 = re.search(r"(\\d{1,2}\\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\\s*\\d{2,4})", question, flags=re.IGNORECASE)
+        if m2:
+            try:
+                from datetime import datetime
+                visit_hint = datetime.strptime(m2.group(1), "%d %b %y").date().isoformat()
+            except Exception:
+                try:
+                    visit_hint = datetime.strptime(m2.group(1), "%d %b %Y").date().isoformat()
+                except Exception:
+                    visit_hint = None
+
+    retrieved = retrieve_transcript_context_by_patient(record.p_id, question, visit_date=visit_hint, top_k=6, model="text-embedding-3-large")
+    context_parts = []
+    if retrieved:
+        context_parts.append("Retrieved Notes:\n" + retrieved)
+    if record.transcript_text:
+        context_parts.append("Current Visit Transcript:\n" + (record.transcript_text or ""))
+    context = "\n\n".join(context_parts).strip()
+
+    # Build compact history
+    hist_lines = []
+    for msg in (history or [])[-6:]:
+        role = msg.get("role", "user")
+        content = (msg.get("content") or "").strip()
+        if content:
+            hist_lines.append(f"{role}: {content}")
+    hist_text = "\n".join(hist_lines)
+
+    llm = LLMManager(model_name="gpt-4o-mini", bot_id=None, user_id=current_user.get("user_id"), unanswered_message="Not specified")
+    system = (
+        "You are a clinical QnA assistant for a single patient. Answer strictly from the provided notes.\n"
+        "- If the question references a date, prioritize notes from that visit.\n"
+        "- If the answer is not in the notes, reply exactly: Not specified.\n"
+        "- Be concise and clinically precise."
+    )
+    full_context = f"{system}\n\nChat History:\n{hist_text}\n\n{context}\n\nQuestion: {question}"
+    result = llm.generate(context=full_context, user_message="Answer the question above.", use_external_knowledge=False, temperature=0.2)
+    answer = result["message"] if isinstance(result, dict) and "message" in result else (result if isinstance(result, str) else "Not specified")
+    answer = _sanitize = _strip_provenance_block((answer or "").strip())
+    return {"answer": answer}
 
 @router.get("/records")
 def list_records(

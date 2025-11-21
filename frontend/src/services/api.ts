@@ -1015,6 +1015,11 @@ export const transcriptApi = {
     return response.data;
   },
 
+  chat: async (recordId: number, question: string, history: Array<{ role: string; content: string }>) => {
+    const response = await api.post(`/transcript/records/${recordId}/chat`, { question, history });
+    return response.data as { answer: string };
+  },
+
   listPatients: async (): Promise<{ patients: Array<{
     p_id: string;
     patient_name?: string;

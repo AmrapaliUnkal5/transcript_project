@@ -121,7 +121,7 @@ def _get_or_create_collection(client: QdrantClient, collection_name: str, vector
         logger.info(f"[QDRANT] Created collection: {collection_name}")
 
 
-def add_transcript_embedding_to_qdrant(record_id: int, user_id: int, text: str, model: str = "text-embedding-3-large", p_id: str | None = None) -> bool:
+def add_transcript_embedding_to_qdrant(record_id: int, user_id: int, text: str, model: str = "text-embedding-3-large", p_id: str | None = None, visit_date: str | None = None) -> bool:
     """
     Adds transcript text to a dedicated Qdrant collection keyed by record_id.
     """
@@ -161,6 +161,8 @@ def add_transcript_embedding_to_qdrant(record_id: int, user_id: int, text: str, 
     }
     if p_id:
         payload["p_id"] = p_id
+    if visit_date:
+        payload["visit_date"] = visit_date
 
     client.upsert(
         collection_name=collection_name,
@@ -180,7 +182,7 @@ def retrieve_transcript_context(record_id: int, query_text: str, top_k: int = 5,
         return ""
 
 
-def add_field_answer_embedding_to_qdrant(record_id: int, user_id: int, label: str, answer: str, model: str = "text-embedding-3-large", p_id: str | None = None) -> bool:
+def add_field_answer_embedding_to_qdrant(record_id: int, user_id: int, label: str, answer: str, model: str = "text-embedding-3-large", p_id: str | None = None, visit_date: str | None = None) -> bool:
     """
     Adds an answered dynamic field to transcript_vector_store so future questions can retrieve it.
     """
@@ -217,6 +219,54 @@ def add_field_answer_embedding_to_qdrant(record_id: int, user_id: int, label: st
     }
     if p_id:
         payload["p_id"] = p_id
+    if visit_date:
+        payload["visit_date"] = visit_date
+
+
+def retrieve_transcript_context_by_patient(p_id: str, query_text: str, visit_date: str | None = None, top_k: int = 5, model: str = "text-embedding-3-large") -> str:
+    """
+    Retrieves most similar chunks for a patient (p_id), optionally filtered by visit_date.
+    """
+    client = get_qdrant_client()
+    if not client:
+        logger.warning("[QDRANT] Client unavailable in retrieve_transcript_context_by_patient")
+        return ""
+    try:
+        openai_client = OpenAIClient(api_key=settings.OPENAI_API_KEY)
+        emb = openai_client.embeddings.create(model=model, input=query_text)
+        qvec = normalize_embedding(emb.data[0].embedding)
+    except Exception as e:
+        logger.error(f"[QDRANT] Query embedding failed: {e}")
+        return ""
+
+    collection_name = "transcript_vector_store"
+    try:
+        client.get_collection(collection_name)
+    except Exception:
+        logger.info(f"[QDRANT] Collection {collection_name} not found")
+        return ""
+
+    must_filters = [FieldCondition(key="p_id", match=MatchValue(value=p_id))]
+    if visit_date:
+        must_filters.append(FieldCondition(key="visit_date", match=MatchValue(value=visit_date)))
+
+    try:
+        hits = client.search(
+            collection_name=collection_name,
+            query_vector=qvec,
+            query_filter=Filter(must=must_filters),
+            limit=top_k,
+        )
+        chunks: list[str] = []
+        for hit in hits:
+            payload = getattr(hit, "payload", {}) or {}
+            txt = payload.get("text")
+            if isinstance(txt, str) and txt.strip():
+                chunks.append(txt.strip())
+        return "\n\n".join(chunks)
+    except Exception as e:
+        logger.error(f"[QDRANT] Search failed: {e}")
+        return ""
 
     client.upsert(
         collection_name=collection_name,

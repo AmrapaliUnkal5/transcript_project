@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { transcriptApi } from "../services/api";
 import { Eye } from "lucide-react";
+import TranscriptQnA from "../components/TranscriptQnA";
 
 export const TranscriptList: React.FC = () => {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ export const TranscriptList: React.FC = () => {
   return (
     <div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b to-white dark:from-gray-900 dark:to-gray-800">
       <div className="max-w-6xl mx-auto">
+        <TranscriptQnA recordId={null} disabledReason="Open a patient record to enable QnA" />
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">Patient's Records</h2>
           <button

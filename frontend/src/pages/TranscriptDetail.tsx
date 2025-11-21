@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { transcriptApi } from "../services/api";
 import { ChevronDown, User, Calendar, Phone, Bed, FileText, Sparkles, Download, Share2, Edit } from "lucide-react";
+import TranscriptQnA from "../components/TranscriptQnA";
 
 // Mock component to demonstrate the improved Detail UI
 export default function ImprovedTranscriptDetail() {
@@ -35,6 +36,7 @@ export default function ImprovedTranscriptDetail() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:to-gray-800 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
+        <TranscriptQnA recordId={isNaN(recordId) ? null : recordId} />
         {/* Header with Patient Info */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
           <div
