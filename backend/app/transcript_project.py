@@ -288,19 +288,23 @@ def summarize_record(
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
 
-    # Retrieve context from vector store; fallback to raw transcript
-    retrieved = retrieve_transcript_context(record.id, "Create a clinical summary for this consultation", top_k=6, model="text-embedding-3-large")
-    context = retrieved if retrieved else (record.transcript_text or "")
+    # Use the full transcript text directly (no vector retrieval)
+    context = (record.transcript_text or "")
     if not context.strip():
         raise HTTPException(status_code=400, detail="No transcript available to summarize")
 
     # Use OpenAI 4o mini specifically for transcript project (does not affect Evolra bots)
     llm = LLMManager(model_name="gpt-4o-mini", bot_id=None, user_id=current_user.get("user_id"), unanswered_message="")
     user_message = (
-        "You are a medical assistant. Summarize the patient's consultation as concise clinical notes with headings:\n"
-        "Complaint, History, Exam, Assessment, Plan.\n"
-        "- Be robust to missing explicit keywords; infer clinically from statements. If symptoms imply a probable diagnosis, write a reasonable provisional diagnosis.\n"
-        "- Do NOT include any 'Provenance' or sources section in the output."
+        "You are a helpful summarizer.\n\n"
+        "Task:\n"
+        "- If the text is a medical consultation, produce concise clinical notes with headings:\n"
+        "  Complaint, History, Exam, Assessment, Plan.\n"
+        "- If the text is not a medical consultation (e.g., sports/news/general content), write a clear paragraph summary followed by 3-6 bullet key points.\n"
+        "- Be robust to missing explicit keywords; infer sensible information from statements. If symptoms imply a provisional diagnosis, include it.\n"
+        "- Never reply with 'I don't know' or generic apologies. Always return a best-effort summary from the provided text.\n"
+        "- Do NOT include any 'Provenance' or sources section.\n"
+        "- Output only the summary content (no extra commentary)."
     )
     result = llm.generate(context=context, user_message=user_message, use_external_knowledge=False, temperature=0.3)
 
