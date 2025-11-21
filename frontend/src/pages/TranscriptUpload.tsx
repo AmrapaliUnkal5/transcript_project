@@ -1,30 +1,29 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { transcriptApi } from "../services/api";
-import { Loader2, ChevronDown } from "lucide-react";
+import { Loader2, ChevronDown, Upload, Mic, FileAudio, Sparkles, Save, Plus, X, AlertCircle } from "lucide-react";
 
-const mimeChoices = [
-  "audio/webm",
-  "audio/webm;codecs=opus",
-  "audio/ogg;codecs=opus",
-  "audio/mp4",
-  "audio/m4a",
-  "audio/wav",
-  "audio/mp3",
-];
-
-export const TranscriptUpload: React.FC = () => {
+// Mock component to demonstrate the improved UI
+export default function ImprovedTranscriptUpload() {
   const { id } = useParams();
   const recordId = Number(id);
 
-  const [patientHeader, setPatientHeader] = useState<string>("");
-  const [transcript, setTranscript] = useState<string>("");
-  const [summary, setSummary] = useState<string>("");
+  // UI toggles
+  const [showTranscript, setShowTranscript] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [expandedFields, setExpandedFields] = useState<Record<number, boolean>>({});
+
+  // Data
+  const [patientHeader, setPatientHeader] = useState("");
+  const [transcript, setTranscript] = useState("");
+  const [summary, setSummary] = useState("");
   const [dynamicLabels, setDynamicLabels] = useState<string[]>(["prescription", "diagnosis"]);
   const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>({});
-  const [showTranscript, setShowTranscript] = useState<boolean>(false);
-  const [showSummary, setShowSummary] = useState<boolean>(false);
-  const [expandedFields, setExpandedFields] = useState<Record<number, boolean>>({});
+
+  // Loading states
+  const [uploading, setUploading] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -33,10 +32,8 @@ export const TranscriptUpload: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [summarizing, setSummarizing] = useState(false);
-  const [generating, setGenerating] = useState(false);
 
+  // Setup
   useEffect(() => {
     if (!("MediaRecorder" in window)) {
       setRecordingSupported(false);
@@ -47,13 +44,27 @@ export const TranscriptUpload: React.FC = () => {
     const load = async () => {
       if (!recordId) return;
       const rec = await transcriptApi.getRecord(recordId);
-      setPatientHeader(`${rec.patient_name}${rec.age ? " · " + rec.age : ""}${rec.visit_date ? " · " + new Date(rec.visit_date).toLocaleDateString() : ""}`);
+      setPatientHeader(
+        `${rec.patient_name}${rec.age ? " · " + rec.age : ""}${
+          rec.visit_date ? " · " + new Date(rec.visit_date).toLocaleDateString() : ""
+        }`
+      );
       setTranscript(rec.transcript_text || "");
       setSummary(rec.summary_text || "");
       setDynamicAnswers(rec.dynamic_fields || {});
     };
     load();
   }, [recordId]);
+
+  const mimeChoices = [
+    "audio/webm",
+    "audio/webm;codecs=opus",
+    "audio/ogg;codecs=opus",
+    "audio/mp4",
+    "audio/m4a",
+    "audio/wav",
+    "audio/mp3",
+  ];
 
   const startRecording = async () => {
     if (!recordingSupported) return;
@@ -63,7 +74,7 @@ export const TranscriptUpload: React.FC = () => {
 
       let mimeType = "";
       for (const c of mimeChoices) {
-        if (MediaRecorder.isTypeSupported(c)) {
+        if ((window as any).MediaRecorder && MediaRecorder.isTypeSupported(c)) {
           mimeType = c;
           break;
         }
@@ -119,6 +130,7 @@ export const TranscriptUpload: React.FC = () => {
       await transcriptApi.uploadAudio(recordId, blobToUpload, filename);
       const t = await transcriptApi.transcribe(recordId);
       setTranscript(t.transcript || "");
+      setShowTranscript(true);
     } finally {
       setUploading(false);
     }
@@ -130,6 +142,7 @@ export const TranscriptUpload: React.FC = () => {
     try {
       const res = await transcriptApi.summarize(recordId);
       setSummary(res.summary || "");
+      setShowSummary(true);
     } finally {
       setSummarizing(false);
     }
@@ -139,224 +152,287 @@ export const TranscriptUpload: React.FC = () => {
     if (!recordId) return;
     setGenerating(true);
     try {
-      const res = await transcriptApi.generateFields(recordId, dynamicLabels.filter(Boolean));
-      // Merge new field answers with existing to avoid wiping previous answers
+      const fields = dynamicLabels.filter(Boolean);
+      const res = await transcriptApi.generateFields(recordId, fields);
       setDynamicAnswers((prev) => ({ ...(prev || {}), ...(res.fields || {}) }));
     } finally {
       setGenerating(false);
     }
   };
 
+  // UI below remains the same, handlers are wired
   return (
-    <div className="min-h-[calc(100vh-4rem)] p-6 bg-gradient-to-b to-white dark:from-gray-900 dark:to-gray-800">
-      <div className="max-w-5xl mx-auto">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-1">Upload / Record Audio</h2>
-          <div className="text-sm text-gray-600 mb-4">{patientHeader}</div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:to-gray-800 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+            <h1 className="text-2xl font-bold mb-2">Medical Transcript</h1>
+            <div className="flex items-center gap-2 text-blue-100">
+              <span className="text-lg">{patientHeader}</span>
+            </div>
+          </div>
+        </div>
 
-          <div className="mt-2">
-            <div className="flex items-center gap-3 flex-wrap">
-              <input
-                type="file"
-                accept="audio/*"
-                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-              />
-              {recordingSupported && !isRecording && (
+        {/* Audio Upload Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-xl">
+              <FileAudio className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Audio Input</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Upload or record patient consultation</p>
+            </div>
+          </div>
+
+          {/* Upload Area */}
+          <div className="grid md:grid-cols-2 gap-4 mb-6">
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 hover:border-blue-500 transition-colors cursor-pointer group">
+              <label className="cursor-pointer flex flex-col items-center gap-3">
+                <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-900 transition-colors">
+                  <Upload className="w-8 h-8 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+                </div>
+                <div className="text-center">
+                  <p className="font-medium text-gray-700 dark:text-gray-200">Upload Audio File</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">MP3, WAV, M4A, WebM</p>
+                </div>
+                <input type="file" accept="audio/*" className="hidden" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+              </label>
+            </div>
+
+            <div className="border-2 border-gray-300 dark:border-gray-600 rounded-xl p-6 flex flex-col items-center justify-center gap-3">
+              {!isRecording ? (
                 <button
-                  className="px-4 py-2 rounded bg-[#39489D] text-white"
                   onClick={startRecording}
+                  className="w-full flex flex-col items-center gap-3 group"
                 >
-                  Start Recording
+                  <div className="p-4 bg-red-100 dark:bg-red-900 rounded-full group-hover:bg-red-200 dark:group-hover:bg-red-800 transition-colors">
+                    <Mic className="w-8 h-8 text-red-600 dark:text-red-400" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-medium text-gray-700 dark:text-gray-200">Record Audio</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Click to start recording</p>
+                  </div>
                 </button>
-              )}
-              {isRecording && (
-                <button className="px-4 py-2 rounded bg-red-600 text-white" onClick={stopRecording}>
-                  Stop Recording
-                </button>
+              ) : (
+                <div className="w-full flex flex-col items-center gap-4">
+                  <div className="relative">
+                    <div className="p-4 bg-red-500 rounded-full animate-pulse">
+                      <Mic className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping"></div>
+                  </div>
+                  <p className="font-medium text-red-600">Recording...</p>
+                  <button
+                    onClick={stopRecording}
+                    className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                  >
+                    Stop Recording
+                  </button>
+                </div>
               )}
             </div>
           </div>
 
-          <div className="mt-6 flex items-center gap-3 flex-wrap">
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-3">
             <button
               disabled={uploading}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleUploadAndTranscribe}
-              className="px-4 py-2 rounded bg-[#39489D] text-white disabled:opacity-60"
             >
               {uploading ? (
-                <span className="inline-flex items-center">
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...
-                </span>
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Processing Audio...
+                </>
               ) : (
-                "Upload & Transcribe"
+                <>
+                  <Sparkles className="w-5 h-5" />
+                  Upload & Transcribe
+                </>
               )}
             </button>
             {transcript && (
               <button
-                className="px-4 py-2 rounded border disabled:opacity-60"
-                onClick={handleSummarize}
                 disabled={summarizing}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+                onClick={handleSummarize}
               >
                 {summarizing ? (
-                  <span className="inline-flex items-center">
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Summarizing...
-                  </span>
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Summarizing...
+                  </>
                 ) : (
-                  "Summarize"
+                  <>
+                    <Sparkles className="w-5 h-5" />
+                    Generate Summary
+                  </>
                 )}
               </button>
             )}
           </div>
+        </div>
 
-          {transcript && (
-            <div className="mt-6 border rounded p-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium">Transcript</h3>
-                <button
-                  className="p-1 rounded hover:bg-gray-100"
-                  onClick={() => setShowTranscript((v) => !v)}
-                  aria-label="Toggle transcript"
-                >
-                  <ChevronDown
-                    className={`w-5 h-5 transition-transform ${showTranscript ? "rotate-180" : "rotate-0"}`}
-                  />
-                </button>
-              </div>
-              {showTranscript && (
-                <div className="mt-3">
-                  <textarea className="w-full border rounded p-3" rows={8} value={transcript} readOnly />
+        {/* Transcript Section */}
+        {transcript && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <button
+              onClick={() => setShowTranscript(!showTranscript)}
+              className="w-full flex items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                  <FileAudio className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 </div>
-              )}
-            </div>
-          )}
-
-          {summary && (
-            <div className="mt-6 border rounded p-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium">Summary</h3>
-                <button
-                  className="p-1 rounded hover:bg-gray-100"
-                  onClick={() => setShowSummary((v) => !v)}
-                  aria-label="Toggle summary"
-                >
-                  <ChevronDown
-                    className={`w-5 h-5 transition-transform ${showSummary ? "rotate-180" : "rotate-0"}`}
-                  />
-                </button>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Transcript</h3>
               </div>
-              {showSummary && (
-                <div className="mt-3">
-                  <textarea className="w-full border rounded p-3" rows={6} value={summary} readOnly />
+              <ChevronDown
+                className={`w-5 h-5 text-gray-500 transition-transform ${showTranscript ? "rotate-180" : ""}`}
+              />
+            </button>
+            {showTranscript && (
+              <div className="px-6 pb-6">
+                <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                  <textarea
+                    className="w-full bg-transparent border-none resize-none focus:outline-none text-gray-700 dark:text-gray-300"
+                    rows={8}
+                    value={transcript}
+                    readOnly
+                  />
                 </div>
-              )}
-            </div>
-          )}
-
-          <div className="mt-6">
-            <h3 className="font-medium mb-2">Dynamic Prompt</h3>
-            <div className="space-y-4">
-              {dynamicLabels.map((lbl, i) => {
-                const answer = dynamicAnswers[lbl];
-                return (
-                  <div key={i} className="border rounded p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <input
-                        className="border rounded px-3 py-2 flex-1"
-                        placeholder="Field label (e.g., prescription)"
-                        value={lbl}
-                        onChange={(e) => {
-                          const newLabel = e.target.value;
-                          setDynamicLabels((prev) => {
-                            const arr = [...prev];
-                            const oldLabel = arr[i];
-                            arr[i] = newLabel;
-                            // If there was an answer under old label, migrate to new label key
-                            setDynamicAnswers((prevAns) => {
-                              if (!prevAns) return prevAns;
-                              if (oldLabel && oldLabel !== newLabel && prevAns[oldLabel]) {
-                                const { [oldLabel]: moved, ...rest } = prevAns;
-                                // Only set if new label not already answered
-                                return { ...rest, [newLabel]: moved };
-                              }
-                              return prevAns;
-                            });
-                            return arr;
-                          });
-                        }}
-                      />
-                      <button
-                        className="p-1 rounded hover:bg-gray-100"
-                        onClick={() =>
-                          setExpandedFields((prev) => ({ ...prev, [i]: !prev[i] }))
-                        }
-                        aria-label="Toggle field"
-                      >
-                        <ChevronDown
-                          className={`w-5 h-5 transition-transform ${expandedFields[i] ? "rotate-180" : "rotate-0"}`}
-                        />
-                      </button>
-                      <button
-                        className="px-2 py-2 rounded border"
-                        onClick={() => {
-                          const removed = dynamicLabels[i];
-                          const arr = dynamicLabels.filter((_, idx) => idx !== i);
-                          setDynamicLabels(arr);
-                          // Remove any existing answer tied to this label
-                          setDynamicAnswers((prev) => {
-                            const { [removed]: _drop, ...rest } = prev;
-                            return rest;
-                          });
-                          setExpandedFields((prev) => {
-                            const { [i]: _dropIdx, ...rest } = prev;
-                            return rest;
-                          });
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    {expandedFields[i] && (
-                      <div className="mt-3">
-                        <div className="text-sm text-gray-600 mb-1">Answer</div>
-                        <textarea
-                          className="w-full border rounded p-3"
-                          rows={4}
-                          value={answer || "No answer yet."}
-                          readOnly
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              <button
-                className="px-3 py-2 rounded border"
-                onClick={() => setDynamicLabels((a) => [...a, ""])}
-              >
-                Add Field
-              </button>
-            </div>
-            <div className="mt-3">
-              <button
-                className="px-4 py-2 rounded bg-[#39489D] text-white disabled:opacity-60"
-                onClick={handleGenerateFields}
-                disabled={generating}
-              >
-                {generating ? (
-                  <span className="inline-flex items-center">
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...
-                  </span>
-                ) : (
-                  "Generate Answers"
-                )}
-              </button>
-            </div>
+              </div>
+            )}
           </div>
+        )}
+
+        {/* Summary Section */}
+        {summary && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <button
+              onClick={() => setShowSummary(!showSummary)}
+              className="w-full flex items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                  <Sparkles className="w-5 h-5 text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">AI Summary</h3>
+              </div>
+              <ChevronDown
+                className={`w-5 h-5 text-gray-500 transition-transform ${showSummary ? "rotate-180" : ""}`}
+              />
+            </button>
+            {showSummary && (
+              <div className="px-6 pb-6">
+                <div className="bg-gradient-to-br from-green-50 to-teal-50 dark:from-gray-900 dark:to-gray-900 rounded-xl p-4 border border-green-200 dark:border-green-800">
+                  <textarea
+                    className="w-full bg-transparent border-none resize-none focus:outline-none text-gray-700 dark:text-gray-300"
+                    rows={6}
+                    value={summary}
+                    readOnly
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Dynamic Fields Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+                <Sparkles className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Dynamic Fields</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Extract specific information</p>
+              </div>
+            </div>
+            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors" onClick={() => setDynamicLabels((prev) => [...prev, ""]) }>
+              <Plus className="w-4 h-4" />
+              Add Field
+            </button>
+          </div>
+
+          <div className="space-y-3 mb-6">
+            {dynamicLabels.map((label, i) => (
+              <div key={i} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-750">
+                  <input
+                    className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Field label (e.g., prescription)"
+                    value={label}
+                    onChange={(e) => {
+                      const newLabel = e.target.value;
+                      setDynamicLabels((prev) => {
+                        const arr = [...prev];
+                        const oldLabel = arr[i];
+                        arr[i] = newLabel;
+                        setDynamicAnswers((prevAns) => {
+                          if (!prevAns) return prevAns as any;
+                          if (oldLabel && oldLabel !== newLabel && (prevAns as any)[oldLabel]) {
+                            const { [oldLabel]: moved, ...rest } = prevAns as any;
+                            return { ...rest, [newLabel]: moved } as any;
+                          }
+                          return prevAns as any;
+                        });
+                        return arr;
+                      });
+                    }}
+                  />
+                  <button
+                    onClick={() => setExpandedFields(prev => ({ ...prev, [i]: !prev[i] }))}
+                    className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <ChevronDown className={`w-5 h-5 transition-transform ${expandedFields[i] ? "rotate-180" : ""}`} />
+                  </button>
+                  <button className="p-2 hover:bg-red-100 dark:hover:bg-red-900 text-red-600 rounded-lg transition-colors" onClick={() => {
+                    const removed = dynamicLabels[i];
+                    setDynamicLabels((prev) => prev.filter((_, idx) => idx !== i));
+                    setDynamicAnswers((prev) => {
+                      const { [removed]: _drop, ...rest } = (prev || {}) as any;
+                      return rest as any;
+                    });
+                    setExpandedFields((prev) => {
+                      const { [i]: _rm, ...rest } = prev as any;
+                      return rest as any;
+                    });
+                  }}>
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                {expandedFields[i] && (
+                  <div className="p-4 bg-white dark:bg-gray-800">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Generated Answer
+                    </label>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                      <p className="text-gray-700 dark:text-gray-300">
+                        {dynamicAnswers[label] || "No answer generated yet."}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <button className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all" onClick={handleGenerateFields} disabled={generating}>
+            <Sparkles className="w-5 h-5" />
+            {generating ? (
+              <span className="inline-flex items-center">
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...
+              </span>
+            ) : (
+              "Generate Answers"
+            )}
+          </button>
         </div>
       </div>
     </div>
   );
-};
-
-export default TranscriptUpload;
-
+}
