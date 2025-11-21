@@ -17,7 +17,7 @@ export default function ImprovedTranscriptUpload() {
   const [patientHeader, setPatientHeader] = useState("");
   const [transcript, setTranscript] = useState("");
   const [summary, setSummary] = useState("");
-  const [dynamicLabels, setDynamicLabels] = useState<string[]>(["prescription", "diagnosis"]);
+  const [dynamicLabels, setDynamicLabels] = useState<string[]>(["diagnosis", "prescription"]);
   const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>({});
 
   // Loading states

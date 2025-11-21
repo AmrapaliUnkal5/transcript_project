@@ -87,7 +87,39 @@ export default function ImprovedTranscriptDetail() {
           </div>
         </div>
 
-        {/* Summary Card - Featured */}
+        {/* Transcript Section (first) */}
+        {data.transcript_text && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <button
+              onClick={() => setShowTranscript(!showTranscript)}
+              className="w-full flex items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-xl">
+                  <FileText className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">Full Transcript</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Complete consultation recording</p>
+                </div>
+              </div>
+              <ChevronDown
+                className={`w-6 h-6 text-gray-500 transition-transform ${showTranscript ? "rotate-180" : ""}`}
+              />
+            </button>
+            {showTranscript && (
+              <div className="px-6 pb-6">
+                <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 font-mono text-sm">
+                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                    {data.transcript_text}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* AI-Generated Summary (second) */}
         {data.summary_text && (
           <div className="bg-gradient-to-br from-green-50 to-teal-50 dark:from-gray-800 dark:to-gray-800 rounded-2xl shadow-lg border border-green-200 dark:border-green-900 overflow-hidden">
             <button
@@ -119,7 +151,7 @@ export default function ImprovedTranscriptDetail() {
           </div>
         )}
 
-        {/* Dynamic Fields - Card Grid */}
+        {/* Medical Information (third) - Dynamic Fields */}
         {data.dynamic_fields && Object.keys(data.dynamic_fields).length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
             <div className="flex items-center gap-3 mb-6">
@@ -133,7 +165,14 @@ export default function ImprovedTranscriptDetail() {
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
-              {Object.entries(data.dynamic_fields).map(([key, value]) => {
+              {Object.entries(data.dynamic_fields)
+                .sort(([a], [b]) => {
+                  const order = (k: string) => (k.toLowerCase() === "diagnosis" ? 0 : k.toLowerCase() === "prescription" ? 1 : 2);
+                  const oa = order(a);
+                  const ob = order(b);
+                  return oa === ob ? a.localeCompare(b) : oa - ob;
+                })
+                .map(([key, value]) => {
                 const isExpanded = expandedFields[key];
                 const colors = {
                   prescription: { bg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200 dark:border-blue-800", icon: "bg-blue-100 dark:bg-blue-900", text: "text-blue-600 dark:text-blue-400" },
@@ -177,38 +216,6 @@ export default function ImprovedTranscriptDetail() {
                 );
               })}
             </div>
-          </div>
-        )}
-
-        {/* Transcript Section */}
-        {data.transcript_text && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <button
-              onClick={() => setShowTranscript(!showTranscript)}
-              className="w-full flex items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
-            >
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-xl">
-                  <FileText className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div className="text-left">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">Full Transcript</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Complete consultation recording</p>
-                </div>
-              </div>
-              <ChevronDown
-                className={`w-6 h-6 text-gray-500 transition-transform ${showTranscript ? "rotate-180" : ""}`}
-              />
-            </button>
-            {showTranscript && (
-              <div className="px-6 pb-6">
-                <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 font-mono text-sm">
-                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
-                    {data.transcript_text}
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
