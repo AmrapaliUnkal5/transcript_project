@@ -223,6 +223,8 @@ def is_greeting(message: str) -> tuple[bool, str]:
         "guten tag": "Guten Tag! How may I help you today?",
         "konnichiwa": "Konnichiwa! How can I assist you?",
         "salaam": "Salaam! How may I help you today?",
+        "Hi how are you":"I'm doing great! What can I help you with?",
+        "Hi how are you doing":"I'm doing great! What can I help you with?",
         
         # Compound and variation greetings
         "hi there": "Hello there! How can I help you today?",
