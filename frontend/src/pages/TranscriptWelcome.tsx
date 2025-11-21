@@ -33,14 +33,14 @@ export const TranscriptWelcome: React.FC = () => {
             </button>
             <button
               onClick={() => navigate("/dashboard/transcript")}
-              className="w-full px-5 py-4 bg-white border border-gray-200 text-gray-900 rounded-lg hover:bg-gray-50 transition dark:bg-gray-900 dark:border-gray-700 dark:text-white"
+              className="w-full px-5 py-4 bg-[#39489D] text-white rounded-lg hover:opacity-90 transition"
               style={{ fontFamily: "Instrument Sans, sans-serif" }}
             >
               View Recent Records
             </button>
             <button
               onClick={() => navigate("/dashboard/transcript/lookup")}
-              className="w-full px-5 py-4 bg-white border border-gray-200 text-gray-900 rounded-lg hover:bg-gray-50 transition dark:bg-gray-900 dark:border-gray-700 dark:text-white"
+              className="w-full px-5 py-4 bg-[#39489D] text-white rounded-lg hover:opacity-90 transition"
               style={{ fontFamily: "Instrument Sans, sans-serif" }}
             >
               Patient Lookup

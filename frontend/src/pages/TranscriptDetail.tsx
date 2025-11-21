@@ -64,18 +64,7 @@ export default function ImprovedTranscriptDetail() {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button className="p-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl transition-colors">
-                  <Share2 className="w-5 h-5 text-white" />
-                </button>
-                <button className="p-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl transition-colors">
-                  <Download className="w-5 h-5 text-white" />
-                </button>
-                <button className="p-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl transition-colors">
-                  <Edit className="w-5 h-5 text-white" />
-                </button>
               </div>
-            </div>
           </div>
           
           <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-750 dark:to-gray-750 border-t border-gray-200 dark:border-gray-700">
