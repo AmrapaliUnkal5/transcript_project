@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { transcriptApi } from "../services/api";
+import { ChevronDown } from "lucide-react";
 
 export const TranscriptDetail: React.FC = () => {
   const { id } = useParams();
@@ -19,6 +20,9 @@ export const TranscriptDetail: React.FC = () => {
     dynamic_fields?: Record<string, string>;
     created_at?: string | null;
   } | null>(null);
+  const [showTranscript, setShowTranscript] = useState<boolean>(false);
+  const [showSummary, setShowSummary] = useState<boolean>(false);
+  const [expandedFields, setExpandedFields] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const run = async () => {
@@ -52,29 +56,77 @@ export const TranscriptDetail: React.FC = () => {
               </div>
 
               {data.transcript_text && (
-                <div>
-                  <h3 className="font-medium mb-2">Transcript</h3>
-                  <textarea className="w-full border rounded p-3" rows={8} value={data.transcript_text} readOnly />
+                <div className="border rounded p-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">Transcript</h3>
+                    <button
+                      className="p-1 rounded hover:bg-gray-100"
+                      onClick={() => setShowTranscript((v) => !v)}
+                      aria-label="Toggle transcript"
+                    >
+                      <ChevronDown
+                        className={`w-5 h-5 transition-transform ${showTranscript ? "rotate-180" : "rotate-0"}`}
+                      />
+                    </button>
+                  </div>
+                  {showTranscript && (
+                    <div className="mt-3">
+                      <textarea className="w-full border rounded p-3" rows={8} value={data.transcript_text || ""} readOnly />
+                    </div>
+                  )}
                 </div>
               )}
 
               {data.summary_text && (
-                <div>
-                  <h3 className="font-medium mb-2">Summary</h3>
-                  <textarea className="w-full border rounded p-3" rows={6} value={data.summary_text} readOnly />
+                <div className="border rounded p-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">Summary</h3>
+                    <button
+                      className="p-1 rounded hover:bg-gray-100"
+                      onClick={() => setShowSummary((v) => !v)}
+                      aria-label="Toggle summary"
+                    >
+                      <ChevronDown
+                        className={`w-5 h-5 transition-transform ${showSummary ? "rotate-180" : "rotate-0"}`}
+                      />
+                    </button>
+                  </div>
+                  {showSummary && (
+                    <div className="mt-3">
+                      <textarea className="w-full border rounded p-3" rows={6} value={data.summary_text || ""} readOnly />
+                    </div>
+                  )}
                 </div>
               )}
 
               {!!data.dynamic_fields && Object.keys(data.dynamic_fields).length > 0 && (
                 <div>
-                  <h3 className="font-medium mb-2">Fields</h3>
+                  <h3 className="font-medium mb-2">Dynamic Prompt</h3>
                   <div className="space-y-3">
-                    {Object.entries(data.dynamic_fields).map(([k, v]) => (
-                      <div key={k}>
-                        <div className="text-sm font-semibold mb-1">{k}</div>
-                        <textarea className="w-full border rounded p-3" rows={4} value={v} readOnly />
-                      </div>
-                    ))}
+                    {Object.entries(data.dynamic_fields).map(([k, v]) => {
+                      const isOpen = !!expandedFields[k];
+                      return (
+                        <div key={k} className="border rounded p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-semibold">{k}</div>
+                            <button
+                              className="p-1 rounded hover:bg-gray-100"
+                              onClick={() => setExpandedFields((prev) => ({ ...prev, [k]: !prev[k] }))}
+                              aria-label={`Toggle ${k}`}
+                            >
+                              <ChevronDown
+                                className={`w-5 h-5 transition-transform ${isOpen ? "rotate-180" : "rotate-0"}`}
+                              />
+                            </button>
+                          </div>
+                          {isOpen && (
+                            <div className="mt-2">
+                              <textarea className="w-full border rounded p-3" rows={4} value={v || ""} readOnly />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

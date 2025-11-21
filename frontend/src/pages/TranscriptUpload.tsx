@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { transcriptApi } from "../services/api";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown } from "lucide-react";
 
 const mimeChoices = [
   "audio/webm",
@@ -22,6 +22,9 @@ export const TranscriptUpload: React.FC = () => {
   const [summary, setSummary] = useState<string>("");
   const [dynamicLabels, setDynamicLabels] = useState<string[]>(["prescription", "diagnosis"]);
   const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>({});
+  const [showTranscript, setShowTranscript] = useState<boolean>(false);
+  const [showSummary, setShowSummary] = useState<boolean>(false);
+  const [expandedFields, setExpandedFields] = useState<Record<number, boolean>>({});
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -137,7 +140,8 @@ export const TranscriptUpload: React.FC = () => {
     setGenerating(true);
     try {
       const res = await transcriptApi.generateFields(recordId, dynamicLabels.filter(Boolean));
-      setDynamicAnswers(res.fields || {});
+      // Merge new field answers with existing to avoid wiping previous answers
+      setDynamicAnswers((prev) => ({ ...(prev || {}), ...(res.fields || {}) }));
     } finally {
       setGenerating(false);
     }
@@ -205,37 +209,92 @@ export const TranscriptUpload: React.FC = () => {
           </div>
 
           {transcript && (
-            <div className="mt-6">
-              <h3 className="font-medium mb-2">Transcript</h3>
-              <textarea className="w-full border rounded p-3" rows={8} value={transcript} readOnly />
+            <div className="mt-6 border rounded p-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium">Transcript</h3>
+                <button
+                  className="p-1 rounded hover:bg-gray-100"
+                  onClick={() => setShowTranscript((v) => !v)}
+                  aria-label="Toggle transcript"
+                >
+                  <ChevronDown
+                    className={`w-5 h-5 transition-transform ${showTranscript ? "rotate-180" : "rotate-0"}`}
+                  />
+                </button>
+              </div>
+              {showTranscript && (
+                <div className="mt-3">
+                  <textarea className="w-full border rounded p-3" rows={8} value={transcript} readOnly />
+                </div>
+              )}
             </div>
           )}
 
           {summary && (
-            <div className="mt-6">
-              <h3 className="font-medium mb-2">Summary</h3>
-              <textarea className="w-full border rounded p-3" rows={6} value={summary} readOnly />
+            <div className="mt-6 border rounded p-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium">Summary</h3>
+                <button
+                  className="p-1 rounded hover:bg-gray-100"
+                  onClick={() => setShowSummary((v) => !v)}
+                  aria-label="Toggle summary"
+                >
+                  <ChevronDown
+                    className={`w-5 h-5 transition-transform ${showSummary ? "rotate-180" : "rotate-0"}`}
+                  />
+                </button>
+              </div>
+              {showSummary && (
+                <div className="mt-3">
+                  <textarea className="w-full border rounded p-3" rows={6} value={summary} readOnly />
+                </div>
+              )}
             </div>
           )}
 
           <div className="mt-6">
-            <h3 className="font-medium mb-2">Dynamic Fields</h3>
+            <h3 className="font-medium mb-2">Dynamic Prompt</h3>
             <div className="space-y-4">
               {dynamicLabels.map((lbl, i) => {
                 const answer = dynamicAnswers[lbl];
                 return (
                   <div key={i} className="border rounded p-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mb-2">
                       <input
                         className="border rounded px-3 py-2 flex-1"
                         placeholder="Field label (e.g., prescription)"
                         value={lbl}
                         onChange={(e) => {
-                          const arr = [...dynamicLabels];
-                          arr[i] = e.target.value;
-                          setDynamicLabels(arr);
+                          const newLabel = e.target.value;
+                          setDynamicLabels((prev) => {
+                            const arr = [...prev];
+                            const oldLabel = arr[i];
+                            arr[i] = newLabel;
+                            // If there was an answer under old label, migrate to new label key
+                            setDynamicAnswers((prevAns) => {
+                              if (!prevAns) return prevAns;
+                              if (oldLabel && oldLabel !== newLabel && prevAns[oldLabel]) {
+                                const { [oldLabel]: moved, ...rest } = prevAns;
+                                // Only set if new label not already answered
+                                return { ...rest, [newLabel]: moved };
+                              }
+                              return prevAns;
+                            });
+                            return arr;
+                          });
                         }}
                       />
+                      <button
+                        className="p-1 rounded hover:bg-gray-100"
+                        onClick={() =>
+                          setExpandedFields((prev) => ({ ...prev, [i]: !prev[i] }))
+                        }
+                        aria-label="Toggle field"
+                      >
+                        <ChevronDown
+                          className={`w-5 h-5 transition-transform ${expandedFields[i] ? "rotate-180" : "rotate-0"}`}
+                        />
+                      </button>
                       <button
                         className="px-2 py-2 rounded border"
                         onClick={() => {
@@ -247,18 +306,22 @@ export const TranscriptUpload: React.FC = () => {
                             const { [removed]: _drop, ...rest } = prev;
                             return rest;
                           });
+                          setExpandedFields((prev) => {
+                            const { [i]: _dropIdx, ...rest } = prev;
+                            return rest;
+                          });
                         }}
                       >
                         Remove
                       </button>
                     </div>
-                    {answer && (
+                    {expandedFields[i] && (
                       <div className="mt-3">
                         <div className="text-sm text-gray-600 mb-1">Answer</div>
                         <textarea
                           className="w-full border rounded p-3"
                           rows={4}
-                          value={answer}
+                          value={answer || "No answer yet."}
                           readOnly
                         />
                       </div>
