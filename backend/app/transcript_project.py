@@ -14,6 +14,7 @@ from app.utils.file_storage import save_file, get_file_url, FileStorageError
 from app.utils.file_storage import resolve_file_url
 from app.llm_manager import LLMManager
 from app.vector_db import add_transcript_embedding_to_qdrant, retrieve_transcript_context, add_field_answer_embedding_to_qdrant
+from app.word_count_validation import extract_text as extract_text_from_upload
 
 router = APIRouter(prefix="/transcript", tags=["Transcript Project"])
 
@@ -142,6 +143,69 @@ async def upload_audio(
 
     return {"audio_path": saved_path, "url": resolved_url}
 
+
+@router.post("/records/{record_id}/document")
+async def upload_document(
+    record_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Upload a document (pdf, docx, doc, txt, csv, png, jpg, jpeg) and extract text into transcript_text.
+    Stores the raw file under transcript_prject/ and indexes extracted text into Qdrant.
+    """
+    record = db.query(TranscriptRecord).filter(
+        TranscriptRecord.id == record_id, TranscriptRecord.user_id == current_user.get("user_id")
+    ).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+
+    # Save original document (optional)
+    ext = (file.filename or "document").split(".")[-1].lower()
+    safe_name = f"{uuid.uuid4()}.{ext}"
+    try:
+        content = await file.read()
+        saved_path = save_file(TRANSCRIPT_DIR, safe_name, content)
+    except FileStorageError as e:
+        raise HTTPException(status_code=500, detail=f"File storage error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error saving document: {str(e)}")
+
+    # Reconstruct an UploadFile-like object for extractor
+    from starlette.datastructures import UploadFile as StarletteUploadFile
+    doc_upload = StarletteUploadFile(filename=file.filename or safe_name, file=os.path.join(TRANSCRIPT_DIR, os.path.basename(saved_path)))
+
+    # Use Evolra's unified extractor
+    try:
+        # We need an UploadFile with .read(); provide a fresh one from saved bytes
+        class _MemUF:
+            def __init__(self, name:str, data:bytes):
+                self.filename = name
+                self._data = data
+                self._pos = 0
+            async def read(self):
+                return self._data
+            async def seek(self, pos:int):
+                self._pos = pos
+        mem_file = _MemUF(file.filename or safe_name, content)
+        text = await extract_text_from_upload(mem_file)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not extract text: {str(e)}")
+
+    if not text or not text.strip():
+        raise HTTPException(status_code=400, detail="No readable text found in document")
+
+    # Save as transcript and index
+    record.transcript_text = text.strip()
+    db.commit()
+
+    try:
+        add_transcript_embedding_to_qdrant(record.id, current_user.get("user_id"), record.transcript_text, model="text-embedding-3-large", p_id=record.p_id)
+    except Exception:
+        pass
+
+    return {"transcript": record.transcript_text, "path": saved_path}
 
 def _openai_transcribe(local_path: str) -> str:
     """

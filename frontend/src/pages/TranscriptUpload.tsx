@@ -188,7 +188,7 @@ export default function ImprovedTranscriptUpload() {
           </div>
 
           {/* Upload Area */}
-          <div className="grid md:grid-cols-2 gap-4 mb-4">
+          <div className="grid md:grid-cols-3 gap-4 mb-4">
             <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 hover:border-blue-500 transition-colors cursor-pointer group">
               <label className="cursor-pointer flex flex-col items-center gap-3">
                 <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-900 transition-colors">
@@ -234,6 +234,36 @@ export default function ImprovedTranscriptUpload() {
                 </div>
               )}
             </div>
+
+            {/* Document upload */}
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 hover:border-blue-500 transition-colors cursor-pointer group">
+              <label className="cursor-pointer flex flex-col items-center gap-3">
+                <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-900 transition-colors">
+                  <Upload className="w-6 h-6 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+                </div>
+                <div className="text-center">
+                  <p className="font-medium text-gray-700 dark:text-gray-200">Upload Document</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Accepted: pdf, docx, doc, txt, csv, png, jpg, jpeg</p>
+                </div>
+                <input
+                  type="file"
+                  accept=".pdf,.docx,.doc,.txt,.csv,.png,.jpg,.jpeg"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f || !recordId) return;
+                    setUploading(true);
+                    try {
+                      const res = await transcriptApi.uploadDocument(recordId, f);
+                      setTranscript(res.transcript || "");
+                      setShowTranscript(true);
+                    } finally {
+                      setUploading(false);
+                    }
+                  }}
+                />
+              </label>
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -246,7 +276,7 @@ export default function ImprovedTranscriptUpload() {
               {uploading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Processing Audio...
+                  Processing Transcription...
                 </>
               ) : (
                 <>

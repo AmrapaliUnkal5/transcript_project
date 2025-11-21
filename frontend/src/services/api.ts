@@ -959,6 +959,15 @@ export const transcriptApi = {
     return response.data;
   },
 
+  uploadDocument: async (recordId: number, file: File): Promise<{ transcript: string; path?: string }> => {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    const response = await api.post(`/transcript/records/${recordId}/document`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  },
+
   summarize: async (recordId: number): Promise<{ summary: string }> => {
     const response = await api.post(`/transcript/records/${recordId}/summarize`);
     return response.data;
