@@ -126,8 +126,15 @@ async def upload_audio(
     try:
         content = await file.read()
         saved_path = save_file(TRANSCRIPT_DIR, filename, content)
-        file_url = get_file_url(TRANSCRIPT_DIR, filename, os.getenv("SERVER_URL"))
-        resolved_url = resolve_file_url(file_url) if file_url.startswith("s3://") else file_url
+        # Build a usable URL for browser playback
+        base_url = os.getenv("SERVER_URL")
+        rel_url = f"/{TRANSCRIPT_DIR}/{os.path.basename(saved_path)}"
+        file_url = None
+        try:
+            file_url = get_file_url(TRANSCRIPT_DIR, filename, base_url)  # may raise if base_url missing
+        except Exception:
+            file_url = None
+        resolved_url = resolve_file_url(file_url) if file_url and file_url.startswith("s3://") else (file_url or (base_url.rstrip("/") + rel_url if base_url else rel_url))
     except FileStorageError as e:
         raise HTTPException(status_code=500, detail=f"File storage error: {str(e)}")
     except Exception as e:
@@ -162,6 +169,14 @@ async def upload_document(
     try:
         content = await file.read()
         saved_path = save_file(TRANSCRIPT_DIR, safe_name, content)
+        base_url = os.getenv("SERVER_URL")
+        rel_url = f"/{TRANSCRIPT_DIR}/{os.path.basename(saved_path)}"
+        file_url = None
+        try:
+            file_url = get_file_url(TRANSCRIPT_DIR, safe_name, base_url)
+        except Exception:
+            file_url = None
+        resolved_url = resolve_file_url(file_url) if file_url and file_url.startswith("s3://") else (file_url or (base_url.rstrip("/") + rel_url if base_url else rel_url))
     except FileStorageError as e:
         raise HTTPException(status_code=500, detail=f"File storage error: {str(e)}")
     except Exception as e:
@@ -201,7 +216,7 @@ async def upload_document(
     except Exception:
         pass
 
-    return {"transcript": record.transcript_text, "path": saved_path}
+    return {"transcript": record.transcript_text, "path": saved_path, "url": resolved_url}
 
 def _openai_transcribe(local_path: str) -> str:
     """

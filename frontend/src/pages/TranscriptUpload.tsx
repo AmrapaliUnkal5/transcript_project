@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { transcriptApi } from "../services/api";
-import { Loader2, ChevronDown, Upload, Mic, FileAudio, Sparkles, Save, Plus, X, AlertCircle } from "lucide-react";
+import { Loader2, ChevronDown, Upload, Mic, FileAudio, Sparkles, Plus, X } from "lucide-react";
 import TranscriptQnA from "../components/TranscriptQnA";
 
 // Mock component to demonstrate the improved UI
@@ -20,6 +20,7 @@ export default function ImprovedTranscriptUpload() {
   const [summary, setSummary] = useState("");
   const [dynamicLabels, setDynamicLabels] = useState<string[]>(["diagnosis", "prescription"]);
   const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>({});
+  const [hasAudio, setHasAudio] = useState(false);
 
   // Loading states
   const [uploading, setUploading] = useState(false);
@@ -33,6 +34,17 @@ export default function ImprovedTranscriptUpload() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadedAudios, setUploadedAudios] = useState<Array<{ name: string; url: string; source: "upload" | "record" }>>([]);
+  const [uploadedDocs, setUploadedDocs] = useState<Array<{ name: string; url: string; pending?: boolean }>>([]);
+  const [pendingDoc, setPendingDoc] = useState<File | null>(null);
+  const [selectedAudioPreviewUrl, setSelectedAudioPreviewUrl] = useState<string | null>(null);
+
+  // Simple inline audio preview modal
+  const [audioPreview, setAudioPreview] = useState<{ open: boolean; name: string; url: string }>({
+    open: false,
+    name: "",
+    url: "",
+  });
 
   // Setup
   useEffect(() => {
@@ -51,6 +63,7 @@ export default function ImprovedTranscriptUpload() {
       setTranscript(rec.transcript_text || "");
       setSummary(rec.summary_text || "");
       setDynamicAnswers(rec.dynamic_fields || {});
+      setHasAudio(!!rec.audio_path);
     };
     load();
   }, [recordId]);
@@ -102,10 +115,74 @@ export default function ImprovedTranscriptUpload() {
     }
   };
 
+  const cancelRecording = () => {
+    try {
+      stopRecording();
+    } catch {}
+    chunksRef.current = [];
+    setIsRecording(false);
+  };
+
+  const saveRecording = async () => {
+    if (!recordId) return;
+    // Ensure recorder is stopped and chunks are finalized
+    stopRecording();
+    await new Promise((r) => setTimeout(r, 250));
+    const parts = chunksRef.current;
+    if (!parts.length) return;
+    const type = (parts[0] as any).type || "audio/webm";
+    const blob = new Blob(parts, { type });
+    let filename = "recording.webm";
+    if (type.includes("ogg")) filename = "recording.ogg";
+    else if (type.includes("m4a") || type.includes("mp4")) filename = "recording.m4a";
+    else if (type.includes("wav")) filename = "recording.wav";
+    else if (type.includes("mp3")) filename = "recording.mp3";
+
+    setUploading(true);
+    try {
+      const res = await transcriptApi.uploadAudio(recordId, blob, filename);
+      let url = (res as any)?.url || (res as any)?.audio_path || "";
+      if (url) {
+        url = url.replace(/\\/g, "/");
+        if (!url.startsWith("http") && !url.startsWith("/")) url = "/" + url;
+        setUploadedAudios((prev) => [...prev, { name: filename, url, source: "record" }]);
+      }
+      setHasAudio(true);
+    } finally {
+      setUploading(false);
+      chunksRef.current = [];
+    }
+  };
+
   const handleUploadAndTranscribe = async () => {
     if (!recordId) return;
     setUploading(true);
     try {
+      // 1) If a document is pending, process it now (extract text); do not auto-process at selection time
+      if (pendingDoc) {
+        const f = pendingDoc;
+        const res = await transcriptApi.uploadDocument(recordId, f);
+        setTranscript(res.transcript || "");
+        setShowTranscript(true);
+        // Replace the pending doc preview URL with backend URL if provided
+        let serverUrl = (res as any)?.url || (res as any)?.path || "";
+        if (serverUrl) {
+          serverUrl = serverUrl.replace(/\\/g, "/");
+          if (!serverUrl.startsWith("http") && !serverUrl.startsWith("/")) serverUrl = "/" + serverUrl;
+          setUploadedDocs((prev) =>
+            prev.map((d) => (d.pending && d.name === f.name ? { ...d, url: serverUrl, pending: false } : d))
+          );
+        } else {
+          // Mark as not pending but keep local URL
+          setUploadedDocs((prev) =>
+            prev.map((d) => (d.pending && d.name === f.name ? { ...d, pending: false } : d))
+          );
+        }
+        setPendingDoc(null);
+        return;
+      }
+
+      // 2) Audio flow: Upload if new file/chunks are present, otherwise transcribe existing audio
       let blobToUpload: Blob | null = null;
       let filename = "recording.webm";
 
@@ -122,11 +199,22 @@ export default function ImprovedTranscriptUpload() {
       }
 
       if (!blobToUpload) {
-        alert("No audio to upload. Either upload a file or record audio.");
-        return;
+        if (!hasAudio) {
+          alert("No audio to transcribe. Either upload a file or record audio.");
+          return;
+        }
+      } else {
+        const res = await transcriptApi.uploadAudio(recordId, blobToUpload, filename);
+        let url = (res as any)?.url || (res as any)?.audio_path || "";
+        if (url) {
+          url = url.replace(/\\/g, "/");
+          if (!url.startsWith("http") && !url.startsWith("/")) url = "/" + url;
+          setUploadedAudios((prev) => [...prev, { name: filename, url, source: "upload" }]);
+        }
+        setHasAudio(true);
+        setSelectedAudioPreviewUrl(null);
+        setSelectedFile(null);
       }
-
-      await transcriptApi.uploadAudio(recordId, blobToUpload, filename);
       const t = await transcriptApi.transcribe(recordId);
       setTranscript(t.transcript || "");
       setShowTranscript(true);
@@ -177,6 +265,23 @@ export default function ImprovedTranscriptUpload() {
           </div>
         </div>
 
+    {/* Small inline audio preview modal */}
+    {audioPreview.open && (
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 w-[90%] max-w-md shadow-2xl">
+          <div className="flex items-center justify-between mb-3">
+            <div className="font-medium text-gray-900 dark:text-gray-100 truncate pr-4">{audioPreview.name}</div>
+            <button
+              onClick={() => setAudioPreview({ open: false, name: "", url: "" })}
+              className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+            >
+              Close
+            </button>
+          </div>
+          <audio controls autoPlay src={audioPreview.url} className="w-full" />
+        </div>
+      </div>
+    )}
         {/* Audio Upload Section */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center gap-3 mb-6">
@@ -200,8 +305,52 @@ export default function ImprovedTranscriptUpload() {
                   <p className="font-medium text-gray-700 dark:text-gray-200">Upload Audio File</p>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">MP3, WAV, M4A, WebM</p>
                 </div>
-                <input type="file" accept="audio/*" className="hidden" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+                <input
+                  type="file"
+                  accept="audio/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    setSelectedFile(f);
+                    try {
+                      if (f) setSelectedAudioPreviewUrl(URL.createObjectURL(f));
+                      else setSelectedAudioPreviewUrl(null);
+                    } catch {
+                      setSelectedAudioPreviewUrl(null);
+                    }
+                  }}
+                />
               </label>
+
+              {/* Upload tile: show selected audio preview and previously uploaded audios via upload */}
+              {(selectedAudioPreviewUrl || uploadedAudios.some(a => a.source === "upload")) && (
+                <div className="mt-3 w-full">
+                  {selectedAudioPreviewUrl && (
+                    <div className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2 mb-2">
+                      <button
+                        className="text-blue-600 dark:text-blue-400 hover:underline text-left"
+                        onClick={() => setAudioPreview({ open: true, name: selectedFile?.name || "selected-audio", url: selectedAudioPreviewUrl })}
+                      >
+                        {selectedFile?.name || "Selected audio"}
+                      </button>
+                    </div>
+                  )}
+                  {uploadedAudios.filter(a => a.source === "upload").length > 0 && (
+                    <div className="space-y-2">
+                      {uploadedAudios.filter(a => a.source === "upload").map((a, idx) => (
+                        <div key={`upl-${idx}`} className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+                          <button
+                            className="text-blue-600 dark:text-blue-400 hover:underline text-left"
+                            onClick={() => setAudioPreview({ open: true, name: a.name, url: a.url })}
+                          >
+                            {a.name}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="border-2 border-gray-300 dark:border-gray-600 rounded-xl p-4 flex flex-col items-center justify-center gap-3">
@@ -227,12 +376,39 @@ export default function ImprovedTranscriptUpload() {
                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping"></div>
                   </div>
                   <p className="font-medium text-red-600">Recording...</p>
-                  <button
-                    onClick={stopRecording}
-                    className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-                  >
-                    Stop Recording
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={cancelRecording}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveRecording}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Record tile: show saved recordings */}
+              {uploadedAudios.filter(a => a.source === "record").length > 0 && (
+                <div className="mt-3 w-full">
+                  <div className="text-xs text-gray-500 mb-2">Saved Recordings</div>
+                  <div className="space-y-2">
+                    {uploadedAudios.filter(a => a.source === "record").map((a, idx) => (
+                      <div key={`rec-${idx}`} className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+                        <button
+                          className="text-blue-600 dark:text-blue-400 hover:underline text-left"
+                          onClick={() => setAudioPreview({ open: true, name: a.name, url: a.url })}
+                        >
+                          {a.name}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -251,22 +427,40 @@ export default function ImprovedTranscriptUpload() {
                   type="file"
                   accept=".pdf,.docx,.doc,.txt,.csv,.png,.jpg,.jpeg"
                   className="hidden"
-                  onChange={async (e) => {
+                  onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (!f || !recordId) return;
-                    setUploading(true);
+                    if (!f) return;
                     try {
-                      const res = await transcriptApi.uploadDocument(recordId, f);
-                      setTranscript(res.transcript || "");
-                      setShowTranscript(true);
-                    } finally {
-                      setUploading(false);
-                    }
+                      const localUrl = URL.createObjectURL(f);
+                      setUploadedDocs((prev) => [...prev, { name: f.name, url: localUrl, pending: true }]);
+                      setPendingDoc(f);
+                    } catch {}
                   }}
                 />
               </label>
+
+              {/* Documents list inside the document tile */}
+              {uploadedDocs.length > 0 && (
+                <div className="mt-3 w-full">
+                  <div className="text-xs text-gray-500 mb-2">Documents</div>
+                  <div className="space-y-2">
+                    {uploadedDocs.map((d, idx) => (
+                      <div key={`doc-${idx}`} className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+                        <span className="text-blue-600 dark:text-blue-400">{d.name}</span>
+                        {d.pending ? (
+                          <span className="text-xs text-gray-500">Pending</span>
+                        ) : (
+                          <a href={d.url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">Open</a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Documents are shown inside their tile above */}
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3">
@@ -278,12 +472,12 @@ export default function ImprovedTranscriptUpload() {
               {uploading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Processing Transcription...
+                  Processing...
                 </>
               ) : (
                 <>
                   <Sparkles className="w-5 h-5" />
-                  Upload & Transcribe
+                  Transcribe Audio
                 </>
               )}
             </button>

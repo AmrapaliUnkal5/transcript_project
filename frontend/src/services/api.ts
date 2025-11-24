@@ -958,7 +958,7 @@ export const transcriptApi = {
     return response.data;
   },
 
-  uploadDocument: async (recordId: number, file: File): Promise<{ transcript: string; path?: string }> => {
+  uploadDocument: async (recordId: number, file: File): Promise<{ transcript: string; path?: string; url?: string }> => {
     const form = new FormData();
     form.append("file", file, file.name);
     const response = await api.post(`/transcript/records/${recordId}/document`, form, {
