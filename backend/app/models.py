@@ -156,9 +156,8 @@ class TranscriptRecord(Base):
     user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Patient info
-    patient_email = Column(String, nullable=True)
     p_id = Column(String, nullable=False, index=True)  # anonymized patient id per user
-    patient_name = Column(String, nullable=False)
+    medical_clinic = Column(String, nullable=True)
     age = Column(Integer, nullable=True)
     bed_no = Column(String, nullable=True)
     phone_no = Column(String, nullable=True)

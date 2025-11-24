@@ -8,8 +8,7 @@ export const TranscriptList: React.FC = () => {
   const navigate = useNavigate();
   const [patients, setPatients] = useState<Array<{
     p_id: string;
-    patient_name?: string | null;
-    patient_email?: string | null;
+    medical_clinic?: string | null;
     phone_no?: string | null;
     age?: number | null;
     bed_no?: string | null;
@@ -19,6 +18,7 @@ export const TranscriptList: React.FC = () => {
   const [q, setQ] = useState("");
   const [dateOpenFor, setDateOpenFor] = useState<string | null>(null);
   const [newVisitDate, setNewVisitDate] = useState<Record<string, string>>({});
+  const [newVisitClinic, setNewVisitClinic] = useState<Record<string, string>>({});
   const [creating, setCreating] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export const TranscriptList: React.FC = () => {
 
   const canCreate = (pId: string) => !!(pId && (newVisitDate[pId] || "").trim());
 
-  const startNewVisit = async (p: { p_id: string; patient_name?: string | null; patient_email?: string | null; phone_no?: string | null; age?: number | null; bed_no?: string | null }) => {
+  const startNewVisit = async (p: { p_id: string; medical_clinic?: string | null; phone_no?: string | null; age?: number | null; bed_no?: string | null }) => {
     const picked = (newVisitDate[p.p_id] || "").trim();
     if (!picked) {
       setDateOpenFor(p.p_id);
@@ -53,8 +53,7 @@ export const TranscriptList: React.FC = () => {
     try {
       const res = await transcriptApi.createRecord({
         p_id: p.p_id,
-        patient_name: p.patient_name || "Unknown",
-        patient_email: p.patient_email || undefined,
+        medical_clinic: (newVisitClinic[p.p_id] || p.medical_clinic || "").trim() || undefined,
         phone_no: p.phone_no || undefined,
         age: typeof p.age === "number" ? p.age : undefined,
         bed_no: p.bed_no || undefined,
@@ -86,7 +85,7 @@ export const TranscriptList: React.FC = () => {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               className="w-full border rounded pl-9 pr-3 py-2"
-              placeholder="Search by Patient ID, Name, Email, or Phone"
+              placeholder="Search by Patient ID or Phone"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
@@ -115,12 +114,7 @@ export const TranscriptList: React.FC = () => {
                           {p.bed_no}
                         </span>
                       )}
-                      {p.patient_email && (
-                        <span className="inline-flex items-center gap-1">
-                          <Mail className="w-3 h-3" />
-                          {p.patient_email}
-                        </span>
-                      )}
+                      {p.medical_clinic && <span className="inline-flex">{p.medical_clinic}</span>}
                       {p.phone_no && (
                         <span className="inline-flex items-center gap-1">
                           <Phone className="w-3 h-3" />
@@ -140,7 +134,7 @@ export const TranscriptList: React.FC = () => {
                 </div>
                 <div className="px-4 pb-4">
                   {dateOpenFor === p.p_id && (
-                    <div className="mb-3 flex items-center gap-2">
+                    <div className="mb-3 flex items-center gap-2 flex-wrap">
                       <div className="relative">
                         <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
@@ -150,6 +144,13 @@ export const TranscriptList: React.FC = () => {
                           onChange={(e) => setNewVisitDate((prev) => ({ ...prev, [p.p_id]: e.target.value }))}
                         />
                       </div>
+                      <input
+                        type="text"
+                        className="pr-3 py-2 border rounded px-3"
+                        placeholder="Medical Clinic"
+                        value={newVisitClinic[p.p_id] || ""}
+                        onChange={(e) => setNewVisitClinic((prev) => ({ ...prev, [p.p_id]: e.target.value }))}
+                      />
                       <button
                         className="px-3 py-2 rounded bg-[#39489D] text-white disabled:opacity-60"
                         onClick={() => startNewVisit(p)}

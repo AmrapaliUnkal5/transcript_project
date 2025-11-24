@@ -5,8 +5,7 @@ import { transcriptApi } from "../services/api";
 export const TranscriptNew: React.FC = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    patient_name: "",
-    patient_email: "",
+    medical_clinic: "",
     age: "" as string | number,
     bed_no: "",
     phone_no: "",
@@ -20,15 +19,10 @@ export const TranscriptNew: React.FC = () => {
   };
 
   const handleSaveAndNext = async () => {
-    if (!form.patient_name.trim()) {
-      alert("Patient name is required");
-      return;
-    }
     setSaving(true);
     try {
       const payload: any = {
-        patient_name: form.patient_name,
-        patient_email: form.patient_email || undefined,
+        medical_clinic: form.medical_clinic || undefined,
         age: form.age ? Number(form.age) : undefined,
         bed_no: form.bed_no || undefined,
         phone_no: form.phone_no || undefined,
@@ -50,17 +44,9 @@ export const TranscriptNew: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               className="border rounded px-3 py-2"
-              placeholder="First Name *"
-              name="patient_name"
-              value={form.patient_name}
-              onChange={handleChange}
-            />
-            <input
-              className="border rounded px-3 py-2"
-              placeholder="Patient Email (optional)"
-              name="patient_email"
-              type="email"
-              value={form.patient_email}
+              placeholder="Medical Clinic"
+              name="medical_clinic"
+              value={form.medical_clinic}
               onChange={handleChange}
             />
             <input
@@ -73,7 +59,7 @@ export const TranscriptNew: React.FC = () => {
             />
             <input
               className="border rounded px-3 py-2"
-              placeholder="Bed No (optional)"
+              placeholder="Bed No"
               name="bed_no"
               value={form.bed_no}
               onChange={handleChange}

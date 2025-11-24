@@ -933,9 +933,8 @@ updateBotExternalKnowledge: async (botId: number) => {
 // Transcript project API
 export const transcriptApi = {
   createRecord: async (data: {
-    patient_name: string;
-    patient_email?: string;
     p_id?: string;
+    medical_clinic?: string;
     age?: number;
     bed_no?: string;
     phone_no?: string;
@@ -981,8 +980,7 @@ export const transcriptApi = {
   listRecords: async (): Promise<{ records: Array<{
     id: number;
     p_id: string;
-    patient_email?: string;
-    patient_name: string;
+    medical_clinic?: string | null;
     age?: number;
     bed_no?: string;
     phone_no?: string;
@@ -999,8 +997,7 @@ export const transcriptApi = {
   getRecord: async (recordId: number): Promise<{
     id: number;
     p_id: string;
-    patient_email?: string;
-    patient_name: string;
+    medical_clinic?: string | null;
     age?: number;
     bed_no?: string;
     phone_no?: string;
@@ -1022,8 +1019,7 @@ export const transcriptApi = {
 
   listPatients: async (): Promise<{ patients: Array<{
     p_id: string;
-    patient_name?: string;
-    patient_email?: string | null;
+    medical_clinic?: string | null;
     phone_no?: string | null;
     age?: number | null;
     bed_no?: string | null;
@@ -1035,8 +1031,7 @@ export const transcriptApi = {
 
   searchPatients: async (q: string): Promise<{ patients: Array<{
     p_id: string;
-    patient_name?: string;
-    patient_email?: string | null;
+    medical_clinic?: string | null;
     phone_no?: string;
     age?: number | null;
     bed_no?: string | null;
