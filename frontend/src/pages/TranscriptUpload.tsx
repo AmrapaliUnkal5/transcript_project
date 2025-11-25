@@ -551,7 +551,7 @@ export default function ImprovedTranscriptUpload() {
                   className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg text-sm disabled:opacity-50"
                   title="Transcribe Audio"
                 >
-                  {uploading ? <span className="inline-flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2" />Processing...</span> : 'Transcribe'}
+                  {uploading ? <span className="inline-flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2" />Processing...</span> : 'Generate Transcribe'}
                 </button>
                 <button
                   className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -692,10 +692,16 @@ export default function ImprovedTranscriptUpload() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Extract specific information</p>
               </div>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors" onClick={() => setDynamicLabels((prev) => [...prev, ""]) }>
-              <Plus className="w-4 h-4" />
-              Add Prompts
-            </button>
+            <div className="flex items-center gap-2 mr-2">
+              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors" onClick={() => setDynamicLabels((prev) => [...prev, ""]) }>
+                <Plus className="w-4 h-4" />
+                Add Prompts
+              </button>
+              {/* Invisible placeholder to align with chevron buttons in other headers */}
+              <button className="p-2 rounded opacity-0 pointer-events-none">
+                <ChevronDown className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           <div className="space-y-3 mb-6">
