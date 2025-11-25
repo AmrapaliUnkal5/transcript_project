@@ -155,7 +155,7 @@ export default function ImprovedTranscriptDetail() {
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="flex flex-wrap gap-4 items-start">
               {Object.entries(data.dynamic_fields)
                 .sort(([a], [b]) => {
                   const order = (k: string) => (k.toLowerCase() === "diagnosis" ? 0 : k.toLowerCase() === "prescription" ? 1 : 2);
@@ -176,10 +176,19 @@ export default function ImprovedTranscriptDetail() {
                 return (
                   <div
                     key={key}
-                    className={`${colorScheme.bg} ${colorScheme.border} border rounded-xl overflow-hidden transition-all hover:shadow-md`}
+                    className={`w-full md:w-[calc(50%-0.5rem)] ${colorScheme.bg} ${colorScheme.border} border rounded-xl overflow-hidden transition-all hover:shadow-md`}
                   >
                     <button
-                      onClick={() => setExpandedFields(prev => ({ ...prev, [key]: !prev[key] }))}
+                      onClick={() =>
+                        setExpandedFields((prev) => {
+                          const next: Record<string, boolean> = {};
+                          // collapse all
+                          Object.keys(data.dynamic_fields || {}).forEach((k) => (next[k] = false));
+                          // toggle only the clicked one
+                          next[key] = !prev[key];
+                          return next;
+                        })
+                      }
                       className="w-full flex items-center justify-between p-4 hover:bg-white/50 dark:hover:bg-gray-800/50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
