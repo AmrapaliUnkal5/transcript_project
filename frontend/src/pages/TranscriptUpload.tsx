@@ -331,9 +331,28 @@ export default function ImprovedTranscriptUpload() {
                     <div className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2 mb-2 h-10">
                       <button
                         className="text-blue-600 dark:text-blue-400 hover:underline text-left"
-                        onClick={() => setAudioPreview({ open: true, name: selectedFile?.name || "selected-audio", url: selectedAudioPreviewUrl })}
+                        onClick={() =>
+                          setAudioPreview({
+                            open: true,
+                            name: selectedFile?.name || "selected-audio",
+                            url: selectedAudioPreviewUrl,
+                          })
+                        }
                       >
                         {selectedFile?.name || "Selected audio"}
+                      </button>
+                      <button
+                        className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600"
+                        title="Remove"
+                        onClick={() => {
+                          try {
+                            if (selectedAudioPreviewUrl) URL.revokeObjectURL(selectedAudioPreviewUrl);
+                          } catch {}
+                          setSelectedAudioPreviewUrl(null);
+                          setSelectedFile(null);
+                        }}
+                      >
+                        <X className="w-4 h-4" />
                       </button>
                     </div>
                   )}
@@ -346,6 +365,17 @@ export default function ImprovedTranscriptUpload() {
                             onClick={() => setAudioPreview({ open: true, name: a.name, url: a.url })}
                           >
                             {a.name}
+                          </button>
+                          <button
+                            className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600"
+                            title="Remove"
+                            onClick={() => {
+                              setUploadedAudios((prev) =>
+                                prev.filter((item) => !(item.name === a.name && item.url === a.url && item.source === a.source))
+                              );
+                            }}
+                          >
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
                       ))}
@@ -408,6 +438,17 @@ export default function ImprovedTranscriptUpload() {
                         >
                           {a.name}
                         </button>
+                        <button
+                          className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600"
+                          title="Remove"
+                          onClick={() => {
+                            setUploadedAudios((prev) =>
+                              prev.filter((item) => !(item.name === a.name && item.url === a.url && item.source === a.source))
+                            );
+                          }}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -449,11 +490,23 @@ export default function ImprovedTranscriptUpload() {
                     {uploadedDocs.map((d, idx) => (
                       <div key={`doc-${idx}`} className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2 h-10">
                         <span className="text-blue-600 dark:text-blue-400">{d.name}</span>
-                        {d.pending ? (
-                          <span className="text-xs text-gray-500">Pending</span>
-                        ) : (
-                          <a href={d.url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">Open</a>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {d.pending ? (
+                            <span className="text-xs text-gray-500">Pending</span>
+                          ) : (
+                            <a href={d.url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">Open</a>
+                          )}
+                          <button
+                            className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600"
+                            title="Remove"
+                            onClick={() => {
+                              setUploadedDocs((prev) => prev.filter((doc) => !(doc.name === d.name && doc.url === d.url)));
+                              setPendingDoc((p) => (p && p.name === d.name ? null : p));
+                            }}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
