@@ -42,6 +42,12 @@ export default function ImprovedTranscriptUpload() {
   const [pendingDoc, setPendingDoc] = useState<File | null>(null);
   const [selectedAudioPreviewUrl, setSelectedAudioPreviewUrl] = useState<string | null>(null);
   const [editingTranscript, setEditingTranscript] = useState(false);
+  const [savingTranscript, setSavingTranscript] = useState(false);
+  const [toolFeedback, setToolFeedback] = useState<string | null>(null);
+  const flash = (msg: string) => {
+    setToolFeedback(msg);
+    setTimeout(() => setToolFeedback(null), 900);
+  };
 
   // Simple inline audio preview modal
   const [audioPreview, setAudioPreview] = useState<{ open: boolean; name: string; url: string }>({
@@ -568,7 +574,7 @@ export default function ImprovedTranscriptUpload() {
                   {/* Inline toolbar inside the transcript panel */}
                   <div className="absolute top-2 right-2 flex items-center gap-1">
                     <button
-                      className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                      className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${toolFeedback==='Downloaded' ? 'bg-gray-100 ring-2 ring-blue-300' : ''}`}
                       title="Download"
                       onClick={() => {
                         try {
@@ -581,36 +587,63 @@ export default function ImprovedTranscriptUpload() {
                           a.download = "transcript.txt";
                           a.click();
                           URL.revokeObjectURL(url);
+                          flash('Downloaded');
                         } catch {}
                       }}
                     >
                       <Download className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                     </button>
                     <button
-                      className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                      className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${toolFeedback==='Copied' ? 'bg-gray-100 ring-2 ring-blue-300' : ''}`}
                       title="Copy"
                       onClick={async () => {
                         try {
                           if (transcript) await navigator.clipboard.writeText(transcript);
+                          flash('Copied');
                         } catch {}
                       }}
                     >
                       <Copy className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                     </button>
+                    {!editingTranscript ? (
+                      <button
+                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${toolFeedback==='Editing' ? 'bg-gray-100 ring-2 ring-blue-300' : ''}`}
+                        title="Edit"
+                        onClick={() => {
+                          setEditingTranscript(true);
+                          //flash('Editing');
+                        }}
+                      >
+                        <Edit className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                      </button>
+                    ) : (
+                      <button
+                        disabled={savingTranscript}
+                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs disabled:opacity-50"
+                        title="Save"
+                        onClick={async () => {
+                          if (!recordId) return;
+                          setSavingTranscript(true);
+                          try {
+                            await transcriptApi.updateTranscript(recordId, transcript);
+                            setEditingTranscript(false);
+                            flash('Saved');
+                          } finally {
+                            setSavingTranscript(false);
+                          }
+                        }}
+                      >
+                        {savingTranscript ? <span className="inline-flex items-center"><Loader2 className="w-3 h-3 animate-spin mr-1" />Saving</span> : 'Save'}
+                      </button>
+                    )}
                     <button
-                      className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-                      title={editingTranscript ? "Stop Editing" : "Edit"}
-                      onClick={() => setEditingTranscript((v) => !v)}
-                    >
-                      <Edit className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-                    </button>
-                    <button
-                      className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                      className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${toolFeedback==='Shared' ? 'bg-gray-100 ring-2 ring-blue-300' : ''}`}
                       title="Share"
                       onClick={async () => {
                         try {
                           if ((navigator as any).share && transcript) {
                             await (navigator as any).share({ text: transcript });
+                            flash('Shared');
                           }
                         } catch {}
                       }}
@@ -618,6 +651,11 @@ export default function ImprovedTranscriptUpload() {
                       <Share2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                     </button>
                   </div>
+                  {toolFeedback && (
+                    <div className="absolute top-2 right-24 text-xs bg-black/70 text-white px-2 py-1 rounded">
+                      {toolFeedback}
+                    </div>
+                  )}
                   {editingTranscript ? (
                     <textarea
                       className="w-full bg-transparent border-none resize-none focus:outline-none text-gray-700 dark:text-gray-300"

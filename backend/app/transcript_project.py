@@ -285,6 +285,36 @@ def transcribe_record(
     return {"transcript": text}
 
 
+@router.put("/records/{record_id}/transcript")
+def update_transcript_text(
+    record_id: int,
+    payload: Dict[str, str],
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Update the transcript text manually edited by the user.
+    Re-index the updated transcript into Qdrant for improved retrieval.
+    """
+    record = db.query(TranscriptRecord).filter(
+        TranscriptRecord.id == record_id, TranscriptRecord.user_id == current_user.get("user_id")
+    ).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+
+    new_text = (payload.get("transcript") or "").strip()
+    record.transcript_text = new_text
+    db.commit()
+
+    # Re-index updated transcript
+    try:
+        visit_iso = record.visit_date.isoformat() if record.visit_date else None
+        add_transcript_embedding_to_qdrant(record.id, current_user.get("user_id"), new_text, model="text-embedding-3-large", p_id=record.p_id, visit_date=visit_iso)
+    except Exception:
+        pass
+
+    return {"ok": True}
+
 @router.post("/records/{record_id}/summarize")
 def summarize_record(
     record_id: int,

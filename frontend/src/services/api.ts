@@ -972,6 +972,11 @@ export const transcriptApi = {
     return response.data;
   },
 
+  updateTranscript: async (recordId: number, transcript: string): Promise<{ ok: boolean }> => {
+    const response = await api.put(`/transcript/records/${recordId}/transcript`, { transcript });
+    return response.data;
+  },
+
   generateFields: async (recordId: number, fields: string[]): Promise<{ fields: Record<string, string> }> => {
     const response = await api.post(`/transcript/records/${recordId}/fields`, { fields });
     return response.data;
