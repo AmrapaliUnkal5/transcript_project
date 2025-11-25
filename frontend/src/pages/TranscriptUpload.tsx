@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { transcriptApi } from "../services/api";
-import { Loader2, ChevronDown, Upload, Mic, FileAudio, Sparkles, Plus, X } from "lucide-react";
+import { Loader2, ChevronDown, Upload, Mic, FileAudio, Sparkles, Plus, X, Download, Copy, Edit, Share2 } from "lucide-react";
 import TranscriptQnA from "../components/TranscriptQnA";
 
 // Mock component to demonstrate the improved UI
@@ -38,6 +38,7 @@ export default function ImprovedTranscriptUpload() {
   const [uploadedDocs, setUploadedDocs] = useState<Array<{ name: string; url: string; pending?: boolean }>>([]);
   const [pendingDoc, setPendingDoc] = useState<File | null>(null);
   const [selectedAudioPreviewUrl, setSelectedAudioPreviewUrl] = useState<string | null>(null);
+  const [editingTranscript, setEditingTranscript] = useState(false);
 
   // Simple inline audio preview modal
   const [audioPreview, setAudioPreview] = useState<{ open: boolean; name: string; url: string }>({
@@ -297,7 +298,7 @@ export default function ImprovedTranscriptUpload() {
           {/* Upload Area */}
           <div className="grid md:grid-cols-3 gap-4 mb-4">
             <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 hover:border-blue-500 transition-colors cursor-pointer group">
-              <label className="cursor-pointer flex flex-col items-center gap-3">
+              <label className="cursor-pointer flex flex-col items-center gap-3 min-h-[160px] justify-center">
                 <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-900 transition-colors">
                   <Upload className="w-6 h-6 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
                 </div>
@@ -325,8 +326,9 @@ export default function ImprovedTranscriptUpload() {
               {/* Upload tile: show selected audio preview and previously uploaded audios via upload */}
               {(selectedAudioPreviewUrl || uploadedAudios.some(a => a.source === "upload")) && (
                 <div className="mt-3 w-full">
+                  <div className="text-xs text-gray-500 mb-2">Uploaded Audio</div>
                   {selectedAudioPreviewUrl && (
-                    <div className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2 mb-2">
+                    <div className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2 mb-2 h-10">
                       <button
                         className="text-blue-600 dark:text-blue-400 hover:underline text-left"
                         onClick={() => setAudioPreview({ open: true, name: selectedFile?.name || "selected-audio", url: selectedAudioPreviewUrl })}
@@ -338,7 +340,7 @@ export default function ImprovedTranscriptUpload() {
                   {uploadedAudios.filter(a => a.source === "upload").length > 0 && (
                     <div className="space-y-2">
                       {uploadedAudios.filter(a => a.source === "upload").map((a, idx) => (
-                        <div key={`upl-${idx}`} className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+                        <div key={`upl-${idx}`} className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2 h-10">
                           <button
                             className="text-blue-600 dark:text-blue-400 hover:underline text-left"
                             onClick={() => setAudioPreview({ open: true, name: a.name, url: a.url })}
@@ -357,7 +359,7 @@ export default function ImprovedTranscriptUpload() {
               {!isRecording ? (
                 <button
                   onClick={startRecording}
-                  className="w-full flex flex-col items-center gap-3 group"
+                  className="w-full flex flex-col items-center gap-3 group min-h-[160px] justify-center"
                 >
                   <div className="p-3 bg-red-100 dark:bg-red-900 rounded-full group-hover:bg-red-200 dark:group-hover:bg-red-800 transition-colors">
                     <Mic className="w-6 h-6 text-red-600 dark:text-red-400" />
@@ -395,11 +397,11 @@ export default function ImprovedTranscriptUpload() {
 
               {/* Record tile: show saved recordings */}
               {uploadedAudios.filter(a => a.source === "record").length > 0 && (
-                <div className="mt-3 w-full">
+                <div className="mt-1 w-full">
                   <div className="text-xs text-gray-500 mb-2">Saved Recordings</div>
                   <div className="space-y-2">
                     {uploadedAudios.filter(a => a.source === "record").map((a, idx) => (
-                      <div key={`rec-${idx}`} className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+                      <div key={`rec-${idx}`} className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2 h-10">
                         <button
                           className="text-blue-600 dark:text-blue-400 hover:underline text-left"
                           onClick={() => setAudioPreview({ open: true, name: a.name, url: a.url })}
@@ -415,7 +417,7 @@ export default function ImprovedTranscriptUpload() {
 
             {/* Document upload */}
             <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 hover:border-blue-500 transition-colors cursor-pointer group">
-              <label className="cursor-pointer flex flex-col items-center gap-3">
+              <label className="cursor-pointer flex flex-col items-center gap-3 min-h-[160px] justify-center">
                 <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-900 transition-colors">
                   <Upload className="w-6 h-6 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
                 </div>
@@ -445,7 +447,7 @@ export default function ImprovedTranscriptUpload() {
                   <div className="text-xs text-gray-500 mb-2">Documents</div>
                   <div className="space-y-2">
                     {uploadedDocs.map((d, idx) => (
-                      <div key={`doc-${idx}`} className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+                      <div key={`doc-${idx}`} className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg p-2 h-10">
                         <span className="text-blue-600 dark:text-blue-400">{d.name}</span>
                         {d.pending ? (
                           <span className="text-xs text-gray-500">Pending</span>
@@ -462,110 +464,149 @@ export default function ImprovedTranscriptUpload() {
 
           {/* Documents are shown inside their tile above */}
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3">
-            <button
-              disabled={uploading}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={handleUploadAndTranscribe}
-            >
-              {uploading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5" />
-                  Transcribe Audio
-                </>
-              )}
-            </button>
-            {transcript && (
-              <button
-                disabled={summarizing}
-                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
-                onClick={handleSummarize}
-              >
-                {summarizing ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Summarizing...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5" />
-                    Generate Summary
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Transcript Section */}
-        {transcript && (
+          {/* Transcript Section - always visible with header actions */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <button
-              onClick={() => setShowTranscript(!showTranscript)}
-              className="w-full flex items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
-            >
-              <div className="flex items-center gap-3">
+            <div className="w-full flex items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setShowTranscript(!showTranscript)}>
                 <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
                   <FileAudio className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Transcript</h3>
               </div>
-              <ChevronDown
-                className={`w-5 h-5 text-gray-500 transition-transform ${showTranscript ? "rotate-180" : ""}`}
-              />
-            </button>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={uploading}
+                  onClick={handleUploadAndTranscribe}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg text-sm disabled:opacity-50"
+                  title="Transcribe Audio"
+                >
+                  {uploading ? <span className="inline-flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2" />Processing...</span> : 'Transcribe'}
+                </button>
+                <button
+                  className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => setShowTranscript(!showTranscript)}
+                  title={showTranscript ? "Collapse" : "Expand"}
+                >
+                  <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${showTranscript ? "rotate-180" : ""}`} />
+                </button>
+              </div>
+            </div>
             {showTranscript && (
               <div className="px-6 pb-6">
-                <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-                  <textarea
-                    className="w-full bg-transparent border-none resize-none focus:outline-none text-gray-700 dark:text-gray-300"
-                    rows={8}
-                    value={transcript}
-                    readOnly
-                  />
+                <div className="relative bg-gray-50 dark:bg-gray-900 rounded-xl p-4 pt-10 border border-gray-200 dark:border-gray-700">
+                  {/* Inline toolbar inside the transcript panel */}
+                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                    <button
+                      className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                      title="Download"
+                      onClick={() => {
+                        try {
+                          const text = transcript || '';
+                          if (!text) return;
+                          const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "transcript.txt";
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        } catch {}
+                      }}
+                    >
+                      <Download className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                    </button>
+                    <button
+                      className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                      title="Copy"
+                      onClick={async () => {
+                        try {
+                          if (transcript) await navigator.clipboard.writeText(transcript);
+                        } catch {}
+                      }}
+                    >
+                      <Copy className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                    </button>
+                    <button
+                      className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                      title={editingTranscript ? "Stop Editing" : "Edit"}
+                      onClick={() => setEditingTranscript((v) => !v)}
+                    >
+                      <Edit className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                    </button>
+                    <button
+                      className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                      title="Share"
+                      onClick={async () => {
+                        try {
+                          if ((navigator as any).share && transcript) {
+                            await (navigator as any).share({ text: transcript });
+                          }
+                        } catch {}
+                      }}
+                    >
+                      <Share2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                    </button>
+                  </div>
+                  {editingTranscript ? (
+                    <textarea
+                      className="w-full bg-transparent border-none resize-none focus:outline-none text-gray-700 dark:text-gray-300"
+                      rows={8}
+                      value={transcript}
+                      onChange={(e) => setTranscript(e.target.value)}
+                    />
+                  ) : (
+                    <textarea
+                      className="w-full bg-transparent border-none resize-none focus:outline-none text-gray-700 dark:text-gray-300"
+                      rows={8}
+                      value={transcript || "No transcript yet."}
+                      readOnly
+                    />
+                  )}
                 </div>
               </div>
             )}
           </div>
-        )}
 
-        {/* Summary Section */}
-        {summary && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <button
-              onClick={() => setShowSummary(!showSummary)}
-              className="w-full flex items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
-            >
-              <div className="flex items-center gap-3">
+          {/* Summary Section - always visible with header action */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden mt-6">
+            <div className="w-full flex items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setShowSummary(!showSummary)}>
                 <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
                   <Sparkles className="w-5 h-5 text-green-600 dark:text-green-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">AI Summary</h3>
               </div>
-              <ChevronDown
-                className={`w-5 h-5 text-gray-500 transition-transform ${showSummary ? "rotate-180" : ""}`}
-              />
-            </button>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={summarizing}
+                  onClick={handleSummarize}
+                  className="px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white rounded-lg text-sm disabled:opacity-50"
+                >
+                  {summarizing ? <span className="inline-flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2" />Summarizing...</span> : 'Generate Summary'}
+                </button>
+                <button
+                  className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => setShowSummary(!showSummary)}
+                  title={showSummary ? "Collapse" : "Expand"}
+                >
+                  <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${showSummary ? "rotate-180" : ""}`} />
+                </button>
+              </div>
+            </div>
             {showSummary && (
               <div className="px-6 pb-6">
                 <div className="bg-gradient-to-br from-green-50 to-teal-50 dark:from-gray-900 dark:to-gray-900 rounded-xl p-4 border border-green-200 dark:border-green-800">
                   <textarea
                     className="w-full bg-transparent border-none resize-none focus:outline-none text-gray-700 dark:text-gray-300"
                     rows={6}
-                    value={summary}
+                    value={summary || "No summary yet."}
                     readOnly
                   />
                 </div>
               </div>
             )}
           </div>
-        )}
+        </div>
 
         {/* Dynamic Fields Section */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
