@@ -27,6 +27,9 @@ export default function ImprovedTranscriptUpload() {
   const [summarizing, setSummarizing] = useState(false);
   const [generating, setGenerating] = useState(false);
 
+  // Derived
+  const transcriptReady = (transcript || "").trim().length > 0;
+
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSupported, setRecordingSupported] = useState(true);
@@ -242,7 +245,22 @@ export default function ImprovedTranscriptUpload() {
     try {
       const fields = dynamicLabels.filter(Boolean);
       const res = await transcriptApi.generateFields(recordId, fields);
-      setDynamicAnswers((prev) => ({ ...(prev || {}), ...(res.fields || {}) }));
+      const newAnswers = (res.fields || {}) as Record<string, string>;
+
+      // Merge answers
+      setDynamicAnswers((prev) => ({ ...(prev || {}), ...newAnswers }));
+
+      // Auto-expand any prompt that received/updated an answer
+      setExpandedFields((prev) => {
+        const next: Record<number, boolean> = { ...prev };
+        dynamicLabels.forEach((label, idx) => {
+          if (!label) return;
+          if (Object.prototype.hasOwnProperty.call(newAnswers, label)) {
+            next[idx] = true;
+          }
+        });
+        return next;
+      });
     } finally {
       setGenerating(false);
     }
@@ -631,9 +649,10 @@ export default function ImprovedTranscriptUpload() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  disabled={summarizing}
+                  disabled={summarizing || !transcriptReady}
                   onClick={handleSummarize}
-                  className="px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white rounded-lg text-sm disabled:opacity-50"
+                  className="px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={transcriptReady ? "Generate Summary" : "Transcribe first"}
                 >
                   {summarizing ? <span className="inline-flex items-center"><Loader2 className="w-4 h-4 animate-spin mr-2" />Summarizing...</span> : 'Generate Summary'}
                 </button>
