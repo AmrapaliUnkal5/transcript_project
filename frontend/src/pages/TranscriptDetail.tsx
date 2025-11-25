@@ -165,13 +165,29 @@ export default function ImprovedTranscriptDetail() {
                 })
                 .map(([key, value]) => {
                 const isExpanded = expandedFields[key];
+                const keyLower = key.toLowerCase();
                 const colors = {
                   prescription: { bg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200 dark:border-blue-800", icon: "bg-blue-100 dark:bg-blue-900", text: "text-blue-600 dark:text-blue-400" },
                   diagnosis: { bg: "bg-red-50 dark:bg-red-900/20", border: "border-red-200 dark:border-red-800", icon: "bg-red-100 dark:bg-red-900", text: "text-red-600 dark:text-red-400" },
                   "follow-up": { bg: "bg-purple-50 dark:bg-purple-900/20", border: "border-purple-200 dark:border-purple-800", icon: "bg-purple-100 dark:bg-purple-900", text: "text-purple-600 dark:text-purple-400" },
-                  "vital signs": { bg: "bg-green-50 dark:bg-green-900/20", border: "border-green-200 dark:border-green-800", icon: "bg-green-100 dark:bg-green-900", text: "text-green-600 dark:text-green-400" }
+                  "vital signs": { bg: "bg-green-50 dark:bg-green-900/20", border: "border-green-200 dark:border-green-800", icon: "bg-green-100 dark:bg-green-900", text: "text-green-600 dark:text-green-400" },
+                  "patient age": { bg: "bg-cyan-50 dark:bg-cyan-900/20", border: "border-cyan-200 dark:border-cyan-800", icon: "bg-cyan-100 dark:bg-cyan-900", text: "text-cyan-600 dark:text-cyan-400" },
+                  "patient name": { bg: "bg-amber-50 dark:bg-amber-900/20", border: "border-amber-200 dark:border-amber-800", icon: "bg-amber-100 dark:bg-amber-900", text: "text-amber-700 dark:text-amber-400" }
                 };
-                const colorScheme = colors[key] || { bg: "bg-gray-50 dark:bg-gray-900/20", border: "border-gray-200 dark:border-gray-700", icon: "bg-gray-100 dark:bg-gray-900", text: "text-gray-600 dark:text-gray-400" };
+                // Fallback palettes for any other custom prompts (cycle by key)
+                const fallbackPalettes = [
+                  { bg: "bg-yellow-50 dark:bg-yellow-900/20", border: "border-yellow-200 dark:border-yellow-800", icon: "bg-yellow-100 dark:bg-yellow-900", text: "text-yellow-700 dark:text-yellow-400" },
+                  { bg: "bg-teal-50 dark:bg-teal-900/20", border: "border-teal-200 dark:border-teal-800", icon: "bg-teal-100 dark:bg-teal-900", text: "text-teal-600 dark:text-teal-400" },
+                  { bg: "bg-indigo-50 dark:bg-indigo-900/20", border: "border-indigo-200 dark:border-indigo-800", icon: "bg-indigo-100 dark:bg-indigo-900", text: "text-indigo-600 dark:text-indigo-400" },
+                  { bg: "bg-pink-50 dark:bg-pink-900/20", border: "border-pink-200 dark:border-pink-800", icon: "bg-pink-100 dark:bg-pink-900", text: "text-pink-600 dark:text-pink-400" },
+                  { bg: "bg-amber-50 dark:bg-amber-900/20", border: "border-amber-200 dark:border-amber-800", icon: "bg-amber-100 dark:bg-amber-900", text: "text-amber-700 dark:text-amber-400" }
+                ];
+                const hashIndex = (() => {
+                  let h = 0;
+                  for (let i = 0; i < key.length; i++) h = (h + key.charCodeAt(i)) % 997;
+                  return h % fallbackPalettes.length;
+                })();
+                const colorScheme = colors[keyLower] || fallbackPalettes[hashIndex];
 
                 return (
                   <div
