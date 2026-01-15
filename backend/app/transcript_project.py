@@ -5,6 +5,7 @@ from typing import List, Dict, Optional
 import os
 import uuid
 import requests
+import time
 from datetime import datetime
 
 from app.database import get_db
@@ -218,13 +219,146 @@ async def upload_document(
 
     return {"transcript": record.transcript_text, "path": saved_path, "url": resolved_url}
 
+def _assemblyai_transcribe(local_path: str) -> str:
+    """
+    Transcribe audio using AssemblyAI API.
+    Requires env ASSEMBLYAI_API_KEY.
+    Returns transcribed text or raises exception on failure.
+    """
+    print("[TRANSCRIPTION] Attempting transcription with AssemblyAI...")
+    api_key = os.getenv("ASSEMBLYAI_API_KEY")
+    if not api_key:
+        print("[TRANSCRIPTION] ASSEMBLYAI_API_KEY not found in environment variables")
+        raise ValueError("ASSEMBLYAI_API_KEY not configured")
+
+    # Step 1: Upload the audio file
+    # AssemblyAI requires raw binary data with Content-Type: application/octet-stream
+    upload_url = "https://api.assemblyai.com/v2/upload"
+    headers = {
+        "authorization": api_key,
+        "Content-Type": "application/octet-stream"
+    }
+    
+    filename = os.path.basename(local_path)
+    file_ext = os.path.splitext(local_path)[1].lower()
+    print(f"[TRANSCRIPTION] Uploading audio file to AssemblyAI: {local_path}")
+    print(f"[TRANSCRIPTION] File extension: {file_ext}, filename: {filename}")
+    
+    try:
+        # Read file as binary data
+        with open(local_path, "rb") as f:
+            file_data = f.read()
+        
+        file_size = len(file_data)
+        print(f"[TRANSCRIPTION] File size: {file_size} bytes")
+        
+        if file_size == 0:
+            error_msg = "Audio file is empty"
+            print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+            raise ValueError(error_msg)
+        
+        # Send raw binary data (not multipart/form-data)
+        upload_response = requests.post(upload_url, headers=headers, data=file_data, timeout=300)
+        if upload_response.status_code >= 400:
+            error_msg = f"AssemblyAI upload failed: {upload_response.text}"
+            print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+            raise ValueError(error_msg)
+        upload_data = upload_response.json()
+        audio_url = upload_data.get("upload_url")
+        if not audio_url:
+            error_msg = "AssemblyAI upload did not return upload_url"
+            print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+            raise ValueError(error_msg)
+    except Exception as e:
+        print(f"[TRANSCRIPTION] ERROR: Failed to upload to AssemblyAI: {str(e)}")
+        raise
+
+    print(f"[TRANSCRIPTION] Audio uploaded successfully. Upload URL: {audio_url}")
+
+    # Step 2: Submit transcription job
+    transcript_url = "https://api.assemblyai.com/v2/transcript"
+    transcript_request = {
+        "audio_url": audio_url,
+        "language_code": "en"  # Can be made configurable if needed
+    }
+    
+    print("[TRANSCRIPTION] Submitting transcription job to AssemblyAI...")
+    try:
+        transcript_response = requests.post(transcript_url, json=transcript_request, headers=headers, timeout=300)
+        if transcript_response.status_code >= 400:
+            error_msg = f"AssemblyAI transcription submission failed: {transcript_response.text}"
+            print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+            raise ValueError(error_msg)
+        transcript_data = transcript_response.json()
+        transcript_id = transcript_data.get("id")
+        if not transcript_id:
+            error_msg = "AssemblyAI did not return transcript ID"
+            print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+            raise ValueError(error_msg)
+    except Exception as e:
+        print(f"[TRANSCRIPTION] ERROR: Failed to submit transcription job: {str(e)}")
+        raise
+
+    print(f"[TRANSCRIPTION] Transcription job submitted. Transcript ID: {transcript_id}")
+
+    # Step 3: Poll for completion
+    polling_url = f"https://api.assemblyai.com/v2/transcript/{transcript_id}"
+    max_polls = 60  # Maximum number of polling attempts
+    poll_interval = 3  # Seconds between polls
+    
+    print("[TRANSCRIPTION] Polling for transcription completion...")
+    for i in range(max_polls):
+        try:
+            polling_response = requests.get(polling_url, headers=headers, timeout=300)
+            if polling_response.status_code >= 400:
+                error_msg = f"AssemblyAI polling failed: {polling_response.text}"
+                print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+                raise ValueError(error_msg)
+            
+            status_data = polling_response.json()
+            status = status_data.get("status")
+            
+            if status == "completed":
+                transcript_text = status_data.get("text", "")
+                if transcript_text:
+                    print(f"[TRANSCRIPTION] SUCCESS: Transcription completed using AssemblyAI")
+                    print(f"[TRANSCRIPTION] Transcript length: {len(transcript_text)} characters")
+                    return transcript_text
+                else:
+                    error_msg = "AssemblyAI returned empty transcript"
+                    print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+                    raise ValueError(error_msg)
+            elif status == "error":
+                error_msg = status_data.get("error", "Unknown error from AssemblyAI")
+                print(f"[TRANSCRIPTION] ERROR: AssemblyAI transcription failed: {error_msg}")
+                raise ValueError(f"AssemblyAI transcription error: {error_msg}")
+            else:
+                # Status is "queued" or "processing"
+                if i % 5 == 0:  # Print every 5th poll to avoid spam
+                    print(f"[TRANSCRIPTION] Status: {status} (poll {i+1}/{max_polls})")
+        except ValueError:
+            raise  # Re-raise ValueError (our custom errors)
+        except Exception as e:
+            print(f"[TRANSCRIPTION] ERROR: Exception during polling: {str(e)}")
+            raise
+        
+        time.sleep(poll_interval)
+    
+    # If we get here, polling timed out
+    error_msg = f"AssemblyAI transcription timed out after {max_polls * poll_interval} seconds"
+    print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+    raise ValueError(error_msg)
+
+
 def _openai_transcribe(local_path: str) -> str:
     """
     Minimal OpenAI Whisper transcription via REST to avoid new SDK dependency.
     Requires env OPENAI_API_KEY.
     """
+    print("[TRANSCRIPTION] Attempting transcription with OpenAI Whisper...")
     api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_KEY")
     if not api_key:
+        print("[TRANSCRIPTION] OPENAI_API_KEY not found in environment variables")
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
 
     url = "https://api.openai.com/v1/audio/transcriptions"
@@ -232,17 +366,34 @@ def _openai_transcribe(local_path: str) -> str:
 
     # Prefer whisper-1 for broad availability; allow override
     model = os.getenv("OPENAI_TRANSCRIBE_MODEL", "whisper-1")
+    print(f"[TRANSCRIPTION] Using Whisper model: {model}")
 
-    with open(local_path, "rb") as f:
-        files = {
-            "file": (os.path.basename(local_path), f, "application/octet-stream"),
-        }
-        data = {"model": model, "temperature": "0"}
-        resp = requests.post(url, headers=headers, files=files, data=data, timeout=300)
-        if resp.status_code >= 400:
-            raise HTTPException(status_code=500, detail=f"OpenAI transcription failed: {resp.text}")
-        out = resp.json()
-        return out.get("text", "")
+    try:
+        with open(local_path, "rb") as f:
+            files = {
+                "file": (os.path.basename(local_path), f, "application/octet-stream"),
+            }
+            data = {"model": model, "temperature": "0"}
+            print(f"[TRANSCRIPTION] Sending audio file to OpenAI Whisper API...")
+            resp = requests.post(url, headers=headers, files=files, data=data, timeout=300)
+            if resp.status_code >= 400:
+                error_msg = f"OpenAI transcription failed: {resp.text}"
+                print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+                raise HTTPException(status_code=500, detail=error_msg)
+            out = resp.json()
+            transcript_text = out.get("text", "")
+            if transcript_text:
+                print(f"[TRANSCRIPTION] SUCCESS: Transcription completed using OpenAI Whisper")
+                print(f"[TRANSCRIPTION] Transcript length: {len(transcript_text)} characters")
+            else:
+                print(f"[TRANSCRIPTION] WARNING: OpenAI Whisper returned empty transcript")
+            return transcript_text
+    except HTTPException:
+        raise  # Re-raise HTTPException
+    except Exception as e:
+        error_msg = f"OpenAI Whisper transcription error: {str(e)}"
+        print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 @router.post("/records/{record_id}/transcribe")
@@ -252,8 +403,11 @@ def transcribe_record(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Transcribe the uploaded audio using OpenAI Whisper by default.
+    Transcribe the uploaded audio using AssemblyAI first, with fallback to OpenAI Whisper.
+    For users with transcript_access role.
     """
+    print(f"[TRANSCRIPTION] Starting transcription for record_id: {record_id}, user_id: {current_user.get('user_id')}")
+    
     record = db.query(TranscriptRecord).filter(
         TranscriptRecord.id == record_id, TranscriptRecord.user_id == current_user.get("user_id")
     ).first()
@@ -270,19 +424,63 @@ def transcribe_record(
     if not os.path.exists(local_path):
         raise HTTPException(status_code=404, detail="Stored audio file not found")
 
-    text = _openai_transcribe(local_path)
+    print(f"[TRANSCRIPTION] Audio file found at: {local_path}")
+    
+    # Try AssemblyAI first, fallback to Whisper
+    text = None
+    transcription_service = None
+    
+    try:
+        print("[TRANSCRIPTION] ========================================")
+        print("[TRANSCRIPTION] PRIMARY: Attempting AssemblyAI transcription")
+        print("[TRANSCRIPTION] ========================================")
+        text = _assemblyai_transcribe(local_path)
+        transcription_service = "AssemblyAI"
+        print(f"[TRANSCRIPTION] ========================================")
+        print(f"[TRANSCRIPTION] FINAL RESULT: Transcription completed using {transcription_service}")
+        print(f"[TRANSCRIPTION] ========================================")
+    except Exception as assembly_error:
+        print(f"[TRANSCRIPTION] ========================================")
+        print(f"[TRANSCRIPTION] AssemblyAI failed: {str(assembly_error)}")
+        print(f"[TRANSCRIPTION] FALLBACK: Attempting OpenAI Whisper transcription")
+        print(f"[TRANSCRIPTION] ========================================")
+        
+        try:
+            text = _openai_transcribe(local_path)
+            transcription_service = "OpenAI Whisper"
+            print(f"[TRANSCRIPTION] ========================================")
+            print(f"[TRANSCRIPTION] FINAL RESULT: Transcription completed using {transcription_service}")
+            print(f"[TRANSCRIPTION] ========================================")
+        except Exception as whisper_error:
+            print(f"[TRANSCRIPTION] ========================================")
+            print(f"[TRANSCRIPTION] ERROR: Both AssemblyAI and Whisper failed")
+            print(f"[TRANSCRIPTION] AssemblyAI error: {str(assembly_error)}")
+            print(f"[TRANSCRIPTION] Whisper error: {str(whisper_error)}")
+            print(f"[TRANSCRIPTION] ========================================")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Transcription failed with both services. AssemblyAI: {str(assembly_error)}. Whisper: {str(whisper_error)}"
+            )
+    
+    if not text or not text.strip():
+        print(f"[TRANSCRIPTION] WARNING: Transcription returned empty text")
+        raise HTTPException(status_code=500, detail="Transcription returned empty result")
+    
     record.transcript_text = text
     db.commit()
+    print(f"[TRANSCRIPTION] Transcript saved to database for record_id: {record_id}")
 
     # Index transcript into Qdrant
     try:
         visit_iso = record.visit_date.isoformat() if record.visit_date else None
         add_transcript_embedding_to_qdrant(record.id, current_user.get("user_id"), text, model="text-embedding-3-large", p_id=record.p_id, visit_date=visit_iso)
+        print(f"[TRANSCRIPTION] Transcript indexed into Qdrant vector database")
     except Exception as e:
         # Don't fail the request if indexing fails
+        print(f"[TRANSCRIPTION] WARNING: Failed to index transcript into Qdrant: {str(e)}")
         pass
 
-    return {"transcript": text}
+    return {"transcript": text, "service_used": transcription_service}
 
 
 @router.put("/records/{record_id}/transcript")
