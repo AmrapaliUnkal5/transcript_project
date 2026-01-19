@@ -79,32 +79,3 @@ def require_role(allowed_roles: list[str]):
         return user_data
 
     return role_checker
-    
-from app.addon_service import AddonService
-
-def require_addon(addon_type: str):
-    """
-    Dependency function to check if a user has access to a specific add-on feature
-    
-    Args:
-        addon_type: The type of add-on to check for (e.g., "Multilingual", "White Labelling")
-        
-    Returns:
-        A dependency function that will raise an HTTPException if the user doesn't have the add-on
-    """
-    def dependency(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-        # Skip check for admins (they have access to all features)
-        if current_user["role"] == "admin":
-            return current_user
-            
-        # Check if the user has the required add-on
-        has_addon = AddonService.check_addon_active(db, current_user["user_id"], addon_type)
-        if not has_addon:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"This feature requires the {addon_type} add-on. Please purchase it to access this functionality."
-            )
-        
-        return current_user
-    
-    return dependency

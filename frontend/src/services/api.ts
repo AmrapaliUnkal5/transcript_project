@@ -256,23 +256,6 @@ export const authApi = {
     const response = await api.post("/forgot-password/", data);
     return response.data;
   },
-  saveBotSettings: async (data: BotSettingsData) => {
-    const response = await api.post('/botsettings', data);  // API endpoint to save bot settings
-    return response.data;
-  },
-  getBotSettings: async (bot_id: number) => {
-    const response = await api.get(`/botsettings/${bot_id}`);
-    return response.data;
-  },
-  getBotSettingsByUserId: async (user_id: number): Promise<BotSettingsData[]> => {
-    const response = await api.get(`/botsettings/user/${user_id}`);
-    return response.data;  // This is not used currently Expecting an array of bot settings
-  },
-  // New function to update bot settings
-  updateBotSettings: async (botId: number, data: BotSettingsData) => {
-    const response = await api.put(`/botsettings/${botId}`, data);  // API endpoint to update bot settings
-    return response.data;
-  },
   resetPassword: async (data: PasswordResetData) => {
 
     const response = await api.post("/reset-password/", data); // API endpoint to reset password
@@ -281,12 +264,6 @@ export const authApi = {
 
   },
 
-  uploadBotIcon: async (fileData: FormData) => {
-    const response = await api.post("/botsettings/upload_bot", fileData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return response.data;
-  },
 
   uploadAvatar: async (formData: FormData) => {
     const response = await api.post("/upload-avatar/", formData, {
@@ -297,32 +274,6 @@ export const authApi = {
     return response.data;
   },
 
-  getBotConversations: async () => {
-    const response = await api.get('/dashboard_consumables');
-    return response.data;
-  },
-
-  updateBotDomain: async (botId: number, selectedDomain: string) => {
-  const response = await api.put("/widget/bots/update-domain", {
-    bot_id: botId,
-    selected_domain: selectedDomain,
-  });
-  return response.data;
-  },
-
-  getBotDomain: async (botId: number) => {
-    const response = await api.get(`widget/bots/${botId}/domain`);
-    return response.data;
-  },
-
-  checkWhiteLabelingAddon: async (botId: number) => {
-  const response = await api.get("/addon/white-labeling-check", {
-    params: {
-      bot_id: botId,
-    },
-  });
-  return response.data;
-},
 
   updateAvatar: async (data: uploadAvatar) => {
     const response = await api.put("/update-avatar/", data);
@@ -353,35 +304,6 @@ export const authApi = {
   return response.data;
   },
 
-  scrapeNodes: async (selectedNodes: string[], botId: number) => {
-    const response = await api.post(`/scrape`, {
-      selected_nodes: selectedNodes,  // ✅ Change from array to object
-      bot_id: botId  // ✅ Include bot_id
-    }, {
-      headers: { "Content-Type": "application/json" }
-    });
-    return response.data;
-  },
-
-  scrapeNodesAsync: async (selectedNodes: string[], botId: number) => {
-    const response = await api.post(`/scrape-async`, {
-      selected_nodes: selectedNodes,
-      bot_id: botId
-    }, {
-      headers: { "Content-Type": "application/json" }
-    });
-    return response.data;
-  },
-
-  scrapeYoutubeVideos: async (selectedVideos: string[], botId: number) => {
-    const response = await api.post(`/scrape-youtube`, {
-      selected_videos: selectedVideos, 
-      bot_id: botId
-    }, {
-      headers: { "Content-Type": "application/json" }
-    });
-    return response.data;
-  },
 
   validatecaptcha: async (data: string, captchaId: string) => {
     const response = await api.post('/validate-captcha', 
@@ -410,137 +332,7 @@ fetchCaptcha: async () => {
     };
 },
 
-  uploadFiles: async (files: File[], botId: number) => {
-    const formData = new FormData();
-    files.forEach((file) => {
-      formData.append("files", file);
-    });
-    formData.append("bot_id", botId.toString());
 
-    const response = await api.post('/upload', formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    return response.data;
-  },
-
-  startTraining: async (botId: number) => {
-  const response = await api.post("/start-training", {
-    bot_id: botId
-  }, {
-    headers: {
-      "Content-Type": "application/json"
-    }
-  });
-  return response.data;
-},
-
-  getPendingTrainingCounts: async (botId: number) => {
-    const response = await api.get(`/training/pending-counts/${botId}`);
-    return response.data as {
-      files_extracted_or_extracting: number;
-      scraped_extracted_or_extracting: number;
-      videos_extracted_or_extracting: number;
-      threshold: number;
-      any_over_threshold: boolean;
-    };
-  },
-
-  startChat: async (botId: number, userId: number) => {
-    const response = await api.post("/chat/start_chat", { bot_id: botId, user_id: userId });
-    return response.data;
-  },
-
-  sendMessage: async (interactionId: number, sender: string, message: string, isAddonMessage: boolean) => {
-    const response = await api.post("/chat/send_message", { interaction_id: interactionId, sender, message_text: message,is_addon_message: isAddonMessage });
-    return response.data;
-  },
-
-  getChatMessages: async (interactionId: number) => {
-    const response = await api.get(`/chat/get_chat_messages?interaction_id=${interactionId}`);
-    return response.data;
-  },
-
-  
-  getScrapedNodes: async (botId: number) => {
-    const response = await api.get(`/investigation/scraped-nodes/${botId}`);
-    return response.data;
-  },
-  getYouTubeVideos: async (botId: number) => {
-    const response = await api.get(`/investigation/youtube-videos/${botId}`);
-    return response.data;
-  },
-
-  getBotProgressData: async (botId: number) => {
-  const response = await api.get(`/progress/bot/${botId}`);
-  return response.data;
-},
-  getUploadedFiles: async (botId: number) => {
-    const response = await api.get(`/investigation/uploaded-files/${botId}`);
-    return response.data;
-  },
-
-  getFiles: async (botId: number): Promise<ApiFile[]> => {
-    const response = await api.get<ApiFile[]>('/files', {
-      params: { bot_id: botId },
-    });
-    return response.data;
-  },
-
-  createBot: async (botData: {
-    bot_name: string;
-    status: string;
-    is_active: boolean;
-    external_knowledge: boolean;
-  }) => {
-    const response = await api.post("/create-bot", botData);
-    return response.data;
-  },
-
-  updateBotFields: async (botId: number, fields: { status?: string; is_active?: boolean, is_trained?: boolean, is_retrained?: boolean }) => {
-  const response = await api.patch(`/update-bot-fields/${botId}`, fields);
-  return response.data;
-},
-
-update_processed_with_training: async (botId: number) => {
-  const response = await api.post(`/mark_processed_with_training/${botId}`);
-  return response.data;
-},
-
-cancel_training: async (botId: number) => {
-  const response = await api.post(`/cancel_training/${botId}`);
-  return response.data;
-},
-
-  updateBotStatus: async (botId: number, statusData: { status?: string; is_active?: boolean }) => {
-    const response = await api.patch(`/bots/${botId}`, statusData);
-    return response.data;
-  },
-
-  updateBotName: async (botData: { bot_id: number; bot_name: string }) => {
-    const response = await api.put("/update-bot-name/" + botData.bot_id, { bot_name: botData.bot_name });
-    return response.data;
-  },
-  getBotSettingsBotId: async (botId: number) => {
-    const response = await api.get(`/botsettings/bot/${botId}`);  // API endpoint to fetch bot settings
-    return response.data;
-  },
-
-  updateBotTheme: async (botId: number, themeData: { theme_id: string }) => {
-  const response = await api.put(`/botsettings/theme/${botId}`, themeData);  // API endpoint to update bot theme
-  return response.data;
-},
-
-  getConversationTrends: async (userId: number) => {
-    const response = await api.get(`/conversation-trends?user_id=${userId}`);
-    return response.data;
-  },
-
-  deletebot: async (botId: number, data: deleteBot) => {
-    const response = await api.put(`/botsettings/del/${botId}`, data);  // API endpoint to update bot settings
-    return response.data;
-  },
 
   deleteFile: async (fileId: string) => {
     const response = await api.delete(`/files/${fileId}`);
@@ -555,18 +347,6 @@ cancel_training: async (botId: number) => {
     const response = await api.post("/resend-verification-email", { token });
     return response.data;
   },
-  fetchVideosFromYouTube: async (youtubeUrl: string) => {
-    const response = await api.post("/chatbot/fetch-videos", { url: youtubeUrl }); // Change 'playlist_url' to 'url'
-    return response.data; // Returns list of video details
-  },
-
-  storeSelectedYouTubeTranscripts: async (videoUrls: string[], botId: number) => {
-    const response = await api.post("/chatbot/process-videos", {
-      bot_id: botId,
-      video_urls: videoUrls
-    });
-    return response.data; // Returns success message after storing transcripts
-  },
   getUserDetails: async () => {
     const response = await api.get("/user/me"); // Fetch logged-in user details
     return response.data;
@@ -580,43 +360,6 @@ cancel_training: async (botId: number) => {
     return response.data;
   },
 
-  fetchVideosForBot: async (botId: number) => {
-    const response = await api.get(`/chatbot/bot/${botId}/videos`);
-    return response.data; // Returns list of video URLs
-  },
-  updateBotStatusActive: async (botId: number, data: BotStatusUpdate) => {
-    const response = await api.put(`/botsettings/bots/${botId}`, data);  // API endpoint to update bot settings
-    return response.data;
-  },
-
-  getBotTrainingStatus: async (botId: number): Promise<BotTrainingStatus> => {
-    const response = await api.get(`/progress/checkstatus/${botId}`);
-    return response.data;
-  },
-  fetchBotMetrics: async (botId: number): Promise<BotMetrics> => {
-    const response = await api.get(`/bot/${botId}/metrics`);
-    return response.data;
-  },
-  getScrapedUrls: async (botId: number) => {
-    const response = await api.get(`/scraped-urls/${botId}`);  // API endpoint to fetch scraped URLs
-    return response.data;
-  },
-  deleteVideo: async (botId: number, videoId: string, wordCount: number = 0) => {
-    return await api.delete(`/chatbot/bot/${botId}/videos`, {
-      params: { 
-        video_id: videoId,
-        word_count: wordCount
-      },
-    });
-  },
-
-deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
-    return await api.delete(`/chatbot/bot/${botId}/scraped-urls`, {
-      params: { url: url,
-        word_count:wordcount
-      },
-    });
-  },
   submitIssueRequest: async (data: FormData) => {
     const response = await api.post('/submit-issue-request', data, {
       headers: {
@@ -636,14 +379,8 @@ deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
   },
 
 
-  getWordCount: async (formData: FormData) => {
-    const response = await api.post('/word_count/', formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    return response.data;
-  },
+  // Chatbot-specific endpoint removed - transcript project doesn't use file upload validation
+  // getWordCount: async (formData: FormData) => { ... },
 
   uploadFilesWithCounts: async (formData: FormData) => {
     const response = await api.post('/upload', formData, {
@@ -655,14 +392,6 @@ deleteScrapedUrl: async (botId: number, url: string, wordcount: number = 0) => {
   },
 
 
-  getWeeklyConversations: async (params: { bot_id: number }) => {
-    const response = await api.get('/last-seven-days-conversations', {
-      params: {
-        bot_id: params.bot_id,
-      },
-    });
-    return response.data;
-  },
 
   // Team Management APIs
   inviteTeamMember: async (data: TeamMemberInvite) => {
@@ -726,10 +455,6 @@ getAllCustomers: async () => {
     return response.data;
   },
 
-  endInteraction: async (interaction_id: number) => {
-    const response = await api.put(`/chat/interactions/${interaction_id}/end`);
-    return response.data; // API response format: { message: "Session ended successfully", end_time: "timestamp" }
-  },
 
   checkUserSubscription: async (userId: number) => {
   const response = await api.get(`/check-user-subscription/${userId}`);
@@ -761,19 +486,8 @@ getUserAddonStatus: async (userId: number) => {
     return response.data;
   },
 
-  updateBotWordCount: async (data: { bot_id: number; word_count: number;file_size?:number }):
-    Promise<{ success: boolean }> => {
-    const response = await api.post('/bot/update_word_count', data);
-    return response.data;
-  },
-  
   getUsageMetrics: async () => {
     const response = await api.get('/usage-metrics');
-    return response.data;
-  },
-
-  submitReaction: async (data: ReactionData) => {
-    const response = await api.post("/botsettings/interactions/reaction", data);
     return response.data;
   },
   fetchNotifications: async () => {
@@ -791,44 +505,6 @@ getUserAddonStatus: async (userId: number) => {
     return response.data;
   },
 
-  getFAQ: async (params: { bot_id: number }) => {
-    try {
-      const response = await api.get(`/chat/analytics/faqs/${params.bot_id}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching FAQ data:', error);
-      throw error;
-    }
-  },
-
-  getBotQuestions: async (params: { bot_id: number }) => {
-    try {
-      const response = await api.get(`/chat/bot_questions/${params.bot_id}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching bot questions:', error);
-      throw error;
-    }
-  },
-
-getUnansweredQuestions: async (params: { bot_id: number }) => {
-  try {
-    const response = await api.get(`/chat/bot/unanswered_questions/${params.bot_id}`);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching unanswered questions:', error);
-    throw error;
-  }
-},
-  getWordCloud: async (params: { bot_id: number }) => {
-    try {
-      const response = await api.get(`/chat/analytics/word_cloud/${params.bot_id}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching FAQ data:', error);
-      throw error;
-    }
-  },
 
   fetchAddons: async (): Promise<AddonPlan[]> => {
     try {
@@ -865,16 +541,6 @@ getUnansweredQuestions: async (params: { bot_id: number }) => {
     });
   },
 
-  // Add these to your authApi service
-  getBotExternalKnowledge: async (botId: number) => {
-    const response = await api.get(`/get-bot-external-knowledge/${botId}`);
-    return response.data;
-  },
-
-updateBotExternalKnowledge: async (botId: number) => {
-  const response = await api.put(`/update-bot-external-knowledge/${botId}`);
-  return response.data;
-},
   getUserMessageCount: async (): Promise<{
     addons: {
       total_limit: number;
@@ -909,24 +575,6 @@ updateBotExternalKnowledge: async (botId: number) => {
     return response.data;
   },
 
-  getBotToken: async (botId: number): Promise<{ token: string }> => {
-    const response = await api.get(`/widget/bot/${botId}/token`);
-    return response.data;
-  },
-
-  getLeadsByBot: async (botId: number) => {
-    const response = await api.get(`/leads/${botId}`);
-    return response.data;
-  },
- 
-  getCurrentBillingMetrics: async (params: { bot_id: number }) => {
-    const response = await api.get('/current-billing-metrics', {
-      params: {
-        bot_id: params.bot_id,
-      },
-    });
-    return response.data;
-  },
  
 };
 

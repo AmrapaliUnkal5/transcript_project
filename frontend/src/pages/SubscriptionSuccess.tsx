@@ -15,7 +15,7 @@ export const SubscriptionSuccess = () => {
         
         // Show success page briefly before redirecting
         setTimeout(() => {
-          navigate('/dashboard');
+          navigate('/dashboard/transcript_welcome');
         }, 3000);
       } catch (error) {
         console.error('Error handling subscription success:', error);

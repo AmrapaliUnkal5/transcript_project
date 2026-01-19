@@ -306,7 +306,7 @@ export const Login = () => {
         const res = await authApi.googleLogin(response.credential);
         console.log(res);
         login(res.access_token, res.user);
-        navigate("/dashboard/welcome", { replace: true });
+        navigate("/dashboard/transcript_welcome", { replace: true });
       } catch (error) {
         console.error("Error during Google authentication:", error);
         setError("Google authentication failed");
@@ -383,12 +383,8 @@ export const Login = () => {
       const response = await authApi.login({ email, password });
       login(response.access_token, response.user);
 
-      // Redirect based on role after login
-      if (response?.user?.role === "transcript_access") {
-        navigate("/dashboard/transcript_welcome", { replace: true });
-      } else {
-        navigate("/dashboard/welcome", { replace: true });
-      }
+      // Redirect to transcript welcome after login
+      navigate("/dashboard/transcript_welcome", { replace: true });
     } catch (err) {
       if (err instanceof AxiosError) {
         setError(err.response?.data?.detail || "An unexpected error occurred");

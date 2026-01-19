@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, desc
 from app.database import get_db
 from app.utils.create_access_token import create_access_token
-from .models import Base, User, UserAuthProvider,SubscriptionPlan,UserSubscription, Bot, Interaction, ChatMessage, TeamMember, File, YouTubeVideo, ScrapedNode, InteractionReaction, WebsiteDB, UserAddon, Notification, WordCloudData, BotSlug, Lead, Addon
+from .models import Base, User, UserAuthProvider, Bot, Interaction, ChatMessage, TeamMember, File, YouTubeVideo, ScrapedNode, InteractionReaction, WebsiteDB, Notification, WordCloudData, BotSlug, Lead
 from app.schemas import UserOut,UserUpdate, ChangePasswordRequest, LeadOut
 from app.dependency import get_current_user
 from app.utils.verify_password import verify_password
@@ -35,83 +35,6 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Step 1: Try to fetch active subscription
-    subscription = (
-        db.query(UserSubscription)
-        .filter(
-            UserSubscription.user_id == current_user["user_id"],
-            UserSubscription.status == "active"
-        )
-        .order_by(UserSubscription.payment_date.desc())
-        .first()
-    )
-
-    # Step 2: If no active subscription, fetch the latest one
-    if not subscription:
-        subscription = (
-            db.query(UserSubscription)
-            .filter(
-                UserSubscription.user_id == current_user["user_id"],
-                UserSubscription.status != "pending"
-            )
-            .order_by(UserSubscription.payment_date.desc())
-            .first()
-        )
-
-    # Step 3: If subscription exists, fetch plan details
-    if subscription:
-        plan = (
-            db.query(SubscriptionPlan)
-            .filter(SubscriptionPlan.id == subscription.subscription_plan_id)
-            .first()
-        )
-        subscription_data = {
-            "plan_name": plan.name if plan else "Unknown Plan",
-            "amount": float(subscription.amount) if subscription.amount else "N/A",
-            "currency": subscription.currency or "",
-            "payment_date": subscription.payment_date or "",
-            "expiry_date": subscription.expiry_date or "",
-            "auto_renew": subscription.auto_renew or "",
-            "status": subscription.status or "N/A",
-        }
-    else:
-        # Step 4: No subscription found at all
-        subscription_data = {
-            "plan_name": "N/A",
-            "amount": "N/A",
-            "currency": "",
-            "payment_date": "",
-            "expiry_date": "",
-            "auto_renew": "",
-            "status": "N/A",
-        }
-
-
-    # Get all active addons for the current user
-    active_addons = (
-    db.query(UserAddon)
-    .outerjoin(Addon, UserAddon.addon_id == Addon.id)
-    .filter(
-        UserAddon.user_id == current_user["user_id"],
-        UserAddon.is_active == True,
-        UserAddon.status == "active"
-    )
-    .all()
-)
-
-    # Prepare response data
-    addons_data = [
-        {
-            "addon_name": ua.addon.name,        # from Addon table
-            "status": ua.status,                # from UserAddon table
-            "purchase_date": ua.purchase_date,  # fallback in case quantity isn’t tracked
-            "expiry_date": ua.expiry_date,
-            "auto_renew": ua.auto_renew,
-            "addon_id": ua.addon_id
-        }
-        for ua in active_addons
-    ]
-    
     # Get user's authentication providers
     auth_providers = []
     user_auth_providers = db.query(UserAuthProvider).filter(UserAuthProvider.user_id == logged_in_id).all()
@@ -128,8 +51,6 @@ def get_user_me(db: Session = Depends(get_db), current_user: dict = Depends(get_
         "phone_no": user.phone_no,
         "company_name": user.company_name,  #  Ensure this is included
         "communication_email": user.communication_email,  # Ensure this is included
-        "subscription": subscription_data,
-        "addons": addons_data,
         "auth_providers": auth_providers,
         "avatar_url": user.avatar_url, 
     }
@@ -213,35 +134,6 @@ def change_password(
     return {"message": "Password updated successfully"}
 
 
-@router.get("/check-user-subscription/{user_id}")
-def check_user_subscription(user_id: int, db: Session = Depends(get_db)):
-    subscription = (
-        db.query(UserSubscription)
-        .filter_by(user_id=user_id, subscription_plan_id=1)
-        .first()
-    )
-    return {"exists": bool(subscription)}
-
-@router.get("/user/has-prior-subscription/{user_id}")
-def has_prior_subscription(user_id: int, db: Session = Depends(get_db)):
-    """
-    Returns whether the user has any prior subscription record that should
-    disqualify access to the Explorer (Free) plan again.
-
-    Rules:
-    - Count any subscription whose status is NOT in ['cancelled', 'pending'].
-    - This treats statuses like 'active' and 'upgraded' as prior subscriptions.
-    - We intentionally ignore 'cancelled' and 'pending' to match product rules.
-    """
-    prior = (
-        db.query(UserSubscription)
-        .filter(
-            UserSubscription.user_id == user_id,
-            UserSubscription.status.notin_(["cancelled", "pending"]),
-        )
-        .first()
-    )
-    return {"has_prior": bool(prior)}
 @router.delete("/user/delete-account")
 def delete_user_account(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """
@@ -343,18 +235,7 @@ def delete_user_account(db: Session = Depends(get_db), current_user: dict = Depe
             (TeamMember.owner_id == user_id) | (TeamMember.member_id == user_id)
         ).delete(synchronize_session=False)
         
-        # Step 3: Delete subscription-related data
-        # Delete user addons
-        db.query(UserAddon).filter(
-            UserAddon.user_id == user_id
-        ).delete(synchronize_session=False)
-        
-        # Delete user subscriptions
-        db.query(UserSubscription).filter(
-            UserSubscription.user_id == user_id
-        ).delete(synchronize_session=False)
-        
-        # Delete notifications
+        # Step 3: Delete notifications
         db.query(Notification).filter(
             Notification.user_id == user_id
         ).delete(synchronize_session=False)

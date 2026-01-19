@@ -36,7 +36,7 @@ export const SuperAdminLogin = () => {
       login(res.access_token, res.user);
 
       // Redirect to dashboard
-      navigate("/dashboard/welcome?impersonated=true");
+      navigate("/dashboard/transcript_welcome?impersonated=true");
     } catch (err) {
       console.error(err);
       setError("Impersonation failed.");

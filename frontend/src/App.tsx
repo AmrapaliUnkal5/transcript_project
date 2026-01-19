@@ -1,16 +1,7 @@
-import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import { BotProvider } from "./context/BotContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { Layout } from "./components/Layout/Layout";
 import { NoSidebarLayout } from "./components/Layout/NoSidebarLayout";
-import { Dashboard } from "./pages/Dashboard";
-import { Welcome } from "./pages/Welcome";
-import { CreateBot } from "./pages/CreateBot";
-import { ChatbotCustomization } from "./pages/ChatbotCustomization";
-import { FileUpload } from "./pages/FileUpload";
-import { Performance } from "./pages/Performance";
 import { Subscription } from "./pages/Subscription";
 import { SubscriptionSuccess } from "./pages/SubscriptionSuccess.tsx";
 import { Settings } from "./pages/Settings";
@@ -30,7 +21,6 @@ import { FAQ } from "./pages/FaqPage.tsx";
 import { ReportIssue } from "./pages/ReportIssue.tsx";
 import { CustomerSupportRequest } from "./pages/CustomerSupport.tsx";
 import { SubscriptionPlanProvider } from "./context/SubscriptionPlanContext";
-import { ScriptGeneratePage } from "./pages/ScriptGeneratePage";
 import { TeamInvitation } from "./pages/TeamInvitation.tsx";
 import { AddonPurchasePage } from "./pages/AddonPurchasePage";
 import HomePage from "./pages/Home/index.tsx";
@@ -43,10 +33,8 @@ import TermsService from "./pages/TermsOfService/index.tsx";
 import Privacy from "./pages/Privacy/index.tsx";
 import ScrollToTop from "./components/ScrolltoTop.tsx";
 import ShippingAndExchange from "./pages/ShippingAndExchange/index.tsx";
-import Investigation from "./pages/investigation.tsx";
 import OurServices from "./pages/OurService/Index.tsx";
 import About from "./pages/About/index.tsx";
-import LeadsDisplay from "./pages/LeadsDisplay.tsx"
 import SuperAdminLogin from "./pages/SuperAdminLogin.tsx"
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
@@ -77,7 +65,6 @@ function App() {
     <ScrollToTop />
       <LoaderProvider>
         <AuthProvider>
-          <BotProvider>
             <SubscriptionPlanProvider>
               <Loader />
               <Routes>
@@ -120,7 +107,6 @@ function App() {
                     </ProtectedRoute>
                   }
                 >
-                  <Route path="welcome" element={<Welcome />} />
                   <Route path="transcript_welcome" element={<TranscriptWelcome />} />
                   <Route path="transcript" element={<TranscriptList />} />
                   <Route path="transcript/new" element={<TranscriptNew />} />
@@ -132,32 +118,9 @@ function App() {
                   <Route path="myaccount" element={<Settings />} />
                   <Route path="account/add-ons" element={<AddonPurchasePage />} />
                   <Route path="options" element={<PlanSelection />} />
-                  <Route path="create-bot" element={<CreateBot />} />
-                </Route>
-                
-                {/* Main layout with sidebar */}
-                <Route
-                  path="/dashboard"
-                  element={
-                    <ProtectedRoute>
-                      <Layout />
-                    </ProtectedRoute>
-                  }
-                >
-                  <Route path="dashboard" element={<Dashboard />} />
-                  <Route path="chatbot" element={<ChatbotCustomization />} />
-                  <Route path="upload" element={<FileUpload />} />
-                  <Route path="investigation" element={<Investigation />} />
-                  <Route path="performance" element={<Performance />} />
-                  <Route path="leadsdisplay" element={<LeadsDisplay />} />
-                  <Route
-                    path="script-generate"
-                    element={<ScriptGeneratePage />}
-                  />
                 </Route>
               </Routes>
             </SubscriptionPlanProvider>
-          </BotProvider>
         </AuthProvider>
       </LoaderProvider>
     </BrowserRouter>

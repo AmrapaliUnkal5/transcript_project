@@ -9,10 +9,8 @@ from app.database import SessionLocal
 from app.models import LLMModel as LLMModelDB, Bot
 from app.config import settings
 from app.utils.model_selection import get_llm_model_for_bot, get_secondary_llm_for_bot, get_multilingual_llm_for_bot
-from app.models import UserAddon
 from datetime import datetime
 from lingua import Language, LanguageDetectorBuilder
-from app.addon_service import AddonService
 import logging
 from app.utils.logger import get_module_logger
 # Add langchain imports

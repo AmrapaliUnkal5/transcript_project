@@ -40,7 +40,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [botId, getBotId] = useState<number | null>(null);
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
   console.log("isAuthenticated", isAuthenticated);
 
@@ -104,13 +103,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsAuthenticated(true);
         setUser(parsedUserData);
         
-        // Redirect logged-in users from root path to welcome
+        // Redirect logged-in users from root path to transcript welcome
         if (location.pathname === "/") {
-          if (parsedUserData?.role === "transcript_access") {
-            navigate("/dashboard/transcript_welcome");
-          } else {
-            navigate("/dashboard/welcome");
-          }
+          navigate("/dashboard/transcript_welcome");
         }
       } catch (error) {
         console.error("Error parsing user data:", error);

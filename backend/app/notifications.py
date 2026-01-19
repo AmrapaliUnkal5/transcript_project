@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Notification, User, Bot
+from app.models import Notification, User
 from app.dependency import get_current_user
 from app.schemas import NotificationOut
 from typing import List, Optional
@@ -68,22 +68,20 @@ def add_notification(
     db: Session,
     event_type: str,
     event_data: str,
-    bot_id: Optional[int] = None,
     user_id: Optional[int] = None,
-    
+    record_id: Optional[int] = None,
 ):
+    """
+    Add a notification for transcript project.
+    For transcript_access role users.
+    """
     try:
-        
-        if bot_id:                      
-            bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
-            bot_name = bot.bot_name
-            event_data = f"{bot_name}: {event_data}"
-            user_id= bot.user_id
-            if not bot:
-                raise HTTPException(status_code=404, detail="Bot not found")
+        if not user_id:
+            raise ValueError("user_id is required for transcript notifications")
+            
         notification = Notification(
-            user_id= user_id,
-            bot_id=bot_id,
+            user_id=user_id,
+            bot_id=None,  # Not used for transcript project
             event_type=event_type,
             event_data=event_data,
             is_read=False,
@@ -91,6 +89,7 @@ def add_notification(
         )
         db.add(notification)
         db.commit()
+        logger.info(f"Notification added for user {user_id}: {event_type} - {event_data}")
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to add notification: {e}")

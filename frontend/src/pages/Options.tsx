@@ -28,7 +28,7 @@ export const PlanSelection = () => {
           }`}
           onClick={() => {
             handleSelect("explorer");
-            navigate("/dashboard/create-bot");
+            navigate("/dashboard/transcript_welcome");
           }}
         >
           <div className="flex items-center mb-6">

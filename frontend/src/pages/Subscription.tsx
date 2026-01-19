@@ -1023,7 +1023,7 @@ export const Subscription = () => {
           } else if (plan.name.toLowerCase() === "enterprise") {
             window.open("/customersupport", "_blank"); // Redirect to Customer Support
           } else if (plan.name.toLowerCase() === "explorer" && !effectivePlanId && !hasAnySubscriptionRecord) {
-            navigate("/dashboard/create-bot");
+            navigate("/dashboard/transcript_welcome");
           } else {
             handleSubscribe(plan.id);
           }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { User, Globe, Bell, Shield, Key, Users, AlertTriangle } from "lucide-react";
 import { useLoader } from "../context/LoaderContext"; // Use global loader hook
 import Loader from "../components/Loader";
-import { authApi, UserUpdate, subscriptionApi } from "../services/api";
+import { authApi, UserUpdate } from "../services/api";
 import { formatUiDate } from "../utils/date";
 import TeamManagement from "../components/TeamManagement";
 import { ToastContainer, toast } from "react-toastify";
@@ -52,16 +52,6 @@ export const Settings = () => {
     avatar_url:
       user?.avatar_url ||
       "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png",
-    subscription: {
-      plan_name: "",
-      amount: null,
-      currency: "", // or "" if you prefer empty string
-      payment_date: "",
-      expiry_date: "",
-      auto_renew: false,
-      status: "",
-    },
-    addons: [],
   });
 
   useEffect(() => {
@@ -80,16 +70,6 @@ export const Settings = () => {
             avatar_url:
               user?.avatar_url ||
               "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png",
-            subscription: {
-              plan_name: response.subscription?.plan_name || "Free Plan",
-              amount: response.subscription?.amount || 0,
-              currency: response.subscription?.currency || "",
-              payment_date: response.subscription?.payment_date || null,
-              expiry_date: response.subscription?.expiry_date || null,
-              auto_renew: response.subscription?.auto_renew || false,
-              status: response.subscription?.status || "active",
-            },
-            addons: response.addons ?? [],
           }));
           
           // Check if user has a social login provider (Google or Facebook)
@@ -635,216 +615,6 @@ export const Settings = () => {
             </div>
           </div>
         </div>
-        <div className="md:col-span-2 mt-6">
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4 text-black">
-              Subscription Details
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Plan Name
-                </label>
-                <p className="text-gray-900 dark:text-white">
-                  {settings.subscription?.plan_name || "N/A"}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Amount
-                </label>
-                <p className="text-gray-900 dark:text-white">
-                  {settings.subscription?.plan_name?.toLowerCase() === "explorer"
-                    ? "Free"
-                    : `${settings.subscription?.amount} ${settings.subscription?.currency}`}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Payment Date
-                </label>
-                <p className="text-gray-900 dark:text-white">
-                  {formatUiDate(settings.subscription?.payment_date)}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Expiry Date
-                </label>
-                <p className="text-gray-900 dark:text-white">
-                  {formatUiDate(settings.subscription?.expiry_date)}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Auto Renew
-                </label>
-                <p className="text-gray-900 dark:text-white">
-                  {settings.subscription?.auto_renew ? "Yes" : "No"}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Status
-                </label>
-                <p
-                  className={`inline-block px-2 py-1 rounded-full text-sm font-medium ${
-                    settings.subscription?.status === "active"
-                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                      : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  {settings.subscription?.status || "N/A"}
-                </p>
-              </div>
-            </div>
-
-            {/* Cancel Subscription CTA */}
-            {settings.subscription?.status === "active" && settings.subscription?.auto_renew && (
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={async () => {
-                    const confirmed = window.confirm(
-                      "You're about to cancel your subscription. From the next billing cycle, your plan will not renew automatically."
-                    );
-                    if (!confirmed) return;
-                    try {
-                      setLoading(true);
-                      await subscriptionApi.cancelSubscription();
-                      toast.success("Auto-renew has been turned off. Your plan will not renew next cycle.");
-                      // Refresh user details to reflect auto_renew = false
-                      const response = await authApi.getUserDetails();
-                      setSettings((prev) => ({
-                        ...prev,
-                        subscription: {
-                          ...prev.subscription,
-                          auto_renew: response.subscription?.auto_renew || false,
-                          status: response.subscription?.status || prev.subscription.status,
-                        },
-                      }));
-                    } catch (e) {
-                      toast.error("Failed to cancel subscription. Please try again.");
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  className="px-4 py-2 rounded-md bg-red-500 hover:bg-red-600 text-white"
-                >
-                  Cancel Subscription
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-                <div className="md:col-span-2 mt-6">
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4 text-black">
-              Active Addons
-            </h2>
-
-            {settings.addons && settings.addons.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full border border-gray-200 divide-y divide-gray-200">
-                  <thead className="bg-gray-100 dark:bg-gray-700">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
-                        S.No.
-                      </th>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
-                        Addon Name
-                      </th>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
-                        Status
-                      </th>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
-                        Purchase Date
-                      </th>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
-                        Expiry Date
-                      </th>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
-                        Auto Renew
-                      </th>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-600 dark:text-gray-300">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {settings.addons.map((addon: any, index: number) => (
-                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
-                          {index + 1}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
-                          {addon.addon_name}
-                        </td>
-                        <td className="px-4 py-2 text-sm">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              addon.status === "active"
-                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                                : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-                            }`}
-                          >
-                            {addon.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
-                          {formatUiDate(addon.purchase_date)}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
-                          {formatUiDate(addon.expiry_date)}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
-                          {addon.auto_renew ? "Yes" : "No"}
-                        </td>
-                        <td className="px-4 py-2 text-sm">
-                          {settings.subscription?.status !== "active" || settings.subscription?.auto_renew === false ? (
-                            <span className="text-gray-400">—</span>
-                          ) : addon.auto_renew ? (
-                            <button
-                              onClick={async () => {
-                                try {
-                                  await subscriptionApi.cancelAddon(addon.addon_id || addon.addonId || addon.id);
-                                  toast.success("Addon set to cancel at next renewal.");
-                                  // Optimistically update UI: mark this addon's auto_renew false
-                                  setSettings((prev: any) => ({
-                                    ...prev,
-                                    addons: prev.addons.map((a: any, i: number) =>
-                                      i === index ? { ...a, auto_renew: false, status: a.status } : a
-                                    ),
-                                  }));
-                                } catch (e: any) {
-                                  toast.error(e.message || "Failed to schedule addon cancellation");
-                                }
-                              }}
-                              className="px-3 py-1 rounded-md bg-red-500 hover:bg-red-600 text-white"
-                            >
-                              Cancel
-                            </button>
-                          ) : (
-                            <span className="inline-block px-3 py-1 rounded-md bg-gray-200 text-gray-600 cursor-not-allowed">Cancelled</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-gray-500 dark:text-gray-400">No active addons.</p>
-            )}
-          </div>
-        </div>
-
-
 
         {/* Change Password Section - Only show for non-social login users */}
         {!isSocialLogin && (

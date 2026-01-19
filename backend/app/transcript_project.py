@@ -16,8 +16,13 @@ from app.utils.file_storage import resolve_file_url
 from app.llm_manager import LLMManager
 from app.vector_db import add_transcript_embedding_to_qdrant, retrieve_transcript_context, add_field_answer_embedding_to_qdrant, retrieve_transcript_context_by_patient
 from app.word_count_validation import extract_text as extract_text_from_upload
+from app.notifications import add_notification
+from app.utils.logger import get_module_logger
 
 router = APIRouter(prefix="/transcript", tags=["Transcript Project"])
+
+# Initialize logger for transcript project
+logger = get_module_logger(__name__)
 
 TRANSCRIPT_DIR = "transcript_project"
 
@@ -225,10 +230,10 @@ def _assemblyai_transcribe(local_path: str) -> str:
     Requires env ASSEMBLYAI_API_KEY.
     Returns transcribed text or raises exception on failure.
     """
-    print("[TRANSCRIPTION] Attempting transcription with AssemblyAI...")
+    logger.info("Attempting transcription with AssemblyAI")
     api_key = os.getenv("ASSEMBLYAI_API_KEY")
     if not api_key:
-        print("[TRANSCRIPTION] ASSEMBLYAI_API_KEY not found in environment variables")
+        logger.error("ASSEMBLYAI_API_KEY not found in environment variables")
         raise ValueError("ASSEMBLYAI_API_KEY not configured")
 
     # Step 1: Upload the audio file
@@ -241,8 +246,7 @@ def _assemblyai_transcribe(local_path: str) -> str:
     
     filename = os.path.basename(local_path)
     file_ext = os.path.splitext(local_path)[1].lower()
-    print(f"[TRANSCRIPTION] Uploading audio file to AssemblyAI: {local_path}")
-    print(f"[TRANSCRIPTION] File extension: {file_ext}, filename: {filename}")
+    logger.info(f"Uploading audio file to AssemblyAI: {local_path}", extra={"file_extension": file_ext, "filename": filename})
     
     try:
         # Read file as binary data
@@ -250,30 +254,30 @@ def _assemblyai_transcribe(local_path: str) -> str:
             file_data = f.read()
         
         file_size = len(file_data)
-        print(f"[TRANSCRIPTION] File size: {file_size} bytes")
+        logger.debug(f"File size: {file_size} bytes", extra={"file_size": file_size})
         
         if file_size == 0:
             error_msg = "Audio file is empty"
-            print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+            logger.error(error_msg)
             raise ValueError(error_msg)
         
         # Send raw binary data (not multipart/form-data)
         upload_response = requests.post(upload_url, headers=headers, data=file_data, timeout=300)
         if upload_response.status_code >= 400:
             error_msg = f"AssemblyAI upload failed: {upload_response.text}"
-            print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+            logger.error(error_msg, extra={"status_code": upload_response.status_code})
             raise ValueError(error_msg)
         upload_data = upload_response.json()
         audio_url = upload_data.get("upload_url")
         if not audio_url:
             error_msg = "AssemblyAI upload did not return upload_url"
-            print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+            logger.error(error_msg)
             raise ValueError(error_msg)
     except Exception as e:
-        print(f"[TRANSCRIPTION] ERROR: Failed to upload to AssemblyAI: {str(e)}")
+        logger.exception("Failed to upload to AssemblyAI")
         raise
 
-    print(f"[TRANSCRIPTION] Audio uploaded successfully. Upload URL: {audio_url}")
+    logger.info(f"Audio uploaded successfully to AssemblyAI", extra={"upload_url": audio_url})
 
     # Step 2: Submit transcription job
     transcript_url = "https://api.assemblyai.com/v2/transcript"
@@ -282,37 +286,37 @@ def _assemblyai_transcribe(local_path: str) -> str:
         "language_code": "en"  # Can be made configurable if needed
     }
     
-    print("[TRANSCRIPTION] Submitting transcription job to AssemblyAI...")
+    logger.info("Submitting transcription job to AssemblyAI")
     try:
         transcript_response = requests.post(transcript_url, json=transcript_request, headers=headers, timeout=300)
         if transcript_response.status_code >= 400:
             error_msg = f"AssemblyAI transcription submission failed: {transcript_response.text}"
-            print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+            logger.error(error_msg, extra={"status_code": transcript_response.status_code})
             raise ValueError(error_msg)
         transcript_data = transcript_response.json()
         transcript_id = transcript_data.get("id")
         if not transcript_id:
             error_msg = "AssemblyAI did not return transcript ID"
-            print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+            logger.error(error_msg)
             raise ValueError(error_msg)
     except Exception as e:
-        print(f"[TRANSCRIPTION] ERROR: Failed to submit transcription job: {str(e)}")
+        logger.exception("Failed to submit transcription job to AssemblyAI")
         raise
 
-    print(f"[TRANSCRIPTION] Transcription job submitted. Transcript ID: {transcript_id}")
+    logger.info(f"Transcription job submitted to AssemblyAI", extra={"transcript_id": transcript_id})
 
     # Step 3: Poll for completion
     polling_url = f"https://api.assemblyai.com/v2/transcript/{transcript_id}"
     max_polls = 60  # Maximum number of polling attempts
     poll_interval = 3  # Seconds between polls
     
-    print("[TRANSCRIPTION] Polling for transcription completion...")
+    logger.info("Polling for transcription completion")
     for i in range(max_polls):
         try:
             polling_response = requests.get(polling_url, headers=headers, timeout=300)
             if polling_response.status_code >= 400:
                 error_msg = f"AssemblyAI polling failed: {polling_response.text}"
-                print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+                logger.error(error_msg, extra={"status_code": polling_response.status_code, "poll_attempt": i+1})
                 raise ValueError(error_msg)
             
             status_data = polling_response.json()
@@ -321,32 +325,33 @@ def _assemblyai_transcribe(local_path: str) -> str:
             if status == "completed":
                 transcript_text = status_data.get("text", "")
                 if transcript_text:
+                    logger.info(f"Transcription completed using AssemblyAI", extra={"transcript_length": len(transcript_text), "poll_attempt": i+1})
                     print(f"[TRANSCRIPTION] SUCCESS: Transcription completed using AssemblyAI")
                     print(f"[TRANSCRIPTION] Transcript length: {len(transcript_text)} characters")
                     return transcript_text
                 else:
                     error_msg = "AssemblyAI returned empty transcript"
-                    print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+                    logger.error(error_msg)
                     raise ValueError(error_msg)
             elif status == "error":
                 error_msg = status_data.get("error", "Unknown error from AssemblyAI")
-                print(f"[TRANSCRIPTION] ERROR: AssemblyAI transcription failed: {error_msg}")
+                logger.error(f"AssemblyAI transcription failed: {error_msg}")
                 raise ValueError(f"AssemblyAI transcription error: {error_msg}")
             else:
                 # Status is "queued" or "processing"
-                if i % 5 == 0:  # Print every 5th poll to avoid spam
-                    print(f"[TRANSCRIPTION] Status: {status} (poll {i+1}/{max_polls})")
+                if i % 5 == 0:  # Log every 5th poll to avoid spam
+                    logger.debug(f"Transcription status: {status}", extra={"poll_attempt": i+1, "max_polls": max_polls})
         except ValueError:
             raise  # Re-raise ValueError (our custom errors)
         except Exception as e:
-            print(f"[TRANSCRIPTION] ERROR: Exception during polling: {str(e)}")
+            logger.exception(f"Exception during polling (attempt {i+1})")
             raise
         
         time.sleep(poll_interval)
     
     # If we get here, polling timed out
     error_msg = f"AssemblyAI transcription timed out after {max_polls * poll_interval} seconds"
-    print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+    logger.error(error_msg, extra={"max_polls": max_polls, "poll_interval": poll_interval})
     raise ValueError(error_msg)
 
 
@@ -355,10 +360,10 @@ def _openai_transcribe(local_path: str) -> str:
     Minimal OpenAI Whisper transcription via REST to avoid new SDK dependency.
     Requires env OPENAI_API_KEY.
     """
-    print("[TRANSCRIPTION] Attempting transcription with OpenAI Whisper...")
+    logger.info("Attempting transcription with OpenAI Whisper")
     api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_KEY")
     if not api_key:
-        print("[TRANSCRIPTION] OPENAI_API_KEY not found in environment variables")
+        logger.error("OPENAI_API_KEY not found in environment variables")
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
 
     url = "https://api.openai.com/v1/audio/transcriptions"
@@ -366,7 +371,7 @@ def _openai_transcribe(local_path: str) -> str:
 
     # Prefer whisper-1 for broad availability; allow override
     model = os.getenv("OPENAI_TRANSCRIBE_MODEL", "whisper-1")
-    print(f"[TRANSCRIPTION] Using Whisper model: {model}")
+    logger.info(f"Using Whisper model: {model}", extra={"model": model})
 
     try:
         with open(local_path, "rb") as f:
@@ -374,25 +379,27 @@ def _openai_transcribe(local_path: str) -> str:
                 "file": (os.path.basename(local_path), f, "application/octet-stream"),
             }
             data = {"model": model, "temperature": "0"}
-            print(f"[TRANSCRIPTION] Sending audio file to OpenAI Whisper API...")
+            logger.info("Sending audio file to OpenAI Whisper API")
             resp = requests.post(url, headers=headers, files=files, data=data, timeout=300)
             if resp.status_code >= 400:
                 error_msg = f"OpenAI transcription failed: {resp.text}"
-                print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+                logger.error(error_msg, extra={"status_code": resp.status_code})
                 raise HTTPException(status_code=500, detail=error_msg)
             out = resp.json()
             transcript_text = out.get("text", "")
             if transcript_text:
+                logger.info(f"Transcription completed using OpenAI Whisper", extra={"transcript_length": len(transcript_text)})
                 print(f"[TRANSCRIPTION] SUCCESS: Transcription completed using OpenAI Whisper")
                 print(f"[TRANSCRIPTION] Transcript length: {len(transcript_text)} characters")
             else:
+                logger.warning("OpenAI Whisper returned empty transcript")
                 print(f"[TRANSCRIPTION] WARNING: OpenAI Whisper returned empty transcript")
             return transcript_text
     except HTTPException:
         raise  # Re-raise HTTPException
     except Exception as e:
         error_msg = f"OpenAI Whisper transcription error: {str(e)}"
-        print(f"[TRANSCRIPTION] ERROR: {error_msg}")
+        logger.exception("OpenAI Whisper transcription error")
         raise HTTPException(status_code=500, detail=error_msg)
 
 
@@ -406,14 +413,16 @@ def transcribe_record(
     Transcribe the uploaded audio using AssemblyAI first, with fallback to OpenAI Whisper.
     For users with transcript_access role.
     """
-    print(f"[TRANSCRIPTION] Starting transcription for record_id: {record_id}, user_id: {current_user.get('user_id')}")
+    logger.info(f"Starting transcription", extra={"record_id": record_id, "user_id": current_user.get('user_id')})
     
     record = db.query(TranscriptRecord).filter(
         TranscriptRecord.id == record_id, TranscriptRecord.user_id == current_user.get("user_id")
     ).first()
     if not record:
+        logger.warning(f"Record not found", extra={"record_id": record_id, "user_id": current_user.get("user_id")})
         raise HTTPException(status_code=404, detail="Record not found")
     if not record.audio_path:
+        logger.warning(f"No audio uploaded for record", extra={"record_id": record_id})
         raise HTTPException(status_code=400, detail="No audio uploaded for this record")
 
     # If stored path is s3:// not supported here; assume local path under transcript_project
@@ -422,24 +431,28 @@ def transcribe_record(
         # try direct relative
         local_path = record.audio_path
     if not os.path.exists(local_path):
+        logger.error(f"Stored audio file not found", extra={"record_id": record_id, "audio_path": record.audio_path})
         raise HTTPException(status_code=404, detail="Stored audio file not found")
 
-    print(f"[TRANSCRIPTION] Audio file found at: {local_path}")
+    logger.info(f"Audio file found", extra={"local_path": local_path, "record_id": record_id})
     
     # Try AssemblyAI first, fallback to Whisper
     text = None
     transcription_service = None
     
     try:
+        logger.info("Attempting AssemblyAI transcription (primary)")
         print("[TRANSCRIPTION] ========================================")
         print("[TRANSCRIPTION] PRIMARY: Attempting AssemblyAI transcription")
         print("[TRANSCRIPTION] ========================================")
         text = _assemblyai_transcribe(local_path)
         transcription_service = "AssemblyAI"
+        logger.info(f"Transcription completed using {transcription_service}", extra={"service": transcription_service, "record_id": record_id})
         print(f"[TRANSCRIPTION] ========================================")
         print(f"[TRANSCRIPTION] FINAL RESULT: Transcription completed using {transcription_service}")
         print(f"[TRANSCRIPTION] ========================================")
     except Exception as assembly_error:
+        logger.warning(f"AssemblyAI failed, attempting OpenAI Whisper fallback", extra={"error": str(assembly_error), "record_id": record_id})
         print(f"[TRANSCRIPTION] ========================================")
         print(f"[TRANSCRIPTION] AssemblyAI failed: {str(assembly_error)}")
         print(f"[TRANSCRIPTION] FALLBACK: Attempting OpenAI Whisper transcription")
@@ -448,37 +461,51 @@ def transcribe_record(
         try:
             text = _openai_transcribe(local_path)
             transcription_service = "OpenAI Whisper"
+            logger.info(f"Transcription completed using {transcription_service}", extra={"service": transcription_service, "record_id": record_id})
             print(f"[TRANSCRIPTION] ========================================")
             print(f"[TRANSCRIPTION] FINAL RESULT: Transcription completed using {transcription_service}")
             print(f"[TRANSCRIPTION] ========================================")
         except Exception as whisper_error:
-            print(f"[TRANSCRIPTION] ========================================")
-            print(f"[TRANSCRIPTION] ERROR: Both AssemblyAI and Whisper failed")
-            print(f"[TRANSCRIPTION] AssemblyAI error: {str(assembly_error)}")
-            print(f"[TRANSCRIPTION] Whisper error: {str(whisper_error)}")
-            print(f"[TRANSCRIPTION] ========================================")
+            logger.error(f"Both AssemblyAI and Whisper failed", extra={
+                "assembly_error": str(assembly_error),
+                "whisper_error": str(whisper_error),
+                "record_id": record_id
+            })
             raise HTTPException(
                 status_code=500,
                 detail=f"Transcription failed with both services. AssemblyAI: {str(assembly_error)}. Whisper: {str(whisper_error)}"
             )
     
     if not text or not text.strip():
-        print(f"[TRANSCRIPTION] WARNING: Transcription returned empty text")
+        logger.warning(f"Transcription returned empty text", extra={"record_id": record_id})
         raise HTTPException(status_code=500, detail="Transcription returned empty result")
     
     record.transcript_text = text
     db.commit()
-    print(f"[TRANSCRIPTION] Transcript saved to database for record_id: {record_id}")
+    logger.info(f"Transcript saved to database", extra={"record_id": record_id, "text_length": len(text)})
 
     # Index transcript into Qdrant
     try:
         visit_iso = record.visit_date.isoformat() if record.visit_date else None
         add_transcript_embedding_to_qdrant(record.id, current_user.get("user_id"), text, model="text-embedding-3-large", p_id=record.p_id, visit_date=visit_iso)
-        print(f"[TRANSCRIPTION] Transcript indexed into Qdrant vector database")
+        logger.info(f"Transcript indexed into Qdrant vector database", extra={"record_id": record_id})
     except Exception as e:
         # Don't fail the request if indexing fails
-        print(f"[TRANSCRIPTION] WARNING: Failed to index transcript into Qdrant: {str(e)}")
+        logger.warning(f"Failed to index transcript into Qdrant", extra={"record_id": record_id, "error": str(e)})
         pass
+
+    # Add notification for successful transcription
+    try:
+        p_id_display = record.p_id or f"Record {record_id}"
+        add_notification(
+            db=db,
+            event_type="transcript_generated",
+            event_data=f"Transcript generated successfully for {p_id_display}",
+            user_id=current_user.get("user_id"),
+            record_id=record_id
+        )
+    except Exception as e:
+        logger.error(f"Failed to add notification", extra={"error": str(e), "record_id": record_id})
 
     return {"transcript": text, "service_used": transcription_service}
 
@@ -553,6 +580,19 @@ def summarize_record(
     summary_text = _strip_provenance_block(summary_text)
     record.summary_text = summary_text
     db.commit()
+
+    # Add notification for successful summary generation
+    try:
+        p_id_display = record.p_id or f"Record {record_id}"
+        add_notification(
+            db=db,
+            event_type="summary_generated",
+            event_data=f"Summary generated successfully for {p_id_display}",
+            user_id=current_user.get("user_id"),
+            record_id=record_id
+        )
+    except Exception as e:
+        logger.error(f"Failed to add notification", extra={"error": str(e), "record_id": record_id})
 
     return {"summary": summary_text}
 
@@ -634,6 +674,20 @@ def generate_dynamic_fields(
     record.dynamic_fields = {**(record.dynamic_fields or {}), **answers}
     db.commit()
 
+    # Add notification for successful field generation
+    try:
+        p_id_display = record.p_id or f"Record {record_id}"
+        fields_count = len(answers)
+        add_notification(
+            db=db,
+            event_type="fields_generated",
+            event_data=f"Generated {fields_count} field(s) for {p_id_display}",
+            user_id=current_user.get("user_id"),
+            record_id=record_id
+        )
+    except Exception as e:
+        logger.error(f"Failed to add notification", extra={"error": str(e), "record_id": record_id})
+
     return {"fields": answers}
 
 
@@ -705,6 +759,23 @@ def qna_chat(
     result = llm.generate(context=full_context, user_message="Answer the question above.", use_external_knowledge=False, temperature=0.2)
     answer = result["message"] if isinstance(result, dict) and "message" in result else (result if isinstance(result, str) else "Not specified")
     answer = _sanitize = _strip_provenance_block((answer or "").strip())
+    
+    # Add notification for answer generation (only for first answer in a conversation to avoid spam)
+    try:
+        # Only notify if this is the first message (no history or empty history)
+        if not history or len(history) == 0:
+            p_id_display = record.p_id or f"Record {record_id}"
+            question_preview = question[:50] + "..." if len(question) > 50 else question
+            add_notification(
+                db=db,
+                event_type="answer_generated",
+                event_data=f"Answer generated for {p_id_display}: {question_preview}",
+                user_id=current_user.get("user_id"),
+                record_id=record_id
+            )
+    except Exception as e:
+        logger.error(f"Failed to add notification", extra={"error": str(e), "record_id": record_id})
+    
     return {"answer": answer}
 
 @router.get("/records")

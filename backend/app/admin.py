@@ -158,11 +158,9 @@ class BotAdmin(BaseModelView, model=Bot):
                     else:
                         print(f"❌ Could not find bot with ID {model.bot_id} in database")
                     
-                    # Enqueue re-embedding as a Celery task so it runs fully in the background
-                    from app.celery_tasks import reembed_single_bot
-                    task = reembed_single_bot.delay(model.bot_id)
-                    print(f"✅ Comprehensive re-embedding task started for bot {model.bot_id}")
-                    print(f"✅ Celery Task ID: {task.id}")
+                    # Celery tasks removed - transcript project doesn't use Celery
+                    # Re-embedding functionality disabled for transcript project
+                    print(f"⚠️ Re-embedding task skipped (Celery not available in transcript project)")
                     
                     # Return None since we've already called the parent method
                     return None

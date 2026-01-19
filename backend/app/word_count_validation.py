@@ -16,7 +16,7 @@ from fastapi import Depends
 from app.fetchsubscripitonplans import get_subscription_plan_by_id,get_subscription_plan_by_id_sync
 from app.schemas import UserOut
 from app.database import get_db
-from app.models import File as FileModel, Bot, User,UserSubscription
+from app.models import File as FileModel, User,UserSubscription
 from sqlalchemy.orm import Session
 from app.utils.file_size_validations_utils import get_current_usage, get_current_usage_sync
 
@@ -278,77 +278,8 @@ async def extract_text(file: UploadFile) -> str:
             detail=f"Unsupported file type: {file.filename}"
         )
 
-@router.post("/word_count/", response_model=List[Dict[str, Any]])
-async def word_count_endpoint(
-    files: List[UploadFile] = File(...),
-    current_user: dict  = Depends(get_current_user),
-    db: Session = Depends(get_db)
-) -> List[Dict[str, Any]]:
-
-    """
-    Process files and return word/character counts with validation
-    """
-    if not files:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No files provided"
-        )
-    
-    # Get the user's plan limits first
-    plan_limits = await get_subscription_plan_by_id(current_user["subscription_plan_id"], db)
-    if not plan_limits:
-        raise HTTPException(status_code=404, detail="Subscription plan not found")
-    user_word_limit = plan_limits["word_count_limit"]
-    total_words = 0 
-
-    results = []
-    
-    for file in files:
-        try:
-            # Extract text This Extraction is removed, because the extraction will be done via celery instead of now. 25 July 2025
-            # text = await extract_text(file)
-            # word_count, char_count = count_words_and_chars(text)
-
-            # Validate word count
-            # if word_count > user_word_limit:
-            #     raise HTTPException(
-            #         status_code=status.HTTP_400_BAD_REQUEST,
-            #         detail=f"File exceeds {user_word_limit} word limit for your {plan_limits['name']} plan"
-            #     )
-
-            results.append({
-                "file_name": file.filename,
-                "word_count": 0,
-                "character_count": 0,
-                # "text_sample": text[:200] + "..." if len(text) > 200 else text,
-                "plan_limit": user_word_limit,  
-                "plan_name": plan_limits["name"]  
-            })
-
-        except HTTPException as he:
-            results.append({
-                "file_name": file.filename,
-                "error": str(he.detail),
-                "exceeds_limit": True,
-                "plan_limit": user_word_limit,
-                "plan_name": plan_limits["name"]
-            })
-        except Exception as e:
-            results.append({
-                "file_name": file.filename,
-                "error": f"Processing error: {str(e)}",
-                "plan_limit": user_word_limit,
-                "plan_name": plan_limits["name"]
-            })
-
-    # Validate total words across all files
-    if total_words > user_word_limit:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Total words across all files ({total_words}) exceed your {plan_limits['name']} plan limit of {user_word_limit}"
-        )
-
-    return results
+# Chatbot-specific endpoint removed - transcript project doesn't use file upload validation
+# @router.post("/word_count/") - removed
 
 
 @router.get("/user/usage")
@@ -356,38 +287,21 @@ async def get_user_usage(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """
+    Get user usage for transcript project.
+    Returns word count from user table (transcript project doesn't use bots).
+    """
     try:
-        # Get the user's total words used (sum of all their bots' word counts exclude delete bots)
-        total_used = db.query(func.sum(Bot.word_count)).filter(
-            Bot.user_id == current_user["user_id"],
-            Bot.status != "Deleted",  
-            #Bot.is_active == True
-        ).scalar() or 0
-
-        # Also get from user table for verification
+        # Get from user table directly (transcript project doesn't use bots)
         user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
-        user_total = user.total_words_used if user else 0
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user_total = user.total_words_used or 0
+        total_used = user_total  # For transcript project, use user's total_words_used directly
 
-        # If there's a discrepancy, update the user record
-        if user and total_used != user_total:
-            user.total_words_used = total_used
-            db.commit()
-
-        # Get the user's total storage used (sum of all their bots' word counts exclude delete bots)
-        total_storage = db.query(func.sum(Bot.file_size)).filter(
-            Bot.user_id == current_user["user_id"],
-            Bot.status != "Deleted",  
-            #Bot.is_active == True
-        ).scalar() or 0
-
-        # Also get from user table for verification
-        user_file_size = db.query(User).filter(User.user_id == current_user["user_id"]).first()
-        user_file_size_total = user_file_size.total_file_size if user else 0
-
-        # If there's a discrepancy, update the user record
-        if user_file_size and total_storage != user_file_size_total:
-            user_file_size.total_file_size = total_storage
-            db.commit()
+        # Get the user's total storage used from user table (transcript project doesn't use bots)
+        total_storage = user.total_file_size or 0
 
 
         # Get plan limits
@@ -427,129 +341,9 @@ def parse_storage_limit(limit_str: str) -> int:
         return 20 * 1024**2  # Default 20MB if parsing fails
     return int(match.group(1)) * units[match.group(2)]
 
-@router.post("/bot/update_word_count")
-async def update_bot_word_count_4(
-    bot_data: dict = Body(...),
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-
-    # Verify the bot belongs to the current user
-    bot = db.query(Bot).filter(
-        Bot.bot_id == bot_data["bot_id"],
-        Bot.user_id == current_user["user_id"]
-    ).first()
-
-    
-    if not bot:
-        print("Bot not found or doesn't belong to user")  
-        raise HTTPException(status_code=404, detail="Bot not found")
-    
-    try:
-        #print(f"Current bot word_count: {bot.word_count}")  
-        # Calculate difference if this is an update
-        word_count_diff = bot_data["word_count"] - (bot.word_count or 0)
-        #print(f"Word count difference: {word_count_diff}")  
-        
-        # Update bot
-        #print("calculation we will do",bot.word_count," added to ",bot_data["word_count"])
-        bot.word_count = bot.word_count+bot_data["word_count"]
-        #print("updated in db bot count=>",bot.word_count)
-
-        # Update file size if provided
-        #print(f"Current bot file_size: {bot.file_size}") 
-        if "file_size" in bot_data:
-            file_size_diff = bot_data["file_size"] - (bot.file_size or 0)
-            #print("calculation we will do",bot.file_size," added to ",bot_data["file_size"])
-            bot.file_size = bot.file_size + bot_data["file_size"]
-        
-        # Update user's total
-        user = db.query(User).filter(User.user_id == current_user["user_id"]).first()
-        if user:
-            #print(f"Current user total_words_used: {user.total_words_used}")  
-            user.total_words_used = (user.total_words_used or 0) + bot_data["word_count"]
-        if "file_size" in bot_data:
-            #print(f"Current user total_file_size: {user.total_file_size}")  
-            user.total_file_size = (user.total_file_size or 0) + bot_data["file_size"]
-            #print(f"New user total_words_used: {user.total_words_used}")
-            #print(f"New user total_file_size: {user.total_file_size}")
-        
-        db.commit()
-        print("Update successful!") 
-        return {"success": True}
-        
-    except Exception as e:
-        db.rollback()
-        #print(f"Error during update: {str(e)}")  
-        raise HTTPException(status_code=500, detail=str(e))
-    
-def update_bot_word_and_file_count(db, bot_id: int, word_count: int, file_size: Optional[int] = None):
-    print("elete from the user and bot table")
-    from app.models import Bot, User
-
-    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
-    if not bot:
-        raise Exception("Bot not found")
-
-    user = db.query(User).filter(User.user_id == bot.user_id).first()
-    if not user:
-        raise Exception("User not found")
-    user_id = user.user_id
-    print("bot word count",bot.word_count)
-
-    bot.word_count = (bot.word_count or 0) + word_count
-
-      # ✅ Calculate bot storage usage
-    bot_file_size = (
-        db.query(func.coalesce(func.sum(FileModel.original_file_size_bytes), 0))
-        .filter(FileModel.bot_id == bot_id, FileModel.status == "Success")
-        .scalar()
-    )
-    bot.file_size = bot_file_size
-    db.add(bot)
-
-    # ✅ Calculate user total file size (all active bots)
-    user_total_file_size = (
-        db.query(func.coalesce(func.sum(FileModel.original_file_size_bytes), 0))
-        .join(Bot, FileModel.bot_id == Bot.bot_id)
-        .filter(
-            Bot.user_id == user_id,
-            Bot.status != "Deleted",   #  ignore deleted bots
-            FileModel.status == "Success"
-        )
-        .scalar()
-    )
-    user.total_file_size = user_total_file_size
-    db.add(user)
-
-    user.total_words_used = (user.total_words_used or 0) + word_count
-    print("user.total_words_used",user.total_words_used)
-
-    db.commit()
-    return True
-
-def update_word_usage(db, bot_id: int, word_count: int):
-    """
-    Updates the word count for the bot and the associated user.
-
-    This function should be used after successful processing of any data source
-    (e.g., file, scraping, YouTube, API) that contributes to the bot's word count.
-    """
-    from app.models import Bot, User
-
-    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
-    if not bot:
-        raise Exception("Bot not found")
-
-    user = db.query(User).filter(User.user_id == bot.user_id).first()
-    if not user:
-        raise Exception("User not found")
-
-    bot.word_count = (bot.word_count or 0) + word_count
-    user.total_words_used = (user.total_words_used or 0) + word_count
-
-    db.commit()
-    return True
+# Chatbot-specific endpoint and functions removed - transcript project doesn't use bots
+# The /bot/update_word_count endpoint and update_bot_word_and_file_count/update_word_usage functions
+# have been removed as they are chatbot-specific
 
 def validate_cumulative_word_count_sync_for_celery(
     new_word_count: int,

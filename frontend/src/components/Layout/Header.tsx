@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Bell, Sun, Moon, Home, CreditCard, Settings, LogOut, HelpCircle, Contact, Headset, Plus } from "lucide-react";
+import { Bell, Sun, Moon, Home, Settings, LogOut, HelpCircle, Contact, Headset } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { NotificationDropdown } from "../notifications/NotificationDropdown";
@@ -42,9 +42,6 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    localStorage.removeItem("subscriptionPlans");
-    localStorage.removeItem("addonPlans");
-    localStorage.removeItem("userAddons");
     navigate("/login");
   };
 
@@ -77,7 +74,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
      
       <div className="flex items-center space-x-4">
         <a 
-          onClick={() => navigate("/dashboard/welcome")} 
+          onClick={() => navigate("/dashboard/transcript_welcome")} 
           className="cursor-pointer"
         >
           <img
@@ -139,36 +136,6 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
           {/* Dropdown Content */}
           {dropdownOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-200 dark:border-gray-700 z-50">
-              <button
-                onClick={() => {
-                  navigate("/dashboard/subscription");
-                  setDropdownOpen(false);
-                }}
-                className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <CreditCard
-                  color={isDark ? "white" : "black"}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                  Subscription
-                </span>
-              </button>
-              <button
-                onClick={() => {
-                  navigate("/dashboard/account/add-ons");
-                  setDropdownOpen(false);
-                }}
-                className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <Plus
-                  color={isDark ? "white" : "black"}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                  Add-ons
-                </span>
-              </button>
               <button
                 onClick={() => {
                   navigate("/dashboard/myaccount");

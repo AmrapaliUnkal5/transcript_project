@@ -1,12 +1,7 @@
-import { Box, styled, TextField, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import React from 'react';
-import Grid from '@mui/material/Grid2';
-import { Facebook, Apple } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import Hero from './Hero';
-import DashboardPreview from './DashboardPreview';
 import StartBuilding from './StartBuilding';
-import BotDataControl from './BotDataControl';
 import ExperienceAdvantage from './ExperienceAdvantage';
 import KeyBenefits from './KeyBenefits';
 import Plans from './Plans';
@@ -21,8 +16,6 @@ export default function HomePage() {
     <Box>
       <HomeHeader/>
       <Hero/>
-      <DashboardPreview/>
-      <BotDataControl/>
       <FourStage/>
       <ExperienceAdvantage/>
       <KeyBenefits/>

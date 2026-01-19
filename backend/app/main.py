@@ -1,11 +1,10 @@
 import asyncio
 import threading
-from urllib.parse import urlparse
-from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, UploadFile, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, Response, Request,File, UploadFile, HTTPException, Query
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .models import Base, Captcha, User, UserSubscription, Bot, TeamMember, UserAddon, UserAuthProvider, SubscriptionPlan, ScrapedNode,WebsiteDB
+from .models import Base, Captcha, User, TeamMember, UserAuthProvider
 from .schemas import *
 from .crud import create_user,get_user_by_email, update_user_password,update_avatar
 from fastapi.security import OAuth2PasswordBearer
@@ -22,7 +21,6 @@ from jose import JWTError, jwt
 from app.utils.email_helper import send_email
 from fastapi.responses import JSONResponse
 import logging
-from app.botsettings import router as botsettings_router
 from app.admin import init
 from app.utils.verify_password import verify_password
 from app.utils.create_access_token import create_access_token
@@ -30,46 +28,25 @@ from app.database import get_db,engine,SessionLocal
 from app.dependency import require_role,get_current_user
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.middleware import RoleBasedAccessMiddleware
-from app.dashboard_consumables import router as bot_conversations_router
 import os
 import uuid
 from fastapi.staticfiles import StaticFiles
-from app.scraper import scrape_selected_nodes, get_website_nodes, get_scraped_urls_func, get_links_from_sitemap
-from app.file_size_validations import router as file_size_validations_router
-from app.bot_creation import router as bot_creation
-from typing import List
 from captcha.image import ImageCaptcha
 import random
 import string
-from app.chatbot import router as chatbot_router
-from app.chat_interactions import router as chat_router
 from app.email_verification import router as emailverification_router
 from app.user_settings import router as usersettings_router
 from app.demo_customer_support_request import router as demo_request_router
-from app.analytics import router as analytics_router
 from app.submit_issue_request import router as submit_issue_request
-from app.word_count_validation import router as word_count_validation
-from app.total_conversations_analytics import router as weekly_Conversation
+from app.word_count_validation import router as word_count_validation_router
 from app.team_management import router as team_management_router
-from app.fetchsubscripitonplans import router as fetchsubscriptionplans_router
-from app.fetchsubscriptionaddons import router as fetchsubscriptionaddons_router
 from app.notifications import router as notifications_router, add_notification
-from app.message_count_validations import router as message_count_validations_router
-from app.zoho_subscription_router import create_fresh_user_token, router as zoho_subscription_router
-from app.zoho_sync_scheduler import initialize_scheduler
 from app.saml_auth import router as saml_auth_router
 from app.admin_routes import router as admin_routes_router
-from app.widget_botsettings import router as widget_botsettings_router
-from app.current_billing_metrics import router as billing_metrics_router
 from app.superadmin_router import router as superadmin_router
-from app.celery_app import celery_app
-from app.celery_tasks import process_web_scraping_part1
 from app.captcha_cleanup_thread import captcha_cleaner
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
-from app.investigation import router as investigation
 from app.utils.file_storage import resolve_file_url
-from app.progress import router as progress
-from app.grid_refresh_ws import router as grid_refresh_router
 from app.transcript_project import router as transcript_router
 
 # Import our custom logging components
@@ -92,13 +69,6 @@ from app.utils.exceptions import (
 # Set up logging
 setup_logging(log_level=logging.INFO)
 logger = get_module_logger(__name__)
-from app.addon_router import router as addon_router
-from app.addon_scheduler import start_addon_scheduler
-from app.features_router import router as features_router
-from app.current_billing_metrics import router as billing_metrics_router
-from app.addon_router import router as addon_router
-from app.addon_scheduler import start_addon_scheduler
-from app.features_router import router as features_router
 from app.cron import init_scheduler
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -131,68 +101,26 @@ scheduler = init_scheduler()
 def shutdown_event():
     scheduler.shutdown()
 
-# Check required environment variables
-zoho_product_id = os.getenv('ZOHO_DEFAULT_PRODUCT_ID')
-if not zoho_product_id:
-    logger.warning("ZOHO_DEFAULT_PRODUCT_ID environment variable is not set! This is required for addon synchronization with Zoho.")
-
-# Initialize Zoho sync scheduler
-# logger.info("Initializing Zoho sync scheduler")
-# initialize_scheduler()
 
 # Add the logging middleware
 app.add_middleware(LoggingMiddleware)
-
-# Mount static files directory only if it's not an S3 path
-if not settings.UPLOAD_BOT_DIR.startswith("s3://"):
-    app.mount(f"/{settings.UPLOAD_BOT_DIR}", StaticFiles(directory=settings.UPLOAD_BOT_DIR), name=settings.UPLOAD_BOT_DIR)
 
 # Mount transcript project static if local
 if not os.getenv("TRANSCRIPT_DIR_S3", "false").lower() in ("1", "true", "yes"):
     if os.path.exists("transcript_project"):
         app.mount("/transcript_project", StaticFiles(directory="transcript_project"), name="transcript_project")
-app.include_router(botsettings_router)
 app.include_router(social_login_router)
-app.include_router(bot_conversations_router)
-app.include_router(file_size_validations_router)
-app.include_router(chatbot_router)
-app.include_router(chat_router)
-app.include_router(bot_creation)
 app.include_router(emailverification_router)
 app.include_router(usersettings_router)
 app.include_router(demo_request_router)
-app.include_router(analytics_router)
 app.include_router(submit_issue_request)
-app.include_router(word_count_validation)
-app.include_router(weekly_Conversation)
+app.include_router(word_count_validation_router)
 app.include_router(team_management_router)
-app.include_router(fetchsubscriptionplans_router)
-# Add addon router with explicit logger
-logger.info("Registering subscription addons router...")
-app.include_router(fetchsubscriptionaddons_router)
 app.include_router(notifications_router)
-app.include_router(message_count_validations_router)
-app.include_router(zoho_subscription_router)
 app.include_router(saml_auth_router)
 app.include_router(admin_routes_router)
-app.include_router(widget_botsettings_router)
-app.include_router(billing_metrics_router)
-app.include_router(addon_router)
-app.include_router(features_router)
-
-# Start the add-on expiry scheduler
-start_addon_scheduler()
-app.include_router(billing_metrics_router)
-app.include_router(addon_router)
-app.include_router(features_router)
-app.include_router(investigation)
-app.include_router(progress)
-app.include_router(grid_refresh_router)
 app.include_router(superadmin_router)
 app.include_router(transcript_router)
-
-# Start the add-on expiry scheduler
-start_addon_scheduler()
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 120
  
@@ -286,16 +214,6 @@ async def extend_token_expiration(request: Request, call_next):
 # For OAuth2 Password Bearer (for login)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-@app.websocket("/ws/bot-status/{bot_id}")
-async def websocket_endpoint(websocket: WebSocket, bot_id: int):
-    await websocket.accept()
-    try:
-        while True:
-            # simulate backend pushing status
-            await websocket.send_text(f"Bot {bot_id} is {Bot.status}")
-            await asyncio.sleep(3)
-    except WebSocketDisconnect:
-        print(f"Client disconnected from bot {bot_id}")
 
 # Register API
 @app.post("/register", response_model=RegisterResponse)
@@ -376,61 +294,22 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     is_team_member = team_member_entry is not None
     owner_id = team_member_entry.owner_id if team_member_entry else None
 
-    subscription_user_id = owner_id if is_team_member else db_user.user_id
+    user_id = owner_id if is_team_member else db_user.user_id
     member_id = db_user.user_id if is_team_member else None
-
-    # Step 1: Try to find an active subscription
-    user_subscription = db.query(UserSubscription).filter(
-        UserSubscription.user_id == subscription_user_id,
-        UserSubscription.status == 'active'
-    ).order_by(UserSubscription.payment_date.desc()).first()
-
-    # Step 2: If no active one, get the latest one regardless of status
-    if not user_subscription:
-        user_subscription = db.query(UserSubscription).filter(
-            UserSubscription.user_id == subscription_user_id,
-            UserSubscription.status != 'pending'
-        ).order_by(UserSubscription.payment_date.desc()).first()
-
-
-    logger.debug("User subscription: %s", user_subscription)
-    if user_subscription:
-        logger.debug("User subscription plan ID: %s", user_subscription.subscription_plan_id)
-
-    # Get message addon (ID 5) details if exists
-    message_addon = db.query(UserAddon).filter(
-        UserAddon.user_id == subscription_user_id,
-        UserAddon.addon_id == 5,
-        UserAddon.is_active == True
-    ).order_by(UserAddon.expiry_date.desc()).first()
-
-    # If no active subscription exists, set default subscription ID to 1
-    subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
     
     logger.info(f"User {db_user.email} authenticated successfully")
-
-    user_addons = db.query(UserAddon).filter(
-        UserAddon.user_id == subscription_user_id,
-        UserAddon.status == "active"  
-    ).all()
-    
-    addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
    
     # Create a token for the user
-    token_data = {"sub": db_user.email,
-                  "role":db_user.role, 
-                  "user_id": subscription_user_id,
-                  "name": db_user.name,  
-                  "company_name": db_user.company_name,  
-                  "phone_no": db_user.phone_no,
-                  "subscription_plan_id": subscription_plan_id,
-                  "total_words_used":db_user.total_words_used,
-                  "is_team_member": is_team_member,
-                   "member_id": member_id,
-                  "addon_plan_ids": addon_plan_ids,
-                  "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
-                  "subscription_status": user_subscription.status if user_subscription else "new",
-                  }
+    token_data = {
+        "sub": db_user.email,
+        "role": db_user.role, 
+        "user_id": user_id,
+        "name": db_user.name,  
+        "company_name": db_user.company_name,  
+        "phone_no": db_user.phone_no,
+        "is_team_member": is_team_member,
+        "member_id": member_id,
+    }
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     
     # Return token and user info
@@ -442,16 +321,11 @@ def login(login_request: LoginRequest, db: Session = Depends(get_db)):
             "name": db_user.name,
             "role": db_user.role,
             "company_name": db_user.company_name,
-            "user_id":subscription_user_id,
-            "avatar_url":resolve_file_url(db_user.avatar_url) ,
-            "phone_no":db_user.phone_no,
-            "subscription_plan_id":subscription_plan_id,
-            "total_words_used":db_user.total_words_used,
+            "user_id": user_id,
+            "avatar_url": resolve_file_url(db_user.avatar_url),
+            "phone_no": db_user.phone_no,
             "is_team_member": is_team_member,
             "member_id": member_id,
-            "addon_plan_ids": addon_plan_ids,
-            "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
-            "subscription_status": user_subscription.status if user_subscription else "new",
         }
     }
 
@@ -475,60 +349,24 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
     is_team_member = team_member_entry is not None
     owner_id = team_member_entry.owner_id if team_member_entry else None
 
-    # ✅ If team member → use owner's subscription
-    subscription_user_id = owner_id if is_team_member else db_user.user_id
+    # ✅ If team member → use owner's user_id
+    user_id = owner_id if is_team_member else db_user.user_id
     member_id = db_user.user_id if is_team_member else None
-
-    # Step 1: Try to find an active subscription
-    user_subscription = db.query(UserSubscription).filter(
-        UserSubscription.user_id == subscription_user_id,
-        UserSubscription.status == 'active'
-    ).order_by(UserSubscription.payment_date.desc()).first()
-
-    # Step 2: If no active one, get the latest one regardless of status
-    if not user_subscription:
-        user_subscription = db.query(UserSubscription).filter(
-            UserSubscription.user_id == subscription_user_id,
-            UserSubscription.status != 'pending'
-        ).order_by(UserSubscription.payment_date.desc()).first()
-
-    
-    # Get subscription plan ID if available
-    subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
-    
-    # Get list of addon plan IDs and message addon
-    user_addons = db.query(UserAddon).filter(
-        UserAddon.user_id == subscription_user_id,
-        UserAddon.status == "active"
-    ).all()
-    
-    addon_plan_ids = [ua.addon_id for ua in user_addons] if user_addons else []
-    
-    # Get message addon (ID 5) details if exists
-    message_addon = db.query(UserAddon).filter(
-        UserAddon.user_id == subscription_user_id,
-        UserAddon.addon_id == 5,
-        UserAddon.is_active == True
-    ).order_by(UserAddon.expiry_date.desc()).first()
 
     avatar_url = resolve_file_url(db_user.avatar_url)
     
     # Generate a fresh token with updated user information
-    token_data = {"sub": db_user.email,
-                 "role": db_user.role, 
-                 "user_id": subscription_user_id,
-                 "name": db_user.name,  
-                 "company_name": db_user.company_name,  
-                 "phone_no": db_user.phone_no,
-                 "subscription_plan_id": subscription_plan_id,
-                 "total_words_used": db_user.total_words_used,
-                 "is_team_member": is_team_member,
-                 "member_id": member_id,
-                 "addon_plan_ids": addon_plan_ids,
-                 "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
-                 "subscription_status": user_subscription.status if user_subscription else "new",
-                 "avatar_url": avatar_url,
-                }
+    token_data = {
+        "sub": db_user.email,
+        "role": db_user.role, 
+        "user_id": user_id,
+        "name": db_user.name,  
+        "company_name": db_user.company_name,  
+        "phone_no": db_user.phone_no,
+        "is_team_member": is_team_member,
+        "member_id": member_id,
+        "avatar_url": avatar_url,
+    }
     
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     
@@ -540,71 +378,14 @@ def get_account_info(email: str, db: Session = Depends(get_db)):
             "role": db_user.role,
             "company_name": db_user.company_name,
             "name": db_user.name,
-            "user_id": subscription_user_id,
+            "user_id": user_id,
             "phone_no": db_user.phone_no,
             "communication_email": db_user.communication_email,
-            "total_words_used": db_user.total_words_used,
-            "subscription_plan_id": subscription_plan_id,
             "is_team_member": is_team_member,
             "member_id": member_id,
-            "addon_plan_ids": addon_plan_ids,
-            "message_addon_expiry": message_addon.expiry_date.isoformat() if message_addon and message_addon.expiry_date else 'Not Available',
-            "subscription_status": user_subscription.status if user_subscription else "new",
-             "avatar_url": avatar_url,
-
+            "avatar_url": avatar_url,
         }
     }
-
-
-# Add endpoint to get current plan for a user (for frontend compatibility)
-@app.get("/subscription/user/{user_id}/current")
-def get_current_plan(
-    user_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Get current subscription plan for a user (frontend compatibility endpoint)"""
-    try:
-        # Verify that the requested user_id matches the current user or is admin
-        requester_id = current_user.get("user_id")
-        is_admin = current_user.get("role") == "admin"
-            
-        if requester_id != user_id and not is_admin:
-            raise HTTPException(status_code=403, detail="Not authorized to view this user's subscription")
-            
-        # Get the latest active subscription for the user
-        subscription = db.query(UserSubscription).filter(
-            UserSubscription.user_id == user_id,
-            UserSubscription.status == "active"
-        ).order_by(UserSubscription.payment_date.desc()).first()
-        
-        if not subscription:
-            return {"plan": None, "zoho_subscription_id": None}
-            
-        # Get the associated plan
-        plan = db.query(SubscriptionPlan).filter(
-            SubscriptionPlan.id == subscription.subscription_plan_id
-        ).first()
-        
-        plan_data = None
-        if plan:
-            plan_data = {
-                "id": plan.id,
-                "name": plan.name,
-                "price": plan.price,
-                "billing_period": plan.billing_period
-            }
-            
-        return {
-            "plan": plan_data,
-            "zoho_subscription_id": subscription.zoho_subscription_id
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting current plan: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error getting current plan: {str(e)}")
 
 
 # Route for password reset
@@ -714,41 +495,7 @@ def login_for_access_token(
 
     logger.info("User authenticated successfully!")
 
-    # Step 1: Try to find an active subscription
-    user_subscription = db.query(UserSubscription).filter(
-        UserSubscription.user_id == user.user_id,
-        UserSubscription.status == 'active'
-    ).order_by(UserSubscription.payment_date.desc()).first()
-
-    # Step 2: If no active one, get the latest one regardless of status
-    if not user_subscription:
-        user_subscription = db.query(UserSubscription).filter(
-            UserSubscription.user_id == user.user_id,
-            UserSubscription.status != 'pending'
-        ).order_by(UserSubscription.payment_date.desc()).first()
-
-
-    logger.info(f"User subscription: {user_subscription}")
-    logger.info(f"User subscription plan ID: {user_subscription.subscription_plan_id}")
-    
-    subscription_plan_id = user_subscription.subscription_plan_id if user_subscription else 1
-
-    user_addons = db.query(UserAddon).filter(
-        UserAddon.user_id == user.user_id,
-        UserAddon.status == "active"  
-    ).all()
-
-    # Get message addon (ID 5) details if exists
-    message_addon = db.query(UserAddon).filter(
-    UserAddon.user_id == user.user_id,
-    UserAddon.addon_id == 5,
-    UserAddon.is_active == True
-    ).order_by(UserAddon.expiry_date.desc()).first()
-    
-    addon_plan_ids = [addon.addon_id for addon in user_addons] if user_addons else []
-
-    #avatar_url = db.avatar_url
-    avatar_url = resolve_file_url(user.avatar_url),
+    avatar_url = resolve_file_url(user.avatar_url)
 
     access_token = create_access_token(data={
         "sub": user.email,
@@ -757,11 +504,6 @@ def login_for_access_token(
         "name": user.name,
         "company_name": user.company_name, 
         "phone_no": user.phone_no,
-        "subscription_plan_id": subscription_plan_id,
-        "total_words_used":user.total_words_used,
-        "addon_plan_ids": addon_plan_ids,
-        "subscription_status": user_subscription.status if user_subscription else "new",
-        "message_addon_expiry": message_addon.expiry_date if message_addon else 'Not Available',
         "avatar_url": avatar_url,
     })
     return {"access_token": access_token, "token_type": "bearer"}
@@ -821,45 +563,6 @@ async def update_avatar_endpoint(request: UpdateAvatarRequest, db: Session = Dep
     return {"message": "Avatar updated successfully", "user": updated_user}
 
 
-@app.post("/scrape")
-def scrape_endpoint(request: ScrapeRequest ,db: Session = Depends(get_db)):
-    """
-    Scrapes only the selected nodes provided by the user using the hybrid approach.
-    """
-    data = scrape_selected_nodes(request.selected_nodes,request.bot_id, db)
-    return {"message": "Scraping completed", "data": data}
-
-@app.get("/get_nodes")
-def get_nodes(website_url: str = Query(..., title="Website URL")):
-    """
-    API to get a list of all available pages (nodes) from a website.
-    """
-    return get_website_nodes(website_url)
-
-@app.get("/sitemap-nodes", response_model=List[str])
-async def fetch_sitemap_nodes(website_url: str = Query(..., alias="website_url")):
-    try:
-        homepage_nodes_result = get_website_nodes(website_url)
-        homepage_nodes = homepage_nodes_result.get("nodes", [])
-
-        sitemap_nodes = get_links_from_sitemap(website_url)
-
-        all_links = set(homepage_nodes + sitemap_nodes)
-        print(f"[INFO] Combined Total Before Validation: {len(all_links)}")
-
-        return all_links
-
-    except Exception as e:
-        print(f"[ERROR] Deep scan failed for {website_url} - {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/scraped-urls/{bot_id}", response_model=List[PageData])
-def get_scraped_urls(bot_id: int, db: Session = Depends(get_db)):
-    """
-    Fetch all scraped URLs for a specific bot_id.
-    """
-    return get_scraped_urls_func(bot_id,db)
 
 # Store captcha values (for demo purposes; use a database in production)
 captcha_store = {}
@@ -938,170 +641,32 @@ async def validate_captcha(
     
     return {"valid": True, "message": "CAPTCHA validated"}
 
-@app.get("/task/{task_id}", response_model=dict)
-def check_task_status(task_id: str):
-    """API endpoint to check the status of a Celery task."""
-    logger.info(f"Checking status of task {task_id}")
-    
-    try:
-        task = celery_app.AsyncResult(task_id)
-        
-        result = {
-            "task_id": task_id,
-            "status": task.status,
-            "done": task.ready()
-        }
-        
-        # If task is complete, add the result
-        if task.ready():
-            if task.successful():
-                result["result"] = task.result
-            else:
-                result["error"] = str(task.result)
-        
-        logger.info(f"Task {task_id} status: {task.status}")
-        return result
-    except Exception as e:
-        logger.exception(f"Error checking task status: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error checking task status: {str(e)}")
-
-@app.post("/scrape-async")
-def scrape_async_endpoint(request: WebScrapingRequest, db: Session = Depends(get_db),  current_user: dict = Depends(get_current_user)):
-    """
-    API endpoint to start asynchronous web scraping using Celery.
-    
-    Accepts a list of URLs to scrape and sends a notification when complete.
-    """
-    try:
-        logger.info(f"[SCRAPE-ASYNC] Received request with params: bot_id={request.bot_id}, urls_count={len(request.selected_nodes)}")
-        logger.debug(f"[SCRAPE-ASYNC] Full request data: {request.dict()}")
-        
-        # Validate bot exists
-        logger.info(f"[SCRAPE-ASYNC] Validating bot with ID {request.bot_id}")
-        bot = db.query(Bot).filter(Bot.bot_id == request.bot_id).first()
-        if not bot:
-            logger.error(f"[SCRAPE-ASYNC] Bot with ID {request.bot_id} not found in database")
-            raise HTTPException(status_code=404, detail=f"Bot with ID {request.bot_id} not found")
-        
-        logger.info(f"[SCRAPE-ASYNC] Bot found, user_id={bot.user_id}")
-
-        # Determine who to credit for the action (team member or regular user)
-        if current_user.get("is_team_member") and current_user.get("member_id"):
-            action_user_id = current_user["member_id"]
-            logger.info(f"👥 DEBUG: Team member scraping - member_id: {action_user_id}")
-        else:
-            action_user_id = current_user["user_id"]
-            logger.info(f"👤 DEBUG: Regular user scraping - user_id: {action_user_id}")
-
-        # PHASE 1: Save URLs immediately
-        inserted = 0
-        skipped = 0
-        new_urls = []
-        new_domains = set()  # Track new domains to insert into WebsiteDB
-        for url in request.selected_nodes:
-            existing_node = db.query(ScrapedNode).filter(
-                ScrapedNode.url == url,
-                ScrapedNode.bot_id == request.bot_id,
-                ScrapedNode.is_deleted == False
-            ).first()
-            
-            if existing_node:
-                skipped += 1
-                continue
-
-            # --- Extract domain from URL ---
-            parsed_url = urlparse(url)
-            domain = parsed_url.netloc.lower()
-
-            # --- Check if domain already exists in WebsiteDB ---
-            website = db.query(WebsiteDB).filter_by(
-                domain=domain,
-                bot_id=request.bot_id,
-                is_deleted=False
-            ).first()
-
-            if not website:
-                website = WebsiteDB(
-                    domain=domain,
-                    bot_id=request.bot_id
-                )
-                db.add(website)
-                db.flush()  # Get ID without committing
-                logger.info(f"[SCRAPE-ASYNC] Added new website domain: {domain}")
-                new_domains.add(domain)
-
-            node = ScrapedNode(
-                url=url,
-                bot_id=request.bot_id,
-                status="Extracting",
-                created_by=action_user_id,
-                updated_by=action_user_id,
-                website_id=website.id,
-            )
-            db.add(node)
-            inserted += 1
-            new_urls.append(url)
-
-        db.commit()
-        logger.info(f"[SCRAPE-ASYNC] Inserted {inserted} new nodes, skipped {skipped} existing ones")
-        
-        # Start Celery task
-        logger.info(f"[SCRAPE-ASYNC] Attempting to start Celery task with {len(request.selected_nodes)} URLs")
-        if new_urls:
-            try:
-                task = process_web_scraping_part1.delay(request.bot_id, request.selected_nodes, action_user_id)
-                logger.info(f"[SCRAPE-ASYNC] Celery task started successfully with task_id={task.id}")
-            except Exception as celery_err:
-                logger.exception(f"[SCRAPE-ASYNC] Failed to start Celery task: {str(celery_err)}")
-                raise HTTPException(status_code=500, detail=f"Failed to start Celery task: {str(celery_err)}")
-            
-        else:
-            logger.info(f"[SCRAPE-ASYNC] No new URLs to send to Celery.")            
-        
-        # Create initial notification
-        logger.info(f"[SCRAPE-ASYNC] Creating notification for bot_id={request.bot_id}, user_id={bot.user_id}")
-        try:
-            add_notification(
-                db=db,
-                event_type="WEB_SCRAPING_STARTED",
-                event_data=f"Started scraping {len(request.selected_nodes)} web pages. You will be notified when complete.",
-                bot_id=request.bot_id,
-                user_id=bot.user_id
-            )
-            logger.info(f"[SCRAPE-ASYNC] Notification created successfully")
-        except Exception as notification_err:
-            logger.exception(f"[SCRAPE-ASYNC] Failed to create notification: {str(notification_err)}")
-            # Continue even if notification fails
-        
-        logger.info(f"[SCRAPE-ASYNC] Request processed successfully for bot {request.bot_id}")
-        
-        # Return success message
-        return {
-            "message": "Web scraping started in the background. You will be notified when complete.",
-            "status": "processing",
-            "task_id": task.id if inserted > 0 else None,
-            "inserted": inserted,
-            "skipped": skipped,
-        }
-        
-    except HTTPException as he:
-        # Re-raise HTTP exceptions
-        logger.error(f"[SCRAPE-ASYNC] HTTP error: {str(he)}")
-        raise
-    except Exception as e:
-        logger.exception(f"[SCRAPE-ASYNC] Unhandled exception: {str(e)}")
-        # Log the stack trace
-        import traceback
-        logger.error(f"[SCRAPE-ASYNC] Stack trace: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Error starting web scraping: {str(e)}")
 
 class TokenResponse(BaseModel):
     access_token: str
 
 @app.get("/auth/refresh-token", response_model=TokenResponse)
-def refresh_token(request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def refresh_token(request: Request, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """
-    Returns a fresh access token with updated subscription and addon details.
+    Returns a fresh access token with updated user details.
     """
-    new_token = create_fresh_user_token(db, current_user.get("user_id"))
+    user_id = current_user.get("user_id")
+    user = db.query(User).filter(User.user_id == user_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    avatar_url = resolve_file_url(user.avatar_url)
+    
+    token_data = {
+        "sub": user.email,
+        "role": user.role,
+        "user_id": user.user_id,
+        "name": user.name,
+        "company_name": user.company_name,
+        "phone_no": user.phone_no,
+        "avatar_url": avatar_url,
+    }
+    
+    new_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     return {"access_token": new_token}
