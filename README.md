@@ -1,24 +1,48 @@
-# 🤖 Chatbot
-**Optimized Pluggable Chatbot Solution**
+# 🎙️ Transcript Project
 
-## Project Structure
-This project is a comprehensive chatbot application divided into two core components:
+**AI-Powered Medical Transcript Management System**
+
+A comprehensive platform for managing, transcribing, and analyzing medical/clinical transcripts with intelligent document processing, AI-powered summarization, and semantic search capabilities.
+
+## 📋 Project Overview
+
+This project provides a complete solution for managing transcript records, including:
+- **Audio Transcription**: Convert audio files to text using AssemblyAI and OpenAI Whisper
+- **Document Processing**: Extract text from PDFs, DOCX files, and images (with OCR)
+- **AI Summarization**: Generate intelligent summaries of transcripts
+- **Field Extraction**: Automatically extract structured data fields from transcripts
+- **Semantic Search**: Search transcripts using vector embeddings and RAG (Retrieval-Augmented Generation)
+- **Patient Management**: Organize transcripts by patient with grouping and filtering capabilities
+
+## 🏗️ Project Structure
+
+This project consists of two core components:
 * **Frontend**: React TypeScript application built with Vite
-* **Backend**: FastAPI-powered API service with ChromaDB & OpenAI GPT
+* **Backend**: FastAPI-powered API service with PostgreSQL, Qdrant/ChromaDB & OpenAI
 
 ### Directory Layout
 ```
-Chatbot/
+Transcript/
 ├── backend/
-│   ├── app/           # Main application code
-│   ├── venv/          # Virtual environment
-│   ├── .env           # Environment configuration
-│   └── requirements.txt # Python dependencies
+│   ├── app/                    # Main application code
+│   │   ├── transcript_project.py  # Core transcript functionality
+│   │   ├── vector_db.py        # Vector database operations
+│   │   ├── llm_manager.py       # LLM integration
+│   │   └── models.py            # Database models
+│   ├── venv/                   # Virtual environment
+│   ├── .env                    # Environment configuration
+│   ├── requirements.txt        # Python dependencies
+│   └── transcript_project/     # Uploaded transcript files
 ├── frontend/
-│   ├── src/           # Source code
-│   ├── public/        # Public assets
-│   ├── vite.config.ts # Vite configuration
-│   └── package.json   # Node.js dependencies
+│   ├── src/                    # Source code
+│   │   ├── pages/              # React pages
+│   │   │   ├── TranscriptUpload.tsx
+│   │   │   └── TranscriptWelcome.tsx
+│   │   └── services/           # API services
+│   ├── public/                 # Public assets
+│   ├── vite.config.ts          # Vite configuration
+│   └── package.json            # Node.js dependencies
+└── README.md                   # This file
 ```
 
 ## 🚀 Project Setup
@@ -29,78 +53,95 @@ Chatbot/
 * Python 3.8+
 * pip
 * Virtual environment support
+* PostgreSQL database
 * **System dependencies**:
-  * `ffmpeg` (Required for YouTube video processing)
-  * `playwright` (Required for web scraping)
-  * `redis` (Required for background processing)
-  * `tesseract-ocr` (Required for image text extraction)
+  * `tesseract-ocr` (Required for image text extraction/OCR)
+  * `ffmpeg` (Optional, for audio processing)
 
 #### Installation Steps
-1. Navigate to backend directory
+
+1. **Navigate to backend directory**
    ```bash
    cd backend
    ```
 
-2. Install **system dependencies**
+2. **Install system dependencies**
    * **Ubuntu/Debian**:
      ```bash
-     sudo apt update && sudo apt install -y ffmpeg redis-server tesseract-ocr
+     sudo apt update && sudo apt install -y tesseract-ocr ffmpeg
      ```
    * **macOS (Homebrew)**:
      ```bash
-     brew install ffmpeg redis tesseract
+     brew install tesseract ffmpeg
      ```
    * **Windows**:
-     1. Download ffmpeg
-     2. Extract and **add** `ffmpeg/bin` to your system `PATH`
-     3. Download and install Redis for Windows from https://github.com/tporadowski/redis/releases
-     4. Download and install Tesseract from https://github.com/UB-Mannheim/tesseract/wiki
-     5. Add Tesseract installation directory to your system `PATH`
-     6. Verify installation:
+     1. Download and install Tesseract from https://github.com/UB-Mannheim/tesseract/wiki
+     2. Add Tesseract installation directory to your system `PATH`
+     3. Download ffmpeg and add `ffmpeg/bin` to your system `PATH`
+     4. Verify installation:
         ```bash
-        ffmpeg -version
-        redis-cli --version
-        tesseract --version
-        ```
+         tesseract --version
+         ffmpeg -version
+         ```
 
-3. Create virtual environment
+3. **Create virtual environment**
    ```bash
    python3 -m venv venv
    ```
 
-4. Activate virtual environment
+4. **Activate virtual environment**
    * **macOS/Linux**: `source venv/bin/activate`
    * **Windows**: `venv\Scripts\activate`
 
-5. Install dependencies
+5. **Install Python dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-6. Install `playwright` dependencies
-   ```bash
-   playwright install
-   ```
-
-7. Configure Environment
-   Create a `.env` file with:
-   ```
-   OPENAI_API_KEY=your-openai-api-key
+6. **Configure Environment**
+   Create a `.env` file in the `backend` directory with:
+   ```env
+   # Database
    DATABASE_URL=postgresql://username:password@localhost/dbname
-   CHROMADB_PATH=/path/to/chromadb
+   
+   # OpenAI API (for transcription, summarization, and embeddings)
+   OPENAI_API_KEY=your-openai-api-key
+   
+   # Vector Database (Optional - defaults to ChromaDB if not set)
+   QDRANT_URL=http://localhost:6333
+   QDRANT_API_KEY=your-qdrant-api-key
+   
+   # File Storage (Optional - defaults to local storage)
+   AWS_ACCESS_KEY_ID=your-aws-access-key
+   AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+   AWS_S3_BUCKET=your-bucket-name
+   AWS_REGION=us-east-1
+   
+   # AssemblyAI (for audio transcription)
+   ASSEMBLYAI_API_KEY=your-assemblyai-api-key
+   
+   # Application Settings
+   SECRET_KEY=your-secret-key-for-jwt
+   ALGORITHM=HS256
    ```
 
-8. Run Backend Server
+7. **Initialize Database**
+   ```bash
+   # Run database migrations (if using Alembic)
+   # Or create tables manually using SQLAlchemy models
+   ```
+
+8. **Run Backend Server**
    ```bash
    uvicorn app.main:app --reload
    ```
 
 #### Troubleshooting
-* **Import Error**: Ensure you're in the backend directory
-* **Module Not Found**: Verify PYTHONPATH and project structure
-* `ffmpeg` Not Found:
-  * Install `ffmpeg` using commands above
-* **Playwright Issues**: Run `playwright install` again
+* **Import Error**: Ensure you're in the backend directory and virtual environment is activated
+* **Module Not Found**: Verify all dependencies are installed: `pip install -r requirements.txt`
+* **Database Connection**: Verify `.env` credentials and ensure PostgreSQL is running
+* **Tesseract OCR Error**: Install tesseract-ocr and verify with `tesseract --version`
+* **Vector Database**: Ensure Qdrant is running (if using) or ChromaDB path is accessible
 
 ### Frontend Setup
 
@@ -109,27 +150,31 @@ Chatbot/
 * npm
 
 #### Installation Steps
-1. Navigate to frontend directory
+
+1. **Navigate to frontend directory**
    ```bash
    cd frontend
    ```
 
-2. Install dependencies
+2. **Install dependencies**
    ```bash
    npm install
    ```
 
-3. Development Server
+3. **Configure API endpoint** (if needed)
+   Update the API base URL in `src/services/api.ts` if your backend runs on a different port.
+
+4. **Development Server**
    ```bash
    npm run dev
    ```
 
-4. Production Build
+5. **Production Build**
    ```bash
    npm run build
    ```
 
-5. Preview Production Build
+6. **Preview Production Build**
    ```bash
    npm run preview
    ```
@@ -137,226 +182,191 @@ Chatbot/
 ## 🔗 URLs
 * **Frontend**: http://localhost:5173
 * **Backend API**: http://localhost:8000
-* **Flower Dashboard**: http://localhost:5555 (for monitoring async tasks)
+* **API Documentation**: http://localhost:8000/docs (Swagger UI)
 
-## 🛠 Common Issues & Solutions
+## 🎯 Core Features
+
+### 1. Transcript Record Management
+- Create and manage transcript records with patient information
+- Store patient details: ID, medical clinic, age, bed number, phone number, visit date
+- Track multiple transcripts per patient
+
+### 2. Audio Transcription
+- Upload audio files (MP3, WAV, M4A, etc.)
+- Automatic transcription using:
+  - **Primary**: AssemblyAI API (high accuracy)
+  - **Fallback**: OpenAI Whisper API
+- Support for various audio formats and quality levels
+
+### 3. Document Processing
+- **PDF Processing**: Extract text from PDF documents
+- **DOCX/DOC Processing**: Extract text from Word documents
+- **Image OCR**: Extract text from images using Tesseract OCR
+- **CSV Processing**: Handle CSV files with pandas
+- Automatic text extraction and storage
+
+### 4. AI-Powered Features
+- **Transcript Summarization**: Generate intelligent summaries using LLM
+- **Field Extraction**: Automatically extract structured fields (e.g., diagnosis, medications, symptoms)
+- **Semantic Search**: Search transcripts using vector embeddings
+- **Context-Aware Retrieval**: RAG-based retrieval for relevant transcript sections
+
+### 5. Vector Database Integration
+- **Primary**: Qdrant vector database with scalar quantization
+- **Fallback**: ChromaDB for compatibility
+- Store transcript embeddings for semantic search
+- Patient-specific and user-specific data isolation
+
+### 6. Patient Grouping & Search
+- Group transcripts by patient ID
+- Search transcripts by patient
+- Retrieve context from multiple transcripts for the same patient
+- Filter and organize records efficiently
+
+## 🛠️ API Endpoints
+
+### Transcript Records
+- `POST /transcript/records` - Create a new transcript record
+- `GET /transcript/records` - List all transcript records
+- `GET /transcript/records/{record_id}` - Get a specific record
+- `PUT /transcript/records/{record_id}` - Update a record
+- `DELETE /transcript/records/{record_id}` - Delete a record
+
+### Audio & Transcription
+- `POST /transcript/records/{record_id}/audio` - Upload audio file
+- `POST /transcript/records/{record_id}/transcribe` - Transcribe audio
+
+### Documents
+- `POST /transcript/records/{record_id}/document` - Upload document (PDF, DOCX, image)
+- `PUT /transcript/records/{record_id}/transcript` - Update transcript text
+
+### AI Features
+- `POST /transcript/records/{record_id}/summarize` - Generate summary
+- `POST /transcript/records/{record_id}/generate-fields` - Extract structured fields
+- `POST /transcript/records/{record_id}/query` - Query transcript with RAG
+
+### Patient Search
+- `GET /transcript/patients/{p_id}/records` - Get all records for a patient
+- `POST /transcript/patients/{p_id}/query` - Query patient's transcripts
+
+## 🔧 Technical Stack
 
 ### Backend
-* **Database Connection**:
-  * Verify `.env` credentials
-  * Ensure database server is running
-* **ChromaDB Storage Issue**:
-  * Check `CHROMADB_PATH` in `.env`
-* `ffmpeg` Not Found:
-  * Install `ffmpeg` using commands above
-* **Redis Connection Error**:
-  * Ensure Redis server is running
-* **Tesseract OCR Error** ("tesseract is not installed or it's not in your PATH"):
-  * Install tesseract-ocr using the commands above
-  * Verify with `tesseract --version`
-  * For Windows, ensure Tesseract is in your PATH
+- **Framework**: FastAPI with async support
+- **Database**: PostgreSQL with SQLAlchemy ORM
+- **Vector Database**: Qdrant (primary) + ChromaDB (fallback)
+- **AI/ML**: 
+  - OpenAI API (GPT models, Whisper, embeddings)
+  - AssemblyAI (audio transcription)
+  - LangChain (embeddings and vector stores)
+- **File Processing**: 
+  - PyMuPDF (PDF)
+  - python-docx, docx2txt (Word documents)
+  - Tesseract OCR (image text extraction)
+  - Pillow (image processing)
 
 ### Frontend
-* **API Data Fetching**:
-  * Check backend server URL configuration
-* **CORS Errors**:
-  * Add CORS middleware to FastAPI
+- **Framework**: React with TypeScript
+- **Build Tool**: Vite
+- **Styling**: Modern CSS/Tailwind CSS
+- **HTTP Client**: Axios
 
-## 🚀 Asynchronous Processing System
+## 📦 Key Dependencies
 
-The chatbot application uses Celery for background processing of resource-intensive tasks. This approach provides immediate feedback to users while handling time-consuming operations in the background.
+### Backend (`requirements.txt`)
+- `fastapi` - Web framework
+- `uvicorn` - ASGI server
+- `sqlalchemy` - ORM
+- `psycopg2-binary` - PostgreSQL adapter
+- `openai` - OpenAI API client
+- `langchain-openai` - LangChain OpenAI integrations
+- `langchain-community` - LangChain community integrations
+- `qdrant-client` - Qdrant vector database client
+- `chromadb` - ChromaDB vector database
+- `pymupdf` - PDF processing
+- `pytesseract` - OCR
+- `python-docx` - DOCX processing
+- `pandas` - Data processing
 
-### Supported Async Tasks
+### Frontend (`package.json`)
+- `react` - UI library
+- `typescript` - Type safety
+- `vite` - Build tool
+- `axios` - HTTP client
 
-1. **YouTube Video Processing**
-   - Extracts transcripts from YouTube videos using Apify API
-   - Processes and stores them in ChromaDB for search
-   - Sends notifications on completion
+## 🔐 Security & Authentication
 
-2. **File Upload Processing**
-   - Processes document uploads in the background
-   - Extracts text and stores in vector database
-   - Updates users via notifications
+- JWT-based authentication
+- User-specific data isolation
+- Role-based access control (e.g., `transcript_access` role)
+- Secure file storage (local or S3)
+- Environment variable configuration for sensitive data
 
-3. **Web Scraping**
-   - Scrapes website content asynchronously
-   - Processes HTML content into usable knowledge
-   - Supports multiple URLs in a single request
+## 📝 Environment Variables
 
-### Key Features
+See `backend/env.sample` for a complete list of environment variables.
 
-- **Immediate Response**: Users receive instant confirmation when operations are initiated
-- **Background Processing**: Tasks run asynchronously without blocking the interface
-- **Status Tracking**: Each task has defined states (pending, processing, completed, failed)
-- **Notification System**: Users are informed about task progress and completion
-- **Error Handling**: Robust error management with automatic retries
-- **Monitoring**: Flower dashboard for task monitoring and management
+Key variables:
+- `DATABASE_URL` - PostgreSQL connection string
+- `OPENAI_API_KEY` - OpenAI API key
+- `ASSEMBLYAI_API_KEY` - AssemblyAI API key (for transcription)
+- `QDRANT_URL` - Qdrant server URL (optional)
+- `SECRET_KEY` - JWT secret key
 
-## 🔧 Celery, Redis and Flower Setup
+## 🚨 Common Issues & Solutions
 
-Celery is used for task queuing, Redis as the message broker, and Flower for monitoring.
+### Backend
+* **Database Connection Error**:
+  * Verify `.env` credentials
+  * Ensure PostgreSQL server is running
+  * Check database exists and user has permissions
 
-### Ubuntu Setup (Using Scripts)
+* **Transcription Fails**:
+  * Verify AssemblyAI API key is set
+  * Check OpenAI API key for fallback
+  * Ensure audio file format is supported
 
-The project includes ready-to-use scripts for Ubuntu in the `backend/scripts` directory:
+* **OCR Not Working**:
+  * Install tesseract-ocr: `sudo apt install tesseract-ocr` (Linux) or `brew install tesseract` (macOS)
+  * Verify installation: `tesseract --version`
+  * For Windows, ensure Tesseract is in PATH
 
-1. **Complete Setup**
-   ```bash
-   cd backend
-   ./scripts/setup.sh
-   ```
-   This installs Redis, configures the environment, and prepares the system.
+* **Vector Database Error**:
+  * Check Qdrant is running (if using): `curl http://localhost:6333/health`
+  * Verify ChromaDB path is writable
+  * Check embeddings are being generated correctly
 
-2. **Start Individual Components**
-   ```bash
-   # Start Redis
-   ./scripts/run_redis.sh start
+### Frontend
+* **API Connection Error**:
+  * Verify backend server is running on correct port
+  * Check CORS settings in backend
+  * Verify API base URL in `src/services/api.ts`
 
-   # Start Celery Worker
-   ./scripts/run_celery.sh
+* **Build Errors**:
+  * Clear node_modules and reinstall: `rm -rf node_modules && npm install`
+  * Check Node.js version: `node --version` (should be 16+)
 
-   # Start Flower Dashboard
-   ./scripts/run_flower.sh
-   ```
+## 📚 Additional Documentation
 
-3. **Stop Redis**
-   ```bash
-   ./scripts/run_redis.sh stop
-   ```
+- `CORE_FEATURES_README.md` - Detailed feature documentation
+- `backend/docs/` - Backend-specific documentation
+- API Documentation: http://localhost:8000/docs (when server is running)
 
-4. **Check Redis Status**
-   ```bash
-   ./scripts/run_redis.sh status
-   ```
+## 🤝 Contributing
 
-### Manual Setup (macOS)
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
 
-1. **Install Redis**
-   ```bash
-   brew install redis
-   ```
+## 📄 License
 
-2. **Start Redis**
-   ```bash
-   brew services start redis
-   ```
+[Add your license information here]
 
-3. **Start Celery Worker**
-   ```bash
-   cd backend
-   source venv/bin/activate
-   celery -A app.celery_app worker --loglevel=info --concurrency=2
-   ```
+## 💡 Notes
 
-4. **Start Flower Dashboard**
-   ```bash
-   celery -A app.celery_app flower --port=5555
-   ```
-
-### Manual Setup (Windows)
-
-1. **Install Redis**
-   - Download Redis for Windows from https://github.com/tporadowski/redis/releases
-
-2. **Start Celery Worker**
-   ```bash
-   cd backend
-   venv\Scripts\activate
-   celery -A app.celery_app worker --loglevel=info --concurrency=2 --pool=solo
-   ```
-   Note: Windows requires `--pool=solo` option
-
-3. **Start Flower Dashboard**
-   ```bash
-   celery -A app.celery_app flower --port=5555
-   ```
-
-## Using Asynchronous Features
-
-### YouTube Video Processing
-
-1. **Frontend**: Upload YouTube URLs in the YouTube Uploader page
-2. **API Endpoint**: `POST /youtube-async` with payload containing bot_id and video_urls
-3. **Background Process**: Videos are processed, transcripts extracted, and stored in ChromaDB
-4. **Notifications**: System notifies users when processing completes
-
-### File Upload Processing
-
-1. **Frontend**: Upload documents through the Knowledge Base page
-2. **API Endpoint**: `POST /upload` with multipart form data
-3. **Background Process**: Files are validated, processed, and added to the knowledge base
-4. **Notifications**: Users receive notifications about upload status
-
-### Web Scraping
-
-1. **Frontend**: Enter website URLs in the Website Scraping page
-2. **API Endpoint**: `POST /scrape-async` with payload containing bot_id and selected_nodes (URLs)
-3. **Background Process**: Websites are scraped, content extracted, and added to the knowledge base
-4. **Notifications**: System notifies users when scraping completes
-
-## 🎬 YouTube Transcript Extraction
-
-The application supports extraction of transcripts from YouTube videos for use in the chatbot's knowledge base.
-
-### Apify Integration
-
-The system uses Apify's YouTube Transcript Extractor to reliably retrieve transcripts, which works across various environments including AWS servers where YouTube's official API might be blocked.
-
-#### Setup Requirements
-
-1. **Get an Apify API Token**:
-   - Create an account at [Apify](https://apify.com)
-   - Generate an API token from your Apify dashboard
-
-2. **Configure Environment**:
-   - Add your Apify API token to the `.env` file:
-   ```
-   APIFY_API_TOKEN=your-apify-api-token
-   ```
-
-3. **Install Dependencies**:
-   - The `apify-client` package is included in `requirements.txt`
-   - Ensure it's installed with: `pip install apify-client>=1.4.0`
-
-#### Testing the Transcript Extraction
-
-To verify the transcript extraction is working correctly, use the provided test script:
-
-```bash
-cd backend
-source venv/bin/activate
-python scripts/test_youtube_transcript.py https://www.youtube.com/watch?v=VIDEO_ID
-```
-
-The script will test both the YouTube Transcript API and the Apify method, allowing you to confirm which method works in your environment.
-
-#### Fallback Mechanism
-
-The system uses a smart fallback approach:
-
-1. First attempts to extract transcripts using Apify (works on all environments)
-2. If Apify fails, falls back to the YouTube Transcript API (may not work on AWS)
-3. Error handling ensures robust operation even if both methods fail
-
-This dual approach ensures maximum reliability for transcript extraction across all hosting environments.
-
-## 💡 Final Recommendations
-* Keep `.env` configurations secure
-* Use Node.js 16+
-* Regularly update dependencies
-* Run `playwright install` for web scraping features
-* Ensure Redis is running before starting Celery
-* Check the Flower dashboard at http://localhost:5555 for task monitoring
-
-
-## 📧 Email Configuration
-
-The application supports two email delivery methods:
-
-### 1. SendGrid (Recommended for Dev)
-To use SendGrid's API for email delivery:
-1. Add the following to your `.env` file:
-   PROFILE=dev
-   SMTP_USERNAME=apikey
-   SMTP_PASSWORD=your-sendgrid-api-key
-   
+* Keep `.env` configurations secure and never commit them
+* Regularly update dependencies for security patches
+* Use production-ready settings for deployment
+* Monitor API usage for OpenAI and AssemblyAI to manage costs
+* Consider implementing rate limiting for production use
