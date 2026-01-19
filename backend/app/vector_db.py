@@ -1,4 +1,3 @@
-import chromadb
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue, ScalarQuantization, ScalarQuantizationConfig, ScalarType
 from langchain_openai import OpenAIEmbeddings

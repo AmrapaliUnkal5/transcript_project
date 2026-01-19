@@ -1,71 +1,67 @@
+# Core Web Framework
 fastapi 
 uvicorn 
+
+# Database
 psycopg2-binary 
 sqlalchemy 
+
+# Authentication & Security
 passlib
 bcrypt==4.0.1
-python-dotenv
-pydantic[email]
-google-auth
-requests
-python-decouple
-jinja2
 python-jose
-sqladmin
-pydantic_settings
 jwt
 itsdangerous
-requests
-beautifulsoup4
-playwright
-captcha
-pymupdf
-pytesseract
-pillow
-python-docx
-docx2txt
-olefile
-pandas
-sentence-transformers
-numpy
-schedule
-apscheduler
-PyPDF2>=3.0.0
-lingua-language-detector
-nltk
-sendgrid
-
-# For LLM Part
-chromadb
-qdrant_client
-langchain
-langchain_openai
-openai
-google-generativeai==0.8
-anthropic==0.72.0
-tiktoken
-pdfplumber
-yt-dlp
-youtube-transcript-api
-langchain_community
-langchain_text_splitters>=0.0.3
-aiofiles
-apify-client>=1.4.0
-
-# Task Queue and Monitoring
-celery>=5.3.0
-redis>=4.6.0
-flower>=2.0.0
-boto3==1.35.0
-
-# SAML SSO Dependencies
+google-auth
 cryptography>=41.0.0
 lxml>=4.9.0
 
-# Docling
-docling
-pymupdf4llm
-markdownify
+# Configuration
+python-dotenv
+python-decouple
+pydantic[email]
+pydantic_settings
 
-# Hybrid Search Dependencies
-#fastembed>=0.2.0
+# Admin Panel
+sqladmin
+
+# HTTP & Requests
+requests
+
+# Templating
+jinja2
+
+# File Processing & Text Extraction
+pymupdf  # PDF processing (fitz)
+pytesseract  # OCR
+pillow  # Image processing (PIL)
+python-docx  # DOCX files
+docx2txt  # DOC files
+olefile  # Old Office files
+pandas  # CSV processing
+PyPDF2>=3.0.0  # PDF processing
+pdfplumber  # PDF text extraction
+
+# Data Processing
+numpy  # For embeddings normalization
+aiofiles  # Async file operations
+
+# Vector Database & Embeddings
+qdrant_client  # Qdrant vector database
+openai  # OpenAI API (LLM + embeddings + transcription)
+langchain-openai  # LangChain OpenAI integrations (for OpenAIEmbeddings)
+langchain-community  # LangChain community integrations (for Chroma vectorstore)
+chromadb  # ChromaDB vector database
+tiktoken  # Token counting
+
+# Scheduler
+apscheduler  # Background tasks/cron jobs
+
+# Email
+sendgrid
+
+# Cloud Storage
+boto3==1.35.0  # AWS S3 storage
+
+# CAPTCHA
+captcha
