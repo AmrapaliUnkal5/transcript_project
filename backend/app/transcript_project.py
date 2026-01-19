@@ -7,6 +7,14 @@ import uuid
 import requests
 import time
 from datetime import datetime
+import fitz
+import pytesseract
+from PIL import Image
+import io
+import tempfile
+import zipfile
+import pandas as pd
+from docx import Document
 
 from app.database import get_db
 from app.dependency import get_current_user
@@ -15,7 +23,6 @@ from app.utils.file_storage import save_file, get_file_url, FileStorageError
 from app.utils.file_storage import resolve_file_url
 from app.llm_manager import LLMManager
 from app.vector_db import add_transcript_embedding_to_qdrant, retrieve_transcript_context, add_field_answer_embedding_to_qdrant, retrieve_transcript_context_by_patient
-from app.word_count_validation import extract_text as extract_text_from_upload
 from app.notifications import add_notification
 from app.utils.logger import get_module_logger
 
@@ -25,6 +32,132 @@ router = APIRouter(prefix="/transcript", tags=["Transcript Project"])
 logger = get_module_logger(__name__)
 
 TRANSCRIPT_DIR = "transcript_project"
+
+
+# Text extraction functions (moved from word_count_validation.py)
+async def extract_text_from_image(image_bytes: bytes) -> str:
+    """Extract text from image using OCR"""
+    try:
+        image = Image.open(io.BytesIO(image_bytes))
+        return pytesseract.image_to_string(image)
+    except Exception as e:
+        logger.error(f"OCR Error: {str(e)}")
+        return ""
+
+async def extract_text_from_pdf(pdf: UploadFile) -> str:
+    """Extract text from PDF pages"""
+    try:
+        pdf_data = await pdf.read()
+        doc = fitz.open(stream=pdf_data, filetype="pdf")
+        return " ".join(page.get_text("text") for page in doc)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"PDF text extraction error: {str(e)}")
+
+async def extract_text_from_docx(docx: UploadFile) -> str:
+    """Extract text from DOCX paragraphs using multiple methods"""
+    try:
+        docx_data = await docx.read()
+        try:
+            import docx2txt
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_file:
+                temp_file.write(docx_data)
+                temp_path = temp_file.name
+            text = docx2txt.process(temp_path)
+            return text.strip()
+        except Exception:
+            doc = Document(io.BytesIO(docx_data))
+            return " ".join([para.text for para in doc.paragraphs])
+        finally:
+            if 'temp_path' in locals() and os.path.exists(temp_path):
+                os.unlink(temp_path)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"DOCX text extraction error: {str(e)}")
+
+async def extract_text_from_doc(doc: UploadFile) -> str:
+    """Extract text from DOC files using docx2txt"""
+    temp_path = None
+    try:
+        doc_data = await doc.read()
+        try:
+            import docx2txt
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".doc") as temp_file:
+                temp_file.write(doc_data)
+                temp_path = temp_file.name
+            text = docx2txt.process(temp_path)
+            if text and text.strip():
+                return text.strip()
+        except ImportError:
+            raise HTTPException(status_code=400, detail="DOC file processing not available. Please convert to DOCX format.")
+        except Exception:
+            pass
+        try:
+            import olefile
+            if olefile.isOleFile(io.BytesIO(doc_data)):
+                raise HTTPException(status_code=400, detail="This DOC file format is not fully supported. Please convert to DOCX format.")
+            else:
+                raise HTTPException(status_code=400, detail="Invalid DOC file format.")
+        except ImportError:
+            raise HTTPException(status_code=400, detail="DOC file processing failed. Please convert to DOCX format.")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(status_code=400, detail="DOC file could not be processed. Please convert to DOCX format.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"DOC file processing error: {str(e)}")
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
+
+async def extract_text_from_txt(txt: UploadFile) -> str:
+    """Extract text from plain text files"""
+    try:
+        return (await txt.read()).decode('utf-8')
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Text file error: {str(e)}")
+
+async def extract_text_from_csv(csv: UploadFile) -> str:
+    """Extract text from CSV files"""
+    try:
+        contents = await csv.read()
+        df = pd.read_csv(io.BytesIO(contents))
+        return df.to_string()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"CSV processing error: {str(e)}")
+
+async def extract_text_from_image_file(image: UploadFile) -> str:
+    """Process direct image uploads"""
+    try:
+        return await extract_text_from_image(await image.read())
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Image processing error: {str(e)}")
+
+async def extract_text_from_upload(file: UploadFile) -> str:
+    """Unified text extraction based on file type"""
+    file_ext = file.filename.split(".")[-1].lower() if file.filename else ""
+    
+    if file_ext == "pdf":
+        text = await extract_text_from_pdf(file)
+        await file.seek(0)
+        return text
+    elif file_ext == "docx":
+        text = await extract_text_from_docx(file)
+        await file.seek(0)
+        return text
+    elif file_ext == "txt":
+        return await extract_text_from_txt(file)
+    elif file_ext == "csv":
+        return await extract_text_from_csv(file)
+    elif file_ext in ("png", "jpg", "jpeg"):
+        return await extract_text_from_image_file(file)
+    elif file_ext == "doc":
+        return await extract_text_from_doc(file)
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {file.filename}")
 
 
 def _strip_provenance_block(text: str) -> str:
@@ -246,7 +379,7 @@ def _assemblyai_transcribe(local_path: str) -> str:
     
     filename = os.path.basename(local_path)
     file_ext = os.path.splitext(local_path)[1].lower()
-    logger.info(f"Uploading audio file to AssemblyAI: {local_path}", extra={"file_extension": file_ext, "filename": filename})
+    logger.info(f"Uploading audio file to AssemblyAI: {local_path}", extra={"file_extension": file_ext, "audio_filename": filename})
     
     try:
         # Read file as binary data
