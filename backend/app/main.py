@@ -41,7 +41,6 @@ from app.submit_issue_request import router as submit_issue_request
 from app.team_management import router as team_management_router
 from app.notifications import router as notifications_router, add_notification
 from app.saml_auth import router as saml_auth_router
-from app.admin_routes import router as admin_routes_router
 from app.superadmin_router import router as superadmin_router
 from app.captcha_cleanup_thread import captcha_cleaner
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
@@ -116,7 +115,6 @@ app.include_router(submit_issue_request)
 app.include_router(team_management_router)
 app.include_router(notifications_router)
 app.include_router(saml_auth_router)
-app.include_router(admin_routes_router)
 app.include_router(superadmin_router)
 app.include_router(transcript_router)
 

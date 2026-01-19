@@ -42,6 +42,7 @@ SMTP_CONFIG = {
 # Optional API keys - properly handled if not set
 HUGGINGFACE_API_KEY = config("HUGGINGFACE_API_KEY", default=None)
 OPENAI_API_KEY = config("OPENAI_API_KEY", default=None)
+ASSEMBLYAI_API_KEY = config("ASSEMBLYAI_API_KEY", default=None)
 GEMINI_API_KEY = config("GEMINI_API_KEY", default=None)
 DEEPSEEK_API_KEY= config("DEEPSEEK_API_KEY", default=None)
 ANTHROPIC_API_KEY= config("ANTHROPIC_API_KEY", default=None)
@@ -61,6 +62,7 @@ class Settings(BaseSettings):
     SERVER_URL: str = config("SERVER_URL")  # Add the SERVER_URL here
     HUGGINGFACE_API_KEY: Optional[str] = HUGGINGFACE_API_KEY  # Use Optional to handle None values
     OPENAI_API_KEY: Optional[str] = OPENAI_API_KEY  # Add OpenAI API key
+    ASSEMBLYAI_API_KEY: Optional[str] = ASSEMBLYAI_API_KEY  # Add AssemblyAI API key
     GEMINI_API_KEY: Optional[str] = GEMINI_API_KEY  # Add Gemini API key
     DEEPSEEK_API_KEY: Optional[str] =DEEPSEEK_API_KEY
     ANTHROPIC_API_KEY: Optional[str] =ANTHROPIC_API_KEY

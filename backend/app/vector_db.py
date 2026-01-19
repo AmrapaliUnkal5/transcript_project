@@ -5,9 +5,9 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 import os
 from dotenv import load_dotenv
-from app.embedding_manager import EmbeddingManager
+# EmbeddingManager removed - transcript project uses OpenAI embeddings directly
 from app.database import SessionLocal
-from app.models import Bot, EmbeddingModel, UserSubscription, SubscriptionPlan
+# Bot, EmbeddingModel, UserSubscription, SubscriptionPlan removed - transcript project doesn't use bots/subscriptions
 from app.utils.logger import get_module_logger
 from app.config import settings
 import time
@@ -1597,16 +1597,14 @@ def fallback_retrieve_similar_docs(bot_id: int, query_text: str, top_k=5):
             
         logger.info(f"Found collections for bot {bot_id}: {bot_collections}")
         
-        # Try Hugging Face embedding as fallback for query
-        from app.embedding_manager import HuggingFaceAPIEmbedder
+        # HuggingFace embedding removed - transcript project uses OpenAI embeddings only
+        # from app.embedding_manager import HuggingFaceAPIEmbedder
         
-        logger.info(f"Using Hugging Face embeddings as fallback for query")
-        huggingface_api_key = settings.HUGGINGFACE_API_KEY
-        if not huggingface_api_key:
-            logger.warning(f"No HuggingFace API key found")
-            return []
-            
-        hf_embedder = HuggingFaceAPIEmbedder("BAAI/bge-large-en-v1.5", huggingface_api_key)
+        # HuggingFace embedding removed - transcript project uses OpenAI embeddings only
+        logger.warning(f"HuggingFace embeddings not available - this function is chatbot-specific")
+        return []
+        
+        # hf_embedder = HuggingFaceAPIEmbedder("BAAI/bge-large-en-v1.5", huggingface_api_key)  # Removed
         
         # Try collections one by one until we find one that works
         for collection_name in bot_collections:

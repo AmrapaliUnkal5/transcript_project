@@ -12,7 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "react-toastify";
-import { useSubscriptionPlans } from "../context/SubscriptionPlanContext";
+// Subscription plan context removed - transcript project doesn't use subscription limits
 import { useAuth } from "../context/AuthContext";
 
 // Role display configuration
@@ -50,10 +50,8 @@ const TeamManagement: React.FC = () => {
     TeamMemberRole.EDITOR
   );
   const { user } = useAuth();
-  const { getPlanById } = useSubscriptionPlans();
-  const userPlanId = user?.subscription_plan_id || 1;
-  const userPlan = getPlanById(userPlanId);
-  const adminUserLimit = userPlan?.admin_user_limit ?? 0; // checking the Admin limit
+  // Subscription plan limits removed - transcript project doesn't use subscription limits
+  const adminUserLimit = 0; // No limit for transcript project
   const [isLimitReachedModalOpen, setIsLimitReachedModalOpen] = useState(false);
   const [isAdminLimitReached, setIsAdminLimitReached] = useState(false);
   const [additionalAdminCount, setadditionalAdminCount] = useState<number | null>(null);

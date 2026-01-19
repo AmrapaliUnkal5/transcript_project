@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, desc
 from app.database import get_db
 from app.utils.create_access_token import create_access_token
-from .models import Base, User, UserAuthProvider, Bot, Interaction, ChatMessage, TeamMember, File, YouTubeVideo, ScrapedNode, InteractionReaction, WebsiteDB, Notification, WordCloudData, BotSlug, Lead
-from app.schemas import UserOut,UserUpdate, ChangePasswordRequest, LeadOut
+from .models import Base, User, UserAuthProvider, TeamMember, Notification
+from app.schemas import UserOut, UserUpdate, ChangePasswordRequest
 from app.dependency import get_current_user
 from app.utils.verify_password import verify_password
 from passlib.context import CryptContext
@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from app.notifications import add_notification
 from datetime import datetime, timedelta, timezone
 from fastapi.responses import JSONResponse
-from app.vector_db import delete_user_collections, delete_bot_collections
+# Bot-related vector DB functions removed - transcript project doesn't use bots
 from typing import List
 
 router = APIRouter()
@@ -155,81 +155,9 @@ def delete_user_account(db: Session = Depends(get_db), current_user: dict = Depe
         raise HTTPException(status_code=404, detail="User not found")
     
     try:
-        # Step 1: Delete all bot-related data
-        # Get all user's bots
-        user_bots = db.query(Bot).filter(Bot.user_id == user_id).all()
-        bot_ids = [bot.bot_id for bot in user_bots]
+        # Bot-related deletion removed - transcript project doesn't use bots
         
-        # Delete Chroma vector database collections for all user's bots
-        if bot_ids:
-            # This will handle deletion of all vector embeddings for the user's bots
-            delete_user_collections(bot_ids)
-        
-        # Delete interactions and chat messages for each bot
-        if bot_ids:
-            # Get all interactions for user's bots
-            interactions = db.query(Interaction).filter(
-                Interaction.bot_id.in_(bot_ids)
-            ).all()
-            interaction_ids = [interaction.interaction_id for interaction in interactions]
-            
-            # Delete chat messages for these interactions
-            if interaction_ids:
-                db.query(ChatMessage).filter(
-                    ChatMessage.interaction_id.in_(interaction_ids)
-                ).delete(synchronize_session=False)
-                
-                # Delete interaction reactions
-                db.query(InteractionReaction).filter(
-                    InteractionReaction.interaction_id.in_(interaction_ids)
-                ).delete(synchronize_session=False)
-            
-            # Delete interactions
-            db.query(Interaction).filter(
-                Interaction.bot_id.in_(bot_ids)
-            ).delete(synchronize_session=False)
-            
-            # Delete files associated with bots
-            db.query(File).filter(
-                File.bot_id.in_(bot_ids)
-            ).delete(synchronize_session=False)
-            
-            # Delete YouTube videos
-            db.query(YouTubeVideo).filter(
-                YouTubeVideo.bot_id.in_(bot_ids)
-            ).delete(synchronize_session=False)
-            
-            # Delete scraped nodes
-            db.query(ScrapedNode).filter(
-                ScrapedNode.bot_id.in_(bot_ids)
-            ).delete(synchronize_session=False)
-            
-            # Delete websites
-            db.query(WebsiteDB).filter(
-                WebsiteDB.bot_id.in_(bot_ids)
-            ).delete(synchronize_session=False)
-
-            # Delete word cloud data for bots
-            db.query(WordCloudData).filter(
-                WordCloudData.bot_id.in_(bot_ids)
-            ).delete(synchronize_session=False)
-
-             # Delete Bot Slug for widgets
-            db.query(BotSlug).filter(
-                BotSlug.bot_id.in_(bot_ids)
-            ).delete(synchronize_session=False)
-
-             # Delete Bot Slug for widgets
-            db.query(Lead).filter(
-                BotSlug.bot_id.in_(bot_ids)
-            ).delete(synchronize_session=False)
-            
-            # Delete bots
-            db.query(Bot).filter(
-                Bot.user_id == user_id
-            ).delete(synchronize_session=False)
-        
-        # Step 2: Delete team-related data
+        # Step 1: Delete team-related data
         # Remove user from teams (as owner or member)
         db.query(TeamMember).filter(
             (TeamMember.owner_id == user_id) | (TeamMember.member_id == user_id)
@@ -262,6 +190,4 @@ def delete_user_account(db: Session = Depends(get_db), current_user: dict = Depe
             detail=f"Failed to delete account: {str(e)}"
         )
 
-@router.get("/leads/{bot_id}", response_model=List[LeadOut])
-def get_leads_by_bot(bot_id: int, db: Session = Depends(get_db)):
-    return db.query(Lead).filter(Lead.bot_id == bot_id).order_by(desc(Lead.created_at)).all()
+# Leads endpoint removed - transcript project doesn't use bots or leads

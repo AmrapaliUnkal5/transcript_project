@@ -215,7 +215,15 @@ export const SubscriptionPlanProvider: React.FC<{ children: React.ReactNode }> =
 export const useSubscriptionPlans = ():SubscriptionPlanContextType  => {
   const context = useContext(SubscriptionPlanContext);
   if (!context) {
-    throw new Error("useSubscriptionPlans must be used within a SubscriptionPlanProvider");
+    // Return empty/default data instead of throwing error - subscription functionality removed
+    return {
+      plans: [],
+      addons: [],
+      loading: false,
+      error: null,
+      fetchPlans: async () => {},
+      fetchAddons: async () => {}
+    };
   }
   return context;
 };
@@ -223,7 +231,15 @@ export const useSubscriptionPlans = ():SubscriptionPlanContextType  => {
 export const useAddonPlans = () => {
   const context = useContext(SubscriptionPlanContext);
   if (!context) {
-    throw new Error("useAddonPlans must be used within a SubscriptionPlanProvider");
+    // Return empty/default data instead of throwing error - subscription functionality removed
+    return {
+      plans: [],
+      addons: [],
+      loading: false,
+      error: null,
+      fetchPlans: async () => {},
+      fetchAddons: async () => {}
+    };
   }
   return context; 
 };

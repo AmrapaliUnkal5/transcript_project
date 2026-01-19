@@ -1,8 +1,8 @@
 # app/crud.py
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from .models import User, Bot, File, TeamMember, TeamMemberRole,InteractionReaction, ReactionType,Interaction
-from .schemas import BotThemeUpdate, UserCreate, BotCreate, BotUpdate, BotResponse, TeamMemberCreate, TeamMemberUpdate
+from .models import User, TeamMember, TeamMemberRole
+from .schemas import UserCreate, TeamMemberCreate, TeamMemberUpdate
 from passlib.context import CryptContext
 import secrets
 import string
@@ -54,60 +54,7 @@ def create_user(db: Session, user: UserCreate):
 def get_user_by_email(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()
 
-def get_bot_by_id(db: Session, bot_id: int):
-    """Fetch bot settings by bot_id"""
-    return db.query(Bot).filter(Bot.bot_id == bot_id, Bot.status != 'Deleted').first()
-
-def create_bot(db: Session, bot_data: BotCreate):
-    """Insert bot settings if not existing"""
-    new_bot = Bot(**bot_data.dict())
-    db.add(new_bot)
-    db.commit()
-    db.refresh(new_bot)
-    return new_bot
-
-def update_bot(db: Session, bot_id: int, bot_data: BotUpdate, action_user_id: int = None):
-    """Update bot settings if already existing"""
-    # Fetch the bot from the database
-    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
-    
-    if not bot:
-        return None  # Handle case when bot is not found
-    
-    logger.debug(f"Incoming bot data: {bot_data.dict()}")
-    logger.debug(f"Existing bot data: {bot}")
-    
-    # Default values for each field (you can adjust these as needed)
-    default_values = {
-        'user_id': 0,
-        'bot_name': 'string',
-        'bot_icon': 'string',
-        'font_style': 'string',
-        'font_size': 0,
-        'position': 'string',
-        'max_words_per_message': 200,
-        'is_active': True,
-        'bot_color': 'string',
-        'user_color': 'string',
-        'appearance':'string',
-        'temperature':'number'
-    }
-
-    # Update bot object with only provided fields that are different from defaults
-    for field, value in bot_data.dict(exclude_unset=True).items():
-        current_value = getattr(bot, field)  # Get current value from the database
-        
-        # Skip update if incoming value is the default one or same as the current value in the database
-        if value != default_values.get(field) and value != current_value:
-            logger.debug(f"Updating {field} from {current_value} to {value}")
-            setattr(bot, field, value)  # Set the new value
-    
-    if action_user_id:
-        bot.updated_by = action_user_id
-
-    db.commit()
-    db.refresh(bot)  
-    return bot
+# Bot-related functions removed - transcript project doesn't use bots
 
 def update_user_password(db: Session, user_id: int, new_password: str):
     # Hash the new password before storing it in the database
@@ -122,77 +69,7 @@ def update_user_password(db: Session, user_id: int, new_password: str):
         db.refresh(db_user)  # Refresh to get the latest changes
     return db_user
 
-def get_bot_by_user_id(db: Session, user_id: int):
-    """Fetch all bot settings for a user_id"""
-    bots = db.query(Bot).filter(Bot.user_id == user_id, Bot.status != "Deleted").all()
-    bot_ids = [bot.bot_id for bot in bots]
-
-    today_start = datetime.combine(date.today(), datetime.min.time())  # Start of today
-    logger.debug("today_start: %s", today_start)
-    
-    today_end = datetime.combine(date.today(), datetime.max.time())  # End of today
-    logger.debug("today_end: %s", today_end)
-
-    # Get conversation count per bot for today
-    bot_conversation_counts = (
-        db.query(Interaction.bot_id, func.count().label("conversation_count"))
-        .filter(
-            Interaction.bot_id.in_([bot.bot_id for bot in bots]),  # Filter interactions of these bots
-            Interaction.start_time.between(today_start, today_end)  # Only today's interactions
-        )
-        .group_by(Interaction.bot_id)
-        .all()
-    )
-
-    # Convert results to a dictionary for quick lookup
-    bot_conversation_dict = {bot_id: count for bot_id, count in bot_conversation_counts}
-
-       
-    # Get reaction counts - PROPER ENUM USAGE
-    reaction_counts = (
-        db.query(
-            InteractionReaction.bot_id,
-            func.sum(case((InteractionReaction.reaction == ReactionType.LIKE.value, 1), else_=0)).label("like"),
-            func.sum(case((InteractionReaction.reaction == ReactionType.DISLIKE.value, 1), else_=0)).label("dislike")
-        )
-        .filter(InteractionReaction.bot_id.in_(bot_ids),
-                 InteractionReaction.reaction_time.between(today_start, today_end)  # ✅ Only today's reactions
-        )
-        .group_by(InteractionReaction.bot_id)
-        .all()
-    )
-
-    bot_reaction_dict = {
-        row.bot_id: {
-            "like": row.like or 0,
-            "dislike": row.dislike or 0
-        }
-        for row in reaction_counts
-    }
-    
-    if not bots:
-        return []
-
-    return [{bot.bot_id: {
-        "user_id": bot.user_id,
-        "bot_name": bot.bot_name,
-        "bot_icon": resolve_file_url(bot.bot_icon) if bot.bot_icon else None,
-        "font_style": bot.font_style,
-        "font_size": bot.font_size,
-        "position": bot.position,
-        "max_words_per_message": bot.max_words_per_message,
-        "is_active": bot.is_active,
-        "bot_color":bot.bot_color,
-        "user_color":bot.user_color,
-        "appearance":bot.appearance,
-        "temperature":bot.temperature,
-        "status":bot.status,
-        "conversation_count_today": bot_conversation_dict.get(bot.bot_id, 0),  # Default to 0 if no interactions
-        "satisfaction": {
-                "likes": bot_reaction_dict.get(bot.bot_id, {}).get("like", 0),
-                "dislikes": bot_reaction_dict.get(bot.bot_id, {}).get("dislike", 0)
-            }
-    }} for bot in bots]
+# Bot-related functions removed - transcript project doesn't use bots
 
 
 def update_avatar(db: Session, user_id: int, avatar_url: str):
@@ -216,43 +93,7 @@ def update_avatar(db: Session, user_id: int, avatar_url: str):
     db.refresh(user)
     return user
    
-def create_file(db: Session, file_data: dict):
-    """Insert file metadata into the database."""
-    db_file = File(**file_data)
-    db.add(db_file)
-    db.commit()
-    db.refresh(db_file)
-    return db_file     
-
-
-def delete_bot(db: Session, bot_id: int, action_user_id: int = None):
-    """Soft delete a bot by updating its status to 'Deleted'"""
-    bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
-
-    # Get the user associated with this bot
-    user = db.query(User).filter(User.user_id == bot.user_id).first()
-    
-    if user:
-        # Subtract the bot's word count and file storage from the user's total (if bot has word count)
-        if bot.word_count:
-            user.total_words_used = max(0, (user.total_words_used or 0) - bot.word_count)
-        if bot.file_size:
-            user.total_file_size=max(0,(user.total_file_size or 0)- bot.file_size)
-        # if bot.message_count:
-        #     user.total_message_count=max(0,( user.total_message_count or 0)- bot.message_count)
-    
-    if not bot:
-        return None  # Return None if bot not found
-
-    # Set status to "Deleted"
-    bot.status = "Deleted"
-    bot.is_active = False
-    if action_user_id:
-        bot.updated_by = action_user_id
-
-    db.commit()
-    db.refresh(bot)
-    return bot  # Return updated bot
+# Bot and file-related functions removed - transcript project doesn't use bots or file uploads for knowledge base
 
 # Team member CRUD operations
 def invite_team_member(db: Session, owner_id: int, invite_data: TeamMemberCreate):
@@ -477,22 +318,4 @@ def update_user_word_count(db: Session, user_id: int, word_count: int):
     db.refresh(user)
     return user
 
-def update_bot_theme(db: Session, bot_id: int, theme_data: schemas.BotThemeUpdate):
-    try:
-        db_bot = db.query(models.Bot).filter(models.Bot.bot_id == bot_id).first()
-        if not db_bot:
-            return None
-        
-        # Update all theme-related fields
-        update_data = theme_data.dict(exclude_unset=True)
-        for field, value in update_data.items():
-            if hasattr(db_bot, field):
-                setattr(db_bot, field, value)
-        
-        db.commit()
-        db.refresh(db_bot)
-        return db_bot
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error updating bot theme: {str(e)}")
-        raise  # Re-raise to be handled by the route
+# Bot theme update removed - transcript project doesn't use bots

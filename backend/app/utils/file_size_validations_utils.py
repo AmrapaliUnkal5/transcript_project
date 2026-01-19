@@ -9,12 +9,15 @@ from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.database import get_db, SessionLocal
-from app.models import File as FileModel, Bot, User, ScrapedNode, YouTubeVideo
+from app.models import User
+# Bot, File, ScrapedNode, YouTubeVideo removed - transcript project doesn't use bots
 from app.schemas import UserOut
-from app.utils.upload_knowledge_utils import extract_text_from_file
-from app.vector_db import add_document
-from app.utils.upload_knowledge_utils import extract_text_from_file,validate_and_store_text_in_ChromaDB
-from app.fetchsubscripitonplans import get_subscription_plan_by_id
+# Upload knowledge utils removed - transcript project doesn't use file uploads for knowledge base
+# from app.utils.upload_knowledge_utils import extract_text_from_file
+# from app.vector_db import add_document
+# from app.utils.upload_knowledge_utils import extract_text_from_file,validate_and_store_text_in_ChromaDB
+# Subscription plans removed - transcript project doesn't use subscriptions
+# from app.fetchsubscripitonplans import get_subscription_plan_by_id
 import logging
 from app.utils.logger import get_module_logger
 from app.config import settings
@@ -44,65 +47,15 @@ def convert_size(size_bytes):
         return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
 async def validate_file_size(files: List[UploadFile], current_user: dict, db: Session):
-    """Validate file sizes against user's subscription limits"""
-    plan_limits = await get_subscription_plan_by_id(current_user["subscription_plan_id"], db)
-    if not plan_limits:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Subscription plan not found"
-        )
-    max_size_bytes = plan_limits["file_size_limit_mb"] * 1024 * 1024
-    
-    for file in files:
-        if file.size > max_size_bytes:
-            raise HTTPException(
-                status_code=400,
-                detail=f"File {file.filename} exceeds {plan_limits['file_size_limit_mb']}MB limit for your {plan_limits['name']} plan"
-            )
+    """Validate file sizes - subscription limits removed for transcript project"""
+    # Subscription validation removed - transcript project doesn't use subscription limits
+    pass
 
-def generate_file_id(bot_id: int, filename: str) -> str:
-    """Generate a consistent file ID based on bot_id and filename."""
-    base_name = Path(filename).stem
-    # Create a sanitized filename by removing special characters
-    sanitized = ''.join(c if c.isalnum() else '_' for c in base_name)
-    return f"{sanitized}_{bot_id}_{uuid.uuid4().hex[:8]}"
+# generate_file_id removed - transcript project doesn't use bots or bot-based file IDs
 
-def get_bot_user_id(bot_id: int):
-    """Gets the user_id associated with a bot for file organization."""
-    db = SessionLocal()
-    try:
-        bot = db.query(Bot).filter(Bot.bot_id == bot_id).first()
-        if not bot:
-            return None
-        return bot.user_id
-    finally:
-        db.close()
+# get_bot_user_id removed - transcript project doesn't use bots
 
-def get_hierarchical_file_path(bot_id: int, filename: str, folder=None, is_archive=False):
-    """Creates a hierarchical file path: uploads/account_X/bot_Y/filename."""
-    if folder is None:
-        folder = settings.UPLOAD_DIR
-        
-    user_id = get_bot_user_id(bot_id)
-    if not user_id:
-        # Fallback to default folder if user not found
-        return os.path.join(folder, filename)
-        
-    # Create hierarchical path
-    account_dir = os.path.join(folder, f"account_{user_id}")
-    bot_dir = os.path.join(account_dir, f"bot_{bot_id}")
-    
-    if is_archive:
-        archive_dir = os.path.join(bot_dir, "archives")
-        # Create directories if they don't exist (skip if S3 paths)
-        if not archive_dir.startswith("s3://"):
-            os.makedirs(archive_dir, exist_ok=True)
-        return os.path.join(archive_dir, filename)
-    else:
-        # Create directories if they don't exist (skip if S3 paths)
-        if not bot_dir.startswith("s3://"):
-            os.makedirs(bot_dir, exist_ok=True)
-        return os.path.join(bot_dir, filename)
+# get_hierarchical_file_path removed - transcript project doesn't use bots or bot-based file organization
 
 async def save_file_to_folder(file: UploadFile, file_path: str):
     """Saves the file to the upload folder."""
@@ -160,214 +113,10 @@ async def save_extracted_text(text: str, file_path: str):
         logger.error(f"Error saving extracted text to {file_path}: {str(e)}")
         raise
 
-async def archive_original_file_backup(
-    file: Union[UploadFile, bytes],
-    bot_id: int,
-    file_id: str,
-    filename: Optional[str] = None,
-    content_type: Optional[str] = None
-):
-    """
-    Archives the original file, handling both UploadFile (from FastAPI)
-    and raw bytes (from Celery). Supports S3 or local storage.
-    """
-    try:
-        if isinstance(file, UploadFile):
-            # Called from FastAPI
-            _, ext = os.path.splitext(file.filename)
-            filename = file.filename
-            file.file.seek(0)
-            file_content = await file.read()
-        else:
-            # Called from Celery – `file` is bytes
-            if not filename:
-                raise ValueError("Filename is required when using file bytes.")
-            _, ext = os.path.splitext(filename)
-            file_content = file
-
-        archive_filename = f"{file_id}_original{ext}"
-
-        if settings.UPLOAD_DIR.startswith("s3://"):
-            user_id = get_bot_user_id(bot_id)
-            archive_relative_path = (
-                f"account_{user_id}/bot_{bot_id}/archives/{archive_filename}"
-                if user_id else f"archives/{archive_filename}"
-            )
-            saved_path = save_file(settings.UPLOAD_DIR, archive_relative_path, file_content)
-            logger.info(f"✅ Archived file to S3: {saved_path}")
-            return saved_path
-
-        else:
-            archive_path = get_hierarchical_file_path(
-                bot_id, archive_filename, folder=settings.UPLOAD_DIR, is_archive=True
-            )
-            with open(archive_path, "wb") as buffer:
-                buffer.write(file_content)
-            logger.info(f"✅ Archived file locally: {archive_path}")
-            return archive_path
-
-    except Exception as e:
-        logger.error(f"❌ Error archiving original file: {str(e)}")
-        raise
-
-async def archive_original_file(file: UploadFile, bot_id: int, file_id: str):
-    """Archives the original file, handling both local and S3 storage."""
-    try:
-        # Get the original extension
-        _, ext = os.path.splitext(file.filename)
-        archive_filename = f"{file_id}_original{ext}"
-        
-        # Reset file pointer to beginning
-        file.file.seek(0)
-        file_content = await file.read()
-        
-        # Check if this should go to S3
-        if settings.UPLOAD_DIR.startswith('s3://'):
-            # For S3 storage, construct the archive path relative to the upload directory
-            user_id = get_bot_user_id(bot_id)
-            if user_id:
-                archive_relative_path = f"account_{user_id}/bot_{bot_id}/archives/{archive_filename}"
-            else:
-                archive_relative_path = f"archives/{archive_filename}"
-            
-            # Use the file storage helper for S3
-            saved_path = save_file(UPLOAD_FOLDER, archive_relative_path, file_content)
-            logger.info(f"Successfully archived original file to S3: {saved_path}")
-            return saved_path
-        else:
-            # For local storage, use the existing method
-            archive_path = get_hierarchical_file_path(bot_id, archive_filename, folder=UPLOAD_FOLDER, is_archive=True)
-            
-            # Save original file to archive
-            with open(archive_path, "wb") as buffer:
-                buffer.write(file_content)
-            
-            logger.info(f"Successfully archived original file to local storage: {archive_path}")
-            return archive_path
-            
-    except Exception as e:
-        logger.error(f"Error archiving original file: {str(e)}")
-        raise
-
-def prepare_file_metadata(original_filename: str, file_type: str, bot_id: int, text_file_path: str, file_id: str, word_count: int = 0, char_count: int = 0, original_size_bytes: int = 0):
-    """Prepares file metadata for database insertion."""
-    try:
-        # Check if this is an S3 path
-        if settings.UPLOAD_DIR.startswith('s3://') and text_file_path.startswith('s3://'):
-            # For S3 storage, we can't use os.path.getsize()
-            # Since we just created the file with "Processing file..." text, we know the size
-            # We'll calculate the size of the placeholder text
-            placeholder_text = "Processing file..."
-            file_size = len(placeholder_text.encode('utf-8'))
-            logger.info(f"S3 file size calculated for placeholder: {file_size} bytes")
-        else:
-            # For local storage, use the existing method
-            file_size = os.path.getsize(text_file_path)
-            logger.info(f"Local file size: {file_size} bytes")
-            
-    except Exception as e:
-        logger.error(f"Error getting file size for {text_file_path}: {str(e)}")
-        # Fallback to a reasonable default for placeholder text
-        placeholder_text = "Processing file..."
-        file_size = len(placeholder_text.encode('utf-8'))
-        logger.warning(f"Using fallback file size: {file_size} bytes")
-    
-    file_size_readable = convert_size(file_size)
-    original_size_readable = convert_size(original_size_bytes)
-    
-    return {
-        "bot_id": bot_id,
-        "file_name": original_filename,
-        "file_type": file_type,
-        "file_path": text_file_path,
-        "file_size": file_size_readable,
-        "unique_file_name": file_id,
-        "word_count": word_count,
-        "character_count": char_count,
-        "original_file_size": original_size_readable,  # Original file size (human-readable)
-        "original_file_size_bytes": original_size_bytes,  # Original size in bytes
-
-    }
-
-def insert_file_metadata(db: Session, file_metadata: dict):
-    """Inserts file metadata into the database."""
-    db_file = FileModel(**file_metadata)
-    db.add(db_file)
-    db.commit()
-    db.refresh(db_file)
-    return db_file
-
-def update_file_metadata_status_only(db: Session, file_metadata: dict):
-    """
-    Updates an existing file's word count, character count,
-    extraction status, error message, and updated_by.
-    """
-    file_id_db = file_metadata.get("file_id_db")
-    if not file_id_db:
-        raise ValueError("file_id_db is required to update file metadata.")
-
-    existing_file = db.query(FileModel).filter_by(file_id=file_id_db).first()
-    if not existing_file:
-        raise ValueError(f"File with ID {file_id_db} not found.")
+# Bot-related file archiving and metadata functions removed - transcript project doesn't use bots or file uploads for knowledge base
 
 
-    # Update only the necessary fields
-    if "word_count" in file_metadata:
-        existing_file.word_count = file_metadata["word_count"]
-    if "char_count" in file_metadata:
-        existing_file.character_count = file_metadata["char_count"]
-    if "status" in file_metadata:
-        existing_file.status = file_metadata["status"]
-    if "error_message" in file_metadata:
-        existing_file.error_code = file_metadata["error_message"]
-    if "updated_by" in file_metadata:
-        existing_file.updated_by = file_metadata["updated_by"]
-
-    db.commit()
-    db.refresh(existing_file)
-    return existing_file
-
-
-async def process_file_for_knowledge(file: UploadFile, bot_id: int):
-    """
-    Extracts text, validates it, archives original file and stores in ChromaDB.
-    
-    Returns:
-        tuple: (extracted_text, file_id)
-    """
-    file.file.seek(0)  # Reset file pointer
-    
-    try:
-        # Generate a consistent file ID
-        file_id = generate_file_id(bot_id, file.filename)
-        
-        # Extract text from file
-        text = await extract_text_from_file(file)
-        if not text:
-            logger.warning(f"⚠️ No extractable text found in the file: {file.filename}")
-            raise HTTPException(status_code=400, detail="No extractable text found in the file.")
-        
-        # Get user_id for the bot to include in metadata
-        user_id = get_bot_user_id(bot_id)
-        
-        # Create a more complete metadata object
-        metadata = {
-            "id": file_id,
-            "file_name": file.filename,
-            "file_type": file.content_type,
-            "source": "upload",
-            "bot_id": bot_id,
-            "user_id": user_id
-        }
-        
-        # Store extracted text in ChromaDB
-        logger.info(f"💾 Storing document in ChromaDB for bot {bot_id}: {file.filename}")
-        add_document(bot_id, text, metadata)
-        
-        return text, file_id
-    except Exception as e:
-        logger.error(f"❌ Error processing file for knowledge: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Error processing file: {str(e)}")
+# process_file_for_knowledge removed - transcript project doesn't use file uploads for knowledge base
     
 def parse_storage_to_bytes(storage_str: str) -> int:
     """Convert storage string (like '20 MB', '1 GB') to bytes"""
@@ -378,77 +127,25 @@ def parse_storage_to_bytes(storage_str: str) -> int:
     return int(float(match.group(1)) * units[match.group(2)])
 
 async def get_current_usage(user_id: int, db: Session):
-    """Get current word count and storage usage for a user"""
-
-     # Subquery: only active (non-deleted) bots for the user
-    active_bots_subq = (
-        db.query(Bot.bot_id)
-        .filter(
-            Bot.user_id == user_id,
-            Bot.status != 'Deleted'   # ✅ exclude deleted bots
-        )
-    )
-    # Get total words used (from files)
-    total_words = db.query(func.sum(FileModel.word_count)).filter(
-        FileModel.bot_id.in_(active_bots_subq),
-            FileModel.status == "Success"
-        ).scalar() or 0
-    
-    # Get total storage used (from files)
-    total_storage_bytes = db.query(func.sum(FileModel.original_file_size_bytes)).filter(
-        FileModel.bot_id.in_(active_bots_subq),
-            FileModel.status == "Success"
-        ).scalar() or 0
+    """Get current word count and storage usage for a user - simplified for transcript project"""
+    # Transcript project doesn't use bots/files - get from user table directly
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        return {"word_count": 0, "storage_bytes": 0}
     
     return {
-        "word_count": total_words,
-        "storage_bytes": total_storage_bytes
+        "word_count": user.total_words_used or 0,
+        "storage_bytes": user.total_file_size or 0
     }
 
 def get_current_usage_sync(user_id: int, db: Session):
-    """Get current word count and storage usage for a user"""
-    print("user_id",user_id)
-    # Get all active bot IDs for the user
-    # Explicit select for active bot IDs
-    active_bot_ids_select = select(Bot.bot_id).filter(
-        Bot.user_id == user_id,
-        Bot.status != 'Deleted'
-    )
-    print("active_bot_ids_select",active_bot_ids_select)
-
-    # Total word count from uploaded files
-    total_file_words = db.query(func.sum(FileModel.word_count)).filter(
-        FileModel.bot_id.in_(active_bot_ids_select),
-        FileModel.status != 'Failed'
-    ).scalar() or 0
-    print("total_file_words",total_file_words)
-
-    # Total transcript word count from YouTube videos
-    total_youtube_words = db.query(func.sum(YouTubeVideo.transcript_count)).filter(
-        YouTubeVideo.bot_id.in_(active_bot_ids_select),
-        YouTubeVideo.is_deleted == False,
-        YouTubeVideo.status != 'Failed'
-    ).scalar() or 0
-    print("total_youtube_words",total_youtube_words)
-
-    # Total text word count from scraped website nodes
-    total_scraped_words = db.query(func.sum(ScrapedNode.nodes_text_count)).filter(
-    ScrapedNode.bot_id.in_(active_bot_ids_select),
-    ScrapedNode.is_deleted == False,
-    ScrapedNode.status != 'Failed'
-    ).scalar() or 0
-    print("total_scraped_words",total_scraped_words)
-
-    # Combine all word counts
-    total_words_used = total_file_words + total_youtube_words + total_scraped_words
-
-    total_storage_bytes = db.query(func.sum(FileModel.original_file_size_bytes)).filter(
-        FileModel.bot_id.in_(
-            db.query(Bot.bot_id).filter(Bot.user_id == user_id, Bot.is_active == True)
-        )
-    ).scalar() or 0
-
+    """Get current word count and storage usage for a user - simplified for transcript project"""
+    # Transcript project doesn't use bots/files - get from user table directly
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        return {"word_count": 0, "storage_bytes": 0}
+    
     return {
-        "word_count": total_words_used,
-        "storage_bytes": total_storage_bytes
+        "word_count": user.total_words_used or 0,
+        "storage_bytes": user.total_file_size or 0
     }

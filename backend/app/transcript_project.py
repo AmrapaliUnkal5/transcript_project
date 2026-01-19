@@ -19,6 +19,7 @@ from docx import Document
 from app.database import get_db
 from app.dependency import get_current_user
 from app.models import TranscriptRecord, User
+from app.config import settings
 from app.utils.file_storage import save_file, get_file_url, FileStorageError
 from app.utils.file_storage import resolve_file_url
 from app.llm_manager import LLMManager
@@ -364,7 +365,7 @@ def _assemblyai_transcribe(local_path: str) -> str:
     Returns transcribed text or raises exception on failure.
     """
     logger.info("Attempting transcription with AssemblyAI")
-    api_key = os.getenv("ASSEMBLYAI_API_KEY")
+    api_key = os.getenv("ASSEMBLYAI_API_KEY") or settings.ASSEMBLYAI_API_KEY
     if not api_key:
         logger.error("ASSEMBLYAI_API_KEY not found in environment variables")
         raise ValueError("ASSEMBLYAI_API_KEY not configured")
@@ -494,7 +495,7 @@ def _openai_transcribe(local_path: str) -> str:
     Requires env OPENAI_API_KEY.
     """
     logger.info("Attempting transcription with OpenAI Whisper")
-    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_KEY")
+    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_KEY") or settings.OPENAI_API_KEY
     if not api_key:
         logger.error("OPENAI_API_KEY not found in environment variables")
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")

@@ -777,7 +777,7 @@ export const Settings = () => {
           </div>
           <div className="space-y-4">
             <p className="text-gray-400">
-              Deleting your account will permanently remove all your data from our system. This includes your profile information, subscriptions, bots, files, chat messages, and all other associated data. This action cannot be undone.
+              Deleting your account will permanently remove all your data from our system. This includes your profile information, transcript records, and all other associated data. This action cannot be undone.
             </p>
             <div className="flex justify-end">
               <button
@@ -809,8 +809,8 @@ export const Settings = () => {
             <p className="text-gray-700 dark:text-gray-300 mb-6">
               This will permanently delete your account and all associated data:
               <ul className="list-disc pl-6 mt-2">
-                <li>User information and subscription</li>
-                <li>All chatbots and their settings</li>
+                <li>User information</li>
+                <li>All transcript records and associated data</li>
                 <li>YouTube transcripts and scraped web content</li>
                 <li>Uploaded files and documents</li>
                 <li>Chat messages and conversation history</li>

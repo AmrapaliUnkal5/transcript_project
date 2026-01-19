@@ -2,8 +2,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { NoSidebarLayout } from "./components/Layout/NoSidebarLayout";
-import { Subscription } from "./pages/Subscription";
-import { SubscriptionSuccess } from "./pages/SubscriptionSuccess.tsx";
 import { Settings } from "./pages/Settings";
 import { Login } from "./pages/Auth/Login";
 import { SignUp } from "./pages/Auth/SignUp";
@@ -20,9 +18,7 @@ import { FAQ } from "./pages/FaqPage.tsx";
 
 import { ReportIssue } from "./pages/ReportIssue.tsx";
 import { CustomerSupportRequest } from "./pages/CustomerSupport.tsx";
-import { SubscriptionPlanProvider } from "./context/SubscriptionPlanContext";
 import { TeamInvitation } from "./pages/TeamInvitation.tsx";
-import { AddonPurchasePage } from "./pages/AddonPurchasePage";
 import HomePage from "./pages/Home/index.tsx";
 import OurPlans from "./pages/OurPlans/index.tsx";
 import FAQPage from "./pages/FAQ/index.tsx";
@@ -65,7 +61,6 @@ function App() {
     <ScrollToTop />
       <LoaderProvider>
         <AuthProvider>
-            <SubscriptionPlanProvider>
               <Loader />
               <Routes>
                 <Route path="/login" element={<Login />} />
@@ -113,14 +108,10 @@ function App() {
                   <Route path="transcript/lookup" element={<TranscriptLookup />} />
                   <Route path="transcript/upload/:id" element={<TranscriptUpload />} />
                   <Route path="transcript/:id" element={<TranscriptDetail />} />
-                  <Route path="subscription" element={<Subscription />} />
-                  <Route path="subscription/success" element={<SubscriptionSuccess />} />
                   <Route path="myaccount" element={<Settings />} />
-                  <Route path="account/add-ons" element={<AddonPurchasePage />} />
                   <Route path="options" element={<PlanSelection />} />
                 </Route>
               </Routes>
-            </SubscriptionPlanProvider>
         </AuthProvider>
       </LoaderProvider>
     </BrowserRouter>
