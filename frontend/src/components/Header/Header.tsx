@@ -135,12 +135,13 @@ export default function HomeHeader(props: Props) {
                   return (
                     <Button
                       key={item.id}
+                      component={Link}
+                      to={item.url}
                       sx={{
                         color: isActive ? "#BAC2FF" : "#CDCDCD", 
                         fontSize: "16px",
                         textTransform: "capitalize",
                       }}
-                      href={item.url}
                     >
                       {item.label}
                     </Button>
@@ -150,7 +151,8 @@ export default function HomeHeader(props: Props) {
               <Box display={"flex"} gap={[1, 3]}>
                 <Button
                   variant="contained"
-                  href="/signup"
+                  component={Link}
+                  to="/signup"
                   sx={{
                     color: "#fff",
                     fontSize: "16px",
@@ -164,7 +166,8 @@ export default function HomeHeader(props: Props) {
                 </Button>
                 <Button
                   variant="outlined"
-                  href="/login"
+                  component={Link}
+                  to="/login"
                   sx={{
                     fontSize: "16px",
                     color: "#fff",

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Bell, Sun, Moon, Home, Settings, LogOut, HelpCircle, Contact, Headset } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { NotificationDropdown } from "../notifications/NotificationDropdown";
 import { Users, LayoutDashboard,Shield  } from "lucide-react";
@@ -100,16 +100,18 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
 
         
 
-       <button
-         onClick={() => window.open("/report-issue", "_blank")}
-          className="p-2 rounded-lg hover:bg-blue-950 dark:hover:bg-blue-800 text-white"
-          style={{fontFamily: "Instrument Sans, sans-serif",
-              fontSize: "16px",
-             
-              color:"FFFFFF"
-    
-              }}
-          title="Have doubts? Ask here!">Help</button>
+       <Link
+         to="/report-issue"
+         target="_blank"
+         rel="noopener noreferrer"
+         className="p-2 rounded-lg hover:bg-blue-950 dark:hover:bg-blue-800 text-white"
+         style={{fontFamily: "Instrument Sans, sans-serif",
+             fontSize: "16px",
+            
+             color:"FFFFFF"
+   
+             }}
+         title="Have doubts? Ask here!">Help</Link>
       
     
         <NotificationDropdown />
@@ -153,8 +155,10 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
                 </span>
               </button>
               {authUser?.role === "superadmin" && (
-                  <button
-                    onClick={() => window.open("/superadmin-login", "_blank")}
+                  <Link
+                    to="/superadmin-login"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center space-x-2 w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     <Users
@@ -164,7 +168,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
                     <span className="text-sm font-medium text-gray-900 dark:text-white">
                       Impersonate
                     </span>
-                  </button>
+                  </Link>
                 )}
 
                 {(authUser?.role === "superadmin" || authUser?.role === "admin") && (

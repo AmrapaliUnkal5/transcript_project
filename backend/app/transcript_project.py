@@ -32,7 +32,16 @@ router = APIRouter(prefix="/transcript", tags=["Transcript Project"])
 # Initialize logger for transcript project
 logger = get_module_logger(__name__)
 
-TRANSCRIPT_DIR = "transcript_project"
+# Transcript uploads are stored directly under the main UPLOAD_DIR (no subfolder).
+# This makes local + AWS deployments consistent: set UPLOAD_DIR via env to control where files land.
+TRANSCRIPT_SUBDIR = ""  # Empty - files go directly in UPLOAD_DIR
+
+# Backward compatibility: old deployments stored files under these folders.
+LEGACY_TRANSCRIPT_DIR = "transcript_project"
+LEGACY_TRANSCRIPTS_SUBDIR = "transcripts"
+
+# Ensure local transcript upload folder exists (skip for S3)
+# UPLOAD_DIR itself is already created in config.py, so no need to create subdirectory
 
 
 # Text extraction functions (moved from word_count_validation.py)
@@ -248,7 +257,7 @@ async def upload_audio(
 ):
     """
     Upload recorded or pre-recorded audio for the record.
-    Stores under transcript_project/ and returns a resolvable URL/path.
+    Stores directly under {settings.UPLOAD_DIR}/ and returns a resolvable URL/path.
     """
     record = db.query(TranscriptRecord).filter(
         TranscriptRecord.id == record_id, TranscriptRecord.user_id == current_user.get("user_id")
@@ -265,16 +274,23 @@ async def upload_audio(
 
     try:
         content = await file.read()
-        saved_path = save_file(TRANSCRIPT_DIR, filename, content)
+        rel_key = filename  # Save directly in UPLOAD_DIR, no subfolder
+        saved_path = save_file(settings.UPLOAD_DIR, rel_key, content)
+
         # Build a usable URL for browser playback
         base_url = os.getenv("SERVER_URL")
-        rel_url = f"/{TRANSCRIPT_DIR}/{os.path.basename(saved_path)}"
+        uploads_url_prefix = os.path.basename(settings.UPLOAD_DIR.rstrip("/\\"))
+        rel_url = f"/{uploads_url_prefix}/{rel_key}"
         file_url = None
         try:
-            file_url = get_file_url(TRANSCRIPT_DIR, filename, base_url)  # may raise if base_url missing
+            file_url = get_file_url(settings.UPLOAD_DIR, rel_key, base_url)  # may raise if base_url missing
         except Exception:
             file_url = None
-        resolved_url = resolve_file_url(file_url) if file_url and file_url.startswith("s3://") else (file_url or (base_url.rstrip("/") + rel_url if base_url else rel_url))
+        resolved_url = (
+            resolve_file_url(file_url)
+            if file_url and file_url.startswith("s3://")
+            else (file_url or (base_url.rstrip("/") + rel_url if base_url else rel_url))
+        )
     except FileStorageError as e:
         raise HTTPException(status_code=500, detail=f"File storage error: {str(e)}")
     except Exception as e:
@@ -295,7 +311,7 @@ async def upload_document(
 ):
     """
     Upload a document (pdf, docx, doc, txt, csv, png, jpg, jpeg) and extract text into transcript_text.
-    Stores the raw file under transcript_project/ and indexes extracted text into Qdrant.
+    Stores the raw file directly under {settings.UPLOAD_DIR}/ and indexes extracted text into Qdrant.
     """
     record = db.query(TranscriptRecord).filter(
         TranscriptRecord.id == record_id, TranscriptRecord.user_id == current_user.get("user_id")
@@ -308,15 +324,21 @@ async def upload_document(
     safe_name = f"{uuid.uuid4()}.{ext}"
     try:
         content = await file.read()
-        saved_path = save_file(TRANSCRIPT_DIR, safe_name, content)
+        rel_key = safe_name  # Save directly in UPLOAD_DIR, no subfolder
+        saved_path = save_file(settings.UPLOAD_DIR, rel_key, content)
         base_url = os.getenv("SERVER_URL")
-        rel_url = f"/{TRANSCRIPT_DIR}/{os.path.basename(saved_path)}"
+        uploads_url_prefix = os.path.basename(settings.UPLOAD_DIR.rstrip("/\\"))
+        rel_url = f"/{uploads_url_prefix}/{rel_key}"
         file_url = None
         try:
-            file_url = get_file_url(TRANSCRIPT_DIR, safe_name, base_url)
+            file_url = get_file_url(settings.UPLOAD_DIR, rel_key, base_url)
         except Exception:
             file_url = None
-        resolved_url = resolve_file_url(file_url) if file_url and file_url.startswith("s3://") else (file_url or (base_url.rstrip("/") + rel_url if base_url else rel_url))
+        resolved_url = (
+            resolve_file_url(file_url)
+            if file_url and file_url.startswith("s3://")
+            else (file_url or (base_url.rstrip("/") + rel_url if base_url else rel_url))
+        )
     except FileStorageError as e:
         raise HTTPException(status_code=500, detail=f"File storage error: {str(e)}")
     except Exception as e:
@@ -324,7 +346,8 @@ async def upload_document(
 
     # Reconstruct an UploadFile-like object for extractor
     from starlette.datastructures import UploadFile as StarletteUploadFile
-    doc_upload = StarletteUploadFile(filename=file.filename or safe_name, file=os.path.join(TRANSCRIPT_DIR, os.path.basename(saved_path)))
+    # Note: extractor below reads from memory; this is kept for compatibility but isn't relied upon.
+    doc_upload = StarletteUploadFile(filename=file.filename or safe_name, file=saved_path)
 
     # Use Evolra's unified extractor
     try:
@@ -559,13 +582,31 @@ def transcribe_record(
         logger.warning(f"No audio uploaded for record", extra={"record_id": record_id})
         raise HTTPException(status_code=400, detail="No audio uploaded for this record")
 
-    # If stored path is s3:// not supported here; assume local path under transcript_project
-    local_path = record.audio_path if os.path.isabs(record.audio_path) else os.path.join(TRANSCRIPT_DIR, os.path.basename(record.audio_path))
-    if not os.path.exists(local_path):
-        # try direct relative
-        local_path = record.audio_path
-    if not os.path.exists(local_path):
-        logger.error(f"Stored audio file not found", extra={"record_id": record_id, "audio_path": record.audio_path})
+    # If stored path is s3://, transcription from local file path is not supported here.
+    if record.audio_path.startswith("s3://"):
+        raise HTTPException(status_code=400, detail="Audio is stored in S3; server-side transcription requires local access")
+
+    # Try to resolve a local file path across current + legacy storage layouts
+    candidates = []
+    if record.audio_path:
+        candidates.append(record.audio_path)
+        candidates.append(os.path.join(settings.UPLOAD_DIR, record.audio_path))
+        candidates.append(os.path.join(settings.UPLOAD_DIR, os.path.basename(record.audio_path)))
+        # Legacy paths for backward compatibility
+        candidates.append(os.path.join(settings.UPLOAD_DIR, LEGACY_TRANSCRIPTS_SUBDIR, os.path.basename(record.audio_path)))
+        candidates.append(os.path.join(LEGACY_TRANSCRIPT_DIR, os.path.basename(record.audio_path)))
+
+    local_path = None
+    for p in candidates:
+        if p and os.path.exists(p):
+            local_path = p
+            break
+
+    if not local_path:
+        logger.error(
+            f"Stored audio file not found",
+            extra={"record_id": record_id, "audio_path": record.audio_path, "candidates": candidates},
+        )
         raise HTTPException(status_code=404, detail="Stored audio file not found")
 
     logger.info(f"Audio file found", extra={"local_path": local_path, "record_id": record_id})

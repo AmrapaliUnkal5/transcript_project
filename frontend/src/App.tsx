@@ -51,12 +51,13 @@ const TrackPageView = () => {
   return null;
 };
 
+
 function App() {
    useEffect(() => {
     ReactGA.initialize(GA_MEASUREMENT_ID);
   }, []);
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/voice">
     <TrackPageView />
     <ScrollToTop />
       <LoaderProvider>

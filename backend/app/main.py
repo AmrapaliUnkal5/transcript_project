@@ -71,6 +71,15 @@ from app.cron import init_scheduler
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
+#
+# IMPORTANT (path-based hosting):
+# We run this project behind a path prefix: https://evolra.ai/voice-api/...
+# ALB/CloudFront will forward requests with the prefix intact (no path rewriting),
+# so we mount the API under that prefix to avoid breaking routes.
+#
+# Existing code below is written against the `app` variable (decorators, mounts, middleware).
+# We keep it as the *API app* and later export a small root app that mounts it at /voice-api.
+#
 app = FastAPI(debug=True)
 
 # Register exception handlers
@@ -666,3 +675,16 @@ def refresh_token(request: Request, db: Session = Depends(get_db), current_user:
     
     new_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     return {"access_token": new_token}
+
+# ---- Root ASGI app (mounted API prefix) ----
+# Export a root app that mounts the API at /voice-api so all endpoints are available at:
+#   /voice-api/login, /voice-api/docs, /voice-api/admin, ...
+#
+# ALB/CloudFront path-based routing will forward requests with the prefix intact,
+# so mounting is required (no path rewriting is done upstream).
+api_app = app
+root_app = FastAPI()
+root_app.mount("/voice-api", api_app)
+
+# Uvicorn serves `app.main:app`, so we rebind `app` to the root app.
+app = root_app

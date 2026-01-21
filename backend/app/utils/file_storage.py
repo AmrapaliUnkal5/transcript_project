@@ -133,13 +133,19 @@ def _save_to_local(local_path: str, filename: str, file_content: Union[bytes, Bi
     Returns:
         str: Full local file path
     """
-    # Create directory if it doesn't exist
+    # Create base directory if it doesn't exist
     if create_subdirs:
         os.makedirs(local_path, exist_ok=True)
         logger.debug(f"Ensured directory exists: {local_path}")
     
-    # Construct full file path
+    # Construct full file path (filename may include nested subpaths like "transcripts/uuid.ext")
     file_path = os.path.join(local_path, filename)
+
+    # Ensure parent directories exist for nested paths
+    parent_dir = os.path.dirname(file_path)
+    if create_subdirs and parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+        logger.debug(f"Ensured parent directory exists: {parent_dir}")
     
     logger.info(f"Saving file to local path: {file_path}")
     

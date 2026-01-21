@@ -2,7 +2,9 @@ import axios from 'axios';
 import { ApiFile, DemoRequestData, GetWeeklyConversationsParams, TeamMember, TeamInvitation, TeamMemberRole, UserUsageResponse } from '../types';
 import { AddonPlan } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? '/voice-api' : 'http://localhost:8000/voice-api');
 
 const api = axios.create({
   baseURL: API_URL,
