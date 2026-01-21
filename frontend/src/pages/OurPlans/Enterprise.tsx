@@ -7,6 +7,7 @@ import {
   Typography,
   styled,
 } from "@mui/material";
+import { getImagePath } from "../../utils/imagePath";
 
 export const Enterprise = () => {
   return (
@@ -50,7 +51,7 @@ export const Enterprise = () => {
             mb={[4, 8]}
           >
             <StyledImage
-              src="/images/icons/icon-add-circle.png" // Replace with your logo path
+              src={getImagePath("images/icons/icon-add-circle.png")} // Replace with your logo path
               sx={{
                 width: "25px",
                 height: "25px",
@@ -83,7 +84,7 @@ export const Enterprise = () => {
               <Grid item xs={12} sm={12} md={4}>
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: "24px",
                       height: "24px",
@@ -103,7 +104,7 @@ export const Enterprise = () => {
 
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: "24px",
                       height: "24px",
@@ -123,7 +124,7 @@ export const Enterprise = () => {
 
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: "24px",
                       height: "24px",
@@ -143,7 +144,7 @@ export const Enterprise = () => {
                 {/* Row 2 */}
                 <Box display="flex" alignItems="center" gap={1}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: "24px",
                       height: "24px",
@@ -163,7 +164,7 @@ export const Enterprise = () => {
               <Grid item xs={12} sm={12} md={4}>
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: "24px",
                       height: "24px",
@@ -183,7 +184,7 @@ export const Enterprise = () => {
 
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: "24px",
                       height: "24px",
@@ -203,7 +204,7 @@ export const Enterprise = () => {
 
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: "24px",
                       height: "24px",
@@ -224,7 +225,7 @@ export const Enterprise = () => {
                 {/* Row 2 */}
                 <Box display="flex" alignItems="center" gap={1}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: "24px",
                       height: "24px",
@@ -245,7 +246,7 @@ export const Enterprise = () => {
               <Grid item xs={12} sm={12} md={4}>
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: "24px",
                       height: "24px",
@@ -266,7 +267,7 @@ export const Enterprise = () => {
                 {/* Row 2 */}
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-check.png" // Use a different icon if needed
+                    src={getImagePath("images/icons/icon-check.png")} // Use a different icon if needed
                     sx={{
                       width: "24px",
                       height: "24px",
@@ -286,7 +287,7 @@ export const Enterprise = () => {
 
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: "24px",
                       height: "24px",
@@ -306,7 +307,7 @@ export const Enterprise = () => {
 
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: "24px",
                       height: "24px",

@@ -13,6 +13,7 @@ import EastOutlinedIcon from "@mui/icons-material/EastOutlined";
 import ReactGA from "react-ga4";
 import {trackGAEvent} from './Hero';
 import { useSubscriptionPlans } from "../../context/SubscriptionPlanContext";
+import { getBackgroundImageUrl } from "../../utils/imagePath";
 
 
 export default function Plans() {
@@ -49,7 +50,7 @@ export default function Plans() {
             pt={[4, 7]}
             pb={[2, 7]}
             sx={{
-              backgroundImage: "url(/images/title-bg.png)",
+              backgroundImage: getBackgroundImageUrl("images/title-bg.png"),
               backgroundSize: "contain",
               backgroundPosition: "center",
               backgroundRepeat: "no-repeat",

@@ -3,6 +3,7 @@ import React from 'react';
 import Grid from '@mui/material/Grid2';
 import { Facebook, Apple } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getImagePath } from '../utils/imagePath';
 
 export default function LoginHome() {
   return (
@@ -16,7 +17,7 @@ export default function LoginHome() {
               </Typography>
               <Box textAlign={'center'}>
                 <StyledImage
-                  src='/images/dummy/chatbot-temp1.jpg'
+                  src={getImagePath('images/dummy/chatbot-temp1.jpg')}
                   sx={{ margin: 'auto', borderRadius: '16px', maxWidth: 525 }}
                 />
               </Box>
@@ -59,7 +60,7 @@ export default function LoginHome() {
                   </Grid>
                   <Grid size={12}>
                     <StyledImage
-                      src='/images/temp/captcha.png'
+                      src={getImagePath('images/temp/captcha.png')}
                       sx={{ margin: 'auto' }}
                     />
                   </Grid>

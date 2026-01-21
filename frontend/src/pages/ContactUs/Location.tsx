@@ -8,6 +8,7 @@ import {
   Typography,
 } from "@mui/material";
 import React from "react";
+import { getImagePath, getBackgroundImageUrl } from "../../utils/imagePath";
 
 export default function Location() {
   return (
@@ -36,7 +37,7 @@ export default function Location() {
           px={[0, 10]}
           py={[2, 4]}
           sx={{
-            backgroundImage: "url(/images/title-bg.png)",
+            backgroundImage: getBackgroundImageUrl("images/title-bg.png"),
             backgroundSize: "contain",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
@@ -67,7 +68,7 @@ export default function Location() {
               >
                 <Box mx={2}>
                   <StyledImage
-                    src="/images/Contact/NewYork.png"
+                    src={getImagePath("images/Contact/NewYork.png")}
                     sx={{
                       width: "100%",
                       maxHeight: 363,
@@ -111,7 +112,7 @@ export default function Location() {
               >
                 <Box mx={2}>
                   <StyledImage
-                    src="/images/Contact/MuscatOman.png"
+                    src={getImagePath("images/Contact/MuscatOman.png")}
                     sx={{
                       width: "100%",
                       maxHeight: 363,
@@ -155,7 +156,7 @@ export default function Location() {
               >
                 <Box mx={2}>
                   <StyledImage
-                    src="/images/Contact/Jaipur.png"
+                    src={getImagePath("images/Contact/Jaipur.png")}
                     sx={{
                       width: "100%",
                       maxHeight: 363,
@@ -199,7 +200,7 @@ export default function Location() {
               >
                 <Box mx={2}>
                   <StyledImage
-                    src="/images/Contact/Dubai.png"
+                    src={getImagePath("images/Contact/Dubai.png")}
                     sx={{
                       width: "100%",
                       maxHeight: 363,
@@ -245,7 +246,7 @@ export default function Location() {
               >
                 <Box mx={2}>
                   <StyledImage
-                    src="/images/Contact/Berlin.png"
+                    src={getImagePath("images/Contact/Berlin.png")}
                     sx={{
                       width: "100%",
                       maxHeight: 363,

@@ -8,7 +8,8 @@ import MuiAccordionSummary, {
 import MuiAccordionDetails from "@mui/material/AccordionDetails";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ReactGA from "react-ga4";
-import { trackGAEvent } from "./Hero"
+import { trackGAEvent } from "./Hero";
+import { getBackgroundImageUrl } from "../../utils/imagePath";
 
 const AccordionSummary = styled((props: AccordionSummaryProps) => (
   <MuiAccordionSummary
@@ -76,7 +77,7 @@ export default function FAQ() {
             px={[1, 10]}
             py={[3, 10]}
             sx={{
-              backgroundImage: "url(/images/title-bg.png)",
+              backgroundImage: getBackgroundImageUrl("images/title-bg.png"),
               backgroundSize: "contain",
               backgroundPosition: "center",
               backgroundRepeat: "no-repeat",

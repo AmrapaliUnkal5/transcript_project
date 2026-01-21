@@ -9,6 +9,7 @@ import {
 } from "@mui/material";
 import ReactGA from "react-ga4";
 import { trackGAEvent } from "./Hero";
+import { getImagePath } from "../../utils/imagePath";
 
 export const Enterprise = () => {
   return (
@@ -65,7 +66,7 @@ export const Enterprise = () => {
               <Grid item xs={12} sm={12} md={4}>
                 <Box display="flex" alignItems="center" gap={[0.5, 1]} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: ["15px", "24px"],
                       height: ["15px", "24px"],
@@ -86,7 +87,7 @@ export const Enterprise = () => {
                 {/* Row 2 */}
                 <Box display="flex" alignItems="center" gap={[0.5, 1]}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: ["15px", "24px"],
                       height: ["15px", "24px"],
@@ -107,7 +108,7 @@ export const Enterprise = () => {
               <Grid item xs={12} sm={12} md={4}>
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: ["15px", "24px"],
                       height: ["15px", "24px"],
@@ -128,7 +129,7 @@ export const Enterprise = () => {
                 {/* Row 2 */}
                 <Box display="flex" alignItems="center" gap={1}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: ["15px", "24px"],
                       height: ["15px", "24px"],
@@ -149,7 +150,7 @@ export const Enterprise = () => {
               <Grid item xs={12} sm={12} md={4}>
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: ["15px", "24px"],
                       height: ["15px", "24px"],
@@ -170,7 +171,7 @@ export const Enterprise = () => {
                 {/* Row 2 */}
                 <Box display="flex" alignItems="center" gap={1}>
                   <StyledImage
-                    src="/images/icons/icon-check.png"
+                    src={getImagePath("images/icons/icon-check.png")}
                     sx={{
                       width: ["15px", "24px"],
                       height: ["15px", "24px"],

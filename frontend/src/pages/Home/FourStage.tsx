@@ -8,6 +8,7 @@ import {
 } from "@mui/material";
 import React from "react";
 import { trackGAEvent } from './Hero';
+import { getImagePath, getBackgroundImageUrl } from "../../utils/imagePath";
 
 export default function FourStage() {
   return (
@@ -28,7 +29,7 @@ export default function FourStage() {
           pt={[2, 10]}
           pb={[2, 14]}
           sx={{
-            backgroundImage: "url(/images/title-bg.png)",
+            backgroundImage: getBackgroundImageUrl("images/title-bg.png"),
             backgroundSize: "contain",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
@@ -70,7 +71,7 @@ export default function FourStage() {
               }}
             >
               <StyledImage
-                src="/images/home/LoadData.png"
+                src={getImagePath("images/home/LoadData.png")}
                 sx={{
                   width: "104px",
                   height: "104px",
@@ -92,7 +93,7 @@ export default function FourStage() {
             {" "}
             <Box
               component="img"
-              src="/images/home/Union.png"
+              src={getImagePath("images/home/Union.png")}
               alt="Arrow"
               sx={{
                 display: { xs: "none", md: "block" },
@@ -126,7 +127,7 @@ export default function FourStage() {
                 }}
               >
                 <StyledImage
-                  src="/images/home/DesignYour.png"
+                  src={getImagePath("images/home/DesignYour.png")}
                   sx={{
                     width: "104px",
                     height: "104px",
@@ -150,7 +151,7 @@ export default function FourStage() {
             <Box
 
               component="img"
-              src="/images/home/Union.png"
+              src={getImagePath("images/home/Union.png")}
               alt="Arrow"
               sx={{
                 display: { xs: "none", md: "block" },
@@ -175,7 +176,7 @@ export default function FourStage() {
               }}
             >
               <StyledImage
-                src="/images/home/BuildYour.png"
+                src={getImagePath("images/home/BuildYour.png")}
                 sx={{
                   width: "104px",
                   height: "104px",
@@ -196,7 +197,7 @@ export default function FourStage() {
             {" "}
             <Box
               component="img"
-              src="/images/home/Union.png"
+              src={getImagePath("images/home/Union.png")}
               alt="Arrow"
               sx={{
                 display: { xs: "none", md: "block" },
@@ -230,7 +231,7 @@ export default function FourStage() {
                 }}
               >
                 <StyledImage
-                  src="/images/home/Deploy.png"
+                  src={getImagePath("images/home/Deploy.png")}
                   sx={{
                     width: "104px",
                     height: "104px",

@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Button, Typography } from "@mui/material";
 import Typical from "react-typical";
 import ReactGA from "react-ga4";
+import { getImagePath, getBackgroundImageUrl } from "../../utils/imagePath";
 
 
 
@@ -20,7 +21,7 @@ import ReactGA from "react-ga4";
       <Box
         mt={"50px"}
         sx={{
-          backgroundImage: "url(/images/dot-bg.png)",
+          backgroundImage: getBackgroundImageUrl("images/dot-bg.png"),
           backgroundPosition: "center",
           backgroundColor: "#101035",
         }}
@@ -31,7 +32,7 @@ import ReactGA from "react-ga4";
           justifyContent="center"
           alignItems="center"
           sx={{
-            backgroundImage: "url(/images/hero-bg.png)",
+            backgroundImage: getBackgroundImageUrl("images/hero-bg.png"),
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",

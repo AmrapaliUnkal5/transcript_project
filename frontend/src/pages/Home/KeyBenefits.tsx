@@ -10,6 +10,7 @@ import React from "react";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ReactGA from "react-ga4";
 import {trackGAEvent} from './Hero';
+import { getImagePath, getBackgroundImageUrl } from "../../utils/imagePath";
 
 
 export default function KeyBenefits() {
@@ -31,7 +32,7 @@ export default function KeyBenefits() {
             px={[1, 10]}
             py={[2, 10]}
             sx={{
-              backgroundImage: "url(/images/title-bg.png)",
+              backgroundImage: getBackgroundImageUrl("images/title-bg.png"),
               backgroundSize: "contain",
               backgroundPosition: "center",
               backgroundRepeat: "no-repeat",
@@ -79,7 +80,7 @@ export default function KeyBenefits() {
                 }}
                 >
                   <StyledImage
-                    src="/images/home/key-video.png"
+                    src={getImagePath("images/home/key-video.png")}
                     sx={{
                       margin: "auto",
                       maxWidth: 347,
@@ -124,7 +125,7 @@ export default function KeyBenefits() {
                   }}
                 >
                   <StyledImage
-                    src="/images/home/key-support.png"
+                    src={getImagePath("images/home/key-support.png")}
                     sx={{
                       margin: "auto",
                       maxWidth: 337,
@@ -171,7 +172,7 @@ export default function KeyBenefits() {
                 >
                   <Box height={175} mb={"65px"}>
                     <StyledImage
-                      src="/images/home/key-chat.png"
+                      src={getImagePath("images/home/key-chat.png")}
                       sx={{ margin: "auto", maxWidth: 275, maxHeight: 190 }}
                     />
                   </Box>
@@ -216,7 +217,7 @@ export default function KeyBenefits() {
                 >
                   <Box height={175} mb={"65px"}>
                     <StyledImage
-                      src="/images/home/key-website.png"
+                      src={getImagePath("images/home/key-website.png")}
                       sx={{ margin: "auto", maxWidth: 289, maxHeight: 190 }}
                     />
                   </Box>
@@ -262,7 +263,7 @@ export default function KeyBenefits() {
                     mb={"65px"}
                   >
                     <StyledImage
-                      src="/images/home/key-analytics.png"
+                      src={getImagePath("images/home/key-analytics.png")}
                       sx={{ margin: "auto", maxWidth: 257, maxHeight: 190 }}
                     />
                   </Box>

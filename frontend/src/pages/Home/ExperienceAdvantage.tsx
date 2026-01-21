@@ -7,6 +7,7 @@ import {
   styled,
 } from "@mui/material";
 import React from "react";
+import { getImagePath, getBackgroundImageUrl } from "../../utils/imagePath";
 
 export default function ExperienceAdvantage() {
   return (
@@ -28,7 +29,7 @@ export default function ExperienceAdvantage() {
           pt={[2,10]}
           pb={[2,14]}
           sx={{
-            backgroundImage: "url(/images/title-bg.png)",
+            backgroundImage: getBackgroundImageUrl("images/title-bg.png"),
             backgroundSize: "contain",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
@@ -57,7 +58,7 @@ export default function ExperienceAdvantage() {
           >
             <Grid item md={4} textAlign={["center", "left"]}>
               <StyledImage
-                src="/images/icons/icon-thumb.png"
+                src={getImagePath("images/icons/icon-thumb.png")}
                 sx={{
                   width: "74px",
                   height: "74px",
@@ -86,7 +87,7 @@ export default function ExperienceAdvantage() {
 
             <Grid item md={4}    textAlign={["center", "left"]}>
               <StyledImage
-                src="/images/icons/icon-growth.png"
+                src={getImagePath("images/icons/icon-growth.png")}
                 sx={{
                   width: "74px",
                   height: "74px",
@@ -113,7 +114,7 @@ export default function ExperienceAdvantage() {
 
             <Grid item md={4}    textAlign={["center", "left"]}>
               <StyledImage
-                src="/images/icons/icon-speed.png"
+                src={getImagePath("images/icons/icon-speed.png")}
                 sx={{
                   width: "74px",
                   height: "74px",

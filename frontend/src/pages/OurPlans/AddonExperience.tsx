@@ -8,6 +8,7 @@ import {
 } from "@mui/material";
 import React from "react";
 import { useAddonPlans } from "../../context/SubscriptionPlanContext";
+import { getImagePath, getBackgroundImageUrl } from "../../utils/imagePath";
 
 export default function AddonExperience() {
   const { addons } = useAddonPlans();
@@ -43,7 +44,7 @@ export default function AddonExperience() {
           px={[1, 10]}
           py={[2, 10]}
           sx={{
-            backgroundImage: "url(/images/title-bg.png)",
+            backgroundImage: getBackgroundImageUrl("images/title-bg.png"),
             backgroundSize: "contain",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
@@ -71,7 +72,7 @@ export default function AddonExperience() {
                 }}
               >
                 <StyledImage
-                  src="/images/icons/icon-rectangle-v.png"
+                  src={getImagePath("images/icons/icon-rectangle-v.png")}
                   sx={{
                     width: "63px",
                     height: "63px",
@@ -164,7 +165,7 @@ export default function AddonExperience() {
                 }}
               >
                 <StyledImage
-                  src="/images/icons/icon-rectangle-v.png"
+                  src={getImagePath("images/icons/icon-rectangle-v.png")}
                   sx={{
                     width: "63px",
                     height: "63x",
@@ -252,7 +253,7 @@ export default function AddonExperience() {
                 }}
               >
                 <StyledImage
-                  src="/images/icons/icon-rectangle-v.png"
+                  src={getImagePath("images/icons/icon-rectangle-v.png")}
                   sx={{
                     width: "63px",
                     height: "63x",
@@ -341,7 +342,7 @@ export default function AddonExperience() {
                 }}
               >
                 <StyledImage
-                  src="/images/icons/icon-rectangle-v.png"
+                  src={getImagePath("images/icons/icon-rectangle-v.png")}
                   sx={{
                     width: "63px",
                     height: "63px",
@@ -434,7 +435,7 @@ export default function AddonExperience() {
                 }}
               >
                 <StyledImage
-                  src="/images/icons/icon-rectangle-v.png"
+                  src={getImagePath("images/icons/icon-rectangle-v.png")}
                   sx={{
                     width: "63px",
                     height: "63px",
@@ -529,7 +530,7 @@ export default function AddonExperience() {
                 }}
               >
                 <StyledImage
-                  src="/images/icons/icon-rectangle-v.png"
+                  src={getImagePath("images/icons/icon-rectangle-v.png")}
                   sx={{
                     width: "63px",
                     height: "63px",
