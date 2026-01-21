@@ -7,6 +7,7 @@ import {
   styled,
 } from "@mui/material";
 import React from "react";
+import { getImagePath } from "../../utils/imagePath";
 
 export default function AboutPage() {
   return (
@@ -38,7 +39,7 @@ export default function AboutPage() {
             }}
           >
             <StyledImage
-              src="/images/about/about.png"
+              src={getImagePath("images/about/about.png")}
               alt="Centered Illustration"
             />
           </Box>
@@ -155,7 +156,7 @@ export default function AboutPage() {
               >
                 {/* Background Eye Image */}
                 <StyledImage
-                  src="/images/about/Eye.png"
+                  src={getImagePath("images/about/Eye.png")}
                   sx={{
                     width: "100%",
                     height: "100%",
@@ -179,14 +180,14 @@ export default function AboutPage() {
                 >
                   {/* Icon */}
                   <img
-                    src="/images/about/icon.png"
+                    src={getImagePath("images/about/icon.png")}
                     alt="Icon"
                     style={{ width: 60, height: 60, marginBottom: 8 }}
                   />
 
                   {/* Name Image */}
                   <img
-                    src="/images/about/name.png"
+                    src={getImagePath("images/about/name.png")}
                     alt="Name"
                     style={{ maxWidth: "115px" }}
                   />

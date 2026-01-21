@@ -7,6 +7,7 @@ import MuiAccordionSummary, {
 } from "@mui/material/AccordionSummary";
 import MuiAccordionDetails from "@mui/material/AccordionDetails";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { getBackgroundImageUrl } from "../../utils/imagePath";
 
 const AccordionSummary = styled((props: AccordionSummaryProps) => (
   <MuiAccordionSummary
@@ -66,7 +67,7 @@ export default function FAQ() {
             px={[1, 10]}
             py={[2, 10]}
             sx={{
-              backgroundImage: "url(/images/title-bg.png)",
+              backgroundImage: getBackgroundImageUrl("images/title-bg.png"),
               backgroundSize: "contain",
               backgroundPosition: "center",
               backgroundRepeat: "no-repeat",

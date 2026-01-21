@@ -17,6 +17,7 @@ import { styled } from "@mui/material";
 import { useLocation } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import { getImagePath } from "../../utils/imagePath";
 
 interface Props {
   /**
@@ -48,7 +49,7 @@ export default function HomeHeader(props: Props) {
     <Box onClick={handleDrawerToggle} sx={{ textAlign: "center" }}>
       <Box sx={{ my: 2 }}>
         <StyledImage
-          src="/images/logo.png"
+          src={getImagePath("images/logo.png")}
           sx={{ display: "block", ml: 2, mb: 2, maxWidth: 180 }}
         />
       </Box>
@@ -92,7 +93,7 @@ export default function HomeHeader(props: Props) {
         <Toolbar>
           <Link to="/">
             <StyledImage
-              src="/images/logo.png"
+              src={getImagePath("images/logo.png")}
               sx={{
                 display: { xs: "block", sm: "none" },
                 width: "150px",
@@ -113,7 +114,7 @@ export default function HomeHeader(props: Props) {
             <Box>
               <Link to="/">
                 <StyledImage
-                  src="/images/logo.png"
+                  src={getImagePath("images/logo.png")}
                   sx={{
                     margin: "auto",
                     maxWidth: [150, 212],

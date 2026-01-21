@@ -28,6 +28,7 @@ import {
 import Grid from "@mui/material/Grid2";
 import { RefreshCcw } from "lucide-react"; // Import Lucide icon
 import { useLoader } from "../../context/LoaderContext";
+import { getImagePath } from "../../utils/imagePath";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import SmartToyOutlinedIcon from "@mui/icons-material/SmartToyOutlined";
 
@@ -425,7 +426,7 @@ export const Login = () => {
             {/* Logo with fallback */}
             <Box
               component="img"
-              src="/images/dummy/Evolra-AI-Logo_Transparent.png"
+              src={getImagePath("images/dummy/Evolra-AI-Logo_Transparent.png")}
               alt="Evolra AI Logo"
               onClick={() => navigate("/")}
               sx={{
@@ -504,7 +505,7 @@ export const Login = () => {
                       
                     }}
                   >
-                    <source src="/images/dummy/gif.mp4" type="video/mp4" />
+                    <source src={getImagePath("images/dummy/gif.mp4")} type="video/mp4" />
                   </video>
                 </Box>
               </Box>

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { NotificationDropdown } from "../notifications/NotificationDropdown";
 import { Users, LayoutDashboard,Shield  } from "lucide-react";
+import { getImagePath } from "../../utils/imagePath";
 
 
 interface HeaderProps {
@@ -78,7 +79,7 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
           className="cursor-pointer"
         >
           <img
-            src="/images/logo.png"
+            src={getImagePath("images/logo.png")}
             alt="Logo"
             className="h-8 w-auto"
           />

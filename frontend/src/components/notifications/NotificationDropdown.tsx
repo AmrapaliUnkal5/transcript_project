@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { authApi } from "../../services/api";
 import { formatUiDate } from "../../utils/date";
 import { Trash } from "lucide-react";
+import { getImagePath } from "../../utils/imagePath";
 
 
 type Notification = {
@@ -100,7 +101,7 @@ export const NotificationDropdown = () => {
   title="Notifications"
 >
   <img
-    src="/images/dummy/notifications.png"
+                src={getImagePath("images/dummy/notifications.png")}
     alt="Notifications"
      className="w-7 h-7"
   />

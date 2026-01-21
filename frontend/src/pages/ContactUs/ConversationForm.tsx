@@ -13,6 +13,7 @@ import React from "react";
 import{ useState } from "react";
 import { authApi } from "../../services/api";
 import { Snackbar, Alert } from "@mui/material";
+import { getImagePath, getBackgroundImageUrl } from "../../utils/imagePath";
 
 
 export default function ConversationForm() {
@@ -47,7 +48,7 @@ const showError = (message) => {
             px={[0, 10]}
             py={[2, 8.85]}
             sx={{
-              backgroundImage: "url(/images/title-bg.png)",
+              backgroundImage: getBackgroundImageUrl("images/title-bg.png"),
               backgroundSize: "contain",
               backgroundPosition: "center",
               backgroundRepeat: "no-repeat",
@@ -84,7 +85,7 @@ const showError = (message) => {
 
                 <Box display={"flex"} mb="31px">
                   <StyledImage
-                    src="/images/icon-mail.png"
+                    src={getImagePath("images/icon-mail.png")}
                     sx={{ width: 28, height: 28, color: "#BAB8FF", mr: 2 }}
                   />
                   <Typography variant="body1" fontSize={16} color={"#cacaca"}>

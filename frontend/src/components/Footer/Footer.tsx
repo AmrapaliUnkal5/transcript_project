@@ -1,5 +1,6 @@
 import React from "react";
 import { Link as RouterLink } from "react-router-dom";
+import { getImagePath } from "../../utils/imagePath";
 
 import {
   Box,
@@ -26,7 +27,7 @@ function Footer() {
           <Grid item xs={12} sm={12} md={4}>
             <Box>
               <StyledImage
-                src="/images/logo.png"
+                src={getImagePath("images/logo.png")}
                 sx={{ width: "244px", height: "38px" }}
               />
               {/* Adjust the size of the image */}
