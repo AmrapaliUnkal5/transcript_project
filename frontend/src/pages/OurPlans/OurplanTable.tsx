@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { useSubscriptionPlans } from "../../context/SubscriptionPlanContext";
 
 import { styled } from "@mui/material/styles";
+import { getImagePath } from "../../utils/imagePath";
 import {
   Table,
   TableBody,
@@ -421,7 +422,7 @@ export const OurplanTable = () => {
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
                     <Box display="flex" justifyContent="center">
                       <StyledImage
-                        src="/images/icons/icon-cancel.png" 
+                        src={getImagePath("images/icons/icon-cancel.png")} 
                         sx={{ width: "24px", height: "24px", marginBottom: 0 }}
                       />
                     </Box>
@@ -429,7 +430,7 @@ export const OurplanTable = () => {
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
                     <Box display="flex" justifyContent="center">
                       <StyledImage
-                        src="/images/icons/icon-cancel.png" 
+                        src={getImagePath("images/icons/icon-cancel.png")} 
                         sx={{ width: "24px", height: "24px", marginBottom: 0 }}
                       />
                     </Box>
@@ -437,16 +438,7 @@ export const OurplanTable = () => {
                   <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
                     <Box display="flex" justifyContent="center">
                       <StyledImage
-                        src="/images/icons/icon-check.png" 
-                        sx={{ width: "24px", height: "24px", marginBottom: 0 }}
-                      />
-                    </Box>
-                  </TableCell>
-                  <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
-                    {" "}
-                    <Box display="flex" justifyContent="center">
-                      <StyledImage
-                        src="/images/icons/icon-check.png" 
+                        src={getImagePath("images/icons/icon-check.png")} 
                         sx={{ width: "24px", height: "24px", marginBottom: 0 }}
                       />
                     </Box>
@@ -455,7 +447,16 @@ export const OurplanTable = () => {
                     {" "}
                     <Box display="flex" justifyContent="center">
                       <StyledImage
-                        src="/images/icons/icon-check.png" 
+                        src={getImagePath("images/icons/icon-check.png")} 
+                        sx={{ width: "24px", height: "24px", marginBottom: 0 }}
+                      />
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ fontSize: "16px", fontWeight: 400 }}>
+                    {" "}
+                    <Box display="flex" justifyContent="center">
+                      <StyledImage
+                        src={getImagePath("images/icons/icon-check.png")} 
                         sx={{ width: "24px", height: "24px", marginBottom: 0 }}
                       />
                     </Box>
@@ -793,7 +794,7 @@ export const OurplanTable = () => {
                     >
                       <Box display="flex" justifyContent="left">
                         <StyledImage
-                          src="/images/icons/icon-cancel.png" 
+                          src={getImagePath("images/icons/icon-cancel.png")} 
                           sx={{
                             width: "24px",
                             height: "24px",
@@ -807,7 +808,7 @@ export const OurplanTable = () => {
                     >
                       <Box display="flex" justifyContent="left">
                         <StyledImage
-                          src="/images/icons/icon-check.png" 
+                          src={getImagePath("images/icons/icon-check.png")} 
                           sx={{
                             width: "24px",
                             height: "24px",
@@ -821,7 +822,7 @@ export const OurplanTable = () => {
                     >
                       <Box display="flex" justifyContent="left">
                         <StyledImage
-                          src="/images/icons/icon-check.png" 
+                          src={getImagePath("images/icons/icon-check.png")} 
                           sx={{
                             width: "24px",
                             height: "24px",
@@ -868,7 +869,7 @@ export const OurplanTable = () => {
                     >
                       <Box display="flex" justifyContent="left">
                         <StyledImage
-                          src="/images/icons/icon-check.png" 
+                          src={getImagePath("images/icons/icon-check.png")} 
                           sx={{
                             width: "24px",
                             height: "24px",
@@ -882,7 +883,7 @@ export const OurplanTable = () => {
                     >
                       <Box display="flex" justifyContent="left">
                         <StyledImage
-                          src="/images/icons/icon-check.png" 
+                          src={getImagePath("images/icons/icon-check.png")} 
                           sx={{
                             width: "24px",
                             height: "24px",

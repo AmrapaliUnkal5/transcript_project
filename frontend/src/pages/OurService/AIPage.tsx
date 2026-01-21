@@ -9,6 +9,7 @@ import {
   IconButton,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import { getImagePath } from "../../utils/imagePath";
 
 // Styled Image
 const StyledImage = styled("img")({
@@ -68,25 +69,25 @@ const AIPage: React.FC = () => {
           <Grid item xs={12} sm={6}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <HoverCard
-                src="/images/Ai-agent/Customer-support.png"
+                src={getImagePath("images/Ai-agent/Customer-support.png")}
                 title="Customer Support Automation"
                 description="AI agents can qualify leads, schedule sales meetings, follow up with prospects, and provide personalized product recommendations."
                 modalDescription="AI agents can qualify leads, schedule sales meetings, follow up with prospects, and provide personalized product recommendations. This works well for all businesses by maintaining consistent engagement throughout the sales cycle."
               />
               <HoverCard
-                src="/images/Ai-agent/Social_media.png"
+                src={getImagePath("images/Ai-agent/Social_media.png")}
                 title="Social Media Management"
                 description="AI agents schedule posts, respond to comments, analyze engagement metrics, and suggest content improvements."
                 modalDescription="AI agents schedule posts, respond to comments, analyze engagement metrics, and suggest content improvements. This helps companies maintain an active online presence and build stronger customer relationships."
               />
               <HoverCard
-                src="/images/Ai-agent/virtual_it.png"
+                src={getImagePath("images/Ai-agent/virtual_it.png")}
                 title="Virtual IT Helpdesk (IT Services)"
                 description="AI agents provide instant troubleshooting for common IT issues, reset passwords, and escalate complex problems to human technicians."
                 modalDescription="AI agents provide instant troubleshooting for common IT issues, reset passwords, and escalate complex problems to human technicians. This reduces downtime and IT support costs for SMEs."
               />
               <HoverCard
-                src="/images/Ai-agent/project-dev.png"
+                src={getImagePath("images/Ai-agent/project-dev.png")}
                 title="Product Development & Feedback Analysis"
                 description="Staying responsive to customer needs is critical for product success, but many lack the resources for comprehensive feedback analysis."
                 modalDescription="Staying responsive to customer needs is critical for product success, but many lack the resources for comprehensive feedback analysis. AI agents can collect and analyze customer feedback across multiple channels, identify recurring issues or requested features, and help prioritize improvements. "
@@ -97,25 +98,25 @@ const AIPage: React.FC = () => {
           <Grid item xs={12} sm={6}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <HoverCard
-                src="/images/Ai-agent/Sales-process.png"
+                src={getImagePath("images/Ai-agent/Sales-process.png")}
                 title="Sales Process Enhancement"
                 description="AI agents can qualify leads, schedule sales meetings, follow up with prospects, and provide personalized product recommendations."
                 modalDescription="AI agents can qualify leads, schedule sales meetings, follow up with prospects, and provide personalized product recommendations. This works well for all businesses by maintaining consistent engagement throughout the sales cycle."
               />
               <HoverCard
-                src="/images/Ai-agent/Employee_onboarding.png"
+                src={getImagePath("images/Ai-agent/Employee_onboarding.png")}
                 title="Employee Onboarding & Training"
                 description="AI agents can guide new hires through onboarding processes, provide company policy information, deliver role-specific training, and answer common HR questions."
                 modalDescription="AI agents can guide new hires through onboarding processes, provide company policy information, deliver role-specific training, and answer common HR questions. This ensures a smooth onboarding experience and frees up HR staff for more strategic tasks."
               />
               <HoverCard
-                src="/images/Ai-agent/personalized-market.png"
+                src={getImagePath("images/Ai-agent/personalized-market.png")}
                 title="Personalized Marketing Campaigns"
                 description="AI agents analyze customer data to segment audiences, personalize email and ad content, and automate campaign scheduling."
                 modalDescription="AI agents analyze customer data to segment audiences, personalize email and ad content, and automate campaign scheduling. This increases engagement and ROI for marketing efforts with minimal manual intervention."
               />
               <HoverCard
-                src="/images/Ai-agent/adminstrative-task.png"
+                src={getImagePath("images/Ai-agent/adminstrative-task.png")}
                 title="Administrative Task Automation"
                 description="AI agents excel at scheduling meetings, managing email correspondence, data entry, and document processing."
                 modalDescription="AI agents excel at scheduling meetings, managing email correspondence, data entry, and document processing. This can significantly benefit organizations by reducing administrative overhead."

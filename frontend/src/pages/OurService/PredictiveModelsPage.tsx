@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Box, Typography, Grid, Button, Modal, styled } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import IconButton from "@mui/material/IconButton";
+import { getImagePath } from "../../utils/imagePath";
 
 const AIPage: React.FC = () => {
   return (
@@ -61,7 +62,7 @@ const AIPage: React.FC = () => {
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {/* 4 Cards */}
               <HoverCard
-                src="/images/service/customer-prediction.png"
+                src={getImagePath("images/service/customer-prediction.png")}
                 title="Customer Churn Prediction"
                 description="• Identifies customers likely to cancel services... • Enables proactive retention campaigns before customers leave."
                 modalDescription={
@@ -82,7 +83,7 @@ const AIPage: React.FC = () => {
                 }
               />
               <HoverCard
-                src="/images/service/student-success.png"
+                src={getImagePath("images/service/student-success.png")}
                 title="Student Success & Retention Prediction"
                 description="• Identifies students at risk... • Enables early intervention..."
                 modalDescription={
@@ -110,7 +111,7 @@ const AIPage: React.FC = () => {
                 }
               />
               <HoverCard
-                src="/images/service/patient-appointment.png"
+                src={getImagePath("images/service/patient-appointment.png")}
                 title="Patient Appointment No-Show Prediction"
                 description="• Forecasts which patients are likely to miss... • Enables targeted reminders..."
                 modalDescription={
@@ -138,7 +139,7 @@ const AIPage: React.FC = () => {
                 }
               />
               <HoverCard
-                src="/images/service/service-escalation.png"
+                src={getImagePath("images/service/service-escalation.png")}
                 title="Service Escalation / CSAT Prediction"
                 description="• Identifies interactions likely to escalate... • Enables preemptive supervisor involvement..."
                 modalDescription={
@@ -168,7 +169,7 @@ const AIPage: React.FC = () => {
           <Grid item xs={12} sm={6}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <HoverCard
-                src="/images/service/sales-pipeline.png"
+                src={getImagePath("images/service/sales-pipeline.png")}
                 title="Sales Pipeline Conversion Modeling"
                 description="• Predicts which leads are most likely to convert... • Helps sales prioritize effectively..."
                 modalDescription={
@@ -189,7 +190,7 @@ const AIPage: React.FC = () => {
                 }
               />
               <HoverCard
-                src="/images/service/customer-wait-time.png"
+                src={getImagePath("images/service/customer-wait-time.png")}
                 title="Customer Wait Times Prediction"
                 description="• Forecasts wait times using queue and staffing data... • Displays estimates on screens or apps..."
                 modalDescription={
@@ -214,7 +215,7 @@ const AIPage: React.FC = () => {
                 }
               />
               <HoverCard
-                src="/images/service/predictive-maintenance.png"
+                src={getImagePath("images/service/predictive-maintenance.png")}
                 title="Predictive Maintenance"
                 description="• Anticipates failures using sensors... • Reduces emergency repairs..."
                 modalDescription={
@@ -235,7 +236,7 @@ const AIPage: React.FC = () => {
                 }
               />
               <HoverCard
-                src="/images/service/next-based.png"
+                src={getImagePath("images/service/next-based.png")}
                 title="Next-Best-Action Prediction"
                 description="• Suggests personalized next steps... • Optimizes timing and channels..."
                 modalDescription={

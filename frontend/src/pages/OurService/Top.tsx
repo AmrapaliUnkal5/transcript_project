@@ -7,6 +7,7 @@ import {
   styled,
 } from "@mui/material";
 import React from "react";
+import { getBackgroundImageUrl } from "../../utils/imagePath";
 
 export default function Top() {
   return (
@@ -27,7 +28,7 @@ export default function Top() {
           pt={[5,10]}
           pb={[0,8]}
           sx={{
-            backgroundImage: "url(/images/our-service-bg.png)",
+            backgroundImage: getBackgroundImageUrl("images/our-service-bg.png"),
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",  

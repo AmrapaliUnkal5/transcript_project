@@ -10,6 +10,7 @@ import PricePlans from './PricePlans';
 import AddonExperience from './AddonExperience';
 import { OurplanTable} from './OurplanTable';
 import HomeHeader from '../../components/Header/Header';
+import { getBackgroundImageUrl } from '../../utils/imagePath';
 
 
 
@@ -19,7 +20,7 @@ export default function OurPlans() {
       <HomeHeader/>
       <Box
         sx={{
-          backgroundImage: "url(/images/home/op-hero-bg.png)",
+          backgroundImage: getBackgroundImageUrl("images/home/op-hero-bg.png"),
           backgroundSize: 'contain',
          // backgroundPosition: "center",
          backgroundRepeat: 'no-repeat',

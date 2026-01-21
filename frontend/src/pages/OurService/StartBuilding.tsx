@@ -1,6 +1,7 @@
 import { Box, Button, Typography } from '@mui/material';
 import React from 'react';
 import EastOutlinedIcon from '@mui/icons-material/EastOutlined';
+import { getBackgroundImageUrl } from '../../utils/imagePath';
 
 export default function StartBuilding() {
   return (
@@ -11,7 +12,7 @@ export default function StartBuilding() {
         gap={3}
         minHeight={[400, 600]}
         sx={{ 
-            backgroundImage: 'url(/images/home/bg-start-building.jpg)',
+            backgroundImage: getBackgroundImageUrl('images/home/bg-start-building.jpg'),
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundColor:'#262372'

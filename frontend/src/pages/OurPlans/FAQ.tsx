@@ -1,6 +1,7 @@
 import { Box, Button, Container, Typography, styled } from '@mui/material';
 import React from 'react';
 import Accordion from '@mui/material/Accordion';
+import { getBackgroundImageUrl } from '../../utils/imagePath';
 import MuiAccordionSummary, {
   AccordionSummaryProps,
   accordionSummaryClasses,
@@ -71,7 +72,7 @@ export default function FAQ() {
             px={[1, 10]}
             py={[2, 10]}
             sx={{
-              backgroundImage: 'url(/images/title-bg.png)',
+              backgroundImage: getBackgroundImageUrl('images/title-bg.png'),
               backgroundSize: 'contain',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',

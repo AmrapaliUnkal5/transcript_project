@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Typography, Grid, Button, styled } from "@mui/material";
+import { getImagePath, getBackgroundImageUrl } from "../../utils/imagePath";
 
 const ProcessAutomationPage: React.FC = () => {
   return (
@@ -76,7 +77,7 @@ const ProcessAutomationPage: React.FC = () => {
               }}
             >
               <StyledImage
-                src="/images/service/img-grid.png"
+                src={getImagePath("images/service/img-grid.png")}
                 sx={{
                   margin: "auto",
                   mb: ["20px", "65px"],
@@ -105,7 +106,7 @@ const ProcessAutomationPage: React.FC = () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundImage: "url('/images/service/Grid.png')",
+                backgroundImage: getBackgroundImageUrl("images/service/Grid.png"),
                 backgroundRepeat: "no-repeat",
                 backgroundPosition: "center",
                 backgroundSize: "contain",
@@ -116,7 +117,7 @@ const ProcessAutomationPage: React.FC = () => {
               }}
             >
               <StyledImage
-                src="/images/service/ProcessAutomation2.png"
+                src={getImagePath("images/service/ProcessAutomation2.png")}
                 sx={{
                   width: "100%",
                   maxWidth: "580px",

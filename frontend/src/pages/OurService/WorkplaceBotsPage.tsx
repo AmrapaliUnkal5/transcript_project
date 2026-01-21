@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Typography, Card, CardContent } from "@mui/material";
 import { Grid } from "@mui/material";
 import { Button, styled } from "@mui/material";
+import { getImagePath, getBackgroundImageUrl } from "../../utils/imagePath";
 
 const WorkplaceBotsPage: React.FC = () => {
   return (
@@ -89,9 +90,9 @@ const WorkplaceBotsPage: React.FC = () => {
               }}
             >
               <StyledImage
-                src="/images/workspace/bot1.png"
+                src={getImagePath("images/workspace/bot1.png")}
                 sx={{
-                  backgroundImage: "url(/images/service/Grid.png)",
+                  backgroundImage: getBackgroundImageUrl("images/service/Grid.png"),
                   margin: "auto",
                   marginBottom: "65px",
                   width: "100%",
@@ -117,7 +118,7 @@ const WorkplaceBotsPage: React.FC = () => {
             <Box pt={["48px", "68px"]} pb={["0px", "24px"]}>
               <Box mb={"24px"}>
                 <StyledImage
-                  src="/images/workspace/hr.png"
+                  src={getImagePath("images/workspace/hr.png")}
                   sx={{ margin: "auto" }}
                 />
               </Box>
@@ -149,7 +150,7 @@ const WorkplaceBotsPage: React.FC = () => {
             <Box pt={["48px", "68px"]} pb={["0px", "24px"]}>
               <Box mb={"24px"}>
                 <StyledImage
-                  src="/images/workspace/ithelpdesk.png"
+                  src={getImagePath("images/workspace/ithelpdesk.png")}
                   sx={{ margin: "auto" }}
                 />
               </Box>
@@ -181,7 +182,7 @@ const WorkplaceBotsPage: React.FC = () => {
             <Box pt={["48px", "68px"]} pb={["0px", "24px"]}>
               <Box mb={"24px"}>
                 <StyledImage
-                  src="/images/workspace/knowledge-management.png"
+                  src={getImagePath("images/workspace/knowledge-management.png")}
                   sx={{ margin: "auto" }}
                 />
               </Box>
@@ -213,7 +214,7 @@ const WorkplaceBotsPage: React.FC = () => {
             <Box pt={["48px", "68px"]} pb={["0px", "24px"]}>
               <Box mb={"24px"}>
                 <StyledImage
-                  src="/images/workspace/facilities-request.png"
+                  src={getImagePath("images/workspace/facilities-request.png")}
                   sx={{ margin: "auto" }}
                 />
               </Box>
@@ -245,7 +246,7 @@ const WorkplaceBotsPage: React.FC = () => {
             <Box pt={["48px", "68px"]} pb={["0px", "24px"]}>
               <Box mb={"24px"}>
                 <StyledImage
-                  src="/images/workspace/travel-and-expense-assitence.png"
+                  src={getImagePath("images/workspace/travel-and-expense-assitence.png")}
                   sx={{ margin: "auto" }}
                 />
               </Box>
@@ -277,7 +278,7 @@ const WorkplaceBotsPage: React.FC = () => {
             <Box pt={["48px", "68px"]} pb={["0px", "24px"]}>
               <Box mb={"24px"}>
                 <StyledImage
-                  src="/images/workspace/Training-and-development.png"
+                  src={getImagePath("images/workspace/Training-and-development.png")}
                   sx={{ margin: "auto" }}
                 />
               </Box>

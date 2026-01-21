@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Typography, Grid } from "@mui/material";
 import { Button, styled } from "@mui/material";
+import { getImagePath, getBackgroundImageUrl } from "../../utils/imagePath";
 
 const CustomAISolutionsPage: React.FC = () => {
   return (
@@ -36,7 +37,7 @@ const CustomAISolutionsPage: React.FC = () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundImage: "url(/images/service/Grid.png)",
+                backgroundImage: getBackgroundImageUrl("images/service/Grid.png"),
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 borderRadius: "8px",
@@ -44,7 +45,7 @@ const CustomAISolutionsPage: React.FC = () => {
                 margin: "0 auto",
               }}
             >
-              <StyledImage src="/images/service/customai.png" alt="Custom AI" />
+              <StyledImage src={getImagePath("images/service/customai.png")} alt="Custom AI" />
             </Box>
           </Grid>
 
