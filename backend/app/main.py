@@ -677,14 +677,13 @@ def refresh_token(request: Request, db: Session = Depends(get_db), current_user:
     return {"access_token": new_token}
 
 # ---- Root ASGI app (mounted API prefix) ----
-# Export a root app that mounts the API at /voice-api so all endpoints are available at:
-#   /voice-api/login, /voice-api/docs, /voice-api/admin, ...
+# NOTE: For path-based routing via nginx (/voice-api/), nginx handles the prefix removal
+# So we don't need to mount the app at /voice-api - routes are at root level
+# Nginx rewrites /voice-api/captcha -> /captcha before forwarding to backend
+# So backend routes should be at root: /captcha, /login, /docs, etc.
+# The mount code below is commented out because nginx handles prefix removal
 #
-# ALB/CloudFront path-based routing will forward requests with the prefix intact,
-# so mounting is required (no path rewriting is done upstream).
-api_app = app
-root_app = FastAPI()
-root_app.mount("/voice-api", api_app)
-
-# Uvicorn serves `app.main:app`, so we rebind `app` to the root app.
-app = root_app
+# api_app = app
+# root_app = FastAPI()
+# root_app.mount("/voice-api", api_app)
+# app = root_app
