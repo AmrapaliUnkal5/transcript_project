@@ -47,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (user) {
       const updatedUser = { ...user, ...userData };
       setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      localStorage.setItem("voice_user", JSON.stringify(updatedUser));
     }
   };
 
@@ -55,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (user) {
       const updatedUser = { ...user, addon_plan_ids: addonIds };
       setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      localStorage.setItem("voice_user", JSON.stringify(updatedUser));
     }
   };
 
@@ -74,10 +74,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           
           // Update the user state
           setUser(updatedUserData);
-          localStorage.setItem("user", JSON.stringify(updatedUserData));
+          localStorage.setItem("voice_user", JSON.stringify(updatedUserData));
 
          if (response.access_token) {
-            localStorage.setItem("token", response.access_token);
+            localStorage.setItem("voice_token", response.access_token);
           }
          return updatedUserData; // so polling can use it
           
@@ -90,8 +90,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userData = localStorage.getItem("user");
+    const token = localStorage.getItem("voice_token");
+    const userData = localStorage.getItem("voice_user");
 
     if (token && userData) {
       try {
@@ -158,15 +158,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }
 
   const login = (token: string, userData: User) => {
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem("voice_token", token);
+    localStorage.setItem("voice_user", JSON.stringify(userData));
     setIsAuthenticated(true);
     setUser(userData);
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    localStorage.removeItem("voice_token");
+    localStorage.removeItem("voice_user");
     localStorage.removeItem("subscriptionPlans");
     localStorage.removeItem("addonPlans");
     localStorage.removeItem("userAddons");

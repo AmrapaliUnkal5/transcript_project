@@ -35,7 +35,7 @@ api.interceptors.request.use((config) => {
   activeRequests++;
   updateLoadingState();
   
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('voice_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -64,7 +64,7 @@ api.interceptors.response.use(
     const newToken = response.headers['x-new-token'];
     if (newToken) {
       // Update the token in localStorage
-      localStorage.setItem('token', newToken);
+      localStorage.setItem('voice_token', newToken);
     }
     
     return response;
@@ -83,8 +83,8 @@ api.interceptors.response.use(
     
     if (error.response?.status === 401) {
       // Clear auth data and redirect to login
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      localStorage.removeItem('voice_token');
+      localStorage.removeItem('voice_user');
       window.location.href = '/login';
     }
     

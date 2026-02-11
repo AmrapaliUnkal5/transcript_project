@@ -17,7 +17,7 @@ export const Settings = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const userData = localStorage.getItem("user");
+  const userData = localStorage.getItem("voice_user");
   const user = userData ? JSON.parse(userData) : null;
   const [activeTab, setActiveTab] = useState("profile"); // Added activeTab state
   const [changingPassword, setChangingPassword] = useState(false);
@@ -117,7 +117,7 @@ export const Settings = () => {
 
   useEffect(() => {
   const handleUserUpdate = () => {
-    const userData = localStorage.getItem("user");
+    const userData = localStorage.getItem("voice_user");
     if (userData) {
       const parsedUser = JSON.parse(userData);
       setSettings(prev => ({
@@ -169,12 +169,12 @@ export const Settings = () => {
       // Update localStorage and AuthContext
       const updatedUser = { ...user, avatar_url: newAvatarUrl };
       updateUser(updatedUser); // Update AuthContext state
-      localStorage.setItem("user", JSON.stringify(updatedUser)); // Update localStorage
+      localStorage.setItem("voice_user", JSON.stringify(updatedUser)); // Update localStorage
       setSettings((prev) => ({
         ...prev,
         avatar_url: newAvatarUrl,
       }));
-      console.log(localStorage.getItem("user"));
+      console.log(localStorage.getItem("voice_user"));
       window.dispatchEvent(new Event("userUpdated"));
 
       setMessage("Avatar updated successfully!");
@@ -394,8 +394,8 @@ export const Settings = () => {
       setDeleteLoading(true);
       await authApi.deleteAccount();
       // Clear auth data and redirect to login
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      localStorage.removeItem('voice_token');
+      localStorage.removeItem('voice_user');
       window.location.href = '/login?deleted=true';
     } catch (error) {
       console.error("Error deleting account:", error);

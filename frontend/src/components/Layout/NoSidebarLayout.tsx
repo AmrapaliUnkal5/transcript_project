@@ -20,7 +20,7 @@ export const NoSidebarLayout: React.FC = () => {
 
   // Function to update user from localStorage
   const updateUserFromLocalStorage = () => {
-    const userData = localStorage.getItem("user");
+    const userData = localStorage.getItem("voice_user");
     if (userData) {
       try {
         const parsedUser = JSON.parse(userData);

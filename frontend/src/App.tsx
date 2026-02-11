@@ -41,11 +41,13 @@ import TranscriptList from "./pages/TranscriptList";
 import TranscriptDetail from "./pages/TranscriptDetail";
 import TranscriptUpload from "./pages/TranscriptUpload";
 import TranscriptLookup from "./pages/TranscriptLookup";
-const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID ;
+const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID || '';
 const TrackPageView = () => {
   const location = useLocation();
   useEffect(() => {
-    ReactGA.send({ hitType: "pageview", page: location.pathname + location.search });
+    if (GA_MEASUREMENT_ID) {
+      ReactGA.send({ hitType: "pageview", page: location.pathname + location.search });
+    }
   }, [location]);
 
   return null;
@@ -54,7 +56,9 @@ const TrackPageView = () => {
 
 function App() {
    useEffect(() => {
-    ReactGA.initialize(GA_MEASUREMENT_ID);
+    if (GA_MEASUREMENT_ID) {
+      ReactGA.initialize(GA_MEASUREMENT_ID);
+    }
   }, []);
   return (
     <BrowserRouter basename="/voice">

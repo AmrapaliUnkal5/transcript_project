@@ -41,8 +41,8 @@ export const Header = ({ isDark, toggleTheme }: HeaderProps) => {
   return fullName;
 };
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    localStorage.removeItem("voice_token");
+    localStorage.removeItem("voice_user");
     navigate("/login");
   };
 

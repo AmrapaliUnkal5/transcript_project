@@ -103,7 +103,7 @@ export const TranscriptList: React.FC = () => {
                         </td>
                         <td className="py-3 px-3 border-b">
                           <a
-                            href={`/dashboard/transcript/${v.id}`}
+                            href={`/voice/dashboard/transcript/${v.id}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
