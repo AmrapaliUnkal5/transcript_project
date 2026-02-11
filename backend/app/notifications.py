@@ -32,7 +32,11 @@ def get_notifications(
 
         notifications = (
             db.query(Notification)
-            .filter(Notification.user_id == user_id, Notification.is_read == False)
+            .filter(
+                Notification.user_id == user_id,
+                Notification.is_read == False,
+                Notification.bot_id.is_(None)  # Only show Voice project notifications (bot_id is None)
+            )
             .order_by(Notification.created_at.desc())
             .all()
         )
@@ -47,7 +51,11 @@ def mark_notification_as_read(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    notif = db.query(Notification).filter_by(id=notif_id, user_id=current_user["user_id"]).first()
+    notif = db.query(Notification).filter_by(
+        id=notif_id,
+        user_id=current_user["user_id"],
+        bot_id=None  # Only allow marking Voice project notifications as read
+    ).first()
     if not notif:
         raise HTTPException(status_code=404, detail="Notification not found")
 
@@ -60,7 +68,11 @@ def mark_all_notifications_as_read(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    db.query(Notification).filter_by(user_id=current_user["user_id"], is_read=False).update({"is_read": True})
+    db.query(Notification).filter_by(
+        user_id=current_user["user_id"],
+        is_read=False,
+        bot_id=None  # Only mark Voice project notifications as read
+    ).update({"is_read": True})
     db.commit()
     return {"message": "All notifications marked as read"}
     
